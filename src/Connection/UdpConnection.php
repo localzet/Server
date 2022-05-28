@@ -39,7 +39,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function send(string|Response $send_buffer, bool $raw = false): bool
+    public function send(string|Response $send_buffer, bool $raw = false)
     {
         if (false === $raw && $this->protocol) {
             $parser      = $this->protocol;
@@ -54,7 +54,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getRemoteIp(): string
+    public function getRemoteIp()
     {
         $pos = \strrpos($this->_remoteAddress, ':');
         if ($pos) {
@@ -66,7 +66,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getRemotePort(): int
+    public function getRemotePort()
     {
         if ($this->_remoteAddress) {
             return (int)\substr(\strrchr($this->_remoteAddress, ':'), 1);
@@ -77,7 +77,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getRemoteAddress(): string
+    public function getRemoteAddress()
     {
         return $this->_remoteAddress;
     }
@@ -85,7 +85,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getLocalIp(): string
+    public function getLocalIp()
     {
         $address = $this->getLocalAddress();
         $pos = \strrpos($address, ':');
@@ -98,7 +98,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getLocalPort(): int
+    public function getLocalPort()
     {
         $address = $this->getLocalAddress();
         $pos = \strrpos($address, ':');
@@ -111,7 +111,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getLocalAddress(): string
+    public function getLocalAddress()
     {
         return (string)@\stream_socket_get_name($this->_socket, false);
     }
@@ -119,7 +119,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function isIpV4(): bool
+    public function isIpV4()
     {
         if ($this->transport === 'unix') {
             return false;
@@ -130,7 +130,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function isIpV6(): bool
+    public function isIpV6()
     {
         if ($this->transport === 'unix') {
             return false;
@@ -141,7 +141,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function close(string|null $data = null, $raw = false): void
+    public function close(string|null $data = null, $raw = false)
     {
         if ($data !== null) {
             $this->send($data, $raw);

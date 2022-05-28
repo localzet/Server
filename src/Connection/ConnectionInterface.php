@@ -110,63 +110,63 @@ abstract class ConnectionInterface
      * @param string|Response $send_buffer
      * @return void|bool
      */
-    abstract public function send(string|Response $send_buffer): bool;
+    abstract public function send(string|Response $send_buffer);
 
     /**
      * Получение удалённого IP.
      *
      * @return string
      */
-    abstract public function getRemoteIp(): string;
+    abstract public function getRemoteIp();
 
     /**
      * Получение удалённого порта.
      *
      * @return int
      */
-    abstract public function getRemotePort(): int;
+    abstract public function getRemotePort();
 
     /**
      * Получение удалённого адреса.
      *
      * @return string
      */
-    abstract public function getRemoteAddress(): string;
+    abstract public function getRemoteAddress();
 
     /**
      * Получение локального IP.
      *
      * @return string
      */
-    abstract public function getLocalIp(): string;
+    abstract public function getLocalIp();
 
     /**
      * Получение локального порта.
      *
      * @return int
      */
-    abstract public function getLocalPort(): int;
+    abstract public function getLocalPort();
 
     /**
      * Получение локального адреса.
      *
      * @return string
      */
-    abstract public function getLocalAddress(): string;
+    abstract public function getLocalAddress();
 
     /**
      * Проверка ipv4.
      *
      * @return bool
      */
-    abstract public function isIPv4(): bool;
+    abstract public function isIPv4();
 
     /**
      * Проверка ipv6.
      *
      * @return bool
      */
-    abstract public function isIPv6(): bool;
+    abstract public function isIPv6();
 
     /**
      * Закрытие соединения.
@@ -174,7 +174,7 @@ abstract class ConnectionInterface
      * @param string|null $data
      * @return void
      */
-    abstract public function close(string|null $data = null): void;
+    abstract public function close(string|null $data = null);
 
     /**
      * Получение сокета

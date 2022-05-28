@@ -203,7 +203,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public string $transport = 'tcp';
+    public $transport = 'tcp';
 
     /**
      * {@inheritdoc}
@@ -231,7 +231,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function send(string|Response $send_buffer, bool $raw = false): bool
+    public function send(string|Response $send_buffer, bool $raw = false)
     {
         if ($this->_status === self::STATUS_CLOSING || $this->_status === self::STATUS_CLOSED) {
             return false;
@@ -321,7 +321,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getRemoteIp(): string
+    public function getRemoteIp()
     {
         $pos = \strrpos($this->_remoteAddress, ':');
         if ($pos) {
@@ -333,7 +333,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getRemotePort(): int
+    public function getRemotePort()
     {
         if ($this->_remoteAddress) {
             return (int) \substr(\strrchr($this->_remoteAddress, ':'), 1);
@@ -344,7 +344,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getRemoteAddress(): string
+    public function getRemoteAddress()
     {
         return $this->_remoteAddress;
     }
@@ -352,7 +352,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getLocalIp(): string
+    public function getLocalIp()
     {
         $address = $this->getLocalAddress();
         $pos = \strrpos($address, ':');
@@ -365,7 +365,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getLocalPort(): int
+    public function getLocalPort()
     {
         $address = $this->getLocalAddress();
         $pos = \strrpos($address, ':');
@@ -378,7 +378,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function getLocalAddress(): string
+    public function getLocalAddress()
     {
         if (!\is_resource($this->_socket)) {
             return '';
@@ -389,7 +389,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function isIpV4(): bool
+    public function isIpV4()
     {
         if ($this->transport === 'unix') {
             return false;
@@ -400,7 +400,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function isIpV6(): bool
+    public function isIpV6()
     {
         if ($this->transport === 'unix') {
             return false;
@@ -411,7 +411,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function close($data = null, $raw = false): void
+    public function close($data = null, $raw = false)
     {
         if ($this->_status === self::STATUS_CONNECTING) {
             $this->destroy();
