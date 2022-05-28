@@ -1,0 +1,31 @@
+{
+    "name": "localzet/core",
+    "description": "PHP WebEngine V3",
+    "type": "library",
+    "keywords": [
+        "localzet"
+    ],
+    "license": "GPL-3.0-only",
+    "authors": [
+        {
+            "name": "localzet",
+            "email": "creator@localzet.ru",
+            "homepage": "https://www.localzet.ru",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "email": "creator@localzet.ru"
+    },
+    "require": {
+        "php": ">=8.1"
+    },
+    "suggest": {
+        "ext-event": "For better performance. "
+    },
+    "autoload": {
+        "psr-4": {
+            "localzet\\Core\\": "./src"
+        }
+    }
+}

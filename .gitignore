@@ -1,0 +1,16 @@
+composer.lock
+vendor
+vendor/
+.idea
+.idea/
+logs
+.buildpath
+.project
+.settings
+.idea
+.DS_Store
+.idea
+.vscode
+/vendor
+*.log
+.env
