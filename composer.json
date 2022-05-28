@@ -27,5 +27,6 @@
         "psr-4": {
             "localzet\\Core\\": "./src"
         }
-    }
+    },
+    "minimum-stability": "stable"
 }
