@@ -349,7 +349,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 $Sec_WebSocket_Key = $match[1];
             } else {
                 $connection->close(
-                    "HTTP/1.1 200 WebSocket\r\nServer: localzet V3/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>localzet V3/" . Server::VERSION . "</div>",
+                    "HTTP/1.1 200 WebSocket\r\nServer: localzet Core/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>localzet Core/" . Server::VERSION . "</div>",
                     true
                 );
                 return 0;
@@ -392,7 +392,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 }
             }
             if (!$has_server_header) {
-                $handshake_message .= "Server: localzet V3/" . Server::VERSION . "\r\n";
+                $handshake_message .= "Server: localzet Core/" . Server::VERSION . "\r\n";
             }
             $handshake_message .= "\r\n";
             // Send handshake response.
@@ -435,7 +435,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
         }
         // Bad websocket handshake request.
         $connection->close(
-            "HTTP/1.1 200 WebSocket\r\nServer: localzet V3/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>localzet V3/" . Server::VERSION . "</div>",
+            "HTTP/1.1 200 WebSocket\r\nServer: localzet Core/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>localzet Core/" . Server::VERSION . "</div>",
             true
         );
         return 0;

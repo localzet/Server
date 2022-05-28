@@ -216,7 +216,7 @@ class Http
                 unset($connection->__header);
             }
             $body_len = \strlen((string)$response);
-            return "HTTP/1.1 200 OK\r\nServer: localzet V3\r\n{$ext_header}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $body_len\r\n\r\n$response";
+            return "HTTP/1.1 200 OK\r\nServer: localzet Core\r\n{$ext_header}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $body_len\r\n\r\n$response";
         }
 
         if (isset($connection->__header)) {

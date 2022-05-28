@@ -47,8 +47,8 @@ class Autoloader
     public static function loadByNamespace($name)
     {
         $class_path = \str_replace('\\', \DIRECTORY_SEPARATOR, $name);
-        if (\strpos($name, 'localzet\\V3\\') === 0) {
-            $class_file = __DIR__ . \substr($class_path, \strlen('localzet\\V3')) . '.php';
+        if (\strpos($name, 'localzet\\Core\\') === 0) {
+            $class_file = __DIR__ . \substr($class_path, \strlen('localzet\\Core')) . '.php';
         } else {
             if (self::$_autoloadRootPath) {
                 $class_file = self::$_autoloadRootPath . \DIRECTORY_SEPARATOR . $class_path . '.php';

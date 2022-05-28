@@ -316,7 +316,7 @@ class Server
      *
      * @var string
      */
-    public static $processTitle = 'localzet V3';
+    public static $processTitle = 'localzet Core';
 
     /**
      * PID основного процесса.
@@ -1755,7 +1755,7 @@ class Server
      */
     protected static function monitorServersForWindows()
     {
-        Timer::add(1, "\\localzet\\V3\\Server::checkServerStatusForWindows");
+        Timer::add(1, "\\localzet\\Core\\Server::checkServerStatusForWindows");
 
         static::$globalEvent->loop();
     }
@@ -1899,7 +1899,7 @@ class Server
                     Timer::add(static::KILL_SERVER_TIMER_TIME, '\posix_kill', array($server_pid, \SIGKILL), false);
                 }
             }
-            Timer::add(1, "\\localzet\\V3\\Server::checkIfChildRunning");
+            Timer::add(1, "\\localzet\\Core\\Server::checkIfChildRunning");
             // Remove statistics file.
             if (\is_file(static::$_statisticsFile)) {
                 @\unlink(static::$_statisticsFile);
@@ -2395,7 +2395,7 @@ class Server
             $scheme         = \ucfirst($scheme);
             $this->protocol = \substr($scheme, 0, 1) === '\\' ? $scheme : 'Protocols\\' . $scheme;
             if (!\class_exists($this->protocol)) {
-                $this->protocol = "localzet\\V3\\Protocols\\$scheme";
+                $this->protocol = "localzet\\Core\\Protocols\\$scheme";
                 if (!\class_exists($this->protocol)) {
                     throw new Exception("Класс \\Protocols\\$scheme не существует");
                 }
@@ -2463,7 +2463,7 @@ class Server
         static::$_status = static::STATUS_RUNNING;
 
         // Register shutdown function for checking errors.
-        \register_shutdown_function(array("\\localzet\\V3\\Server", 'checkErrors'));
+        \register_shutdown_function(array("\\localzet\\Core\\Server", 'checkErrors'));
 
         // Set autoload root path.
         Autoloader::setRootPath($this->_autoloadRootPath);
