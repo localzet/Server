@@ -28,5 +28,5 @@
             "localzet\\Core\\": "./src"
         }
     },
-    "minimum-stability": "stable"
+    "minimum-stability": "dev"
 }
