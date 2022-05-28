@@ -1,5 +1,6 @@
 {
     "name": "localzet/core",
+    "version": "v1.0.0",
     "description": "PHP WebEngine V3",
     "type": "library",
     "keywords": [
@@ -28,5 +29,5 @@
             "localzet\\Core\\": "./src"
         }
     },
-    "minimum-stability": "dev"
+    "minimum-stability": "stable"
 }
