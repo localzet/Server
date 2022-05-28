@@ -45,7 +45,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
      * @param TcpConnection $connection
      * @return int
      */
-    public static function input($buffer, TcpConnection $connection)
+    public static function input($buffer, ConnectionInterface $connection)
     {
         // Receive length.
         $recv_len = \strlen($buffer);

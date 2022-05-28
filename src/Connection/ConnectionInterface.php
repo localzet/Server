@@ -40,49 +40,49 @@ abstract class ConnectionInterface
      *
      * @var callable
      */
-    public callable $onMessage = null;
+    public $onMessage = null;
 
     /**
      * Задаётся, когда другой конец сокета отправляет пакет FIN
      *
      * @var callable
      */
-    public callable $onClose = null;
+    public $onClose = null;
 
     /**
      * Задаётся, когда возникает ошибка с подключением
      *
      * @var callable
      */
-    public callable $onError = null;
+    public $onError = null;
 
     /**
      * Задаётся, когда буфер отправки заполняется.
      *
      * @var callable
      */
-    public callable $onBufferFull = null;
+    public $onBufferFull = null;
 
     /**
      * Задаётся, когда буфер отправки становится пустым.
      *
      * @var callable
      */
-    public callable $onBufferDrain = null;
+    public $onBufferDrain = null;
 
     /**
      * Протокол прикладного уровня
      *
      * @var ProtocolInterface
      */
-    public ProtocolInterface $protocol = null;
+    public $protocol = null;
 
     /**
      * Протокол транспортного уровня (tcp/udp/unix/ssl)
      *
      * @var string
      */
-    public string $transport = null;
+    public $transport = null;
 
     /**
      * Сокет

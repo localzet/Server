@@ -114,7 +114,7 @@ class AsyncUdpConnection extends UdpConnection
      * @param bool   $raw
      * @return void|boolean
      */
-    public function send(string|\localzet\Core\Protocols\Http\Response $send_buffer, bool $raw = false)
+    public function send(string|\localzet\Core\Protocols\Http\Response $send_buffer, bool $raw = false): bool
     {
         if (false === $raw && $this->protocol) {
             $parser      = $this->protocol;
@@ -138,7 +138,7 @@ class AsyncUdpConnection extends UdpConnection
      *
      * @return bool
      */
-    public function close($data = null, $raw = false)
+    public function close($data = null, $raw = false): void
     {
         // Если есть что сказать - скажи сейчас
         if ($data !== null) {
@@ -161,7 +161,7 @@ class AsyncUdpConnection extends UdpConnection
             }
         }
         $this->onConnect = $this->onMessage = $this->onClose = null;
-        return true;
+        return;
     }
 
     /**

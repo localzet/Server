@@ -72,28 +72,28 @@ class TcpConnection extends ConnectionInterface
      *
      * @var Server
      */
-    public Server $server = null;
+    public $server = null;
 
     /**
      * Считанные байты
      *
      * @var int
      */
-    public int $bytesRead = 0;
+    public $bytesRead = 0;
 
     /**
      * Записанные байты
      *
      * @var int
      */
-    public int $bytesWritten = 0;
+    public $bytesWritten = 0;
 
     /**
      * Connection->id
      *
      * @var int
      */
-    public int $id = 0;
+    public $id = 0;
 
     /**
      * Копия $server->id который использовался для очистки $server->connections
@@ -108,28 +108,28 @@ class TcpConnection extends ConnectionInterface
      *
      * @var int
      */
-    public int $maxSendBufferSize = 1048576;
+    public $maxSendBufferSize = 1048576;
 
     /**
      * Стандартный размер буфера отправки
      *
      * @var int
      */
-    public static int $defaultMaxSendBufferSize = 1048576;
+    public static $defaultMaxSendBufferSize = 1048576;
 
     /**
      * Sets the maximum acceptable packet size for the current connection.
      *
      * @var int
      */
-    public int $maxPackageSize = 1048576;
+    public $maxPackageSize = 1048576;
 
     /**
      * Максимально приемлемый размер пакета по умолчанию
      *
      * @var int
      */
-    public static int $defaultMaxPackageSize = 10485760;
+    public static $defaultMaxPackageSize = 10485760;
 
     /**
      * ID Регистратор

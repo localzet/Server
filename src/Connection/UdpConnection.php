@@ -25,7 +25,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public string $transport = 'udp';
+    public $transport = 'udp';
 
     /**
      * {@inheritdoc}
