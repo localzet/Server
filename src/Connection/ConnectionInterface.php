@@ -174,7 +174,7 @@ abstract class ConnectionInterface
      * @param string|null $data
      * @return void
      */
-    abstract public function close(string|null $data = null);
+    abstract public function close($data = null);
 
     /**
      * Получение сокета
