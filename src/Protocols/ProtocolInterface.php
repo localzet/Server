@@ -50,5 +50,5 @@ interface ProtocolInterface
      * @param ConnectionInterface $connection
      * @return string
      */
-    public static function encode(string|\localzet\Core\Protocols\Http\Response $data, ConnectionInterface $connection);
+    public static function encode($data, ConnectionInterface $connection);
 }

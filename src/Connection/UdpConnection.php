@@ -39,7 +39,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function send(string|Response $send_buffer, bool $raw = false)
+    public function send($send_buffer, bool $raw = false)
     {
         if (false === $raw && $this->protocol) {
             $parser      = $this->protocol;
@@ -141,7 +141,7 @@ class UdpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function close(string|null $data = null, $raw = false)
+    public function close($data = null, $raw = false)
     {
         if ($data !== null) {
             $this->send($data, $raw);

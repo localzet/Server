@@ -114,7 +114,7 @@ class AsyncUdpConnection extends UdpConnection
      * @param bool   $raw
      * @return void|boolean
      */
-    public function send(string|\localzet\Core\Protocols\Http\Response $send_buffer, bool $raw = false)
+    public function send($send_buffer, bool $raw = false)
     {
         if (false === $raw && $this->protocol) {
             $parser      = $this->protocol;

@@ -110,7 +110,7 @@ abstract class ConnectionInterface
      * @param string|Response $send_buffer
      * @return void|bool
      */
-    abstract public function send(string|Response $send_buffer);
+    abstract public function send($send_buffer);
 
     /**
      * Получение удалённого IP.

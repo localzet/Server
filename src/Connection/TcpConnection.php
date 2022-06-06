@@ -231,7 +231,7 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function send(string|Response $send_buffer, bool $raw = false)
+    public function send($send_buffer, bool $raw = false)
     {
         if ($this->_status === self::STATUS_CLOSING || $this->_status === self::STATUS_CLOSED) {
             return false;
