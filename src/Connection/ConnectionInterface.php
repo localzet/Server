@@ -2,8 +2,8 @@
 
 /**
  * @version     1.0.0-dev
- * @package     localzet V3 WebEngine
- * @link        https://v3.localzet.ru
+ * @package     WebCore Server
+ * @link        https://localzet.gitbook.io
  * 
  * @author      localzet <creator@localzet.ru>
  * 
@@ -102,7 +102,7 @@ abstract class ConnectionInterface
      * @param resource $socket
      * @param string   $remote_address
      */
-    abstract public function __construct($socket, string $remote_address = '');
+    // abstract public function __construct($socket, string $remote_address = '');
 
     /**
      * Отправляет данные на соединение.

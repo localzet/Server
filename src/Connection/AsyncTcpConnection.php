@@ -2,8 +2,8 @@
 
 /**
  * @version     1.0.0-dev
- * @package     localzet V3 WebEngine
- * @link        https://v3.localzet.ru
+ * @package     WebCore Server
+ * @link        https://localzet.gitbook.io
  * 
  * @author      localzet <creator@localzet.ru>
  * 
@@ -44,7 +44,7 @@ class AsyncTcpConnection extends TcpConnection
      *
      * @var int
      */
-    protected $_status = self::STATUS_INITIAL;
+    protected int $_status = self::STATUS_INITIAL;
 
     /**
      * Удаленный хост.

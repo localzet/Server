@@ -2,8 +2,8 @@
 
 /**
  * @version     1.0.0-dev
- * @package     localzet V3 WebEngine
- * @link        https://v3.localzet.ru
+ * @package     WebCore Server
+ * @link        https://localzet.gitbook.io
  * 
  * @author      localzet <creator@localzet.ru>
  * 
@@ -1845,11 +1845,11 @@ class Server
             $one_server_pid = \current(static::$_pidsToRestart);
             // Send reload signal to a server process.
             \posix_kill($one_server_pid, $sig);
-            // If the process does not exit after static::KILL_SERVER_TIMER_TIME seconds try to kill it.
+            // Если процесс не выключился после static::KILL_SERVER_TIMER_TIME секунд пытаемся убить его.
             if (!static::$_gracefulStop) {
                 Timer::add(static::KILL_SERVER_TIMER_TIME, '\posix_kill', array($one_server_pid, \SIGKILL), false);
             }
-        } // For child processes.
+        } // Для детей.ов
         else {
             \reset(static::$_servers);
             $server = \current(static::$_servers);
@@ -2527,7 +2527,7 @@ class Server
         }
         // Remove listener for server socket.
         $this->unlisten();
-        // Close all connections for the server.
+        // Закрываем все соединения
         if (!static::$_gracefulStop) {
             foreach ($this->connections as $connection) {
                 $connection->close();
