@@ -217,7 +217,7 @@ class AsyncTcpConnection extends TcpConnection
         }
         // If failed attempt to emit onError callback.
         if (!$this->_socket || !\is_resource($this->_socket)) {
-            $this->emitError(\V3_CONNECT_FAIL, $errstr);
+            $this->emitError(\CORE_CONNECT_FAIL, $errstr);
             if ($this->_status === self::STATUS_CLOSING) {
                 $this->destroy();
             }
@@ -386,7 +386,7 @@ class AsyncTcpConnection extends TcpConnection
             }
         } else {
             // Connection failed.
-            $this->emitError(\V3_CONNECT_FAIL, 'connect ' . $this->_remoteAddress . ' fail after ' . round(\microtime(true) - $this->_connectStartTime, 4) . ' seconds');
+            $this->emitError(\CORE_CONNECT_FAIL, 'connect ' . $this->_remoteAddress . ' fail after ' . round(\microtime(true) - $this->_connectStartTime, 4) . ' seconds');
             if ($this->_status === self::STATUS_CLOSING) {
                 $this->destroy();
             }
