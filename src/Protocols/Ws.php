@@ -42,10 +42,10 @@ class Ws
      * Check the integrity of the package.
      *
      * @param string              $buffer
-     * @param TcpConnection $connection
+     * @param ConnectionInterface $connection
      * @return int
      */
-    public static function input($buffer, TcpConnection $connection)
+    public static function input($buffer, ConnectionInterface $connection)
     {
         if (empty($connection->handshakeStep)) {
             Server::safeEcho("recv data before handshake. Buffer:" . \bin2hex($buffer) . "\n");
@@ -354,7 +354,7 @@ class Ws
         }
         // Get Host.
         $port = $connection->getRemotePort();
-        $host = $port === 80 ? $connection->getRemoteIp() : $connection->getRemoteIp() . ':' . $port;
+        $host = $port === 80 ? $connection->getRemoteHost() : $connection->getRemoteHost() . ':' . $port;
         // Handshake header.
         $connection->websocketSecKey = \base64_encode(\md5(\mt_rand(), true));
         $user_header = isset($connection->headers) ? $connection->headers : (isset($connection->wsHttpHeader) ? $connection->wsHttpHeader : null);
@@ -369,7 +369,7 @@ class Ws
             }
             $user_header_str = "\r\n" . \trim($user_header_str);
         }
-        $header = 'GET ' . $connection->getRemoteAddress() . " HTTP/1.1\r\n" .
+        $header = 'GET ' . $connection->getRemoteURI() . " HTTP/1.1\r\n" .
             (!\preg_match("/\nHost:/i", $user_header_str) ? "Host: $host\r\n" : '') .
             "Connection: Upgrade\r\n" .
             "Upgrade: websocket\r\n" .
