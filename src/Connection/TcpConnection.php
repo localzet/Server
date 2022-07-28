@@ -14,7 +14,6 @@
 
 namespace localzet\Core\Connection;
 
-use \localzet\Core\Protocols\Http\Response;
 use localzet\Core\Events\EventInterface;
 use localzet\Core\Server;
 use \Exception;
@@ -67,7 +66,57 @@ class TcpConnection extends ConnectionInterface
     const STATUS_CLOSED = 8;
 
     /**
-     * Текущий сервер
+     * Emitted when data is received.
+     *
+     * @var callable
+     */
+    public $onMessage = null;
+
+    /**
+     * Emitted when the other end of the socket sends a FIN packet.
+     *
+     * @var callable
+     */
+    public $onClose = null;
+
+    /**
+     * Emitted when an error occurs with connection.
+     *
+     * @var callable
+     */
+    public $onError = null;
+
+    /**
+     * Emitted when the send buffer becomes full.
+     *
+     * @var callable
+     */
+    public $onBufferFull = null;
+
+    /**
+     * Emitted when the send buffer becomes empty.
+     *
+     * @var callable
+     */
+    public $onBufferDrain = null;
+
+    /**
+     * Application layer protocol.
+     * The format is like this localzet\\Core\\Protocols\\Http.
+     *
+     * @var \localzet\Core\Protocols\ProtocolInterface
+     */
+    public $protocol = null;
+
+    /**
+     * Transport (tcp/udp/unix/ssl).
+     *
+     * @var string
+     */
+    public $transport = 'tcp';
+
+    /**
+     * Which server belong to.
      *
      * @var Server
      */
@@ -99,7 +148,7 @@ class TcpConnection extends ConnectionInterface
      *
      * @var int
      */
-    protected int $_id = 0;
+    protected $_id = 0;
 
     /**
      * Максимальный размер буфера отправки для текущего соединения
@@ -135,63 +184,77 @@ class TcpConnection extends ConnectionInterface
      *
      * @var int
      */
-    protected static int $_idRecorder = 1;
+    protected static $_idRecorder = 1;
+
+    /**
+     * Socket
+     *
+     * @var resource
+     */
+    protected $_socket = null;
 
     /**
      * Буфер отправки
      *
      * @var string
      */
-    protected string $_sendBuffer = '';
+    protected $_sendBuffer = '';
 
     /**
      * Буфер получения
      *
      * @var string
      */
-    protected string $_recvBuffer = '';
+    protected $_recvBuffer = '';
 
     /**
      * Длина текущего пакета
      *
      * @var int
      */
-    protected int $_currentPackageLength = 0;
+    protected $_currentPackageLength = 0;
 
     /**
      * Статус соединения
      *
      * @var int
      */
-    protected int $_status = self::STATUS_ESTABLISHED;
+    protected $_status = self::STATUS_ESTABLISHED;
 
     /**
-     * Пауза?
+     * Remote address.
+     *
+     * @var string
+     */
+    protected $_remoteAddress = '';
+
+    /**
+     * Is paused.
      *
      * @var bool
      */
-    protected bool $_isPaused = false;
+    protected $_isPaused = false;
 
     /**
      * SSL-handshake?
      *
      * @var bool
      */
-    protected bool $_sslHandshakeCompleted = false;
+    protected $_sslHandshakeCompleted = false;
 
     /**
      * Все экземпляры соеденения
      *
      * @var array
      */
-    public static array $connections = array();
+    public static $connections = array();
 
     /**
      * Статус в строку
      *
      * @var array
      */
-    public static array $_statusToString = array(
+    public static $_statusToString = array(
         self::STATUS_INITIAL     => 'INITIAL',
         self::STATUS_CONNECTING  => 'CONNECTING',
         self::STATUS_ESTABLISHED => 'ESTABLISHED',
@@ -200,14 +263,12 @@ class TcpConnection extends ConnectionInterface
     );
 
     /**
-     * {@inheritdoc}
+     * Construct.
+     *
+     * @param resource $socket
+     * @param string   $remote_address
      */
-    public $transport = 'tcp';
-
-    /**
-     * {@inheritdoc}
-     */
-    public function __construct($socket, string $remote_address = '')
+    public function __construct($socket, $remote_address = '')
     {
         ++self::$statistics['connection_count'];
         $this->id = $this->_id = self::$_idRecorder++;
@@ -230,7 +291,22 @@ class TcpConnection extends ConnectionInterface
     /**
      * {@inheritdoc}
      */
-    public function send($send_buffer, bool $raw = false)
+    public function getStatus($raw_output = true)
+    {
+        if ($raw_output) {
+            return $this->_status;
+        }
+        return self::$_statusToString[$this->_status];
+    }
+
+    /**
+     * Sends data on the connection.
+     *
+     * @param mixed $send_buffer
+     * @param bool  $raw
+     * @return bool|null
+     */
+    public function send($send_buffer, $raw = false)
     {
         if ($this->_status === self::STATUS_CLOSING || $this->_status === self::STATUS_CLOSED) {
             return false;
@@ -289,7 +365,7 @@ class TcpConnection extends ConnectionInterface
                     ++self::$statistics['send_fail'];
                     if ($this->onError) {
                         try {
-                            \call_user_func($this->onError, $this, \V3_SEND_FAIL, 'client closed');
+                            \call_user_func($this->onError, $this, \CORE_SEND_FAIL, 'client closed');
                         } catch (\Exception $e) {
                             Server::stopAll(250, $e);
                         } catch (\Error $e) {
@@ -386,7 +462,29 @@ class TcpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Get send buffer queue size.
+     *
+     * @return integer
+     */
+    public function getSendBufferQueueSize()
+    {
+        return \strlen($this->_sendBuffer);
+    }
+
+    /**
+     * Get recv buffer queue size.
+     *
+     * @return integer
+     */
+    public function getRecvBufferQueueSize()
+    {
+        return \strlen($this->_recvBuffer);
+    }
+
+    /**
+     * Is ipv4.
+     *
+     * return bool.
      */
     public function isIpV4()
     {
@@ -397,7 +495,9 @@ class TcpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Is ipv6.
+     *
+     * return bool.
      */
     public function isIpV6()
     {
@@ -405,76 +505,6 @@ class TcpConnection extends ConnectionInterface
             return false;
         }
         return \strpos($this->getRemoteIp(), ':') !== false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function close($data = null, $raw = false)
-    {
-        if ($this->_status === self::STATUS_CONNECTING) {
-            $this->destroy();
-            return;
-        }
-
-        if ($this->_status === self::STATUS_CLOSING || $this->_status === self::STATUS_CLOSED) {
-            return;
-        }
-
-        if ($data !== null) {
-            $this->send($data, $raw);
-        }
-
-        $this->_status = self::STATUS_CLOSING;
-
-        if ($this->_sendBuffer === '') {
-            $this->destroy();
-        } else {
-            $this->pauseRecv();
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getSocket()
-    {
-        return $this->_socket;
-    }
-
-    /**
-     * Получение статуса.
-     *
-     * @param bool $raw_output
-     *
-     * @return int|string
-     */
-    public function getStatus($raw_output = true)
-    {
-        if ($raw_output) {
-            return $this->_status;
-        }
-        return self::$_statusToString[$this->_status];
-    }
-
-    /**
-     * Получить размер буфера отправки
-     *
-     * @return integer
-     */
-    public function getSendBufferQueueSize()
-    {
-        return \strlen($this->_sendBuffer);
-    }
-
-    /**
-     * Получить размер очереди буфера получения
-     *
-     * @return integer
-     */
-    public function getRecvBufferQueueSize()
-    {
-        return \strlen($this->_recvBuffer);
     }
 
     /**
@@ -707,7 +737,7 @@ class TcpConnection extends ConnectionInterface
         // Обработчик ошибок с SSL
         \set_error_handler(function ($errno, $errstr, $file) {
             if (!Server::$daemonize) {
-                Server::safeEcho("SSL-handshake: $errstr \n");
+                Server::safeEcho("SSL handshake error: $errstr \n");
             }
         });
         $ret = \stream_socket_enable_crypto($socket, true, $type);
@@ -768,7 +798,48 @@ class TcpConnection extends ConnectionInterface
     }
 
     /**
-     * Проверка заполнения буфера отправки
+     * Close connection.
+     *
+     * @param mixed $data
+     * @param bool $raw
+     * @return void
+     */
+    public function close($data = null, $raw = false)
+    {
+        if ($this->_status === self::STATUS_CONNECTING) {
+            $this->destroy();
+            return;
+        }
+
+        if ($this->_status === self::STATUS_CLOSING || $this->_status === self::STATUS_CLOSED) {
+            return;
+        }
+
+        if ($data !== null) {
+            $this->send($data, $raw);
+        }
+
+        $this->_status = self::STATUS_CLOSING;
+
+        if ($this->_sendBuffer === '') {
+            $this->destroy();
+        } else {
+            $this->pauseRecv();
+        }
+    }
+
+    /**
+     * Get the real socket.
+     *
+     * @return resource
+     */
+    public function getSocket()
+    {
+        return $this->_socket;
+    }
+
+    /**
+     * Check whether the send buffer will be full.
      *
      * @return void
      */
@@ -797,7 +868,7 @@ class TcpConnection extends ConnectionInterface
         if ($this->maxSendBufferSize <= \strlen($this->_sendBuffer)) {
             if ($this->onError) {
                 try {
-                    \call_user_func($this->onError, $this, \V3_SEND_FAIL, 'send buffer full and drop package');
+                    \call_user_func($this->onError, $this, \CORE_SEND_FAIL, 'send buffer full and drop package');
                 } catch (\Exception $e) {
                     Server::stopAll(250, $e);
                 } catch (\Error $e) {
