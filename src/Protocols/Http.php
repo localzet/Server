@@ -17,6 +17,7 @@ namespace localzet\Core\Protocols;
 use localzet\Core\Connection\TcpConnection;
 use localzet\Core\Protocols\Http\Request;
 use localzet\Core\Protocols\Http\Response;
+use localzet\Core\Protocols\Http\Session;
 use localzet\Core\Protocols\Websocket;
 use localzet\Core\Server;
 
@@ -32,13 +33,6 @@ class Http
      * @var string
      */
     protected static $_requestClass = 'localzet\Core\Protocols\Http\Request';
-
-    /**
-     * Session name.
-     *
-     * @var string
-     */
-    protected static $_sessionName = 'PHPSID';
 
     /**
      * Upload tmp dir.
@@ -63,9 +57,9 @@ class Http
     public static function sessionName($name = null)
     {
         if ($name !== null && $name !== '') {
-            static::$_sessionName = (string)$name;
+            Session::$name = (string)$name;
         }
-        return static::$_sessionName;
+        return Session::$name;
     }
 
     /**
