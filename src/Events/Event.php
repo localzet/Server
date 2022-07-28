@@ -64,35 +64,7 @@ class Event implements EventInterface
         } else {
             $class_name = '\EventBase';
         }
-
         $this->_eventBase = new $class_name();
-
-        // final class EventBase {
-
-        //     /* Константы */
-        //     const int LOOP_ONCE = 1;
-        //     const int LOOP_NONBLOCK = 2;
-        //     const int NOLOCK = 1;
-        //     const int STARTUP_IOCP = 4;
-        //     const int NO_CACHE_TIME = 8;
-        //     const int EPOLL_USE_CHANGELIST = 16;
-
-        //     /* Методы */
-        //     public __construct( EventConfig $cfg = ?)
-        //     public dispatch(): void
-        //     public exit( float $timeout = ?): bool
-        //     public free(): void
-        //     public getFeatures(): int
-        //     public getMethod(): string
-        //     public getTimeOfDayCached(): float
-        //     public gotExit(): bool
-        //     public gotStop(): bool
-        //     public loop( int $flags = ?): bool
-        //     public priorityInit( int $n_priorities ): bool
-        //     public reInit(): bool
-        //     public stop(): bool
-
-        // }
     }
 
     /**
@@ -109,7 +81,6 @@ class Event implements EventInterface
         } else {
             $class_name = '\Event';
         }
-
         switch ($flag) {
             case self::EV_SIGNAL:
 
