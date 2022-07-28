@@ -43,7 +43,7 @@ class AsyncTcpConnection extends TcpConnection
      *
      * @var int
      */
-    protected int $_status = self::STATUS_INITIAL;
+    protected $_status = self::STATUS_INITIAL;
 
     /**
      * Удаленный хост.
