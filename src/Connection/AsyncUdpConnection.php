@@ -53,7 +53,6 @@ class AsyncUdpConnection extends UdpConnection
 
     /**
      * @param string $remote_address
-     * @param array $context_option
      * @throws Exception
      */
     public function __construct($remote_address, $context_option = null)
@@ -109,11 +108,11 @@ class AsyncUdpConnection extends UdpConnection
     /**
      * Отправляет данные на соединение.
      *
-     * @param string|\localzet\Core\Protocols\Http\Response $send_buffer
+     * @param string $send_buffer
      * @param bool   $raw
      * @return void|boolean
      */
-    public function send($send_buffer, bool $raw = false)
+    public function send($send_buffer, $raw = false)
     {
         if (false === $raw && $this->protocol) {
             $parser      = $this->protocol;
@@ -137,7 +136,7 @@ class AsyncUdpConnection extends UdpConnection
      *
      * @return bool
      */
-    public function close($data = null, $raw = false): void
+    public function close($data = null, $raw = false)
     {
         // Если есть что сказать - скажи сейчас
         if ($data !== null) {
@@ -160,7 +159,7 @@ class AsyncUdpConnection extends UdpConnection
             }
         }
         $this->onConnect = $this->onMessage = $this->onClose = null;
-        return;
+        return true;
     }
 
     /**
@@ -188,11 +187,7 @@ class AsyncUdpConnection extends UdpConnection
                 $context
             );
         } else {
-            $this->_socket = \stream_socket_client(
-                "udp://{$this->_remoteAddress}",
-                $errno,
-                $errmsg
-            );
+            $this->_socket = \stream_socket_client("udp://{$this->_remoteAddress}", $errno, $errmsg);
         }
 
         // Обрабатываем исключение
