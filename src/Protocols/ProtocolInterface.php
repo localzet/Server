@@ -45,7 +45,7 @@ interface ProtocolInterface
     /**
      * Encode package brefore sending to client.
      * 
-     * @param string|\localzet\Core\Protocols\Http\Response $data
+     * @param mixed               $data
      * @param ConnectionInterface $connection
      * @return string
      */
