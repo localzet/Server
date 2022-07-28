@@ -14,20 +14,17 @@
 
 namespace localzet\Core\Connection;
 
-use \localzet\Core\Protocols\ProtocolInterface;
-use \localzet\Core\Protocols\Http\Response;
-
 /**
  * ConnectionInterface.
  */
-abstract class ConnectionInterface
+abstract class  ConnectionInterface
 {
     /**
      * Статистика для команды статуса
      *
      * @var array
      */
-    public static array $statistics = array(
+    public static $statistics = array(
         'connection_count' => 0,
         'total_request'    => 0,
         'throw_exception'  => 0,
@@ -56,58 +53,10 @@ abstract class ConnectionInterface
     public $onError = null;
 
     /**
-     * Задаётся, когда буфер отправки заполняется.
+     * Sends data on the connection.
      *
-     * @var callable
-     */
-    public $onBufferFull = null;
-
-    /**
-     * Задаётся, когда буфер отправки становится пустым.
-     *
-     * @var callable
-     */
-    public $onBufferDrain = null;
-
-    /**
-     * Протокол прикладного уровня
-     *
-     * @var ProtocolInterface
-     */
-    public $protocol = null;
-
-    /**
-     * Протокол транспортного уровня (tcp/udp/unix/ssl)
-     *
-     * @var string
-     */
-    public $transport = null;
-
-    /**
-     * Сокет
-     *
-     * @var resource
-     */
-    protected $_socket = null;
-
-    /**
-     * Удалённый адрес
-     *
-     * @var string
-     */
-    protected string $_remoteAddress = '';
-
-    /**
-     * @param resource $socket
-     * @param string   $remote_address
-     */
-    // abstract public function __construct($socket, string $remote_address = '');
-
-    /**
-     * Отправляет данные на соединение.
-     *
-     * @param string|Response $send_buffer
-     * @return void|bool
+     * @param mixed $send_buffer
+     * @return void|boolean
      */
     abstract public function send($send_buffer);
 
@@ -174,11 +123,4 @@ abstract class ConnectionInterface
      * @return void
      */
     abstract public function close($data = null);
-
-    /**
-     * Получение сокета
-     *
-     * @return resource
-     */
-    abstract public function getSocket();
 }
