@@ -41,7 +41,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
      * Check the integrity of the package.
      *
      * @param string              $buffer
-     * @param TcpConnection $connection
+     * @param ConnectionInterface $connection
      * @return int
      */
     public static function input($buffer, ConnectionInterface $connection)
@@ -348,7 +348,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 $Sec_WebSocket_Key = $match[1];
             } else {
                 $connection->close(
-                    "HTTP/1.1 200 WebSocket\r\nServer: localzet Core/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>localzet Core/" . Server::VERSION . "</div>",
+                    "HTTP/1.1 200 WebSocket\r\nServer: WebCore Engine/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>WebCore Engine/" . Server::VERSION . "</div>",
                     true
                 );
                 return 0;
@@ -381,17 +381,20 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
             if (isset($connection->headers)) {
                 if (\is_array($connection->headers)) {
                     foreach ($connection->headers as $header) {
-                        if (\strpos($header, 'Server:') === 0) {
+                        if (\stripos($header, 'Server:') === 0) {
                             $has_server_header = true;
                         }
                         $handshake_message .= "$header\r\n";
                     }
                 } else {
+                    if (\stripos($connection->headers, 'Server:') !== false) {
+                        $has_server_header = true;
+                    }
                     $handshake_message .= "$connection->headers\r\n";
                 }
             }
             if (!$has_server_header) {
-                $handshake_message .= "Server: localzet Core/" . Server::VERSION . "\r\n";
+                $handshake_message .= "Server: WebCore Engine/" . Server::VERSION . "\r\n";
             }
             $handshake_message .= "\r\n";
             // Send handshake response.
@@ -410,8 +413,8 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 } catch (\Error $e) {
                     Server::stopAll(250, $e);
                 }
-                if (!empty($_SESSION) && $_SESSION !== '') {
-                    $connection->session = serialize($_SESSION);
+                if (!empty($_SESSION) && \class_exists('\localzet\LongCore\Lib\Context')) {
+                    $connection->session = \localzet\LongCore\Lib\Context::sessionEncode($_SESSION);
                 }
                 $_GET = $_SERVER = $_SESSION = $_COOKIE = array();
             }
@@ -434,7 +437,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
         }
         // Bad websocket handshake request.
         $connection->close(
-            "HTTP/1.1 200 WebSocket\r\nServer: localzet Core/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>localzet Core/" . Server::VERSION . "</div>",
+            "HTTP/1.1 200 WebSocket\r\nServer: WebCore Engine/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>WebCore Engine/" . Server::VERSION . "</div>",
             true
         );
         return 0;
