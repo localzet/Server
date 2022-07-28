@@ -597,7 +597,7 @@ class Server
 
         // Логи
         if (empty(static::$logFile)) {
-            static::$logFile = __DIR__ . '/../V3.log';
+            static::$logFile = __DIR__ . '/../CORE.log';
         }
         $log_file = (string)static::$logFile;
         if (!\is_file($log_file)) {
@@ -630,7 +630,7 @@ class Server
     {
         $fd = \fopen(static::$_startFile, 'r');
         if ($fd && !flock($fd, LOCK_EX)) {
-            static::log('V3 [' . static::$_startFile . '] уже запущен.');
+            static::log('CORE [' . static::$_startFile . '] уже запущен.');
             exit;
         }
     }
@@ -658,7 +658,7 @@ class Server
             return;
         }
 
-        static::$_statisticsFile =  static::$statusFile ? static::$statusFile : __DIR__ . '/../V3-' . posix_getpid() . '.status';
+        static::$_statisticsFile =  static::$statusFile ? static::$statusFile : __DIR__ . '/../CORE-' . posix_getpid() . '.status';
 
         foreach (static::$_servers as $server) {
             // Имя воркера
@@ -781,7 +781,7 @@ class Server
         // В Linux всё просто!)
         if (static::$_OS !== \OS_TYPE_LINUX) {
             static::safeEcho("---------------------------- ИНФОРМАЦИЯ --------------------------------\r\n");
-            static::safeEcho('    V3 ' . static::VERSION . '              PHP ' . \PHP_VERSION . "    \r\n");
+            static::safeEcho('    CORE ' . static::VERSION . '              PHP ' . \PHP_VERSION . "    \r\n");
             static::safeEcho("------------------------ СПИСОК ВОРКЕРОВ -------------------------------\r\n");
             static::safeEcho("Воркер                          URL                               Статус\r\n");
             return;
@@ -789,13 +789,13 @@ class Server
 
         // Версии
         $total_length = static::getSingleLineTotalLength();
-        $line_one = '<n>' . \str_pad('<w> localzet V3 </w>', $total_length + \strlen('<w></w>'), '-', \STR_PAD_BOTH) . '</n>' . \PHP_EOL;
-        $line_version = '<n>' . \str_pad('V3: ' . static::VERSION, intdiv($total_length, 2), ' ', \STR_PAD_BOTH) . \str_pad('PHP: ' . \PHP_VERSION, intdiv($total_length, 2), ' ', \STR_PAD_BOTH) . '</n>' . \PHP_EOL;
+        $line_one = '<n>' . \str_pad('<w> localzet CORE </w>', $total_length + \strlen('<w></w>'), '-', \STR_PAD_BOTH) . '</n>' . \PHP_EOL;
+        $line_version = '<n>' . \str_pad('CORE: ' . static::VERSION, intdiv($total_length, 2), ' ', \STR_PAD_BOTH) . \str_pad('PHP: ' . \PHP_VERSION, intdiv($total_length, 2), ' ', \STR_PAD_BOTH) . '</n>' . \PHP_EOL;
         $line_two = '<n>' . \str_pad('<w> СПИСОК ВОРКЕРОВ </w>', $total_length + \strlen('<w></w>') + 14, '-', \STR_PAD_BOTH) . '</n>' . \PHP_EOL;
         static::safeEcho($line_one . $line_version . $line_two);
 
-        // ----------------------------------------- localzet V3 -----------------------------------------
-        //                  V3: 1.0.0-dev                                   PHP: 8.1.2
+        // ----------------------------------------- localzet CORE -----------------------------------------
+        //                  CORE: 1.0.0-dev                                   PHP: 8.1.2
         // --------------------------------------- СПИСОК ВОРКЕРОВ ---------------------------------------
 
         if (!\defined('LINE_VERSIOIN_LENGTH')) \define('LINE_VERSIOIN_LENGTH', \strlen($line_version));
@@ -947,7 +947,7 @@ class Server
         global $argv;
         // Check argv;
         $start_file = $argv[0];
-        $usage = "Использование: php start.php <команда> [mode]\nКоманды: \nstart\t\tЗапустить V3 в тестовом режиме.\n\t\tИспользуй флаг -d для запуска в режиме демона.\nstop\t\tОстановка V3.\n\t\tИспользуй флаг -g для изящной остановки.\nrestart\t\tПерезапуск всех процессов.\n\t\tИспользуй флаг -d для запуска в режиме демона.\n\t\tИспользуй флаг -g для изящной остановки.\nreload\t\tПерезагрузка кода.\n\t\tИспользуй флаг -g для изящной перезагрузки.\nstatus\t\tСтатус подпроцессов.\n\t\tИспользуй флаг -d для выгрузки статуса в реальном времени.\nconnections\tСписок соединений.\n";
+        $usage = "Использование: php start.php <команда> [mode]\nКоманды: \nstart\t\tЗапустить CORE в тестовом режиме.\n\t\tИспользуй флаг -d для запуска в режиме демона.\nstop\t\tОстановка CORE.\n\t\tИспользуй флаг -g для изящной остановки.\nrestart\t\tПерезапуск всех процессов.\n\t\tИспользуй флаг -d для запуска в режиме демона.\n\t\tИспользуй флаг -g для изящной остановки.\nreload\t\tПерезагрузка кода.\n\t\tИспользуй флаг -g для изящной перезагрузки.\nstatus\t\tСтатус подпроцессов.\n\t\tИспользуй флаг -d для выгрузки статуса в реальном времени.\nconnections\tСписок соединений.\n";
         $available_commands = array(
             'start',
             'stop',
@@ -982,22 +982,22 @@ class Server
                 $mode_str = 'в тестовом режиме';
             }
         }
-        static::log("V3 [$start_file] $command $mode_str");
+        static::log("CORE [$start_file] $command $mode_str");
 
         // Get master process PID.
         $master_pid      = \is_file(static::$pidFile) ? (int)\file_get_contents(static::$pidFile) : 0;
         // Master is still alive?
         if (static::checkMasterIsAlive($master_pid)) {
             if ($command === 'start') {
-                static::log("V3 [$start_file] уже запущен");
+                static::log("CORE [$start_file] уже запущен");
                 exit;
             }
         } elseif ($command !== 'start' && $command !== 'restart') {
-            static::log("V3 [$start_file] не запущен");
+            static::log("CORE [$start_file] не запущен");
             exit;
         }
 
-        $statistics_file =  static::$statusFile ? static::$statusFile : __DIR__ . "/../V3-$master_pid.status";
+        $statistics_file =  static::$statusFile ? static::$statusFile : __DIR__ . "/../CORE-$master_pid.status";
 
         // execute command.
         switch ($command) {
@@ -1045,11 +1045,11 @@ class Server
                 if ($mode === '-g') {
                     static::$_gracefulStop = true;
                     $sig = \SIGQUIT;
-                    static::log("V3 [$start_file] останавливается изящно (￣y▽￣)╭ ...");
+                    static::log("CORE [$start_file] останавливается изящно (￣y▽￣)╭ ...");
                 } else {
                     static::$_gracefulStop = false;
                     $sig = \SIGINT;
-                    static::log("V3 [$start_file] останавливается ...");
+                    static::log("CORE [$start_file] останавливается ...");
                 }
                 // Send stop signal to master process.
                 $master_pid && \posix_kill($master_pid, $sig);
@@ -1062,7 +1062,7 @@ class Server
                     if ($master_is_alive) {
                         // Timeout?
                         if (!static::$_gracefulStop && \time() - $start_time >= $timeout) {
-                            static::log("V3 [$start_file] ошибка остановки");
+                            static::log("CORE [$start_file] ошибка остановки");
                             exit;
                         }
                         // Waiting amoment.
@@ -1070,7 +1070,7 @@ class Server
                         continue;
                     }
                     // Stop success.
-                    static::log("V3 [$start_file] остановлен");
+                    static::log("CORE [$start_file] остановлен");
                     if ($command === 'stop') {
                         exit(0);
                     }
@@ -1710,7 +1710,7 @@ class Server
                         $server = static::$_servers[$server_id];
                         // Exit status.
                         if ($status !== 0) {
-                            static::log("V3 [" . $server->name . ":$pid] умер со статусом $status");
+                            static::log("CORE [" . $server->name . ":$pid] умер со статусом $status");
                         }
 
                         // For Statistics.
@@ -1775,7 +1775,7 @@ class Server
             }
         }
         @\unlink(static::$pidFile);
-        static::log("V3 [" . \basename(static::$_startFile) . "] остановлен");
+        static::log("CORE [" . \basename(static::$_startFile) . "] остановлен");
         if (static::$onMasterStop) {
             \call_user_func(static::$onMasterStop);
         }
@@ -1793,7 +1793,7 @@ class Server
         if (static::$_masterPid === \posix_getpid()) {
             // Set reloading state.
             if (static::$_status !== static::STATUS_RELOADING && static::$_status !== static::STATUS_SHUTDOWN) {
-                static::log("V3 [" . \basename(static::$_startFile) . "] перезагружается");
+                static::log("CORE [" . \basename(static::$_startFile) . "] перезагружается");
                 static::$_status = static::STATUS_RELOADING;
                 // Try to emit onMasterReload callback.
                 if (static::$onMasterReload) {
@@ -1884,7 +1884,7 @@ class Server
         static::$_status = static::STATUS_SHUTDOWN;
         // For master process.
         if (\DIRECTORY_SEPARATOR === '/' && static::$_masterPid === \posix_getpid()) {
-            static::log("V3 [" . \basename(static::$_startFile) . "] останавливается ...");
+            static::log("CORE [" . \basename(static::$_startFile) . "] останавливается ...");
             $server_pid_array = static::getAllServerPids();
             // Send stop signal to all child processes.
             if (static::$_gracefulStop) {
@@ -1987,7 +1987,7 @@ class Server
             );
             \file_put_contents(
                 static::$_statisticsFile,
-                'V3 version:' . static::VERSION . "          PHP version:" . \PHP_VERSION . "\n",
+                'CORE version:' . static::VERSION . "          PHP version:" . \PHP_VERSION . "\n",
                 \FILE_APPEND
             );
             \file_put_contents(
@@ -2082,7 +2082,7 @@ class Server
     {
         // For master process.
         if (static::$_masterPid === \posix_getpid()) {
-            \file_put_contents(static::$_statisticsFile, "------------------------------------------------------------------------- V3 CONNECTION STATUS ------------------------------------------------------------------------------------\n", \FILE_APPEND);
+            \file_put_contents(static::$_statisticsFile, "------------------------------------------------------------------------- CORE CONNECTION STATUS ------------------------------------------------------------------------------------\n", \FILE_APPEND);
             \file_put_contents(static::$_statisticsFile, "PID      Server          CID       Trans   Protocol        ipv4   ipv6   Recv-Q       Send-Q       Bytes-R      Bytes-W       Status         Local Address          Foreign Address\n", \FILE_APPEND);
             \chmod(static::$_statisticsFile, 0722);
             foreach (static::getAllServerPids() as $server_pid) {
@@ -2158,7 +2158,7 @@ class Server
     public static function checkErrors()
     {
         if (static::STATUS_SHUTDOWN !== static::$_status) {
-            $error_msg = static::$_OS === \OS_TYPE_LINUX ? 'V3 [' . \posix_getpid() . '] процесс прерван' : ' V3 процесс прерван';
+            $error_msg = static::$_OS === \OS_TYPE_LINUX ? 'CORE [' . \posix_getpid() . '] процесс прерван' : ' CORE процесс прерван';
             $errors    = error_get_last();
             if (
                 $errors && ($errors['type'] === \E_ERROR ||
