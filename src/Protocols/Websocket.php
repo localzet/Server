@@ -257,7 +257,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
             if (\strlen($connection->tmpWebsocketData) > $connection->maxSendBufferSize) {
                 if ($connection->onError) {
                     try {
-                        \call_user_func($connection->onError, $connection, \V3_SEND_FAIL, 'send buffer full and drop package');
+                        \call_user_func($connection->onError, $connection, \CORE_SEND_FAIL, 'send buffer full and drop package');
                     } catch (\Exception $e) {
                         Server::stopAll(250, $e);
                     } catch (\Error $e) {
