@@ -14,31 +14,60 @@
 
 namespace localzet\Core\Connection;
 
-use \localzet\Core\Protocols\Http\Response;
-
 /**
  * UdpConnection.
  */
 class UdpConnection extends ConnectionInterface
 {
     /**
-     * {@inheritdoc}
+     * Application layer protocol.
+     * The format is like this localzet\\Core\\Protocols\\Http.
+     *
+     * @var \localzet\Core\Protocols\ProtocolInterface
+     */
+    public $protocol = null;
+
+    /**
+     * Transport layer protocol.
+     *
+     * @var string
      */
     public $transport = 'udp';
 
     /**
-     * {@inheritdoc}
+     * Udp socket.
+     *
+     * @var resource
      */
-    public function __construct($socket, string $remote_address)
+    protected $_socket = null;
+
+    /**
+     * Remote address.
+     *
+     * @var string
+     */
+    protected $_remoteAddress = '';
+
+    /**
+     * Construct.
+     *
+     * @param resource $socket
+     * @param string   $remote_address
+     */
+    public function __construct($socket, $remote_address)
     {
         $this->_socket        = $socket;
         $this->_remoteAddress = $remote_address;
     }
 
     /**
-     * {@inheritdoc}
+     * Sends data on the connection.
+     *
+     * @param string $send_buffer
+     * @param bool   $raw
+     * @return void|boolean
      */
-    public function send($send_buffer, bool $raw = false)
+    public function send($send_buffer, $raw = false)
     {
         if (false === $raw && $this->protocol) {
             $parser      = $this->protocol;
@@ -51,7 +80,9 @@ class UdpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Get remote IP.
+     *
+     * @return string
      */
     public function getRemoteIp()
     {
@@ -63,7 +94,9 @@ class UdpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Get remote port.
+     *
+     * @return int
      */
     public function getRemotePort()
     {
@@ -74,7 +107,9 @@ class UdpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Get remote address.
+     *
+     * @return string
      */
     public function getRemoteAddress()
     {
@@ -82,7 +117,9 @@ class UdpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Get local IP.
+     *
+     * @return string
      */
     public function getLocalIp()
     {
@@ -95,7 +132,9 @@ class UdpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Get local port.
+     *
+     * @return int
      */
     public function getLocalPort()
     {
@@ -108,7 +147,9 @@ class UdpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Get local address.
+     *
+     * @return string
      */
     public function getLocalAddress()
     {
@@ -116,7 +157,9 @@ class UdpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Is ipv4.
+     *
+     * @return bool.
      */
     public function isIpV4()
     {
@@ -127,7 +170,9 @@ class UdpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Is ipv6.
+     *
+     * @return bool.
      */
     public function isIpV6()
     {
@@ -138,18 +183,24 @@ class UdpConnection extends ConnectionInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Close connection.
+     *
+     * @param mixed $data
+     * @param bool  $raw
+     * @return bool
      */
     public function close($data = null, $raw = false)
     {
         if ($data !== null) {
             $this->send($data, $raw);
         }
-        return;
+        return true;
     }
 
     /**
-     * {@inheritdoc}
+     * Get the real socket.
+     *
+     * @return resource
      */
     public function getSocket()
     {
