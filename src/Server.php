@@ -69,9 +69,9 @@ class Server
      * После отправки команды перезапуска на дочерний процесс
      * Если процесс все еще работает по истечению KILL_SERVER_TIMER_TIME секунд, то мы должны его убить. ╰（‵□′）╯
      *
-     * @var int
+     * $stopTimeout
      */
-    const KILL_SERVER_TIMER_TIME = 2;
+    // const KILL_SERVER_TIMER_TIME = 2;
 
     /**
      * Backlog по умолчанию. Backlog - максимальная длина очереди ожидающих соединений.
@@ -318,7 +318,15 @@ class Server
     public static $processTitle = 'localzet Core';
 
     /**
-     * PID основного процесса.
+     * After sending the stop command to the child process stopTimeout seconds,
+     * if the process is still living then forced to kill.
+     *
+     * @var int
+     */
+    public static $stopTimeout = 2;
+
+    /**
+     * The PID of master process.
      *
      * @var int
      */
@@ -476,7 +484,8 @@ class Server
      * @var array
      */
     protected static $_availableEventLoops = array(
-        'event'    => '\localzet\Core\Events\Event'
+        'event'    => '\localzet\Core\Events\Event',
+        'libevent' => '\localzet\Core\Events\Libevent'
     );
 
     /**
@@ -928,7 +937,7 @@ class Server
         }
 
         //keep beauty when show less colums
-        if (!\defined('LINE_VERSIOIN_LENGTH')) \define('LINE_VERSIOIN_LENGTH', 0);
+        !\defined('LINE_VERSIOIN_LENGTH') && \define('LINE_VERSIOIN_LENGTH', 0);
         $total_length <= LINE_VERSIOIN_LENGTH && $total_length = LINE_VERSIOIN_LENGTH;
 
         return $total_length;
@@ -1054,7 +1063,7 @@ class Server
                 // Send stop signal to master process.
                 $master_pid && \posix_kill($master_pid, $sig);
                 // Timeout.
-                $timeout    = 5;
+                $timeout    = static::$stopTimeout + 3;
                 $start_time = \time();
                 // Check master process is still alive?
                 while (1) {
@@ -1335,7 +1344,7 @@ class Server
      */
     public static function resetStd()
     {
-        if (!static::$daemonize || static::$_OS !== \OS_TYPE_LINUX) {
+        if (!static::$daemonize || \DIRECTORY_SEPARATOR !== '/') {
             return;
         }
         global $STDOUT, $STDERR;
@@ -1350,10 +1359,20 @@ class Server
             if ($STDERR) {
                 \fclose($STDERR);
             }
-            \fclose(\STDOUT);
-            \fclose(\STDERR);
+            if (\is_resource(\STDOUT)) {
+                \fclose(\STDOUT);
+            }
+            if (\is_resource(\STDERR)) {
+                \fclose(\STDERR);
+            }
             $STDOUT = \fopen(static::$stdoutFile, "a");
             $STDERR = \fopen(static::$stdoutFile, "a");
+            // Fix standard output cannot redirect of PHP 8.1.8's bug
+            if (\posix_isatty(2)) {
+                \ob_start(function ($string) {
+                    \file_put_contents(static::$stdoutFile, $string, FILE_APPEND);
+                }, 1);
+            }
             // change output stream
             static::$_outputStream = null;
             static::outputStream($STDOUT);
@@ -1390,6 +1409,10 @@ class Server
     {
         if (static::$eventLoopClass) {
             return static::$eventLoopClass;
+        }
+
+        if (!\class_exists('\Swoole\Event', false)) {
+            unset(static::$_availableEventLoops['swoole']);
         }
 
         $loop_name = '';
@@ -1474,7 +1497,8 @@ class Server
         global $argv;
         if (\in_array('-q', $argv) || \count($files) === 1) {
             if (\count(static::$_servers) > 1) {
-                static::safeEcho("@@@ Error: multi servers init in one php file are not support @@@\r\n");
+                static::safeEcho("@@@ Error: multi workers init in one php file are not support @@@\r\n");
+                static::safeEcho("@@@ See http://doc.workerman.net/faq/multi-woker-for-windows.html @@@\r\n");
             } elseif (\count(static::$_servers) <= 0) {
                 exit("@@@no server inited@@@\r\n\r\n");
             }
@@ -1603,6 +1627,9 @@ class Server
             $server->setUserAndGroup();
             $server->id = $id;
             $server->run();
+            if (strpos(static::$eventLoopClass, 'localzet\Core\Events\Swoole') !== false) {
+                exit(0);
+            }
             $err = new Exception('event-loop exited');
             static::log($err);
             exit(250);
@@ -1668,7 +1695,13 @@ class Server
     {
         \set_error_handler(function () {
         });
-        \cli_set_process_title($title);
+        // >=php 5.5
+        if (\function_exists('cli_set_process_title')) {
+            \cli_set_process_title($title);
+        } // Need proctitle when php<=5.5 .
+        elseif (\extension_loaded('proctitle') && \function_exists('setproctitle')) {
+            \setproctitle($title);
+        }
         \restore_error_handler();
     }
 
@@ -1844,9 +1877,9 @@ class Server
             $one_server_pid = \current(static::$_pidsToRestart);
             // Send reload signal to a server process.
             \posix_kill($one_server_pid, $sig);
-            // Если процесс не выключился после static::KILL_SERVER_TIMER_TIME секунд пытаемся убить его.
+            // Если процесс не выключился после static::$stopTimeout секунд пытаемся убить его.
             if (!static::$_gracefulStop) {
-                Timer::add(static::KILL_SERVER_TIMER_TIME, '\posix_kill', array($one_server_pid, \SIGKILL), false);
+                Timer::add(static::$stopTimeout, '\posix_kill', array($one_server_pid, \SIGKILL), false);
             }
         } // Для детей.ов
         else {
@@ -1895,7 +1928,7 @@ class Server
             foreach ($server_pid_array as $server_pid) {
                 \posix_kill($server_pid, $sig);
                 if (!static::$_gracefulStop) {
-                    Timer::add(static::KILL_SERVER_TIMER_TIME, '\posix_kill', array($server_pid, \SIGKILL), false);
+                    Timer::add(static::$stopTimeout, '\posix_kill', array($server_pid, \SIGKILL), false);
                 }
             }
             Timer::add(1, "\\localzet\\Core\\Server::checkIfChildRunning");
@@ -2059,10 +2092,14 @@ class Server
         }
 
         // For child processes.
+        \gc_collect_cycles();
+        if (\function_exists('gc_mem_caches')) {
+            \gc_mem_caches();
+        }
         \reset(static::$_servers);
         /** @var \localzet\Core\Server $server */
         $server            = current(static::$_servers);
-        $server_status_str = \posix_getpid() . "\t" . \str_pad(round(memory_get_usage(true) / (1024 * 1024), 2) . "M", 7)
+        $server_status_str = \posix_getpid() . "\t" . \str_pad(round(memory_get_usage(false) / (1024 * 1024), 2) . "M", 7)
             . " " . \str_pad($server->getSocketName(), static::$_maxSocketNameLength) . " "
             . \str_pad(($server->name === $server->getSocketName() ? 'none' : $server->name), static::$_maxServerNameLength)
             . " ";
