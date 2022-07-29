@@ -538,7 +538,7 @@ class Request
                         } else if ($boundary_value === '') {
                             $error = UPLOAD_ERR_NO_FILE;
                         } else {
-                            $tmp_file = \tempnam($tmp_upload_dir, 'workerman.upload.');
+                            $tmp_file = \tempnam($tmp_upload_dir, 'webcore.upload.');
                             if ($tmp_file === false || false == \file_put_contents($tmp_file, $boundary_value)) {
                                 $error = UPLOAD_ERR_CANT_WRITE;
                             }

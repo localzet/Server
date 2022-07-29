@@ -16,8 +16,8 @@
 ini_set('pcre.jit', 0);
 
 // Для onError
-const CORE_CONNECT_FAIL = 1;
-const CORE_SEND_FAIL = 2;
+const WEBCORE_CONNECT_FAIL = 1;
+const WEBCORE_SEND_FAIL = 2;
 
 // Определения типов ОС
 const OS_TYPE_LINUX   = 'linux';
