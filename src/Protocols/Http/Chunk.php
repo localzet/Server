@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Protocols\Http;
 
 
@@ -44,6 +42,6 @@ class Chunk
      */
     public function __toString()
     {
-        return \dechex(\strlen($this->_buffer)) . "\r\n$this->_buffer\r\n";
+        return \dechex(\strlen($this->_buffer))."\r\n$this->_buffer\r\n";
     }
 }

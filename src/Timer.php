@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core;
 
 use localzet\Core\Events\EventInterface;
@@ -19,15 +17,15 @@ use localzet\Core\Server;
 use \Exception;
 
 /**
- * Таймер.
+ * Timer.
  *
- * Пример:
+ * example:
  * localzet\Core\Timer::add($time_interval, callback, array($arg1, $arg2..));
  */
 class Timer
 {
     /**
-     * Задачи, основанные на сигнале
+     * Tasks that based on ALARM signal.
      * [
      *   run_time => [[$func, $args, $persistent, time_interval],[$func, $args, $persistent, time_interval],..]],
      *   run_time => [[$func, $args, $persistent, time_interval],[$func, $args, $persistent, time_interval],..]],
@@ -39,21 +37,21 @@ class Timer
     protected static $_tasks = array();
 
     /**
-     * Событие
+     * event
      *
      * @var EventInterface
      */
     protected static $_event = null;
 
     /**
-     * ID Таймера
+     * timer id
      *
      * @var int
      */
     protected static $_timerId = 0;
 
     /**
-     * Статус таймера
+     * timer status
      * [
      *   timer_id1 => bool,
      *   timer_id2 => bool,
@@ -65,7 +63,7 @@ class Timer
     protected static $_status = array();
 
     /**
-     * Инициализация
+     * Init.
      *
      * @param EventInterface $event
      * @return void
@@ -82,7 +80,7 @@ class Timer
     }
 
     /**
-     * Обработчик сигнала
+     * ALARM signal handler.
      *
      * @return void
      */
@@ -95,7 +93,7 @@ class Timer
     }
 
     /**
-     * Добавить таймер.
+     * Add a timer.
      *
      * @param float    $time_interval
      * @param callable $func
@@ -106,7 +104,7 @@ class Timer
     public static function add($time_interval, $func, $args = array(), $persistent = true)
     {
         if ($time_interval <= 0) {
-            Server::safeEcho(new Exception("Отрицательный интервал для таймера"));
+            Server::safeEcho(new Exception("bad time_interval"));
             return false;
         }
 
@@ -115,16 +113,16 @@ class Timer
         }
 
         if (self::$_event) {
-            return self::$_event->add(
-                $time_interval,
-                $persistent ? EventInterface::EV_TIMER : EventInterface::EV_TIMER_ONCE,
-                $func,
-                $args
-            );
+            return self::$_event->add($time_interval,
+                $persistent ? EventInterface::EV_TIMER : EventInterface::EV_TIMER_ONCE, $func, $args);
+        }
+        
+        if (!Server::getAllWorkers()) {
+            return;
         }
 
         if (!\is_callable($func)) {
-            Server::safeEcho(new Exception("Некорректный callback"));
+            Server::safeEcho(new Exception("not callable"));
             return false;
         }
 
@@ -146,7 +144,7 @@ class Timer
 
 
     /**
-     * ТИК (или ТАК, кому как нравится)
+     * Tick.
      *
      * @return void
      */
@@ -169,9 +167,9 @@ class Timer
                     } catch (\Exception $e) {
                         Server::safeEcho($e);
                     }
-                    if ($persistent && !empty(self::$_status[$index])) {
+                    if($persistent && !empty(self::$_status[$index])) {
                         $new_run_time = \time() + $time_interval;
-                        if (!isset(self::$_tasks[$new_run_time])) self::$_tasks[$new_run_time] = array();
+                        if(!isset(self::$_tasks[$new_run_time])) self::$_tasks[$new_run_time] = array();
                         self::$_tasks[$new_run_time][$index] = array($task_func, (array)$task_args, $persistent, $time_interval);
                     }
                 }
@@ -192,17 +190,18 @@ class Timer
             return self::$_event->del($timer_id, EventInterface::EV_TIMER);
         }
 
-        foreach (self::$_tasks as $run_time => $task_data) {
-            if (array_key_exists($timer_id, $task_data)) unset(self::$_tasks[$run_time][$timer_id]);
+        foreach(self::$_tasks as $run_time => $task_data) 
+        {
+            if(array_key_exists($timer_id, $task_data)) unset(self::$_tasks[$run_time][$timer_id]);
         }
 
-        if (array_key_exists($timer_id, self::$_status)) unset(self::$_status[$timer_id]);
+        if(array_key_exists($timer_id, self::$_status)) unset(self::$_status[$timer_id]);
 
         return true;
     }
 
     /**
-     * Удалить все таймеры.
+     * Remove all timers.
      *
      * @return void
      */

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Events;
 
 use localzet\Core\Server;
@@ -97,7 +95,7 @@ class Libevent implements EventInterface
                 $this->_eventTimer[$timer_id] = array($func, (array)$args, $event, $flag, $time_interval);
                 return $timer_id;
 
-            default:
+            default :
                 $fd_key    = (int)$fd;
                 $real_flag = $flag === self::EV_READ ? \EV_READ | \EV_PERSIST : \EV_WRITE | \EV_PERSIST;
 
@@ -119,6 +117,7 @@ class Libevent implements EventInterface
 
                 return true;
         }
+
     }
 
     /**
@@ -222,3 +221,4 @@ class Libevent implements EventInterface
         return \count($this->_eventTimer);
     }
 }
+

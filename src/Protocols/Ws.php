@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Protocols;
 
 use localzet\Core\Server;
@@ -85,13 +83,13 @@ class Ws
             switch ($opcode) {
                 case 0x0:
                     break;
-                    // Blob type.
+                // Blob type.
                 case 0x1:
                     break;
-                    // Arraybuffer type.
+                // Arraybuffer type.
                 case 0x2:
                     break;
-                    // Close package.
+                // Close package.
                 case 0x8:
                     // Try to emit onWebSocketClose callback.
                     if (isset($connection->onWebSocketClose)) {
@@ -107,19 +105,18 @@ class Ws
                         $connection->close();
                     }
                     return 0;
-                    // Ping package.
+                // Ping package.
                 case 0x9:
                     break;
-                    // Pong package.
+                // Pong package.
                 case 0xa:
                     break;
-                    // Wrong opcode.
-                default:
+                // Wrong opcode.
+                default :
                     Server::safeEcho("error opcode $opcode and close websocket connection. Buffer:" . $buffer . "\n");
                     $connection->close();
                     return 0;
             }
-            
             // Calculate packet length.
             if ($data_len === 126) {
                 if (\strlen($buffer) < 4) {
@@ -132,7 +129,7 @@ class Ws
                     return 0;
                 }
                 $arr = \unpack('n/N2c', $buffer);
-                $current_frame_length = $arr['c1'] * 4294967296 + $arr['c2'] + 10;
+                $current_frame_length = $arr['c1']*4294967296 + $arr['c2'] + 10;
             } else {
                 $current_frame_length = $data_len + 2;
             }
@@ -168,6 +165,7 @@ class Ws
                         }
                     }
                     return 0;
+
                 } else if ($opcode === 0xa) {
                     if ($recv_len >= $current_frame_length) {
                         $pong_data = static::decode(\substr($buffer, 0, $current_frame_length), $connection);
@@ -357,26 +355,27 @@ class Ws
         $host = $port === 80 ? $connection->getRemoteHost() : $connection->getRemoteHost() . ':' . $port;
         // Handshake header.
         $connection->websocketSecKey = \base64_encode(\md5(\mt_rand(), true));
-        $user_header = isset($connection->headers) ? $connection->headers : (isset($connection->wsHttpHeader) ? $connection->wsHttpHeader : null);
+        $user_header = isset($connection->headers) ? $connection->headers :
+            (isset($connection->wsHttpHeader) ? $connection->wsHttpHeader : null);
         $user_header_str = '';
         if (!empty($user_header)) {
-            if (\is_array($user_header)) {
-                foreach ($user_header as $k => $v) {
+            if (\is_array($user_header)){
+                foreach($user_header as $k=>$v){
                     $user_header_str .= "$k: $v\r\n";
                 }
             } else {
                 $user_header_str .= $user_header;
             }
-            $user_header_str = "\r\n" . \trim($user_header_str);
+            $user_header_str = "\r\n".\trim($user_header_str);
         }
-        $header = 'GET ' . $connection->getRemoteURI() . " HTTP/1.1\r\n" .
-            (!\preg_match("/\nHost:/i", $user_header_str) ? "Host: $host\r\n" : '') .
-            "Connection: Upgrade\r\n" .
-            "Upgrade: websocket\r\n" .
-            (isset($connection->websocketOrigin) ? "Origin: " . $connection->websocketOrigin . "\r\n" : '') .
-            (isset($connection->WSClientProtocol) ? "Sec-WebSocket-Protocol: " . $connection->WSClientProtocol . "\r\n" : '') .
-            "Sec-WebSocket-Version: 13\r\n" .
-            "Sec-WebSocket-Key: " . $connection->websocketSecKey . $user_header_str . "\r\n\r\n";
+        $header = 'GET ' . $connection->getRemoteURI() . " HTTP/1.1\r\n".
+        (!\preg_match("/\nHost:/i", $user_header_str) ? "Host: $host\r\n" : '').
+        "Connection: Upgrade\r\n".
+        "Upgrade: websocket\r\n".
+        (isset($connection->websocketOrigin) ? "Origin: ".$connection->websocketOrigin."\r\n":'').
+        (isset($connection->WSClientProtocol)?"Sec-WebSocket-Protocol: ".$connection->WSClientProtocol."\r\n":'').
+        "Sec-WebSocket-Version: 13\r\n".
+        "Sec-WebSocket-Key: " . $connection->websocketSecKey . $user_header_str . "\r\n\r\n";
         $connection->send($header, true);
         $connection->handshakeStep               = 1;
         $connection->websocketCurrentFrameLength = 0;
@@ -429,7 +428,7 @@ class Ws
             }
             // Headbeat.
             if (!empty($connection->websocketPingInterval)) {
-                $connection->websocketPingTimer = Timer::add($connection->websocketPingInterval, function () use ($connection) {
+                $connection->websocketPingTimer = Timer::add($connection->websocketPingInterval, function() use ($connection){
                     if (false === $connection->send(\pack('H*', '898000000000'), true)) {
                         Timer::del($connection->websocketPingTimer);
                         $connection->websocketPingTimer = null;
@@ -449,13 +448,12 @@ class Ws
         return 0;
     }
 
-    public static function WSSetProtocol($connection, $params)
-    {
-        $connection->WSClientProtocol = $params[0];
+    public static function WSSetProtocol($connection, $params) {
+	$connection->WSClientProtocol = $params[0];
     }
 
-    public static function WSGetServerProtocol($connection)
-    {
-        return (\property_exists($connection, 'WSServerProtocol') ? $connection->WSServerProtocol : null);
+    public static function WSGetServerProtocol($connection) {
+	return (\property_exists($connection, 'WSServerProtocol') ? $connection->WSServerProtocol : null);
     }
+
 }

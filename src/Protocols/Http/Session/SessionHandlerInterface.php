@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Protocols\Http\Session;
 
 interface SessionHandlerInterface
@@ -111,4 +109,5 @@ interface SessionHandlerInterface
      * @return bool
      */
     public function updateTimestamp($id, $data = "");
+
 }

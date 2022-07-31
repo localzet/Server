@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,55 +10,54 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Events;
 
 interface EventInterface
 {
     /**
-     * Чтение.
+     * Read event.
      *
      * @var int
      */
     const EV_READ = 1;
 
     /**
-     * Запись.
+     * Write event.
      *
      * @var int
      */
     const EV_WRITE = 2;
 
     /**
-     * Исключение
+     * Except event
      *
      * @var int
      */
     const EV_EXCEPT = 3;
 
     /**
-     * Сигнал.
+     * Signal event.
      *
      * @var int
      */
     const EV_SIGNAL = 4;
 
     /**
-     * Таймер.
+     * Timer event.
      *
      * @var int
      */
     const EV_TIMER = 8;
 
     /**
-     * Одиночный таймер.
+     * Timer once event.
      *
      * @var int
      */
     const EV_TIMER_ONCE = 16;
 
     /**
-     * Добавляем обработчик событий в цикл.
+     * Add event listener to event loop.
      *
      * @param mixed    $fd
      * @param int      $flag
@@ -70,7 +68,7 @@ interface EventInterface
     public function add($fd, $flag, $func, $args = array());
 
     /**
-     * Удалляем обработчик событий из цикла.
+     * Remove event listener from event loop.
      *
      * @param mixed $fd
      * @param int   $flag
@@ -79,28 +77,28 @@ interface EventInterface
     public function del($fd, $flag);
 
     /**
-     * Удаляем все таймеры.
+     * Remove all timers.
      *
      * @return void
      */
     public function clearAllTimer();
 
     /**
-     * Главный цикл.
+     * Main loop.
      *
      * @return void
      */
     public function loop();
 
     /**
-     * Разорвать цикл.
+     * Destroy loop.
      *
      * @return mixed
      */
     public function destroy();
 
     /**
-     * Кол-во таймеров.
+     * Get Timer count.
      *
      * @return mixed
      */

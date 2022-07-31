@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Connection;
 
 use localzet\Core\Events\EventInterface;
@@ -25,63 +23,63 @@ use \Exception;
 class AsyncTcpConnection extends TcpConnection
 {
     /**
-     * Задаётся, когда подключение к сокетам успешно установлено.
+     * Emitted when socket connection is successfully established.
      *
      * @var callable|null
      */
     public $onConnect = null;
 
     /**
-     * Протокол транспортного слоя.
+     * Transport layer protocol.
      *
      * @var string
      */
     public $transport = 'tcp';
 
     /**
-     * Статус.
+     * Status.
      *
      * @var int
      */
     protected $_status = self::STATUS_INITIAL;
 
     /**
-     * Удаленный хост.
+     * Remote host.
      *
      * @var string
      */
     protected $_remoteHost = '';
 
     /**
-     * Удалённый порт.
+     * Remote port.
      *
      * @var int
      */
     protected $_remotePort = 80;
 
     /**
-     * Время начала подключения.
+     * Connect start time.
      *
      * @var float
      */
     protected $_connectStartTime = 0;
 
     /**
-     * Удалённый URI.
+     * Remote URI.
      *
      * @var string
      */
     protected $_remoteURI = '';
 
     /**
-     * Контекст.
+     * Context option.
      *
      * @var array
      */
     protected $_contextOption = null;
 
     /**
-     * Таймер реконнекта.
+     * Reconnect timer.
      *
      * @var int
      */
@@ -89,7 +87,7 @@ class AsyncTcpConnection extends TcpConnection
 
 
     /**
-     * Встроенные PHP-протоколы.
+     * PHP built-in protocols.
      *
      * @var array
      */
@@ -104,6 +102,8 @@ class AsyncTcpConnection extends TcpConnection
     );
 
     /**
+     * Construct.
+     *
      * @param string $remote_address
      * @param array $context_option
      * @throws Exception
@@ -113,7 +113,7 @@ class AsyncTcpConnection extends TcpConnection
         $address_info = \parse_url($remote_address);
         if (!$address_info) {
             list($scheme, $this->_remoteAddress) = \explode(':', $remote_address, 2);
-            if ('unix' === strtolower($scheme)) {
+            if('unix' === strtolower($scheme)) { 
                 $this->_remoteAddress = substr($remote_address, strpos($remote_address, '/') + 2);
             }
             if (!$this->_remoteAddress) {
@@ -135,13 +135,13 @@ class AsyncTcpConnection extends TcpConnection
             $this->_remotePort    = $address_info['port'];
             $this->_remoteURI     = "{$address_info['path']}{$address_info['query']}";
             $scheme               = isset($address_info['scheme']) ? $address_info['scheme'] : 'tcp';
-            $this->_remoteAddress = 'unix' === strtolower($scheme)
-                ? substr($remote_address, strpos($remote_address, '/') + 2)
-                : $this->_remoteHost . ':' . $this->_remotePort;
+            $this->_remoteAddress = 'unix' === strtolower($scheme) 
+                                    ? substr($remote_address, strpos($remote_address, '/') + 2)
+                                    : $this->_remoteHost . ':' . $this->_remotePort;
         }
 
         $this->id = $this->_id = self::$_idRecorder++;
-        if (\PHP_INT_MAX === self::$_idRecorder) {
+        if(\PHP_INT_MAX === self::$_idRecorder){
             self::$_idRecorder = 0;
         }
         // Check application layer protocol class.
@@ -173,10 +173,8 @@ class AsyncTcpConnection extends TcpConnection
      */
     public function connect()
     {
-        if (
-            $this->_status !== self::STATUS_INITIAL && $this->_status !== self::STATUS_CLOSING &&
-            $this->_status !== self::STATUS_CLOSED
-        ) {
+        if ($this->_status !== self::STATUS_INITIAL && $this->_status !== self::STATUS_CLOSING &&
+            $this->_status !== self::STATUS_CLOSED) {
             return;
         }
         $this->_status           = self::STATUS_CONNECTING;
@@ -184,36 +182,20 @@ class AsyncTcpConnection extends TcpConnection
         if ($this->transport !== 'unix') {
             if (!$this->_remotePort) {
                 $this->_remotePort = $this->transport === 'ssl' ? 443 : 80;
-                $this->_remoteAddress = $this->_remoteHost . ':' . $this->_remotePort;
+                $this->_remoteAddress = $this->_remoteHost.':'.$this->_remotePort;
             }
             // Open socket connection asynchronously.
             if ($this->_contextOption) {
                 $context = \stream_context_create($this->_contextOption);
-                $this->_socket = \stream_socket_client(
-                    "tcp://{$this->_remoteHost}:{$this->_remotePort}",
-                    $errno,
-                    $errstr,
-                    0,
-                    \STREAM_CLIENT_ASYNC_CONNECT,
-                    $context
-                );
+                $this->_socket = \stream_socket_client("tcp://{$this->_remoteHost}:{$this->_remotePort}",
+                    $errno, $errstr, 0, \STREAM_CLIENT_ASYNC_CONNECT, $context);
             } else {
-                $this->_socket = \stream_socket_client(
-                    "tcp://{$this->_remoteHost}:{$this->_remotePort}",
-                    $errno,
-                    $errstr,
-                    0,
-                    \STREAM_CLIENT_ASYNC_CONNECT
-                );
+                $this->_socket = \stream_socket_client("tcp://{$this->_remoteHost}:{$this->_remotePort}",
+                    $errno, $errstr, 0, \STREAM_CLIENT_ASYNC_CONNECT);
             }
         } else {
-            $this->_socket = \stream_socket_client(
-                "{$this->transport}://{$this->_remoteAddress}",
-                $errno,
-                $errstr,
-                0,
-                \STREAM_CLIENT_ASYNC_CONNECT
-            );
+            $this->_socket = \stream_socket_client("{$this->transport}://{$this->_remoteAddress}", $errno, $errstr, 0,
+                \STREAM_CLIENT_ASYNC_CONNECT);
         }
         // If failed attempt to emit onError callback.
         if (!$this->_socket || !\is_resource($this->_socket)) {
@@ -228,14 +210,14 @@ class AsyncTcpConnection extends TcpConnection
         }
         // Add socket to global event loop waiting connection is successfully established or faild.
         Server::$globalEvent->add($this->_socket, EventInterface::EV_WRITE, array($this, 'checkConnection'));
-        // Для винды
-        if (\DIRECTORY_SEPARATOR === '\\') {
+        // For windows.
+        if(\DIRECTORY_SEPARATOR === '\\') {
             Server::$globalEvent->add($this->_socket, EventInterface::EV_EXCEPT, array($this, 'checkConnection'));
         }
     }
 
     /**
-     * Переподключение.
+     * Reconnect.
      *
      * @param int $after
      * @return void
@@ -255,7 +237,7 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Отмена переподключения.
+     * CancelReconnect.
      */
     public function cancelReconnect()
     {
@@ -265,7 +247,7 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Получение удалённого хоста.
+     * Get remote address.
      *
      * @return string
      */
@@ -275,7 +257,7 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Получение удалённого URI.
+     * Get remote URI.
      *
      * @return string
      */
@@ -285,7 +267,7 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Попытка вызвать onError.
+     * Try to emit onError callback.
      *
      * @param int    $code
      * @param string $msg
@@ -293,13 +275,8 @@ class AsyncTcpConnection extends TcpConnection
      */
     protected function emitError($code, $msg)
     {
-        // Статус: закрытие соединения
         $this->_status = self::STATUS_CLOSING;
-
-        // Если onError вообще задан
         if ($this->onError) {
-            // Попытка вызова
-            // Не получится - останавливай всё и логируй исключение/ошибку
             try {
                 \call_user_func($this->onError, $this, $code, $msg);
             } catch (\Exception $e) {
@@ -311,15 +288,15 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Проверка соединения.
+     * Check connection is successfully established or faild.
      *
      * @param resource $socket
      * @return void
      */
     public function checkConnection()
     {
-        // Удалите EV_EXPEPE для Windows.
-        if (\DIRECTORY_SEPARATOR === '\\') {
+        // Remove EV_EXPECT for windows.
+        if(\DIRECTORY_SEPARATOR === '\\') {
             Server::$globalEvent->del($this->_socket, EventInterface::EV_EXCEPT);
         }
 

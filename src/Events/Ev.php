@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Events;
 
 use localzet\Core\Server;
@@ -78,13 +76,14 @@ class Ev implements EventInterface
                 $event                              = new \EvTimer($fd, $repeat, array($this, 'timerCallback'), $param);
                 $this->_eventTimer[self::$_timerId] = $event;
                 return self::$_timerId++;
-            default:
+            default :
                 $fd_key                           = (int)$fd;
                 $real_flag                        = $flag === self::EV_READ ? \Ev::READ : \Ev::WRITE;
                 $event                            = new \EvIo($fd, $real_flag, $callback);
                 $this->_allEvents[$fd_key][$flag] = $event;
                 return true;
         }
+
     }
 
     /**

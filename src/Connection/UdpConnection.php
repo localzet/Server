@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Connection;
 
 /**
@@ -196,7 +194,7 @@ class UdpConnection extends ConnectionInterface
         }
         return true;
     }
-
+    
     /**
      * Get the real socket.
      *

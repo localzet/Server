@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Connection;
 
 /**
@@ -20,7 +18,7 @@ namespace localzet\Core\Connection;
 abstract class  ConnectionInterface
 {
     /**
-     * Статистика для команды статуса
+     * Statistics for status command.
      *
      * @var array
      */
@@ -32,21 +30,21 @@ abstract class  ConnectionInterface
     );
 
     /**
-     * Задаётся при получении данных
+     * Emitted when data is received.
      *
      * @var callable
      */
     public $onMessage = null;
 
     /**
-     * Задаётся, когда другой конец сокета отправляет пакет FIN
+     * Emitted when the other end of the socket sends a FIN packet.
      *
      * @var callable
      */
     public $onClose = null;
 
     /**
-     * Задаётся, когда возникает ошибка с подключением
+     * Emitted when an error occurs with connection.
      *
      * @var callable
      */
@@ -61,63 +59,63 @@ abstract class  ConnectionInterface
     abstract public function send($send_buffer);
 
     /**
-     * Получение удалённого IP.
+     * Get remote IP.
      *
      * @return string
      */
     abstract public function getRemoteIp();
 
     /**
-     * Получение удалённого порта.
+     * Get remote port.
      *
      * @return int
      */
     abstract public function getRemotePort();
 
     /**
-     * Получение удалённого адреса.
+     * Get remote address.
      *
      * @return string
      */
     abstract public function getRemoteAddress();
 
     /**
-     * Получение локального IP.
+     * Get local IP.
      *
      * @return string
      */
     abstract public function getLocalIp();
 
     /**
-     * Получение локального порта.
+     * Get local port.
      *
      * @return int
      */
     abstract public function getLocalPort();
 
     /**
-     * Получение локального адреса.
+     * Get local address.
      *
      * @return string
      */
     abstract public function getLocalAddress();
 
     /**
-     * Проверка ipv4.
+     * Is ipv4.
      *
      * @return bool
      */
     abstract public function isIPv4();
 
     /**
-     * Проверка ipv6.
+     * Is ipv6.
      *
      * @return bool
      */
     abstract public function isIPv6();
 
     /**
-     * Закрытие соединения.
+     * Close connection.
      *
      * @param string|null $data
      * @return void

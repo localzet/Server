@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Protocols;
 
 use localzet\Core\Connection\TcpConnection;
@@ -101,8 +99,9 @@ class Http
         }
         $crlf_pos = \strpos($recv_buffer, "\r\n\r\n");
         if (false === $crlf_pos) {
+            // Judge whether the package length exceeds the limit.
             if ($recv_len = \strlen($recv_buffer) >= 16384) {
-                $connection->close("HTTP/1.1 413 Request Entity Too Large\r\n\r\n");
+                $connection->close("HTTP/1.1 413 Request Entity Too Large\r\n\r\n", true);
                 return 0;
             }
             return 0;
@@ -140,7 +139,7 @@ class Http
                 }
             }
             if ($length > $connection->maxPackageSize) {
-                $connection->close("HTTP/1.1 413 Request Entity Too Large\r\n\r\n");
+                $connection->close("HTTP/1.1 413 Request Entity Too Large\r\n\r\n", true);
                 return 0;
             }
             return $length;

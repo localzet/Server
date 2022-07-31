@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -312,7 +311,7 @@ class Session
 
     /**
      * Refresh session expire time.
-     * 
+     *
      * @return bool
      */
     public function refresh()
@@ -434,6 +433,7 @@ class Session
  */
 class SessionException extends \RuntimeException
 {
+
 }
 
 // Init session.

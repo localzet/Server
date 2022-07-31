@@ -1,5 +1,4 @@
-<?php
-
+<?php 
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,13 +10,12 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Events;
 
 use localzet\Core\Server;
 
 /**
- * Libevent Eventloop
+ * libevent eventloop
  */
 class Event implements EventInterface
 {
@@ -26,39 +24,38 @@ class Event implements EventInterface
      * @var object
      */
     protected $_eventBase = null;
-
+    
     /**
-     * Обработчики для чтения/записи событий.
+     * All listeners for read/write event.
      * @var array
      */
     protected $_allEvents = array();
-
+    
     /**
-     * Обработчики сигнала.
+     * Event listeners of signal.
      * @var array
      */
     protected $_eventSignal = array();
-
+    
     /**
-     * Все таймеры обработчиков событий.
+     * All timer event listeners.
      * [func, args, event, flag, time_interval]
      * @var array
      */
     protected $_eventTimer = array();
 
     /**
-     * id таймера.
+     * Timer id.
      * @var int
      */
     protected static $_timerId = 1;
-
+    
     /**
+     * construct
      * @return void
      */
     public function __construct()
     {
-        // Задел на будущее
-        // Если надумаю собирать свою событийную базу
         if (\class_exists('\\\\EventBase', false)) {
             $class_name = '\\\\EventBase';
         } else {
@@ -66,16 +63,12 @@ class Event implements EventInterface
         }
         $this->_eventBase = new $class_name();
     }
-
+   
     /**
-     * Добавление события
-     * 
      * @see EventInterface::add()
      */
-    public function add($fd, $flag, $func, $args = array())
+    public function add($fd, $flag, $func, $args=array())
     {
-        // Да, тут по сути в каждом событии будет функция добавления нового события
-        // В формате того же класса Event
         if (\class_exists('\\\\Event', false)) {
             $class_name = '\\\\Event';
         } else {
@@ -86,7 +79,7 @@ class Event implements EventInterface
 
                 $fd_key = (int)$fd;
                 $event = $class_name::signal($this->_eventBase, $fd, $func);
-                if (!$event || !$event->add()) {
+                if (!$event||!$event->add()) {
                     return false;
                 }
                 $this->_eventSignal[$fd_key] = $event;
@@ -96,28 +89,26 @@ class Event implements EventInterface
             case self::EV_TIMER_ONCE:
 
                 $param = array($func, (array)$args, $flag, $fd, self::$_timerId);
-                $event = new $class_name($this->_eventBase, -1, $class_name::TIMEOUT | $class_name::PERSIST, array($this, "timerCallback"), $param);
-                if (!$event || !$event->addTimer($fd)) {
+                $event = new $class_name($this->_eventBase, -1, $class_name::TIMEOUT|$class_name::PERSIST, array($this, "timerCallback"), $param);
+                if (!$event||!$event->addTimer($fd)) {
                     return false;
                 }
                 $this->_eventTimer[self::$_timerId] = $event;
                 return self::$_timerId++;
-
-            default:
+                
+            default :
                 $fd_key = (int)$fd;
                 $real_flag = $flag === self::EV_READ ? $class_name::READ | $class_name::PERSIST : $class_name::WRITE | $class_name::PERSIST;
                 $event = new $class_name($this->_eventBase, $fd, $real_flag, $func, $fd);
-                if (!$event || !$event->add()) {
+                if (!$event||!$event->add()) {
                     return false;
                 }
                 $this->_allEvents[$fd_key][$flag] = $event;
                 return true;
         }
     }
-
+    
     /**
-     * Удаление события
-     * 
      * @see Events\EventInterface::del()
      */
     public function del($fd, $flag)
@@ -155,8 +146,9 @@ class Event implements EventInterface
         }
         return true;
     }
-
+    
     /**
+     * Timer callback.
      * @param int|null $fd
      * @param int $what
      * @param int $timer_id
@@ -164,7 +156,7 @@ class Event implements EventInterface
     public function timerCallback($fd, $what, $param)
     {
         $timer_id = $param[4];
-
+        
         if ($param[2] === self::EV_TIMER_ONCE) {
             $this->_eventTimer[$timer_id]->del();
             unset($this->_eventTimer[$timer_id]);
@@ -178,7 +170,7 @@ class Event implements EventInterface
             Server::stopAll(250, $e);
         }
     }
-
+    
     /**
      * @see Events\EventInterface::clearAllTimer() 
      * @return void
@@ -190,7 +182,7 @@ class Event implements EventInterface
         }
         $this->_eventTimer = array();
     }
-
+     
 
     /**
      * @see EventInterface::loop()
@@ -201,7 +193,7 @@ class Event implements EventInterface
     }
 
     /**
-     * Разорвать цикл.
+     * Destroy loop.
      *
      * @return void
      */
@@ -211,7 +203,7 @@ class Event implements EventInterface
     }
 
     /**
-     * Кол-во таймеров.
+     * Get timer count.
      *
      * @return integer
      */

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Protocols\Http\Session;
 
 use localzet\Core\Protocols\Http\Session;
@@ -109,6 +107,7 @@ class RedisSessionHandler implements SessionHandlerInterface
             }
             throw $e;
         }
+
     }
 
     /**

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Protocols;
 
 use localzet\Core\Server;
@@ -22,14 +20,14 @@ use localzet\Core\Protocols\FastCGI\Response;
 class Fcgi
 {
     /**
-     * Версия протокола FCGI
+     * the version of fcgi protocol
      *
      * @var int
      */
     const FCGI_VERSION_1 = 1;
 
     /**
-     * Фиксированная длина FCGI_Header: sizeof(FCGI_Header) === 8
+     * the fixed length of FCGI_Header: sizeof(FCGI_Header) === 8
      *
      * typedef struct {
      *     unsigned char version;
@@ -47,210 +45,222 @@ class Fcgi
     const FCGI_HEADER_LEN = 8;
 
     /**
-     * Максимальная длина полезной нагрузки 
+     * the max length of payload 
      *
      * @var int
      */
     const FCGI_MAX_PAYLOAD_LEN = 65535;
 
     /**
-     * Зарезервированный бит FCGI_Header
+     * the reserved bit FCGI_Header
      *
      * @var string
      */
     const FCGI_RESERVED = '';
 
     /**
-     * Прокладка FCGI_Header
+     * the padding bit FCGI_Header
      *
      * @var string
      */
     const FCGI_PADDING = '';
 
     /**
-     * Тип записи FCGI_BEGIN_REQUEST
+     * the record type of FCGI_BEGIN_REQUEST
      *
      * @var int
      */
     const FCGI_BEGIN_REQUEST = 1;
 
     /**
-     * Тип записи FCGI_ABORT_REQUEST
+     * the record type of FCGI_ABORT_REQUEST
      *
      * @var int
      */
     const FCGI_ABORT_REQUEST = 2;
 
     /**
-     * Тип записи FCGI_END_REQUEST
+     * the record type of FCGI_END_REQUEST
      *
      * @var int
      */
     const FCGI_END_REQUEST = 3;
 
     /**
-     * Тип записи FCGI_PARAMS
+     * the record type of FCGI_PARAMS
      *
      * @var int
      */
     const FCGI_PARAMS = 4;
 
     /**
-     * Псевдо-тип записи FCGI_PARAMS
+     * -------------------------------------
+     * the pseudo record type of FCGI_PARAMS
+     * -------------------------------------
      *
      * @var int
      */
     const FCGI_PARAMS_END = 4 << 3;
 
     /**
-     * Тип записи FCGI_STDIN
+     * the record type of FCGI_STDIN
      *
      * @var int
      */
     const FCGI_STDIN = 5;
 
     /**
-     * Псевдо-тип записи FCGI_STDIN
+     * -------------------------------------
+     * the pseudo record type of FCGI_STDIN
+     * -------------------------------------
      *
      * @var int
      */
     const FCGI_STDIN_END = 5 << 4;
 
     /**
-     * Тип записи FCGI_STDOUT
+     * the record type of FCGI_STDOUT
      *
      * @var int
      */
     const FCGI_STDOUT = 6;
 
     /**
-     * Тип записи FCGI_STDERR
+     * the record type of FCGI_STDERR
      *
      * @var int
      */
     const FCGI_STDERR = 7;
 
     /**
-     * Тип записи FCGI_DATA
+     * the record type of FCGI_DATA
      *
      * @var int
      */
     const FCGI_DATA = 8;
 
     /**
-     * Тип записи FCGI_GET_VALUES
+     * the record type of FCGI_GET_VALUES
      *
      * @var int
      */
     const FCGI_GET_VALUES = 9;
 
     /**
-     * Тип записи FCGI_GET_VALUES_RESULT
+     * the record type of FCGI_GET_VALUES_RESULT
      *
      * @var int
      */
     const FCGI_GET_VALUES_RESULT = 10;
 
     /**
-     * Тип записи FCGI_UNKNOWN_TYPE
+     * the record type of FCGI_UNKNOWN_TYPE
      *
      * @var int
      */
     const FCGI_UNKNOWN_TYPE = 11;
 
     /**
-     * Тип роли FCGI_RESPONDER
+     * the role type of FCGI_RESPONDER
      *
      * @var int
      */
     const FCGI_RESPONDER = 1;
 
     /**
-     * Тип роли FCGI_AUTHORIZER
+     * the role type of FCGI_AUTHORIZER
      *
      * @var int
      */
     const FCGI_AUTHORIZER = 2;
 
     /**
-     * Тип роли FCGI_FILTER
+     * the role type of FCGI_FILTER
      *
      * @var int
      */
     const FCGI_FILTER = 3;
 
     /**
-     * Статус протокола FCGI_REQUEST_COMPLETE
+     * the protocol status of FCGI_REQUEST_COMPLETE
      *
      * @var int
      */
-    const FCGI_REQUEST_COMPLETE = 0;
+    const FCGI_REQUEST_COMPLETE = 0; 
 
     /**
-     * Статус протокола FCGI_CANT_MPX_CONN
+     * the protocol status of FCGI_CANT_MPX_CONN
      *
      * @var int
      */
-    const FCGI_CANT_MPX_CONN = 1;
+    const FCGI_CANT_MPX_CONN = 1;  
 
     /**
-     * Статус протокола FCGI_OVERLOADED
+     * the protocol status of FCGI_OVERLOADED
      *
      * @var int
      */
-    const FCGI_OVERLOADED = 2;
+    const FCGI_OVERLOADED = 2;  
 
     /**
-     * Статус протокола FCGI_UNKNOWN_ROLE
+     * the protocol status of FCGI_UNKNOWN_ROLE
      *
      * @var int
      */
-    const FCGI_UNKNOWN_ROLE = 3;
+    const FCGI_UNKNOWN_ROLE = 3;  
 
     /**
-     * Объект запроса
+     * the request object
      *
      * @var object
      */
     static private $_request = NULL;
 
     /**
-     * @param string $buffer
-     * @param TcpConnection $connection
-     * @return int
+     * check the integrity of the package
+     *
+     * @param   string              $buffer
+     * @param   TcpConnection       $connection
+     *
+     * @return  int
      */
     public static function input($buffer, TcpConnection $connection)
     {
         $recv_len = \strlen($buffer);
 
-        if ($recv_len < static::FCGI_HEADER_LEN) return 0;
+        if($recv_len < static::FCGI_HEADER_LEN) return 0;
 
-        if (!isset($connection->packetLength)) $connection->packetLength = 0;
+        if(!isset($connection->packetLength)) $connection->packetLength = 0;
 
         $data = \unpack("Cversion/Ctype/nrequestId/ncontentLength/CpaddingLength/Creserved", $buffer);
-        if (false === $data) return 0;
+        if(false === $data) return 0;
 
         $chunk_len = static::FCGI_HEADER_LEN + $data['contentLength'] + $data['paddingLength'];
-        if ($recv_len < $chunk_len) return 0;
+        if($recv_len < $chunk_len) return 0;
 
-        if (static::FCGI_END_REQUEST != $data['type']) {
+        if(static::FCGI_END_REQUEST != $data['type'])
+        {
             $connection->packetLength += $chunk_len;
             $next_chunk_len = static::input(\substr($buffer, $chunk_len), $connection);
 
-            if (0 == $next_chunk_len) {
-                // Важно!! Не забываем сбросить на нулевой байт!!
+            if(0 == $next_chunk_len) 
+            {
+                //important!! don't forget to reset to zero byte!!
                 $connection->packetLength = 0;
                 return 0;
             }
-        } else {
+        }
+        else
+        {
             $connection->packetLength += $chunk_len;
         }
 
-        // Проверка длины пакета превышает длину пакета MAX или нет
-        if ($connection->packetLength > $connection->maxPackageSize) {
-            $data  = "Исключение: ошибка пакета. package_length = {$connection->packetLength} ";
-            $data .= "превышает лимит {$connection->maxPackageSize}" . PHP_EOL;
-            Server::safeEcho($data);
+        //check package length exceeds the max package length or not
+        if($connection->packetLength > $connection->maxPackageSize) 
+        {
+            $msg  = "Exception: recv error package. package_length = {$connection->packetLength} ";
+            $msg .= "exceeds the limit {$connection->maxPackageSize}" . PHP_EOL;
+            Server::safeEcho($msg);
             $connection->close();
             return 0;
         }
@@ -259,21 +269,28 @@ class Fcgi
     }
 
     /**
-     * @param string $buffer
-     * @param TcpConnection $connection
-     * @return array
+     * @brief   decode package
+     *
+     * @param   string              $buffer
+     * @param   TcpConnection       $connection
+     *
+     * @return  array
      */
     public static function decode($buffer, TcpConnection $connection)
     {
         $offset = 0;
         $stdout = $stderr = '';
 
-        do {
+        do
+        {
             $header_buffer = \substr($buffer, $offset, static::FCGI_HEADER_LEN);
             $data = \unpack("Cversion/Ctype/nrequestId/ncontentLength/CpaddingLength/Creserved", $header_buffer);
 
-            if (false === $data) {
-                $stderr = "Не удалось распаковывать данные заголовка из двоичного буфера";
+            //we are not going to throw new \Exception("Failed to unpack header data from the binary buffer.");
+            //but just break out of the loop to avoid bring much unnecessary TCP connections with TIME_WAIT status
+            if(false === $data) 
+            {
+                $stderr = "Failed to unpack header data from the binary buffer";
                 Server::safeEcho($stderr);
                 $connection->close();
                 break;
@@ -283,55 +300,58 @@ class Fcgi
             $body_buffer = \substr($buffer, $offset + static::FCGI_HEADER_LEN, $chunk_len - static::FCGI_HEADER_LEN);
 
 
-            switch ($data['type']) {
+            switch($data['type'])
+            {
                 case static::FCGI_STDOUT:
                     $payload = \unpack("a{$data['contentLength']}contentData/a{$data['paddingLength']}paddingData", $body_buffer);
-                    $stdout .= $payload['contentData'];
+                    $stdout .= $payload['contentData']; 
                     break;
                 case static::FCGI_STDERR:
                     $payload = \unpack("a{$data['contentLength']}contentData/a{$data['paddingLength']}paddingData", $body_buffer);
-                    $stderr .= $payload['contentData'];
+                    $stderr .= $payload['contentData']; 
                     break;
                 case static::FCGI_END_REQUEST:
                     $payload = \unpack("NappStatus/CprotocolStatus/a3reserved", $body_buffer);
                     $result = static::checkProtocolStatus($payload['protocolStatus']);
 
-                    if (0 <> $result['status']) {
-                        $stderr = $result['data'];
+                    if(0 <> $result['code']) 
+                    {
+                        $stderr = $result['msg']; 
                         Server::safeEcho($stderr);
                         $connection->close();
                     }
                     break;
                 default:
-                    //Пока не поддерживается
+                    //not support yet
                     $payload = '';
                     break;
             }
 
             $offset += $chunk_len;
-        } while ($offset < $connection->packetLength);
+        }while($offset < $connection->packetLength);
 
-        // Важно!! Не забываем сбросить на нулевой байт!!
+        //important!! don't forget to reset to zero byte!! 
         $connection->packetLength = 0;
 
-        // Сбор ответа
+        //build response
         $response = new Response();
         $output = $response->setRequestId($data['requestId'] ?? -1)
             ->setStdout($stdout)
             ->setStderr($stderr)
             ->formatOutput();
 
-        // onResponse
-        if (!empty($connection->onResponse) && is_callable($connection->onResponse)) {
+        //trigger user callback as onResponse
+        if(!empty($connection->onResponse) && is_callable($connection->onResponse)) 
+        {
             try {
                 \call_user_func($connection->onResponse, $connection, $response);
             } catch (\Exception $e) {
-                $data = "Исключение: onResponse: " . $e->getMessage();
-                Server::safeEcho($data);
+                $msg = "Exception: onResponse: " . $e->getMessage();
+                Server::safeEcho($msg);
                 $connection->close();
             } catch (\Error $e) {
-                $data = "Исключение: onResponse: " . $e->getMessage();
-                Server::safeEcho($data);
+                $msg = "Exception: onResponse: " . $e->getMessage();
+                Server::safeEcho($msg);
                 $connection->close();
             }
         }
@@ -349,7 +369,7 @@ class Fcgi
      */
     public static function encode(Request $request, TcpConnection $connection)
     {
-        if (!$request instanceof Request) return '';
+        if(!$request instanceof Request) return '';
 
         static::$_request = $request;
 
@@ -363,10 +383,11 @@ class Fcgi
         $connection->maxSendBufferSize = TcpConnection::$defaultMaxSendBufferSize * 10;
         $packet_len = \strlen($packet);
 
-        if ($packet_len > $connection->maxSendBufferSize) {
-            $data  = "Исключение: ошибка отправки пакета. package_length = {$packet_len} ";
-            $data .= "превышает лимит {$connection->maxSendBufferSize}" . PHP_EOL;
-            Server::safeEcho($data);
+        if($packet_len > $connection->maxSendBufferSize) 
+        {
+            $msg  = "Exception: send error package. package_length = {$packet_len} ";
+            $msg .= "exceeds the limit {$connection->maxSendBufferSize}" . PHP_EOL;
+            Server::safeEcho($msg);
             $connection->close();
             return '';
         }
@@ -375,27 +396,32 @@ class Fcgi
     }
 
     /**
-     * @param string $type
-     * @return string
+     * @brief    pack payload 
+     *
+     * @param    string  $type
+     *
+     * @return   string
      */
     static private function packPayload($type = '')
     {
         $payload = '';
 
-        switch ($type) {
+        switch($type)
+        {
             case static::FCGI_BEGIN_REQUEST:
                 $payload = \pack(
                     "nCa5",
                     static::$_request->getRole(),
                     static::$_request->getKeepAlive(),
                     static::FCGI_RESERVED
-                );
+                );  
                 break;
             case static::FCGI_PARAMS:
             case static::FCGI_PARAMS_END:
                 $payload = '';
                 $params = (static::FCGI_PARAMS == $type) ? static::$_request->getParams() : [];
-                foreach ($params as $name => $value) {
+                foreach($params as $name => $value) 
+                {
                     $name_len  = \strlen($name);
                     $value_len = \strlen($value);
                     $format = [
@@ -404,7 +430,7 @@ class Fcgi
                         "a{$name_len}",
                         "a{$value_len}",
                     ];
-                    $format = implode('', $format);
+                    $format = implode ('', $format);
                     $payload .= \pack(
                         $format,
                         $name_len  > 127 ? ($name_len  | 0x80000000) : $name_len,
@@ -434,8 +460,11 @@ class Fcgi
     }
 
     /**
-     * @param string $type
-     * @return string
+     * @brief    create request packet
+     *
+     * @param    string  $type
+     *
+     * @return   string
      */
     static public function createPacket($type = '')
     {
@@ -444,12 +473,13 @@ class Fcgi
         $payload = static::packPayload($type);
         $total_len = \strlen($payload);
 
-        // Не забываем сбросить псевдо-тип записи на нормальный
+        //don't forget to reset pseudo record type to normal
         $type == static::FCGI_PARAMS_END && $type = static::FCGI_PARAMS;
         $type == static::FCGI_STDIN_END  && $type = static::FCGI_STDIN;
 
-        // Может быть, нужно разделить полезную нагрузку на множество частей 
-        do {
+        //maybe need to split payload into many chunks 
+        do
+        {
             $chunk = \substr($payload, $offset, static::FCGI_MAX_PAYLOAD_LEN);
             $chunk_len = \strlen($chunk);
             $remainder = \abs($chunk_len % 8);
@@ -460,7 +490,7 @@ class Fcgi
                 static::FCGI_VERSION_1,
                 $type,
                 static::$_request->getRequestId(),
-                $chunk_len,
+                $chunk_len, 
                 $padding_len,
                 static::FCGI_RESERVED
             );
@@ -468,38 +498,43 @@ class Fcgi
             $padding = \pack("a{$padding_len}", static::FCGI_PADDING);
             $packet .= $header . $chunk . $padding;
             $offset += $chunk_len;
-        } while ($offset < $total_len);
+        }while($offset < $total_len);
 
         return $packet;
     }
 
     /**
-     * @param int $status
-     * @return array
+     * @brief    check the protocol status from FCGI_END_REQUEST body
+     *
+     * @param    int    $status
+     *
+     * @return   array
      */
     static public function checkProtocolStatus($status = 0)
     {
-        switch ($status) {
+        switch($status)
+        {
             case static::FCGI_REQUEST_COMPLETE:
-                $data = 'Принято: Запрос заполнен';
+                $msg = 'Accepted: request completed ok';
                 break;
             case static::FCGI_CANT_MPX_CONN:
-                $data = 'Отклонено: Сервер FastCGI не поддерживает одновременную обработку';
+                $msg = 'Rejected: FastCGI server does not support concurrent processing';
                 break;
             case static::FCGI_OVERLOADED:
-                $data = 'Отклонено: Серверу FastCGI не хватает ресурсов';
+                $msg = 'Rejected: FastCGI server run out of resources or reached the limit';
                 break;
             case static::FCGI_UNKNOWN_ROLE:
-                $data = 'Отклонено: Сервер FastCGI не поддерживает указанную роль';
+                $msg = 'Rejected: FastCGI server not support the specified role';
                 break;
             default:
-                $data = 'Отклонено: Сервер FastCGI не знает, что случилось';
+                $msg = 'Rejected: FastCGI server does not know what happened';
                 break;
         }
 
         return [
-            'status' => $status,
-            'data'  => $data,
+            'code' => $status,
+            'msg'  => $msg,
         ];
     }
+
 }

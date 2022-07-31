@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Protocols;
 
 use localzet\Core\Connection\ConnectionInterface;
@@ -48,7 +46,8 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
     {
         // Receive length.
         $recv_len = \strlen($buffer);
-        if ($recv_len < 6) { // Нам нужно больше данных!!!
+        // We need more data.
+        if ($recv_len < 6) {
             return 0;
         }
 
@@ -65,7 +64,6 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 return 0;
             }
         } else {
-
             $firstbyte    = \ord($buffer[0]);
             $secondbyte   = \ord($buffer[1]);
             $data_len     = $secondbyte & 127;
@@ -79,22 +77,21 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
             }
 
             $opcode       = $firstbyte & 0xf;
-
             switch ($opcode) {
                 case 0x0:
                     break;
-                    // Blob type.
+                // Blob type.
                 case 0x1:
                     break;
-                    // Arraybuffer type.
+                // Arraybuffer type.
                 case 0x2:
                     break;
-                    // Close package.
+                // Close package.
                 case 0x8:
                     // Try to emit onWebSocketClose callback.
                     if (isset($connection->onWebSocketClose) || isset($connection->server->onWebSocketClose)) {
                         try {
-                            \call_user_func(isset($connection->onWebSocketClose) ? $connection->onWebSocketClose : $connection->server->onWebSocketClose, $connection);
+                            \call_user_func(isset($connection->onWebSocketClose)?$connection->onWebSocketClose:$connection->server->onWebSocketClose, $connection);
                         } catch (\Exception $e) {
                             Server::stopAll(250, $e);
                         } catch (\Error $e) {
@@ -105,14 +102,14 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                         $connection->close("\x88\x02\x03\xe8", true);
                     }
                     return 0;
-                    // Ping package.
+                // Ping package.
                 case 0x9:
                     break;
-                    // Pong package.
+                // Pong package.
                 case 0xa:
                     break;
-                    // Wrong opcode. 
-                default:
+                // Wrong opcode. 
+                default :
                     Server::safeEcho("error opcode $opcode and close websocket connection. Buffer:" . bin2hex($buffer) . "\n");
                     $connection->close();
                     return 0;
@@ -125,7 +122,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 if ($head_len > $recv_len) {
                     return 0;
                 }
-                $pack = \unpack('nn/ntotal_len', $buffer);
+                $pack     = \unpack('nn/ntotal_len', $buffer);
                 $data_len = $pack['total_len'];
             } else {
                 if ($data_len === 127) {
@@ -134,7 +131,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                         return 0;
                     }
                     $arr      = \unpack('n/N2c', $buffer);
-                    $data_len = $arr['c1'] * 4294967296 + $arr['c2'];
+                    $data_len = $arr['c1']*4294967296 + $arr['c2'];
                 }
             }
             $current_frame_length = $head_len + $data_len;
@@ -155,7 +152,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                         $connection->websocketType = "\x8a";
                         if (isset($connection->onWebSocketPing) || isset($connection->server->onWebSocketPing)) {
                             try {
-                                \call_user_func(isset($connection->onWebSocketPing) ? $connection->onWebSocketPing : $connection->server->onWebSocketPing, $connection, $ping_data);
+                                \call_user_func(isset($connection->onWebSocketPing)?$connection->onWebSocketPing:$connection->server->onWebSocketPing, $connection, $ping_data);
                             } catch (\Exception $e) {
                                 Server::stopAll(250, $e);
                             } catch (\Error $e) {
@@ -179,7 +176,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                         // Try to emit onWebSocketPong callback.
                         if (isset($connection->onWebSocketPong) || isset($connection->server->onWebSocketPong)) {
                             try {
-                                \call_user_func(isset($connection->onWebSocketPong) ? $connection->onWebSocketPong : $connection->server->onWebSocketPong, $connection, $pong_data);
+                                \call_user_func(isset($connection->onWebSocketPong)?$connection->onWebSocketPong:$connection->server->onWebSocketPong, $connection, $pong_data);
                             } catch (\Exception $e) {
                                 Server::stopAll(250, $e);
                             } catch (\Error $e) {
@@ -347,20 +344,18 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
             if (\preg_match("/Sec-WebSocket-Key: *(.*?)\r\n/i", $buffer, $match)) {
                 $Sec_WebSocket_Key = $match[1];
             } else {
-                $connection->close(
-                    "HTTP/1.1 200 WebSocket\r\nServer: WebCore Server/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>WebCore Server/" . Server::VERSION . "</div>",
-                    true
-                );
+                $connection->close("HTTP/1.1 200 WebSocket\r\nServer: WebCore Server/".Server::VERSION."\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>WebCore Server/".Server::VERSION."</div>",
+                    true);
                 return 0;
             }
             // Calculation websocket key.
             $new_key = \base64_encode(\sha1($Sec_WebSocket_Key . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true));
             // Handshake response data.
             $handshake_message = "HTTP/1.1 101 Switching Protocols\r\n"
-                . "Upgrade: websocket\r\n"
-                . "Sec-WebSocket-Version: 13\r\n"
-                . "Connection: Upgrade\r\n"
-                . "Sec-WebSocket-Accept: " . $new_key . "\r\n";
+                                ."Upgrade: websocket\r\n"
+                                ."Sec-WebSocket-Version: 13\r\n"
+                                ."Connection: Upgrade\r\n"
+                                ."Sec-WebSocket-Accept: " . $new_key . "\r\n";
 
             // Websocket data buffer.
             $connection->websocketDataBuffer = '';
@@ -379,7 +374,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
             $has_server_header = false;
 
             if (isset($connection->headers)) {
-                if (\is_array($connection->headers)) {
+                if (\is_array($connection->headers))  {
                     foreach ($connection->headers as $header) {
                         if (\stripos($header, 'Server:') === 0) {
                             $has_server_header = true;
@@ -394,7 +389,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 }
             }
             if (!$has_server_header) {
-                $handshake_message .= "Server: WebCore Server/" . Server::VERSION . "\r\n";
+                $handshake_message .= "Server: WebCore Server/".Server::VERSION."\r\n";
             }
             $handshake_message .= "\r\n";
             // Send handshake response.
@@ -403,7 +398,8 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
             $connection->websocketHandshake = true;
 
             // Try to emit onWebSocketConnect callback.
-            $on_websocket_connect = isset($connection->onWebSocketConnect) ? $connection->onWebSocketConnect : (isset($connection->server->onWebSocketConnect) ? $connection->server->onWebSocketConnect : false);
+            $on_websocket_connect = isset($connection->onWebSocketConnect) ? $connection->onWebSocketConnect :
+                (isset($connection->server->onWebSocketConnect) ? $connection->server->onWebSocketConnect : false);
             if ($on_websocket_connect) {
                 static::parseHttpHeader($buffer);
                 try {
@@ -413,8 +409,8 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 } catch (\Error $e) {
                     Server::stopAll(250, $e);
                 }
-                if (!empty($_SESSION) && \class_exists('\localzet\LongCore\Lib\Context')) {
-                    $connection->session = \localzet\LongCore\Lib\Context::sessionEncode($_SESSION);
+                if (!empty($_SESSION) && \class_exists('\GatewayWorker\Lib\Context')) {
+                    $connection->session = \GatewayWorker\Lib\Context::sessionEncode($_SESSION);
                 }
                 $_GET = $_SERVER = $_SESSION = $_COOKIE = array();
             }
@@ -436,10 +432,8 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
             return 0;
         }
         // Bad websocket handshake request.
-        $connection->close(
-            "HTTP/1.1 200 WebSocket\r\nServer: WebCore Server/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>WebCore Server/" . Server::VERSION . "</div>",
-            true
-        );
+        $connection->close("HTTP/1.1 200 WebSocket\r\nServer: WebCore Server/".Server::VERSION."\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>WebCore Server/".Server::VERSION."</div>",
+            true);
         return 0;
     }
 
@@ -452,17 +446,15 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
     protected static function parseHttpHeader($buffer)
     {
         // Parse headers.
-        list($http_header,) = \explode("\r\n\r\n", $buffer, 2);
+        list($http_header, ) = \explode("\r\n\r\n", $buffer, 2);
         $header_data = \explode("\r\n", $http_header);
 
         if ($_SERVER) {
             $_SERVER = array();
         }
 
-        list($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI'], $_SERVER['SERVER_PROTOCOL']) = \explode(
-            ' ',
-            $header_data[0]
-        );
+        list($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI'], $_SERVER['SERVER_PROTOCOL']) = \explode(' ',
+            $header_data[0]);
 
         unset($header_data[0]);
         foreach ($header_data as $content) {
@@ -475,7 +467,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
             $value                   = \trim($value);
             $_SERVER['HTTP_' . $key] = $value;
             switch ($key) {
-                    // HTTP_HOST
+                // HTTP_HOST
                 case 'HOST':
                     $tmp                    = \explode(':', $value);
                     $_SERVER['SERVER_NAME'] = $tmp[0];
@@ -483,7 +475,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                         $_SERVER['SERVER_PORT'] = $tmp[1];
                     }
                     break;
-                    // cookie
+                // cookie
                 case 'COOKIE':
                     \parse_str(\str_replace('; ', '&', $_SERVER['HTTP_COOKIE']), $_COOKIE);
                     break;

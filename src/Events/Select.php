@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Events;
 
 /**
@@ -130,7 +128,7 @@ class Select implements EventInterface
                 break;
             case self::EV_SIGNAL:
                 // Windows not support signal.
-                if (\DIRECTORY_SEPARATOR !== '/') {
+                if(\DIRECTORY_SEPARATOR !== '/') {
                     return false;
                 }
                 $fd_key                              = (int)$fd;
@@ -145,9 +143,9 @@ class Select implements EventInterface
                 $this->_eventTimer[$timer_id] = array($func, (array)$args, $flag, $fd);
                 $select_timeout = ($run_time - \microtime(true)) * 1000000;
                 $select_timeout = $select_timeout <= 0 ? 1 : $select_timeout;
-                if ($this->_selectTimeout > $select_timeout) {
-                    $this->_selectTimeout = (int) $select_timeout;
-                }
+                if( $this->_selectTimeout > $select_timeout ){ 
+                    $this->_selectTimeout = (int) $select_timeout;   
+                }  
                 return $timer_id;
         }
 
@@ -185,12 +183,13 @@ class Select implements EventInterface
                 return true;
             case self::EV_EXCEPT:
                 unset($this->_allEvents[$fd_key][$flag], $this->_exceptFds[$fd_key]);
-                if (empty($this->_allEvents[$fd_key])) {
+                if(empty($this->_allEvents[$fd_key]))
+                {
                     unset($this->_allEvents[$fd_key]);
                 }
                 return true;
             case self::EV_SIGNAL:
-                if (\DIRECTORY_SEPARATOR !== '/') {
+                if(\DIRECTORY_SEPARATOR !== '/') {
                     return false;
                 }
                 unset($this->_signalEvents[$fd_key]);
@@ -257,7 +256,7 @@ class Select implements EventInterface
     public function loop()
     {
         while (1) {
-            if (\DIRECTORY_SEPARATOR === '/') {
+            if(\DIRECTORY_SEPARATOR === '/') {
                 // Calls signal handlers for pending signals
                 \pcntl_signal_dispatch();
             }
@@ -271,9 +270,8 @@ class Select implements EventInterface
                 // Waiting read/write/signal/timeout events.
                 try {
                     $ret = @stream_select($read, $write, $except, 0, $this->_selectTimeout);
-                } catch (\Exception $e) {
-                } catch (\Error $e) {
-                }
+                } catch (\Exception $e) {} catch (\Error $e) {}
+
             } else {
                 $this->_selectTimeout >= 1 && usleep($this->_selectTimeout);
                 $ret = false;
@@ -292,10 +290,8 @@ class Select implements EventInterface
                 foreach ($read as $fd) {
                     $fd_key = (int)$fd;
                     if (isset($this->_allEvents[$fd_key][self::EV_READ])) {
-                        \call_user_func_array(
-                            $this->_allEvents[$fd_key][self::EV_READ][0],
-                            array($this->_allEvents[$fd_key][self::EV_READ][1])
-                        );
+                        \call_user_func_array($this->_allEvents[$fd_key][self::EV_READ][0],
+                            array($this->_allEvents[$fd_key][self::EV_READ][1]));
                     }
                 }
             }
@@ -304,22 +300,18 @@ class Select implements EventInterface
                 foreach ($write as $fd) {
                     $fd_key = (int)$fd;
                     if (isset($this->_allEvents[$fd_key][self::EV_WRITE])) {
-                        \call_user_func_array(
-                            $this->_allEvents[$fd_key][self::EV_WRITE][0],
-                            array($this->_allEvents[$fd_key][self::EV_WRITE][1])
-                        );
+                        \call_user_func_array($this->_allEvents[$fd_key][self::EV_WRITE][0],
+                            array($this->_allEvents[$fd_key][self::EV_WRITE][1]));
                     }
                 }
             }
 
-            if ($except) {
-                foreach ($except as $fd) {
+            if($except) {
+                foreach($except as $fd) {
                     $fd_key = (int) $fd;
-                    if (isset($this->_allEvents[$fd_key][self::EV_EXCEPT])) {
-                        \call_user_func_array(
-                            $this->_allEvents[$fd_key][self::EV_EXCEPT][0],
-                            array($this->_allEvents[$fd_key][self::EV_EXCEPT][1])
-                        );
+                    if(isset($this->_allEvents[$fd_key][self::EV_EXCEPT])) {
+                        \call_user_func_array($this->_allEvents[$fd_key][self::EV_EXCEPT][0],
+                            array($this->_allEvents[$fd_key][self::EV_EXCEPT][1]));
                     }
                 }
             }
@@ -327,16 +319,17 @@ class Select implements EventInterface
     }
 
     /**
-     * Разорвать цикл.
+     * Destroy loop.
      *
      * @return void
      */
     public function destroy()
     {
+
     }
 
     /**
-     * Кол-во таймеров.
+     * Get timer count.
      *
      * @return integer
      */

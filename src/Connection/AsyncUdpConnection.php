@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Connection;
 
 use localzet\Core\Events\EventInterface;
@@ -24,42 +22,44 @@ use \Exception;
 class AsyncUdpConnection extends UdpConnection
 {
     /**
-     * Задаётся, когда подключение к сокетам успешно установлено.
+     * Emitted when socket connection is successfully established.
      *
      * @var callable
      */
     public $onConnect = null;
 
     /**
-     * Задаётся, когда подключение к сокетам закрыто.
+     * Emitted when socket connection closed.
      *
      * @var callable
      */
     public $onClose = null;
 
     /**
-     * Подключен или нет.
+     * Connected or not.
      *
      * @var bool
      */
     protected $connected = false;
 
     /**
-     * Контекст.
+     * Context option.
      *
      * @var array
      */
     protected $_contextOption = null;
 
     /**
+     * Construct.
+     *
      * @param string $remote_address
      * @throws Exception
      */
     public function __construct($remote_address, $context_option = null)
     {
-        // Получить протокол связи приложений и адрес прослушивания.
+        // Get the application layer communication protocol and listening address.
         list($scheme, $address) = \explode(':', $remote_address, 2);
-        // Проверяем класс протокола приложения.
+        // Check application layer protocol class.
         if ($scheme !== 'udp') {
             $scheme         = \ucfirst($scheme);
             $this->protocol = '\\Protocols\\' . $scheme;
@@ -70,13 +70,13 @@ class AsyncUdpConnection extends UdpConnection
                 }
             }
         }
-
+        
         $this->_remoteAddress = \substr($address, 2);
         $this->_contextOption = $context_option;
     }
-
+    
     /**
-     * Для пакета UDP.
+     * For udp package.
      *
      * @param resource $socket
      * @return bool
@@ -87,7 +87,7 @@ class AsyncUdpConnection extends UdpConnection
         if (false === $recv_buffer || empty($remote_address)) {
             return false;
         }
-
+        
         if ($this->onMessage) {
             if ($this->protocol) {
                 $parser      = $this->protocol;
@@ -106,7 +106,7 @@ class AsyncUdpConnection extends UdpConnection
     }
 
     /**
-     * Отправляет данные на соединение.
+     * Sends data on the connection.
      *
      * @param string $send_buffer
      * @param bool   $raw
@@ -126,10 +126,10 @@ class AsyncUdpConnection extends UdpConnection
         }
         return \strlen($send_buffer) === \stream_socket_sendto($this->_socket, $send_buffer, 0);
     }
-
-
+    
+    
     /**
-     * Закрытие соединения
+     * Close connection.
      *
      * @param mixed $data
      * @param bool $raw
@@ -138,17 +138,13 @@ class AsyncUdpConnection extends UdpConnection
      */
     public function close($data = null, $raw = false)
     {
-        // Если есть что сказать - скажи сейчас
         if ($data !== null) {
             $this->send($data, $raw);
         }
-
-        // Удаляем из событий на чтение и закрываем стрим
         Server::$globalEvent->del($this->_socket, EventInterface::EV_READ);
         \fclose($this->_socket);
         $this->connected = false;
-
-        // Попытка вызвать onClose
+        // Try to emit onClose callback.
         if ($this->onClose) {
             try {
                 \call_user_func($this->onClose, $this);
@@ -163,53 +159,35 @@ class AsyncUdpConnection extends UdpConnection
     }
 
     /**
-     * Соединение
+     * Connect.
      *
      * @return void
      */
     public function connect()
     {
-        // Если соединение уже есть не нужно подключаться дважды
         if ($this->connected === true) {
             return;
         }
-
-        // Если есть контекст - используем его
-        // Если нет - просто слушаем стрим
         if ($this->_contextOption) {
             $context = \stream_context_create($this->_contextOption);
-            $this->_socket = \stream_socket_client(
-                "udp://{$this->_remoteAddress}",
-                $errno,
-                $errmsg,
-                30,
-                \STREAM_CLIENT_CONNECT,
-                $context
-            );
+            $this->_socket = \stream_socket_client("udp://{$this->_remoteAddress}", $errno, $errmsg,
+                30, \STREAM_CLIENT_CONNECT, $context);
         } else {
             $this->_socket = \stream_socket_client("udp://{$this->_remoteAddress}", $errno, $errmsg);
         }
 
-        // Обрабатываем исключение
         if (!$this->_socket) {
             Server::safeEcho(new \Exception($errmsg));
             return;
         }
-
-        // Отключаем блокировку стрима (non-blocking mode)
-        // Так мы сможем получать данные сразу без ожиданий
+        
         \stream_set_blocking($this->_socket, false);
-
-        // Если есть обработчик - добавляем событие
-        // Если нет - не тратим время
+        
         if ($this->onMessage) {
             Server::$globalEvent->add($this->_socket, EventInterface::EV_READ, array($this, 'baseRead'));
         }
-
-        // Соединено
         $this->connected = true;
-
-        // Попытка вызвать onConnect
+        // Try to emit onConnect callback.
         if ($this->onConnect) {
             try {
                 \call_user_func($this->onConnect, $this);
@@ -220,4 +198,5 @@ class AsyncUdpConnection extends UdpConnection
             }
         }
     }
+
 }

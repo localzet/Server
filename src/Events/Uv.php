@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Events;
 
 use localzet\Core\Server;
@@ -64,14 +62,16 @@ class Uv implements EventInterface
      */
     public function __construct(\UVLoop $loop = null)
     {
-        if (!extension_loaded('uv')) {
+        if(!extension_loaded('uv')) 
+        {
             throw new \Exception(__CLASS__ . ' requires the UV extension, but detected it has NOT been installed yet.');
-        }
+        } 
 
-        if (empty($loop) || !$loop instanceof \UVLoop) {
+        if(empty($loop) || !$loop instanceof \UVLoop) 
+        {
             $this->_eventLoop = \uv_default_loop();
             return;
-        }
+        } 
 
         $this->_eventLoop = $loop;
     }
@@ -88,9 +88,10 @@ class Uv implements EventInterface
      */
     public function add($fd, $flag, $func, $args = null)
     {
-        switch ($flag) {
+        switch ($flag) 
+        {
             case self::EV_SIGNAL:
-                $signalCallback = function ($watcher, $socket) use ($func, $fd) {
+                $signalCallback = function($watcher, $socket)use($func, $fd){
                     try {
                         \call_user_func($func, $fd);
                     } catch (\Exception $e) {
@@ -99,7 +100,7 @@ class Uv implements EventInterface
                         Server::stopAll(250, $e);
                     }
                 };
-                $signalWatcher = \uv_signal_init();
+                $signalWatcher = \uv_signal_init(); 
                 \uv_signal_start($signalWatcher, $signalCallback, $fd);
                 $this->_eventSignal[$fd] = $signalWatcher;
                 return true;
@@ -107,8 +108,8 @@ class Uv implements EventInterface
             case self::EV_TIMER_ONCE:
                 $repeat = $flag === self::EV_TIMER_ONCE ? 0 : (int)($fd * 1000);
                 $param  = array($func, (array)$args, $flag, $fd, self::$_timerId);
-                $timerWatcher = \uv_timer_init();
-                \uv_timer_start($timerWatcher, 1, $repeat, function ($watcher) use ($param) {
+                $timerWatcher = \uv_timer_init(); 
+                \uv_timer_start($timerWatcher, 1, $repeat, function($watcher)use($param){
                     call_user_func_array([$this, 'timerCallback'], [$param]);
                 });
                 $this->_eventTimer[self::$_timerId] = $timerWatcher;
@@ -116,7 +117,7 @@ class Uv implements EventInterface
             case self::EV_READ:
             case self::EV_WRITE:
                 $fd_key = (int)$fd;
-                $ioCallback = function ($watcher, $status, $events, $fd) use ($func) {
+                $ioCallback = function($watcher, $status, $events, $fd)use($func){
                     try {
                         \call_user_func($func, $fd);
                     } catch (\Exception $e) {
@@ -125,7 +126,7 @@ class Uv implements EventInterface
                         Server::stopAll(250, $e);
                     }
                 };
-                $ioWatcher = \uv_poll_init($this->_eventLoop, $fd);
+                $ioWatcher = \uv_poll_init($this->_eventLoop, $fd); 
                 $real_flag = $flag === self::EV_READ ? \Uv::READABLE : \Uv::WRITABLE;
                 \uv_poll_start($ioWatcher, $real_flag, $ioCallback);
                 $this->_allEvents[$fd_key][$flag] = $ioWatcher;
@@ -145,7 +146,8 @@ class Uv implements EventInterface
      */
     public function del($fd, $flag)
     {
-        switch ($flag) {
+        switch ($flag) 
+        {
             case self::EV_READ:
             case self::EV_WRITE:
                 $fd_key = (int)$fd;
@@ -188,11 +190,12 @@ class Uv implements EventInterface
      */
     public function timerCallback($input)
     {
-        if (!is_array($input)) return;
+        if(!is_array($input)) return;
 
         $timer_id = $input[4];
 
-        if ($input[2] === self::EV_TIMER_ONCE) {
+        if ($input[2] === self::EV_TIMER_ONCE) 
+        {
             $watcher = $this->_eventTimer[$timer_id];
             \uv_is_active($watcher) && \uv_timer_stop($watcher);
             unset($this->_eventTimer[$timer_id]);
@@ -214,9 +217,10 @@ class Uv implements EventInterface
      */
     public function clearAllTimer()
     {
-        if (!is_array($this->_eventTimer)) return;
+        if(!is_array($this->_eventTimer)) return;
 
-        foreach ($this->_eventTimer as $watcher) {
+        foreach($this->_eventTimer as $watcher) 
+        {
             \uv_is_active($watcher) && \uv_timer_stop($watcher);
         }
 

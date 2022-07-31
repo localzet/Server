@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io
@@ -11,7 +10,6 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
-
 namespace localzet\Core\Protocols\Http;
 
 /**
@@ -139,8 +137,7 @@ class Response
      *
      * @return void
      */
-    public static function init()
-    {
+    public static function init() {
         static::initMimeTypeMap();
     }
 
@@ -168,8 +165,7 @@ class Response
      * @param string $value
      * @return $this
      */
-    public function header($name, $value)
-    {
+    public function header($name, $value) {
         $this->_header[$name] = $value;
         return $this;
     }
@@ -181,8 +177,7 @@ class Response
      * @param string $value
      * @return Response
      */
-    public function withHeader($name, $value)
-    {
+    public function withHeader($name, $value) {
         return $this->header($name, $value);
     }
 
@@ -192,20 +187,18 @@ class Response
      * @param array $headers
      * @return $this
      */
-    public function withHeaders($headers)
-    {
+    public function withHeaders($headers) {
         $this->_header = \array_merge_recursive($this->_header, $headers);
         return $this;
     }
-
+    
     /**
      * Remove header.
      *
      * @param string $name
      * @return $this
      */
-    public function withoutHeader($name)
-    {
+    public function withoutHeader($name) {
         unset($this->_header[$name]);
         return $this;
     }
@@ -216,8 +209,7 @@ class Response
      * @param string $name
      * @return null|array|string
      */
-    public function getHeader($name)
-    {
+    public function getHeader($name) {
         if (!isset($this->_header[$name])) {
             return null;
         }
@@ -229,8 +221,7 @@ class Response
      *
      * @return array
      */
-    public function getHeaders()
-    {
+    public function getHeaders() {
         return $this->_header;
     }
 
@@ -241,8 +232,7 @@ class Response
      * @param string|null $reason_phrase
      * @return $this
      */
-    public function withStatus($code, $reason_phrase = null)
-    {
+    public function withStatus($code, $reason_phrase = null) {
         $this->_status = $code;
         $this->_reason = $reason_phrase;
         return $this;
@@ -253,8 +243,7 @@ class Response
      *
      * @return int
      */
-    public function getStatusCode()
-    {
+    public function getStatusCode() {
         return $this->_status;
     }
 
@@ -263,8 +252,7 @@ class Response
      *
      * @return string
      */
-    public function getReasonPhrase()
-    {
+    public function getReasonPhrase() {
         return $this->_reason;
     }
 
@@ -274,8 +262,7 @@ class Response
      * @param int $version
      * @return $this
      */
-    public function withProtocolVersion($version)
-    {
+    public function withProtocolVersion($version) {
         $this->_version = $version;
         return $this;
     }
@@ -286,8 +273,7 @@ class Response
      * @param string $body
      * @return $this
      */
-    public function withBody($body)
-    {
+    public function withBody($body) {
         $this->_body = $body;
         return $this;
     }
@@ -297,8 +283,7 @@ class Response
      * 
      * @return string
      */
-    public function rawBody()
-    {
+    public function rawBody() {
         return $this->_body;
     }
 
@@ -310,8 +295,7 @@ class Response
      * @param int $length
      * @return $this
      */
-    public function withFile($file, $offset = 0, $length = 0)
-    {
+    public function withFile($file, $offset = 0, $length = 0) {
         if (!\is_file($file)) {
             return $this->withStatus(404)->withBody('<h3>404 Not Found</h3>');
         }
@@ -390,7 +374,7 @@ class Response
 
         if (!isset($headers['Last-Modified'])) {
             if ($mtime = \filemtime($file)) {
-                $head .= 'Last-Modified: ' . \gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
+                $head .= 'Last-Modified: '. \gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
             }
         }
 
@@ -442,7 +426,7 @@ class Response
         if (!isset($headers['Transfer-Encoding'])) {
             $head .= "Content-Length: $body_len\r\n\r\n";
         } else {
-            return "$head\r\n" . dechex($body_len) . "\r\n{$this->_body}\r\n";
+            return "$head\r\n".dechex($body_len)."\r\n{$this->_body}\r\n";
         }
 
         // The whole http package
