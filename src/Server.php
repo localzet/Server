@@ -137,7 +137,7 @@ class Server
      *
      * @var callable
      */
-    public $onWorkerStart = null;
+    public $onServerStart = null;
 
     /**
      * Emitted when a socket connection is successfully established.
@@ -186,21 +186,21 @@ class Server
      *
      * @var callable
      */
-    public $onWorkerStop = null;
+    public $onServerStop = null;
 
     /**
      * Emitted when server processes get reload signal.
      *
      * @var callable
      */
-    public $onWorkerReload = null;
+    public $onServerReload = null;
 
     /**
      * Emitted when server processes exited.
      *
      * @var callable
      */
-    public $onWorkerExit = null;
+    public $onServerExit = null;
 
     /**
      * Transport layer protocol.
@@ -361,11 +361,11 @@ class Server
      *
      * @var Server[]
      */
-    protected static $_workers = array();
+    protected static $_servers = array();
 
     /**
      * All server processes pid.
-     * The format is like this [worker_id=>[pid=>pid, pid=>pid, ..], ..]
+     * The format is like this [server_id=>[pid=>pid, pid=>pid, ..], ..]
      *
      * @var array
      */
@@ -381,7 +381,7 @@ class Server
 
     /**
      * Mapping from PID to server process ID.
-     * The format is like this [worker_id=>[0=>$pid, 1=>$pid, ..], ..].
+     * The format is like this [server_id=>[0=>$pid, 1=>$pid, ..], ..].
      *
      * @var array
      */
@@ -399,7 +399,7 @@ class Server
      *
      * @var int
      */
-    protected static $_maxWorkerNameLength = 12;
+    protected static $_maxServerNameLength = 12;
 
     /**
      * Maximum length of the socket names.
@@ -471,7 +471,7 @@ class Server
      */
     protected static $_globalStatistics = array(
         'start_timestamp'  => 0,
-        'worker_exit_info' => array()
+        'server_exit_info' => array()
     );
 
     /**
@@ -549,13 +549,13 @@ class Server
         static::init();
         static::parseCommand();
         static::daemonize();
-        static::initWorkers();
+        static::initServers();
         static::installSignal();
         static::saveMasterPid();
         static::displayUI();
-        static::forkWorkers();
+        static::forkServers();
         static::resetStd();
-        static::monitorWorkers();
+        static::monitorServers();
     }
 
     /**
@@ -653,7 +653,7 @@ class Server
      *
      * @return void
      */
-    protected static function initWorkers()
+    protected static function initServers()
     {
         if (static::$_OS !== \OS_TYPE_LINUX) {
             return;
@@ -661,7 +661,7 @@ class Server
         
         static::$_statisticsFile =  static::$statusFile ? static::$statusFile : __DIR__ . '/../webcore-' .posix_getpid().'.status';
 
-        foreach (static::$_workers as $server) {
+        foreach (static::$_servers as $server) {
             // Server name.
             if (empty($server->name)) {
                 $server->name = 'none';
@@ -702,10 +702,10 @@ class Server
      *
      * @return void
      */
-    public static function reloadAllWorkers()
+    public static function reloadAllServers()
     {
         static::init();
-        static::initWorkers();
+        static::initServers();
         static::displayUI();
         static::$_status = static::STATUS_RELOADING;
     }
@@ -715,9 +715,9 @@ class Server
      *
      * @return array
      */
-    public static function getAllWorkers()
+    public static function getAllServers()
     {
-        return static::$_workers;
+        return static::$_servers;
     }
 
     /**
@@ -744,13 +744,13 @@ class Server
      */
     protected static function initId()
     {
-        foreach (static::$_workers as $worker_id => $server) {
+        foreach (static::$_servers as $server_id => $server) {
             $new_id_map = array();
             $server->count = $server->count < 1 ? 1 : $server->count;
             for($key = 0; $key < $server->count; $key++) {
-                $new_id_map[$key] = isset(static::$_idMap[$worker_id][$key]) ? static::$_idMap[$worker_id][$key] : 0;
+                $new_id_map[$key] = isset(static::$_idMap[$server_id][$key]) ? static::$_idMap[$server_id][$key] : 0;
             }
-            static::$_idMap[$worker_id] = $new_id_map;
+            static::$_idMap[$server_id] = $new_id_map;
         }
     }
 
@@ -804,7 +804,7 @@ class Server
         $title && static::safeEcho($title . \PHP_EOL);
 
         //Show content
-        foreach (static::$_workers as $server) {
+        foreach (static::$_servers as $server) {
             $content = '';
             foreach(static::getUiColumns() as $column_name => $prop){
                 $key = '_max' . \ucfirst(\strtolower($column_name)) . 'NameLength';
@@ -888,7 +888,7 @@ class Server
         global $argv;
         // Check argv;
         $start_file = $argv[0];
-        $usage = "Usage: php yourfile <command> [mode]\nCommands: \nstart\t\tStart server in DEBUG mode.\n\t\tUse mode -d to start in DAEMON mode.\nstop\t\tStop server.\n\t\tUse mode -g to stop gracefully.\nrestart\t\tRestart workers.\n\t\tUse mode -d to start in DAEMON mode.\n\t\tUse mode -g to stop gracefully.\nreload\t\tReload codes.\n\t\tUse mode -g to reload gracefully.\nstatus\t\tGet server status.\n\t\tUse mode -d to show live status.\nconnections\tGet server connections.\n";
+        $usage = "Usage: php yourfile <command> [mode]\nCommands: \nstart\t\tStart server in DEBUG mode.\n\t\tUse mode -d to start in DAEMON mode.\nstop\t\tStop server.\n\t\tUse mode -g to stop gracefully.\nrestart\t\tRestart servers.\n\t\tUse mode -d to start in DAEMON mode.\n\t\tUse mode -g to stop gracefully.\nreload\t\tReload codes.\n\t\tUse mode -g to reload gracefully.\nstatus\t\tGet server status.\n\t\tUse mode -d to show live status.\nconnections\tGet server connections.\n";
         $available_commands = array(
             'start',
             'stop',
@@ -1055,8 +1055,8 @@ class Server
         }
         $status_str = '';
         $current_total_request = array();
-        $worker_info = \unserialize($info[0]);
-        \ksort($worker_info, SORT_NUMERIC);
+        $server_info = \unserialize($info[0]);
+        \ksort($server_info, SORT_NUMERIC);
         unset($info[0]);
         $data_waiting_sort = array();
         $read_process_status = false;
@@ -1067,7 +1067,7 @@ class Server
         $total_memory = 0;
         $total_timers = 0;
         $maxLen1 = static::$_maxSocketNameLength;
-        $maxLen2 = static::$_maxWorkerNameLength;
+        $maxLen2 = static::$_maxServerNameLength;
         foreach($info as $key => $value) {
             if (!$read_process_status) {
                 $status_str .= $value . "\n";
@@ -1091,11 +1091,11 @@ class Server
                 }
             }
         }
-        foreach($worker_info as $pid => $info) {
+        foreach($server_info as $pid => $info) {
             if (!isset($data_waiting_sort[$pid])) {
                 $status_str .= "$pid\t" . \str_pad('N/A', 7) . " "
                     . \str_pad($info['listen'], static::$_maxSocketNameLength) . " "
-                    . \str_pad($info['name'], static::$_maxWorkerNameLength) . " "
+                    . \str_pad($info['name'], static::$_maxServerNameLength) . " "
                     . \str_pad('N/A', 11) . " " . \str_pad('N/A', 9) . " "
                     . \str_pad('N/A', 7) . " " . \str_pad('N/A', 13) . " N/A    [busy] \n";
                 continue;
@@ -1226,7 +1226,7 @@ class Server
             case \SIGUSR2:
             case \SIGUSR1:
                 static::$_gracefulStop = $signal === \SIGUSR2;
-                static::$_pidsToRestart = static::getAllWorkerPids();
+                static::$_pidsToRestart = static::getAllServerPids();
                 static::reload();
                 break;
             // Show status.
@@ -1367,12 +1367,12 @@ class Server
      *
      * @return array
      */
-    protected static function getAllWorkerPids()
+    protected static function getAllServerPids()
     {
         $pid_array = array();
-        foreach (static::$_pidMap as $worker_pid_array) {
-            foreach ($worker_pid_array as $worker_pid) {
-                $pid_array[$worker_pid] = $worker_pid;
+        foreach (static::$_pidMap as $server_pid_array) {
+            foreach ($server_pid_array as $server_pid) {
+                $pid_array[$server_pid] = $server_pid;
             }
         }
         return $pid_array;
@@ -1383,12 +1383,12 @@ class Server
      *
      * @return void
      */
-    protected static function forkWorkers()
+    protected static function forkServers()
     {
         if (static::$_OS === \OS_TYPE_LINUX) {
-            static::forkWorkersForLinux();
+            static::forkServersForLinux();
         } else {
-            static::forkWorkersForWindows();
+            static::forkServersForWindows();
         }
     }
 
@@ -1397,22 +1397,22 @@ class Server
      *
      * @return void
      */
-    protected static function forkWorkersForLinux()
+    protected static function forkServersForLinux()
     {
 
-        foreach (static::$_workers as $server) {
+        foreach (static::$_servers as $server) {
             if (static::$_status === static::STATUS_STARTING) {
                 if (empty($server->name)) {
                     $server->name = $server->getSocketName();
                 }
-                $worker_name_length = \strlen($server->name);
-                if (static::$_maxWorkerNameLength < $worker_name_length) {
-                    static::$_maxWorkerNameLength = $worker_name_length;
+                $server_name_length = \strlen($server->name);
+                if (static::$_maxServerNameLength < $server_name_length) {
+                    static::$_maxServerNameLength = $server_name_length;
                 }
             }
 
-            while (\count(static::$_pidMap[$server->workerId]) < $server->count) {
-                static::forkOneWorkerForLinux($server);
+            while (\count(static::$_pidMap[$server->serverId]) < $server->count) {
+                static::forkOneServerForLinux($server);
             }
         }
     }
@@ -1422,24 +1422,24 @@ class Server
      *
      * @return void
      */
-    protected static function forkWorkersForWindows()
+    protected static function forkServersForWindows()
     {
         $files = static::getStartFilesForWindows();
         global $argv;
         if(\in_array('-q', $argv) || \count($files) === 1)
         {
-            if(\count(static::$_workers) > 1)
+            if(\count(static::$_servers) > 1)
             {
-                static::safeEcho("@@@ Error: multi workers init in one php file are not support @@@\r\n");
+                static::safeEcho("@@@ Error: multi servers init in one php file are not support @@@\r\n");
             }
-            elseif(\count(static::$_workers) <= 0)
+            elseif(\count(static::$_servers) <= 0)
             {
                 exit("@@@no server inited@@@\r\n\r\n");
             }
 
-            \reset(static::$_workers);
+            \reset(static::$_servers);
             /** @var Server $server */
-            $server = current(static::$_workers);
+            $server = current(static::$_servers);
 
             // Display UI.
             static::safeEcho(\str_pad($server->name, 30) . \str_pad($server->getSocketName(), 36) . \str_pad($server->count, 10) . "[ok]\n");
@@ -1453,7 +1453,7 @@ class Server
             Timer::init(static::$globalEvent);
             foreach($files as $start_file)
             {
-                static::forkOneWorkerForWindows($start_file);
+                static::forkOneServerForWindows($start_file);
             }
         }
     }
@@ -1481,7 +1481,7 @@ class Server
      *
      * @param string $start_file
      */
-    public static function forkOneWorkerForWindows($start_file)
+    public static function forkOneServerForWindows($start_file)
     {
         $start_file = \realpath($start_file);
 
@@ -1505,7 +1505,7 @@ class Server
      * check server status for windows.
      * @return void
      */
-    public static function checkWorkerStatusForWindows()
+    public static function checkServerStatusForWindows()
     {
         foreach(static::$_processForWindows as $process_data)
         {
@@ -1518,7 +1518,7 @@ class Server
                 {
                     static::safeEcho("process $start_file terminated and try to restart\n");
                     \proc_close($process);
-                    static::forkOneWorkerForWindows($start_file);
+                    static::forkOneServerForWindows($start_file);
                 }
             }
             else
@@ -1535,18 +1535,18 @@ class Server
      * @param self $server
      * @throws Exception
      */
-    protected static function forkOneWorkerForLinux(self $server)
+    protected static function forkOneServerForLinux(self $server)
     {
         // Get available server id.
-        $id = static::getId($server->workerId, 0);
+        $id = static::getId($server->serverId, 0);
         if ($id === false) {
             return;
         }
         $pid = \pcntl_fork();
         // For master process.
         if ($pid > 0) {
-            static::$_pidMap[$server->workerId][$pid] = $pid;
-            static::$_idMap[$server->workerId][$id]   = $pid;
+            static::$_pidMap[$server->serverId][$pid] = $pid;
+            static::$_idMap[$server->serverId][$id]   = $pid;
         } // For child processes.
         elseif (0 === $pid) {
             \srand();
@@ -1559,10 +1559,10 @@ class Server
             }
             static::$_pidMap  = array();
             // Remove other listener.
-            foreach(static::$_workers as $key => $one_worker) {
-                if ($one_worker->workerId !== $server->workerId) {
-                    $one_worker->unlisten();
-                    unset(static::$_workers[$key]);
+            foreach(static::$_servers as $key => $one_server) {
+                if ($one_server->serverId !== $server->serverId) {
+                    $one_server->unlisten();
+                    unset(static::$_servers[$key]);
                 }
             }
             Timer::delAll();
@@ -1577,21 +1577,21 @@ class Server
             static::log($err);
             exit(250);
         } else {
-            throw new Exception("forkOneWorker fail");
+            throw new Exception("forkOneServer fail");
         }
     }
 
     /**
      * Get server id.
      *
-     * @param string $worker_id
+     * @param string $server_id
      * @param int $pid
      *
      * @return integer
      */
-    protected static function getId($worker_id, $pid)
+    protected static function getId($server_id, $pid)
     {
-        return \array_search($pid, static::$_idMap[$worker_id]);
+        return \array_search($pid, static::$_idMap[$server_id]);
     }
 
     /**
@@ -1652,12 +1652,12 @@ class Server
      *
      * @return void
      */
-    protected static function monitorWorkers()
+    protected static function monitorServers()
     {
         if (static::$_OS === \OS_TYPE_LINUX) {
-            static::monitorWorkersForLinux();
+            static::monitorServersForLinux();
         } else {
-            static::monitorWorkersForWindows();
+            static::monitorServersForWindows();
         }
     }
 
@@ -1666,7 +1666,7 @@ class Server
      *
      * @return void
      */
-    protected static function monitorWorkersForLinux()
+    protected static function monitorServersForLinux()
     {
         static::$_status = static::STATUS_RUNNING;
         while (1) {
@@ -1680,44 +1680,44 @@ class Server
             // If a child has already exited.
             if ($pid > 0) {
                 // Find out which server process exited.
-                foreach (static::$_pidMap as $worker_id => $worker_pid_array) {
-                    if (isset($worker_pid_array[$pid])) {
-                        $server = static::$_workers[$worker_id];
+                foreach (static::$_pidMap as $server_id => $server_pid_array) {
+                    if (isset($server_pid_array[$pid])) {
+                        $server = static::$_servers[$server_id];
                         // Exit status.
                         if ($status !== 0) {
                             static::log("server[{$server->name}:$pid] exit with status $status");
                         }
 
-                        // onWorkerExit
-                        if ($server->onWorkerExit) {
+                        // onServerExit
+                        if ($server->onServerExit) {
                             try {
-                                call_user_func($server->onWorkerExit, $server, $status, $pid);
+                                call_user_func($server->onServerExit, $server, $status, $pid);
                             } catch (\Exception $e) {
-                                static::log("server[{$server->name}] onWorkerExit $e");
+                                static::log("server[{$server->name}] onServerExit $e");
                             } catch (\Error $e) {
-                                static::log("server[{$server->name}] onWorkerExit $e");
+                                static::log("server[{$server->name}] onServerExit $e");
                             }
                         }
 
                         // For Statistics.
-                        if (!isset(static::$_globalStatistics['worker_exit_info'][$worker_id][$status])) {
-                            static::$_globalStatistics['worker_exit_info'][$worker_id][$status] = 0;
+                        if (!isset(static::$_globalStatistics['server_exit_info'][$server_id][$status])) {
+                            static::$_globalStatistics['server_exit_info'][$server_id][$status] = 0;
                         }
-                        ++static::$_globalStatistics['worker_exit_info'][$worker_id][$status];
+                        ++static::$_globalStatistics['server_exit_info'][$server_id][$status];
 
                         // Clear process data.
-                        unset(static::$_pidMap[$worker_id][$pid]);
+                        unset(static::$_pidMap[$server_id][$pid]);
 
                         // Mark id is available.
-                        $id                              = static::getId($worker_id, $pid);
-                        static::$_idMap[$worker_id][$id] = 0;
+                        $id                              = static::getId($server_id, $pid);
+                        static::$_idMap[$server_id][$id] = 0;
 
                         break;
                     }
                 }
                 // Is still running state then fork a new server process.
                 if (static::$_status !== static::STATUS_SHUTDOWN) {
-                    static::forkWorkers();
+                    static::forkServers();
                     // If reloading continue.
                     if (isset(static::$_pidsToRestart[$pid])) {
                         unset(static::$_pidsToRestart[$pid]);
@@ -1727,7 +1727,7 @@ class Server
             }
 
             // If shutdown state and all child processes exited then master process exit.
-            if (static::$_status === static::STATUS_SHUTDOWN && !static::getAllWorkerPids()) {
+            if (static::$_status === static::STATUS_SHUTDOWN && !static::getAllServerPids()) {
                 static::exitAndClearAll();
             }
         }
@@ -1738,9 +1738,9 @@ class Server
      *
      * @return void
      */
-    protected static function monitorWorkersForWindows()
+    protected static function monitorServersForWindows()
     {
-        Timer::add(1, "\\localzet\\Core\\Server::checkWorkerStatusForWindows");
+        Timer::add(1, "\\localzet\\Core\\Server::checkServerStatusForWindows");
 
         static::$globalEvent->loop();
     }
@@ -1752,7 +1752,7 @@ class Server
      */
     protected static function exitAndClearAll()
     {
-        foreach (static::$_workers as $server) {
+        foreach (static::$_servers as $server) {
             $socket_name = $server->getSocketName();
             if ($server->transport === 'unix' && $socket_name) {
                 list(, $address) = \explode(':', $socket_name, 2);
@@ -1802,14 +1802,14 @@ class Server
 
             // Send reload signal to all child processes.
             $reloadable_pid_array = array();
-            foreach (static::$_pidMap as $worker_id => $worker_pid_array) {
-                $server = static::$_workers[$worker_id];
+            foreach (static::$_pidMap as $server_id => $server_pid_array) {
+                $server = static::$_servers[$server_id];
                 if ($server->reloadable) {
-                    foreach ($worker_pid_array as $pid) {
+                    foreach ($server_pid_array as $pid) {
                         $reloadable_pid_array[$pid] = $pid;
                     }
                 } else {
-                    foreach ($worker_pid_array as $pid) {
+                    foreach ($server_pid_array as $pid) {
                         // Send reload signal to a server process which reloadable is false.
                         \posix_kill($pid, $sig);
                     }
@@ -1827,21 +1827,21 @@ class Server
                 return;
             }
             // Continue reload.
-            $one_worker_pid = \current(static::$_pidsToRestart);
+            $one_server_pid = \current(static::$_pidsToRestart);
             // Send reload signal to a server process.
-            \posix_kill($one_worker_pid, $sig);
+            \posix_kill($one_server_pid, $sig);
             // If the process does not exit after static::$stopTimeout seconds try to kill it.
             if(!static::$_gracefulStop){
-                Timer::add(static::$stopTimeout, '\posix_kill', array($one_worker_pid, \SIGKILL), false);
+                Timer::add(static::$stopTimeout, '\posix_kill', array($one_server_pid, \SIGKILL), false);
             }
         } // For child processes.
         else {
-            \reset(static::$_workers);
-            $server = \current(static::$_workers);
-            // Try to emit onWorkerReload callback.
-            if ($server->onWorkerReload) {
+            \reset(static::$_servers);
+            $server = \current(static::$_servers);
+            // Try to emit onServerReload callback.
+            if ($server->onServerReload) {
                 try {
-                    \call_user_func($server->onWorkerReload, $server);
+                    \call_user_func($server->onServerReload, $server);
                 } catch (\Exception $e) {
                     static::stopAll(250, $e);
                 } catch (\Error $e) {
@@ -1871,17 +1871,17 @@ class Server
         // For master process.
         if (\DIRECTORY_SEPARATOR === '/' && static::$_masterPid === \posix_getpid()) {
             static::log("WebCore [" . \basename(static::$_startFile) . "] stopping ...");
-            $worker_pid_array = static::getAllWorkerPids();
+            $server_pid_array = static::getAllServerPids();
             // Send stop signal to all child processes.
             if (static::$_gracefulStop) {
                 $sig = \SIGQUIT;
             } else {
                 $sig = \SIGINT;
             }
-            foreach ($worker_pid_array as $worker_pid) {
-                \posix_kill($worker_pid, $sig);
+            foreach ($server_pid_array as $server_pid) {
+                \posix_kill($server_pid, $sig);
                 if(!static::$_gracefulStop){
-                    Timer::add(static::$stopTimeout, '\posix_kill', array($worker_pid, \SIGKILL), false);
+                    Timer::add(static::$stopTimeout, '\posix_kill', array($server_pid, \SIGKILL), false);
                 }
             }
             Timer::add(1, "\\localzet\\Core\\Server::checkIfChildRunning");
@@ -1892,14 +1892,14 @@ class Server
         } // For child processes.
         else {
             // Execute exit.
-            foreach (static::$_workers as $server) {
+            foreach (static::$_servers as $server) {
                 if(!$server->stopping){
                     $server->stop();
                     $server->stopping = true;
                 }
             }
             if (!static::$_gracefulStop || ConnectionInterface::$statistics['connection_count'] <= 0) {
-                static::$_workers = array();
+                static::$_servers = array();
                 if (static::$globalEvent) {
                     static::$globalEvent->destroy();
                 }
@@ -1918,10 +1918,10 @@ class Server
      */
     public static function checkIfChildRunning()
     {
-        foreach (static::$_pidMap as $worker_id => $worker_pid_array) {
-            foreach ($worker_pid_array as $pid => $worker_pid) {
+        foreach (static::$_pidMap as $server_id => $server_pid_array) {
+            foreach ($server_pid_array as $pid => $server_pid) {
                 if (!\posix_kill($pid, 0)) {
-                    unset(static::$_pidMap[$worker_id][$pid]);
+                    unset(static::$_pidMap[$server_id][$pid]);
                 }
             }
         }
@@ -1956,16 +1956,16 @@ class Server
     {
         // For master process.
         if (static::$_masterPid === \posix_getpid()) {
-            $all_worker_info = array();
-            foreach(static::$_pidMap as $worker_id => $pid_array) {
+            $all_server_info = array();
+            foreach(static::$_pidMap as $server_id => $pid_array) {
                 /** @var /localzet/Core/Server $server */
-                $server = static::$_workers[$worker_id];
+                $server = static::$_servers[$server_id];
                 foreach($pid_array as $pid) {
-                    $all_worker_info[$pid] = array('name' => $server->name, 'listen' => $server->getSocketName());
+                    $all_server_info[$pid] = array('name' => $server->name, 'listen' => $server->getSocketName());
                 }
             }
 
-            \file_put_contents(static::$_statisticsFile, \serialize($all_worker_info)."\n", \FILE_APPEND);
+            \file_put_contents(static::$_statisticsFile, \serialize($all_server_info)."\n", \FILE_APPEND);
             $loadavg = \function_exists('sys_getloadavg') ? \array_map('round', \sys_getloadavg(), array(2,2,2)) : array('-', '-', '-');
             \file_put_contents(static::$_statisticsFile,
                 "----------------------------------------------GLOBAL STATUS----------------------------------------------------\n", \FILE_APPEND);
@@ -1978,21 +1978,21 @@ class Server
             \file_put_contents(static::$_statisticsFile,
                 \str_pad($load_str, 33) . 'event-loop:' . static::getEventLoopName() . "\n", \FILE_APPEND);
             \file_put_contents(static::$_statisticsFile,
-                \count(static::$_pidMap) . ' workers       ' . \count(static::getAllWorkerPids()) . " processes\n",
+                \count(static::$_pidMap) . ' servers       ' . \count(static::getAllServerPids()) . " processes\n",
                 \FILE_APPEND);
             \file_put_contents(static::$_statisticsFile,
-                \str_pad('worker_name', static::$_maxWorkerNameLength) . " exit_status      exit_count\n", \FILE_APPEND);
-            foreach (static::$_pidMap as $worker_id => $worker_pid_array) {
-                $server = static::$_workers[$worker_id];
-                if (isset(static::$_globalStatistics['worker_exit_info'][$worker_id])) {
-                    foreach (static::$_globalStatistics['worker_exit_info'][$worker_id] as $worker_exit_status => $worker_exit_count) {
+                \str_pad('server_name', static::$_maxServerNameLength) . " exit_status      exit_count\n", \FILE_APPEND);
+            foreach (static::$_pidMap as $server_id => $server_pid_array) {
+                $server = static::$_servers[$server_id];
+                if (isset(static::$_globalStatistics['server_exit_info'][$server_id])) {
+                    foreach (static::$_globalStatistics['server_exit_info'][$server_id] as $server_exit_status => $server_exit_count) {
                         \file_put_contents(static::$_statisticsFile,
-                            \str_pad($server->name, static::$_maxWorkerNameLength) . " " . \str_pad($worker_exit_status,
-                                16) . " $worker_exit_count\n", \FILE_APPEND);
+                            \str_pad($server->name, static::$_maxServerNameLength) . " " . \str_pad($server_exit_status,
+                                16) . " $server_exit_count\n", \FILE_APPEND);
                     }
                 } else {
                     \file_put_contents(static::$_statisticsFile,
-                        \str_pad($server->name, static::$_maxWorkerNameLength) . " " . \str_pad(0, 16) . " 0\n",
+                        \str_pad($server->name, static::$_maxServerNameLength) . " " . \str_pad(0, 16) . " 0\n",
                         \FILE_APPEND);
                 }
             }
@@ -2000,14 +2000,14 @@ class Server
                 "----------------------------------------------PROCESS STATUS---------------------------------------------------\n",
                 \FILE_APPEND);
             \file_put_contents(static::$_statisticsFile,
-                "pid\tmemory  " . \str_pad('listening', static::$_maxSocketNameLength) . " " . \str_pad('worker_name',
-                    static::$_maxWorkerNameLength) . " connections " . \str_pad('send_fail', 9) . " "
+                "pid\tmemory  " . \str_pad('listening', static::$_maxSocketNameLength) . " " . \str_pad('server_name',
+                    static::$_maxServerNameLength) . " connections " . \str_pad('send_fail', 9) . " "
                 . \str_pad('timers', 8) . \str_pad('total_request', 13) ." qps    status\n", \FILE_APPEND);
 
             \chmod(static::$_statisticsFile, 0722);
 
-            foreach (static::getAllWorkerPids() as $worker_pid) {
-                \posix_kill($worker_pid, \SIGIOT);
+            foreach (static::getAllServerPids() as $server_pid) {
+                \posix_kill($server_pid, \SIGIOT);
             }
             return;
         }
@@ -2017,18 +2017,18 @@ class Server
         if (\function_exists('gc_mem_caches')) {
             \gc_mem_caches();
         }
-        \reset(static::$_workers);
+        \reset(static::$_servers);
         /** @var \localzet\Core\Server $server */
-        $server            = current(static::$_workers);
-        $worker_status_str = \posix_getpid() . "\t" . \str_pad(round(memory_get_usage(false) / (1024 * 1024), 2) . "M", 7)
+        $server            = current(static::$_servers);
+        $server_status_str = \posix_getpid() . "\t" . \str_pad(round(memory_get_usage(false) / (1024 * 1024), 2) . "M", 7)
             . " " . \str_pad($server->getSocketName(), static::$_maxSocketNameLength) . " "
-            . \str_pad(($server->name === $server->getSocketName() ? 'none' : $server->name), static::$_maxWorkerNameLength)
+            . \str_pad(($server->name === $server->getSocketName() ? 'none' : $server->name), static::$_maxServerNameLength)
             . " ";
-        $worker_status_str .= \str_pad(ConnectionInterface::$statistics['connection_count'], 11)
+        $server_status_str .= \str_pad(ConnectionInterface::$statistics['connection_count'], 11)
             . " " .  \str_pad(ConnectionInterface::$statistics['send_fail'], 9)
             . " " . \str_pad(static::$globalEvent->getTimerCount(), 7)
             . " " . \str_pad(ConnectionInterface::$statistics['total_request'], 13) . "\n";
-        \file_put_contents(static::$_statisticsFile, $worker_status_str, \FILE_APPEND);
+        \file_put_contents(static::$_statisticsFile, $server_status_str, \FILE_APPEND);
     }
 
     /**
@@ -2043,8 +2043,8 @@ class Server
             \file_put_contents(static::$_statisticsFile, "--------------------------------------------------------------------- WEBCORE CONNECTION STATUS --------------------------------------------------------------------------------\n", \FILE_APPEND);
             \file_put_contents(static::$_statisticsFile, "PID      Server          CID       Trans   Protocol        ipv4   ipv6   Recv-Q       Send-Q       Bytes-R      Bytes-W       Status         Local Address          Foreign Address\n", \FILE_APPEND);
             \chmod(static::$_statisticsFile, 0722);
-            foreach (static::getAllWorkerPids() as $worker_pid) {
-                \posix_kill($worker_pid, \SIGIO);
+            foreach (static::getAllServerPids() as $server_pid) {
+                \posix_kill($server_pid, \SIGIO);
             }
             return;
         }
@@ -2069,9 +2069,9 @@ class Server
 
         $pid = \posix_getpid();
         $str = '';
-        \reset(static::$_workers);
-        $current_worker = current(static::$_workers);
-        $default_worker_name = $current_worker->name;
+        \reset(static::$_servers);
+        $current_server = current(static::$_servers);
+        $default_server_name = $current_server->name;
 
         /** @var \localzet\Core\Server $server */
         foreach(TcpConnection::$connections as $connection) {
@@ -2095,11 +2095,11 @@ class Server
             if (\strlen($protocol) > 15) {
                 $protocol = \substr($protocol, 0, 13) . '..';
             }
-            $worker_name = isset($connection->server) ? $connection->server->name : $default_worker_name;
-            if (\strlen($worker_name) > 14) {
-                $worker_name = \substr($worker_name, 0, 12) . '..';
+            $server_name = isset($connection->server) ? $connection->server->name : $default_server_name;
+            if (\strlen($server_name) > 14) {
+                $server_name = \substr($server_name, 0, 12) . '..';
             }
-            $str .= \str_pad($pid, 9) . \str_pad($worker_name, 16) .  \str_pad($id, 10) . \str_pad($transport, 8)
+            $str .= \str_pad($pid, 9) . \str_pad($server_name, 16) .  \str_pad($id, 10) . \str_pad($transport, 8)
                 . \str_pad($protocol, 16) . \str_pad($ipv4, 7) . \str_pad($ipv6, 7) . \str_pad($recv_q, 13)
                 . \str_pad($send_q, 13) . \str_pad($bytes_read, 13) . \str_pad($bytes_written, 13) . ' '
                 . \str_pad($state, 14) . ' ' . \str_pad($local_address, 22) . ' ' . \str_pad($remote_address, 22) ."\n";
@@ -2229,9 +2229,9 @@ class Server
     public function __construct($socket_name = '', array $context_option = array())
     {
         // Save all server instances.
-        $this->workerId                    = \spl_object_hash($this);
-        static::$_workers[$this->workerId] = $this;
-        static::$_pidMap[$this->workerId]  = array();
+        $this->serverId                    = \spl_object_hash($this);
+        static::$_servers[$this->serverId] = $this;
+        static::$_pidMap[$this->serverId]  = array();
 
         // Get autoload root path.
         $backtrace               = \debug_backtrace();
@@ -2444,10 +2444,10 @@ class Server
 
         \restore_error_handler();
 
-        // Try to emit onWorkerStart callback.
-        if ($this->onWorkerStart) {
+        // Try to emit onServerStart callback.
+        if ($this->onServerStart) {
             try {
-                \call_user_func($this->onWorkerStart, $this);
+                \call_user_func($this->onServerStart, $this);
             } catch (\Exception $e) {
                 // Avoid rapid infinite loop exit.
                 sleep(1);
@@ -2470,10 +2470,10 @@ class Server
      */
     public function stop()
     {
-        // Try to emit onWorkerStop callback.
-        if ($this->onWorkerStop) {
+        // Try to emit onServerStop callback.
+        if ($this->onServerStop) {
             try {
-                \call_user_func($this->onWorkerStop, $this);
+                \call_user_func($this->onServerStop, $this);
             } catch (\Exception $e) {
                 static::stopAll(250, $e);
             } catch (\Error $e) {

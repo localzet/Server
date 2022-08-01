@@ -117,7 +117,7 @@ class Timer
                 $persistent ? EventInterface::EV_TIMER : EventInterface::EV_TIMER_ONCE, $func, $args);
         }
         
-        if (!Server::getAllWorkers()) {
+        if (!Server::getAllServers()) {
             return;
         }
 

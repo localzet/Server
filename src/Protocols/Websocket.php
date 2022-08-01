@@ -409,8 +409,8 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 } catch (\Error $e) {
                     Server::stopAll(250, $e);
                 }
-                if (!empty($_SESSION) && \class_exists('\GatewayWorker\Lib\Context')) {
-                    $connection->session = \GatewayWorker\Lib\Context::sessionEncode($_SESSION);
+                if (!empty($_SESSION) && \class_exists('\GatewayServer\Lib\Context')) {
+                    $connection->session = \GatewayServer\Lib\Context::sessionEncode($_SESSION);
                 }
                 $_GET = $_SERVER = $_SESSION = $_COOKIE = array();
             }
