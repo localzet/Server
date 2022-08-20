@@ -16,12 +16,12 @@ namespace localzet\Core\Protocols;
 use localzet\Core\Connection\ConnectionInterface;
 
 /**
- * Text Protocol.
+ * Текстовый протокол.
  */
 class Text
 {
     /**
-     * Check the integrity of the package.
+     * Проверим целостность пакета.
      *
      * @param string        $buffer
      * @param ConnectionInterface $connection
@@ -29,42 +29,44 @@ class Text
      */
     public static function input($buffer, ConnectionInterface $connection)
     {
-        // Judge whether the package length exceeds the limit.
+        // Превышает ли длина пакета предел?
         if (isset($connection->maxPackageSize) && \strlen($buffer) >= $connection->maxPackageSize) {
             $connection->close();
             return 0;
         }
-        //  Find the position of  "\n".
+        //  Найти положение  "\n".
         $pos = \strpos($buffer, "\n");
-        // No "\n", packet length is unknown, continue to wait for the data so return 0.
+
+        // Нет "\n", длина пакета неизвестна, продолжаем ждать данных, поэтому вернём 0.
         if ($pos === false) {
             return 0;
         }
-        // Return the current package length.
+
+        // Вернём текущую длину пакета.
         return $pos + 1;
     }
 
     /**
-     * Encode.
+     * Шифруем данные
      *
      * @param string $buffer
      * @return string
      */
     public static function encode($buffer)
     {
-        // Add "\n"
+        // Добавим "\n"
         return $buffer . "\n";
     }
 
     /**
-     * Decode.
+     * Дешифруем данные
      *
      * @param string $buffer
      * @return string
      */
     public static function decode($buffer)
     {
-        // Remove "\n"
+        // Удалим "\n"
         return \rtrim($buffer, "\r\n");
     }
 }

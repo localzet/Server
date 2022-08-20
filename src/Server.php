@@ -832,9 +832,9 @@ class Server
                     $tmpArgv[$index] = 'stop';
                 }
             }
-            static::safeEcho("Input \"php " . implode(' ', $tmpArgv) . "\" to stop. Start success.\n\n");
+            static::safeEcho("Выполните \"php " . implode(' ', $tmpArgv) . "\" для остановки. WebCore запущен.\n\n");
         } else {
-            static::safeEcho("Press Ctrl+C to stop. Start success.\n");
+            static::safeEcho("Нажмите Ctrl+C для остановки. WebCore запущен.\n");
         }
     }
 
@@ -892,7 +892,7 @@ class Server
         global $argv;
         // Check argv;
         $start_file = $argv[0];
-        $usage = "Usage: php yourfile <command> [mode]\nCommands: \nstart\t\tStart server in DEBUG mode.\n\t\tUse mode -d to start in DAEMON mode.\nstop\t\tStop server.\n\t\tUse mode -g to stop gracefully.\nrestart\t\tRestart servers.\n\t\tUse mode -d to start in DAEMON mode.\n\t\tUse mode -g to stop gracefully.\nreload\t\tReload codes.\n\t\tUse mode -g to reload gracefully.\nstatus\t\tGet server status.\n\t\tUse mode -d to show live status.\nconnections\tGet server connections.\n";
+        $usage = "Пример: php start.php <команда> [флаг]\nКоманды: \nstart\t\tЗапуск сервера в режиме разработки.\n\t\tИспользуй флаг -d для запуска в фоновом режиме.\nstop\t\tОстановка сервера.\n\t\tИспользуй флаг -g для плавной остановки.\nrestart\t\tПерезагрузка сервера.\n\t\tИспользуй флаг -d для запуска в фоновом режиме.\n\t\tИспользуй флаг -g для плавной остановки.\nreload\t\tОбновить код.\n\t\tИспользуй флаг -g для плавной остановки.\nstatus\t\tСтатус сервера.\n\t\tИспользуй флаг -d для показа в реальном времени.\nconnections\tПоказать текущие соединения.\n";
         $available_commands = array(
             'start',
             'stop',
@@ -922,9 +922,9 @@ class Server
         $mode_str = '';
         if ($command === 'start') {
             if ($mode === '-d' || static::$daemonize) {
-                $mode_str = 'in DAEMON mode';
+                $mode_str = 'в фоновом режиме';
             } else {
-                $mode_str = 'in DEBUG mode';
+                $mode_str = 'в режиме разработки';
             }
         }
         static::log("WebCore [$start_file] $command $mode_str");
@@ -934,11 +934,11 @@ class Server
         // Master is still alive?
         if (static::checkMasterIsAlive($master_pid)) {
             if ($command === 'start') {
-                static::log("WebCore [$start_file] already running");
+                static::log("WebCore [$start_file] уже запущен");
                 exit;
             }
         } elseif ($command !== 'start' && $command !== 'restart') {
-            static::log("WebCore [$start_file] not run");
+            static::log("WebCore [$start_file] не запущен");
             exit;
         }
 
@@ -990,11 +990,11 @@ class Server
                 if ($mode === '-g') {
                     static::$_gracefulStop = true;
                     $sig = \SIGQUIT;
-                    static::log("WebCore [$start_file] is gracefully stopping ...");
+                    static::log("WebCore [$start_file] плавно останавливается ...");
                 } else {
                     static::$_gracefulStop = false;
                     $sig = \SIGINT;
-                    static::log("WebCore [$start_file] is stopping ...");
+                    static::log("WebCore [$start_file] останавливается ...");
                 }
                 // Send stop signal to master process.
                 $master_pid && \posix_kill($master_pid, $sig);
@@ -1007,7 +1007,7 @@ class Server
                     if ($master_is_alive) {
                         // Timeout?
                         if (!static::$_gracefulStop && \time() - $start_time >= $timeout) {
-                            static::log("WebCore [$start_file] stop fail");
+                            static::log("WebCore [$start_file] не остановлен!");
                             exit;
                         }
                         // Waiting amoment.
@@ -1015,7 +1015,7 @@ class Server
                         continue;
                     }
                     // Stop success.
-                    static::log("WebCore [$start_file] stop success");
+                    static::log("WebCore [$start_file] остановлен");
                     if ($command === 'stop') {
                         exit(0);
                     }
@@ -1035,14 +1035,14 @@ class Server
                 exit;
             default:
                 if (isset($command)) {
-                    static::safeEcho('Unknown command: ' . $command . "\n");
+                    static::safeEcho('Неизвестная команда: ' . $command . "\n");
                 }
                 exit($usage);
         }
     }
 
     /**
-     * Format status data.
+     * Данные о состоянии
      *
      * @param $statistics_file
      * @return string
@@ -1101,7 +1101,7 @@ class Server
                     . \str_pad($info['listen'], static::$_maxSocketNameLength) . " "
                     . \str_pad($info['name'], static::$_maxServerNameLength) . " "
                     . \str_pad('N/A', 11) . " " . \str_pad('N/A', 9) . " "
-                    . \str_pad('N/A', 7) . " " . \str_pad('N/A', 13) . " N/A    [busy] \n";
+                    . \str_pad('N/A', 7) . " " . \str_pad('N/A', 13) . " N/A    [занят] \n";
                 continue;
             }
             //$qps = isset($total_request_cache[$pid]) ? $current_total_request[$pid]
@@ -1111,16 +1111,16 @@ class Server
                 $qps = $current_total_request[$pid] - $total_request_cache[$pid];
                 $total_qps += $qps;
             }
-            $status_str .= $data_waiting_sort[$pid] . " " . \str_pad($qps, 6) . " [idle]\n";
+            $status_str .= $data_waiting_sort[$pid] . " " . \str_pad($qps, 6) . " [не занят]\n";
         }
         $total_request_cache = $current_total_request;
         $status_str .= "----------------------------------------------PROCESS STATUS---------------------------------------------------\n";
-        $status_str .= "Summary\t" . \str_pad($total_memory . 'M', 7) . " "
+        $status_str .= "Итог\t" . \str_pad($total_memory . 'M', 7) . " "
             . \str_pad('-', $maxLen1) . " "
             . \str_pad('-', $maxLen2) . " "
             . \str_pad($total_connections, 11) . " " . \str_pad($total_fails, 9) . " "
             . \str_pad($total_timers, 7) . " " . \str_pad($total_requests, 13) . " "
-            . \str_pad($total_qps, 6) . " [Summary] \n";
+            . \str_pad($total_qps, 6) . " [Итог] \n";
         return $status_str;
     }
 
@@ -1257,17 +1257,17 @@ class Server
         \umask(0);
         $pid = \pcntl_fork();
         if (-1 === $pid) {
-            throw new Exception('Fork fail');
+            throw new Exception('Ошибка ответвления');
         } elseif ($pid > 0) {
             exit(0);
         }
         if (-1 === \posix_setsid()) {
-            throw new Exception("Setsid fail");
+            throw new Exception("Ошибка установки SID");
         }
         // Fork again avoid SVR4 system regain the control of terminal.
         $pid = \pcntl_fork();
         if (-1 === $pid) {
-            throw new Exception("Fork fail");
+            throw new Exception("Ошибка ответвления");
         } elseif (0 !== $pid) {
             exit(0);
         }
@@ -1316,7 +1316,7 @@ class Server
             return;
         }
 
-        throw new Exception('Can not open stdoutFile ' . static::$stdoutFile);
+        throw new Exception('Не могу открыть stdoutFile ' . static::$stdoutFile);
     }
 
     /**
@@ -1332,7 +1332,7 @@ class Server
 
         static::$_masterPid = \posix_getpid();
         if (false === \file_put_contents(static::$pidFile, static::$_masterPid)) {
-            throw new Exception('can not save pid to ' . static::$pidFile);
+            throw new Exception('Не могу сохранить PID в  ' . static::$pidFile);
         }
     }
 
@@ -1433,9 +1433,9 @@ class Server
         global $argv;
         if (\in_array('-q', $argv) || \count($files) === 1) {
             if (\count(static::$_servers) > 1) {
-                static::safeEcho("@@@ Error: multi servers init in one php file are not support @@@\r\n");
+                static::safeEcho("@@@ Ошибка: инициализация нескольких серверов в одном php-файле не поддерживается @@@\r\n");
             } elseif (\count(static::$_servers) <= 0) {
-                exit("@@@no server inited@@@\r\n\r\n");
+                exit("@@@ Нет сервера @@@\r\n\r\n");
             }
 
             \reset(static::$_servers);
@@ -1446,7 +1446,7 @@ class Server
             static::safeEcho(\str_pad($server->name, 30) . \str_pad($server->getSocketName(), 36) . \str_pad($server->count, 10) . "[ok]\n");
             $server->listen();
             $server->run();
-            exit("@@@child exit@@@\r\n");
+            exit("@@@ child exit @@@\r\n");
         } else {
             static::$globalEvent = new \localzet\Core\Events\Select();
             Timer::init(static::$globalEvent);
@@ -1510,12 +1510,12 @@ class Server
             $status = \proc_get_status($process);
             if (isset($status['running'])) {
                 if (!$status['running']) {
-                    static::safeEcho("process $start_file terminated and try to restart\n");
+                    static::safeEcho("Процесс $start_file завершен и пытается перезапуститься\n");
                     \proc_close($process);
                     static::forkOneServerForWindows($start_file);
                 }
             } else {
-                static::safeEcho("proc_get_status fail\n");
+                static::safeEcho("Ошибка proc_get_status\n");
             }
         }
     }
@@ -1558,18 +1558,18 @@ class Server
                 }
             }
             Timer::delAll();
-            static::setProcessTitle(self::$processTitle . ': server process  ' . $server->name . ' ' . $server->getSocketName());
+            static::setProcessTitle(self::$processTitle . ': процесс сервера  ' . $server->name . ' ' . $server->getSocketName());
             $server->setUserAndGroup();
             $server->id = $id;
             $server->run();
             if (strpos(static::$eventLoopClass, 'localzet\Core\Events\Swoole') !== false) {
                 exit(0);
             }
-            $err = new Exception('event-loop exited');
+            $err = new Exception('Ошибка event-loop');
             static::log($err);
             exit(250);
         } else {
-            throw new Exception("forkOneServer fail");
+            throw new Exception("Ошибка forkOneServer");
         }
     }
 
@@ -1596,7 +1596,7 @@ class Server
         // Get uid.
         $user_info = \posix_getpwnam($this->user);
         if (!$user_info) {
-            static::log("Warning: User {$this->user} not exsits");
+            static::log("Внимание: Пользователь {$this->user} не существует");
             return;
         }
         $uid = $user_info['uid'];
@@ -1604,7 +1604,7 @@ class Server
         if ($this->group) {
             $group_info = \posix_getgrnam($this->group);
             if (!$group_info) {
-                static::log("Warning: Group {$this->group} not exsits");
+                static::log("Внимание: Группа {$this->group} не существует");
                 return;
             }
             $gid = $group_info['gid'];
@@ -1615,7 +1615,7 @@ class Server
         // Set uid and gid.
         if ($uid !== \posix_getuid() || $gid !== \posix_getgid()) {
             if (!\posix_setgid($gid) || !\posix_initgroups($user_info['name'], $gid) || !\posix_setuid($uid)) {
-                static::log("Warning: change gid or uid fail.");
+                static::log("Внимание: Ошибка изменения GID или UID");
             }
         }
     }
@@ -1677,7 +1677,7 @@ class Server
                         $server = static::$_servers[$server_id];
                         // Exit status.
                         if ($status !== 0) {
-                            static::log("server[{$server->name}:$pid] exit with status $status");
+                            static::log("WebCore [{$server->name}:$pid] завершился со статусом $status");
                         }
 
                         // onServerExit
@@ -1685,9 +1685,9 @@ class Server
                             try {
                                 call_user_func($server->onServerExit, $server, $status, $pid);
                             } catch (\Exception $e) {
-                                static::log("server[{$server->name}] onServerExit $e");
+                                static::log("WebCore [{$server->name}] onServerExit $e");
                             } catch (\Error $e) {
-                                static::log("server[{$server->name}] onServerExit $e");
+                                static::log("WebCore [{$server->name}] onServerExit $e");
                             }
                         }
 
@@ -1753,7 +1753,7 @@ class Server
             }
         }
         @\unlink(static::$pidFile);
-        static::log("WebCore [" . \basename(static::$_startFile) . "] has been stopped");
+        static::log("WebCore [" . \basename(static::$_startFile) . "] был остановлен");
         if (static::$onMasterStop) {
             \call_user_func(static::$onMasterStop);
         }
@@ -1771,7 +1771,7 @@ class Server
         if (static::$_masterPid === \posix_getpid()) {
             // Set reloading state.
             if (static::$_status !== static::STATUS_RELOADING && static::$_status !== static::STATUS_SHUTDOWN) {
-                static::log("WebCore [" . \basename(static::$_startFile) . "] reloading");
+                static::log("WebCore [" . \basename(static::$_startFile) . "] обновляется");
                 static::$_status = static::STATUS_RELOADING;
                 // Try to emit onMasterReload callback.
                 if (static::$onMasterReload) {
@@ -1862,7 +1862,7 @@ class Server
         static::$_status = static::STATUS_SHUTDOWN;
         // For master process.
         if (\DIRECTORY_SEPARATOR === '/' && static::$_masterPid === \posix_getpid()) {
-            static::log("WebCore [" . \basename(static::$_startFile) . "] stopping ...");
+            static::log("WebCore [" . \basename(static::$_startFile) . "] останавливается ...");
             $server_pid_array = static::getAllServerPids();
             // Send stop signal to all child processes.
             if (static::$_gracefulStop) {
@@ -1973,7 +1973,7 @@ class Server
                 'start time:' . \date(
                     'Y-m-d H:i:s',
                     static::$_globalStatistics['start_timestamp']
-                ) . '   run ' . \floor((\time() - static::$_globalStatistics['start_timestamp']) / (24 * 60 * 60)) . ' days ' . \floor(((\time() - static::$_globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . " hours   \n",
+                ) . '   запущен ' . \floor((\time() - static::$_globalStatistics['start_timestamp']) / (24 * 60 * 60)) . ' дней ' . \floor(((\time() - static::$_globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . " часов   \n",
                 FILE_APPEND
             );
             $load_str = 'load average: ' . \implode(", ", $loadavg);
@@ -2140,7 +2140,7 @@ class Server
     public static function checkErrors()
     {
         if (static::STATUS_SHUTDOWN !== static::$_status) {
-            $error_msg = static::$_OS === \OS_TYPE_LINUX ? 'Server[' . \posix_getpid() . '] process terminated' : 'Server process terminated';
+            $error_msg = static::$_OS === \OS_TYPE_LINUX ? 'WebCore [' . \posix_getpid() . '] процесс завершен' : 'Серверный процесс завершен';
             $errors    = error_get_last();
             if (
                 $errors && ($errors['type'] === \E_ERROR ||
@@ -2149,7 +2149,7 @@ class Server
                     $errors['type'] === \E_COMPILE_ERROR ||
                     $errors['type'] === \E_RECOVERABLE_ERROR)
             ) {
-                $error_msg .= ' with ERROR: ' . static::getErrorType($errors['type']) . " \"{$errors['message']} in {$errors['file']} on line {$errors['line']}\"";
+                $error_msg .= ' с ошибкой: ' . static::getErrorType($errors['type']) . " \"{$errors['message']} в файле {$errors['file']} на {$errors['line']} строке\"";
             }
             static::log($error_msg);
         }
@@ -2381,12 +2381,12 @@ class Server
             if (!\class_exists($this->protocol)) {
                 $this->protocol = "localzet\\Core\\Protocols\\$scheme";
                 if (!\class_exists($this->protocol)) {
-                    throw new Exception("class \\Protocols\\$scheme not exist");
+                    throw new Exception("Класс \\Protocols\\$scheme Не существует");
                 }
             }
 
             if (!isset(static::$_builtinTransports[$this->transport])) {
-                throw new Exception('Bad server->transport ' . \var_export($this->transport, true));
+                throw new Exception('Некорректный server->transport ' . \var_export($this->transport, true));
             }
         } else {
             $this->transport = $scheme;
