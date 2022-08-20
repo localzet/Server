@@ -1,7 +1,8 @@
 <?php
+
 /**
  * @package     WebCore Server
- * @link        https://localzet.gitbook.io
+ * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
  * 
@@ -10,22 +11,23 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
+
 namespace localzet\Core;
 
 /**
- * Autoload.
+ * Автозагрузчик
  */
 class Autoloader
 {
     /**
-     * Autoload root path.
+     * Автозагрузка корневой директории
      *
      * @var string
      */
     protected static $_autoloadRootPath = '';
 
     /**
-     * Set autoload root path.
+     * Установка корневой директории
      *
      * @param string $root_path
      * @return void
@@ -36,7 +38,7 @@ class Autoloader
     }
 
     /**
-     * Load files by namespace.
+     * Загрузка файлов по namespace
      *
      * @param string $name
      * @return boolean

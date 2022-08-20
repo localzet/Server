@@ -1,7 +1,7 @@
 <?php
 /**
  * @package     WebCore Server
- * @link        https://localzet.gitbook.io
+ * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
  * 
@@ -10,10 +10,11 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
+
 namespace localzet\Core\Connection;
 
 use localzet\Core\Events\EventInterface;
-use localzet\Core\Lib\Timer;
+use localzet\Core\Timer;
 use localzet\Core\Server;
 use \Exception;
 

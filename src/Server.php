@@ -1,7 +1,8 @@
 <?php
+
 /**
  * @package     WebCore Server
- * @link        https://localzet.gitbook.io
+ * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
  * 
@@ -10,95 +11,98 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
+
 namespace localzet\Core;
+
 require_once __DIR__ . '/Lib/Constants.php';
 
 use localzet\Core\Events\EventInterface;
 use localzet\Core\Connection\ConnectionInterface;
 use localzet\Core\Connection\TcpConnection;
 use localzet\Core\Connection\UdpConnection;
-use localzet\Core\Lib\Timer;
+use localzet\Core\Timer;
 use localzet\Core\Events\Select;
 use \Exception;
 
 /**
- * Server class
- * A container for listening ports
+ * WebCore Server
+ * Контейнер прослушиваемых портов
  */
 class Server
 {
     /**
-     * Version.
+     * Версии
      *
      * @var string
      */
-    const VERSION = '4.0.42';
+    const WVERSION = '4.1.0';
+    const VERSION = '1.1.3';
 
     /**
-     * Status starting.
+     * Статус: запуск
      *
      * @var int
      */
     const STATUS_STARTING = 1;
 
     /**
-     * Status running.
+     * Статус: работает
      *
      * @var int
      */
     const STATUS_RUNNING = 2;
 
     /**
-     * Status shutdown.
+     * Статус: остановка
      *
      * @var int
      */
     const STATUS_SHUTDOWN = 4;
 
     /**
-     * Status reloading.
+     * Статус: перезагрузка
      *
      * @var int
      */
     const STATUS_RELOADING = 8;
 
     /**
-     * Default backlog. Backlog is the maximum length of the queue of pending connections.
+     * Backlog по умолчанию. Backlog - максимальная длина очереди ожидающих соединений
      *
      * @var int
      */
     const DEFAULT_BACKLOG = 102400;
 
     /**
-     * Max udp package size.
+     * Максимальный размер пакета UDP
      *
      * @var int
      */
     const MAX_UDP_PACKAGE_SIZE = 65535;
 
     /**
-     * The safe distance for columns adjacent
+     * Безопасное расстояние для соседних колонок
      *
      * @var int
      */
     const UI_SAFE_LENGTH = 4;
 
     /**
-     * Server id.
+     * ID Сервера
      *
      * @var int
      */
     public $id = 0;
 
     /**
-     * Name of the server processes.
+     * Название для серверных процессов
      *
      * @var string
      */
     public $name = 'none';
 
     /**
-     * Number of server processes.
+     * Количество серверных процессов
      *
      * @var int
      */
@@ -270,7 +274,7 @@ class Server
      * @var string
      */
     public static $statusFile = '';
-    
+
     /**
      * Log file.
      *
@@ -347,7 +351,7 @@ class Server
      * @var string
      */
 
-    protected $_localSocket=null;
+    protected $_localSocket = null;
 
     /**
      * Context of socket.
@@ -539,7 +543,7 @@ class Server
     protected static $_outputDecorated = null;
 
     /**
-     * Run all server instances.
+     * Запуск всех экземпляров сервера
      *
      * @return void
      */
@@ -559,15 +563,14 @@ class Server
     }
 
     /**
-     * Check sapi.
+     * Проверка SAPI
      *
      * @return void
      */
     protected static function checkSapiEnv()
     {
-        // Only for cli.
         if (\PHP_SAPI !== 'cli') {
-            exit("Only run in command line mode \n");
+            exit("WebCore запускается из терминала \n");
         }
         if (\DIRECTORY_SEPARATOR === '\\') {
             self::$_OS = \OS_TYPE_WINDOWS;
@@ -575,29 +578,29 @@ class Server
     }
 
     /**
-     * Init.
+     * Инициализация
      *
      * @return void
      */
     protected static function init()
     {
-        \set_error_handler(function($code, $msg, $file, $line){
+        \set_error_handler(function ($code, $msg, $file, $line) {
             Server::safeEcho("$msg in file $file on line $line\n");
         });
 
-        // Start file.
-        $backtrace        = \debug_backtrace();
+        // Start 
+        $backtrace = \debug_backtrace();
         static::$_startFile = $backtrace[\count($backtrace) - 1]['file'];
 
 
         $unique_prefix = \str_replace('/', '_', static::$_startFile);
 
-        // Pid file.
+        // Pid
         if (empty(static::$pidFile)) {
             static::$pidFile = __DIR__ . "/../$unique_prefix.pid";
         }
 
-        // Log file.
+        // Log
         if (empty(static::$logFile)) {
             static::$logFile = __DIR__ . '/../webcore.log';
         }
@@ -607,14 +610,14 @@ class Server
             \chmod($log_file, 0622);
         }
 
-        // State.
+        // Состояние
         static::$_status = static::STATUS_STARTING;
 
-        // For statistics.
+        // Для статистики
         static::$_globalStatistics['start_timestamp'] = \time();
 
-        // Process title.
-        static::setProcessTitle(static::$processTitle . ': master process  start_file=' . static::$_startFile);
+        // Название процесса
+        static::setProcessTitle(static::$processTitle . ': мастер-процесс  start_file=' . static::$_startFile);
 
         // Init data for server id.
         static::initId();
@@ -632,7 +635,7 @@ class Server
     {
         $fd = \fopen(static::$_startFile, 'r');
         if ($fd && !flock($fd, LOCK_EX)) {
-            static::log('WebCore ['.static::$_startFile.'] already running.');
+            static::log('WebCore [' . static::$_startFile . '] уже запущенн.');
             exit;
         }
     }
@@ -658,8 +661,8 @@ class Server
         if (static::$_OS !== \OS_TYPE_LINUX) {
             return;
         }
-        
-        static::$_statisticsFile =  static::$statusFile ? static::$statusFile : __DIR__ . '/../webcore-' .posix_getpid().'.status';
+
+        static::$_statisticsFile =  static::$statusFile ? static::$statusFile : __DIR__ . '/../webcore-' . posix_getpid() . '.status';
 
         foreach (static::$_servers as $server) {
             // Server name.
@@ -672,7 +675,7 @@ class Server
                 $server->user = static::getCurrentUser();
             } else {
                 if (\posix_getuid() !== 0 && $server->user !== static::getCurrentUser()) {
-                    static::log('Warning: You must have the root privileges to change uid and gid.');
+                    static::log('Внимание: У вас должен быть root, чтобы изменить UID и GID.');
                 }
             }
 
@@ -683,7 +686,7 @@ class Server
             $server->status = '<g> [OK] </g>';
 
             // Get column mapping for UI
-            foreach(static::getUiColumns() as $column_name => $prop){
+            foreach (static::getUiColumns() as $column_name => $prop) {
                 !isset($server->{$prop}) && $server->{$prop} = 'NNNN';
                 $prop_length = \strlen((string) $server->{$prop});
                 $key = '_max' . \ucfirst(\strtolower($column_name)) . 'NameLength';
@@ -734,7 +737,8 @@ class Server
      * Get main socket resource
      * @return resource
      */
-    public function getMainSocket(){
+    public function getMainSocket()
+    {
         return $this->_mainSocket;
     }
 
@@ -747,7 +751,7 @@ class Server
         foreach (static::$_servers as $server_id => $server) {
             $new_id_map = array();
             $server->count = $server->count < 1 ? 1 : $server->count;
-            for($key = 0; $key < $server->count; $key++) {
+            for ($key = 0; $key < $server->count; $key++) {
                 $new_id_map[$key] = isset(static::$_idMap[$server_id][$key]) ? static::$_idMap[$server_id][$key] : 0;
             }
             static::$_idMap[$server_id] = $new_id_map;
@@ -778,7 +782,7 @@ class Server
         }
         if (static::$_OS !== \OS_TYPE_LINUX) {
             static::safeEcho("----------------------- WEBCORE -----------------------------\r\n");
-            static::safeEcho('WebCore version:'. static::VERSION. '          PHP version:'. \PHP_VERSION. "\r\n");
+            static::safeEcho('WebCore version:' . static::VERSION . '          PHP version:' . \PHP_VERSION . "\r\n");
             static::safeEcho("------------------------ WORKERS -------------------------------\r\n");
             static::safeEcho("server                        listen                              processes status\r\n");
             return;
@@ -787,26 +791,26 @@ class Server
         //show version
         $line_version = 'WebCore version:' . static::VERSION . \str_pad('PHP version:', 22, ' ', \STR_PAD_LEFT) . \PHP_VERSION;
         $line_version .= \str_pad('Event-Loop:', 22, ' ', \STR_PAD_LEFT) . static::getEventLoopName() . \PHP_EOL;
-        !\defined('LINE_VERSIOIN_LENGTH') && \define('LINE_VERSIOIN_LENGTH', \strlen($line_version));
+        if (!\defined('LINE_VERSIOIN_LENGTH')) \define('LINE_VERSIOIN_LENGTH', \strlen($line_version));
         $total_length = static::getSingleLineTotalLength();
-        $line_one = '<n>' . \str_pad('<w> WEBCORE </w>', $total_length + \strlen('<w></w>'), '-', \STR_PAD_BOTH) . '</n>'. \PHP_EOL;
-        $line_two = \str_pad('<w> WORKERS </w>' , $total_length  + \strlen('<w></w>'), '-', \STR_PAD_BOTH) . \PHP_EOL;
+        $line_one = '<n>' . \str_pad('<w> WEBCORE </w>', $total_length + \strlen('<w></w>'), '-', \STR_PAD_BOTH) . '</n>' . \PHP_EOL;
+        $line_two = \str_pad('<w> WORKERS </w>', $total_length  + \strlen('<w></w>'), '-', \STR_PAD_BOTH) . \PHP_EOL;
         static::safeEcho($line_one . $line_version . $line_two);
 
         //Show title
         $title = '';
-        foreach(static::getUiColumns() as $column_name => $prop){
+        foreach (static::getUiColumns() as $column_name => $prop) {
             $key = '_max' . \ucfirst(\strtolower($column_name)) . 'NameLength';
             //just keep compatible with listen name
             $column_name === 'socket' && $column_name = 'listen';
-            $title.= "<w>{$column_name}</w>"  .  \str_pad('', static::$$key + static::UI_SAFE_LENGTH - \strlen($column_name));
+            $title .= "<w>{$column_name}</w>"  .  \str_pad('', static::$$key + static::UI_SAFE_LENGTH - \strlen($column_name));
         }
         $title && static::safeEcho($title . \PHP_EOL);
 
         //Show content
         foreach (static::$_servers as $server) {
             $content = '';
-            foreach(static::getUiColumns() as $column_name => $prop){
+            foreach (static::getUiColumns() as $column_name => $prop) {
                 $key = '_max' . \ucfirst(\strtolower($column_name)) . 'NameLength';
                 \preg_match_all("/(<n>|<\/n>|<w>|<\/w>|<g>|<\/g>)/is", (string) $server->{$prop}, $matches);
                 $place_holder_length = !empty($matches) ? \strlen(\implode('', $matches[0])) : 0;
@@ -828,7 +832,7 @@ class Server
                     $tmpArgv[$index] = 'stop';
                 }
             }
-            static::safeEcho("Input \"php ".implode(' ', $tmpArgv)."\" to stop. Start success.\n\n");
+            static::safeEcho("Input \"php " . implode(' ', $tmpArgv) . "\" to stop. Start success.\n\n");
         } else {
             static::safeEcho("Press Ctrl+C to stop. Start success.\n");
         }
@@ -863,13 +867,13 @@ class Server
     {
         $total_length = 0;
 
-        foreach(static::getUiColumns() as $column_name => $prop){
+        foreach (static::getUiColumns() as $column_name => $prop) {
             $key = '_max' . \ucfirst(\strtolower($column_name)) . 'NameLength';
             $total_length += static::$$key + static::UI_SAFE_LENGTH;
         }
 
         //keep beauty when show less colums
-        !\defined('LINE_VERSIOIN_LENGTH') && \define('LINE_VERSIOIN_LENGTH', 0);
+        if (!\defined('LINE_VERSIOIN_LENGTH')) \define('LINE_VERSIOIN_LENGTH', 0);
         $total_length <= LINE_VERSIOIN_LENGTH && $total_length = LINE_VERSIOIN_LENGTH;
 
         return $total_length;
@@ -977,7 +981,7 @@ class Server
                 // Waiting amoment.
                 \usleep(500000);
                 // Display statisitcs data from a disk file.
-                if(\is_readable($statistics_file)) {
+                if (\is_readable($statistics_file)) {
                     \readfile($statistics_file);
                 }
                 exit(0);
@@ -1022,14 +1026,14 @@ class Server
                 }
                 break;
             case 'reload':
-                if($mode === '-g'){
+                if ($mode === '-g') {
                     $sig = \SIGUSR2;
-                }else{
+                } else {
                     $sig = \SIGUSR1;
                 }
                 \posix_kill($master_pid, $sig);
                 exit;
-            default :
+            default:
                 if (isset($command)) {
                     static::safeEcho('Unknown command: ' . $command . "\n");
                 }
@@ -1068,7 +1072,7 @@ class Server
         $total_timers = 0;
         $maxLen1 = static::$_maxSocketNameLength;
         $maxLen2 = static::$_maxServerNameLength;
-        foreach($info as $key => $value) {
+        foreach ($info as $key => $value) {
             if (!$read_process_status) {
                 $status_str .= $value . "\n";
                 if (\preg_match('/^pid.*?memory.*?listening/', $value)) {
@@ -1076,13 +1080,13 @@ class Server
                 }
                 continue;
             }
-            if(\preg_match('/^[0-9]+/', $value, $pid_math)) {
+            if (\preg_match('/^[0-9]+/', $value, $pid_math)) {
                 $pid = $pid_math[0];
                 $data_waiting_sort[$pid] = $value;
-                if(\preg_match('/^\S+?\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?/', $value, $match)) {
-                    $total_memory += \intval(\str_ireplace('M','',$match[1]));
-                    $maxLen1 = \max($maxLen1,\strlen($match[2]));
-                    $maxLen2 = \max($maxLen2,\strlen($match[3]));
+                if (\preg_match('/^\S+?\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?/', $value, $match)) {
+                    $total_memory += \intval(\str_ireplace('M', '', $match[1]));
+                    $maxLen1 = \max($maxLen1, \strlen($match[2]));
+                    $maxLen2 = \max($maxLen2, \strlen($match[3]));
                     $total_connections += \intval($match[4]);
                     $total_fails += \intval($match[5]);
                     $total_timers += \intval($match[6]);
@@ -1091,7 +1095,7 @@ class Server
                 }
             }
         }
-        foreach($server_info as $pid => $info) {
+        foreach ($server_info as $pid => $info) {
             if (!isset($data_waiting_sort[$pid])) {
                 $status_str .= "$pid\t" . \str_pad('N/A', 7) . " "
                     . \str_pad($info['listen'], static::$_maxSocketNameLength) . " "
@@ -1107,16 +1111,16 @@ class Server
                 $qps = $current_total_request[$pid] - $total_request_cache[$pid];
                 $total_qps += $qps;
             }
-            $status_str .= $data_waiting_sort[$pid]. " " . \str_pad($qps, 6) ." [idle]\n";
+            $status_str .= $data_waiting_sort[$pid] . " " . \str_pad($qps, 6) . " [idle]\n";
         }
         $total_request_cache = $current_total_request;
         $status_str .= "----------------------------------------------PROCESS STATUS---------------------------------------------------\n";
-        $status_str .= "Summary\t" . \str_pad($total_memory.'M', 7) . " "
+        $status_str .= "Summary\t" . \str_pad($total_memory . 'M', 7) . " "
             . \str_pad('-', $maxLen1) . " "
             . \str_pad('-', $maxLen2) . " "
             . \str_pad($total_connections, 11) . " " . \str_pad($total_fails, 9) . " "
             . \str_pad($total_timers, 7) . " " . \str_pad($total_requests, 13) . " "
-            . \str_pad($total_qps,6)." [Summary] \n";
+            . \str_pad($total_qps, 6) . " [Summary] \n";
         return $status_str;
     }
 
@@ -1209,7 +1213,7 @@ class Server
     public static function signalHandler($signal)
     {
         switch ($signal) {
-            // Stop.
+                // Stop.
             case \SIGINT:
             case \SIGTERM:
             case \SIGHUP:
@@ -1217,23 +1221,23 @@ class Server
                 static::$_gracefulStop = false;
                 static::stopAll();
                 break;
-            // Graceful stop.
+                // Graceful stop.
             case \SIGQUIT:
                 static::$_gracefulStop = true;
                 static::stopAll();
                 break;
-            // Reload.
+                // Reload.
             case \SIGUSR2:
             case \SIGUSR1:
                 static::$_gracefulStop = $signal === \SIGUSR2;
                 static::$_pidsToRestart = static::getAllServerPids();
                 static::reload();
                 break;
-            // Show status.
+                // Show status.
             case \SIGIOT:
                 static::writeStatisticsToStatusFile();
                 break;
-            // Show connection status.
+                // Show connection status.
             case \SIGIO:
                 static::writeConnectionsStatisticsToStatusFile();
                 break;
@@ -1283,7 +1287,8 @@ class Server
         $handle = \fopen(static::$stdoutFile, "a");
         if ($handle) {
             unset($handle);
-            \set_error_handler(function(){});
+            \set_error_handler(function () {
+            });
             if ($STDOUT) {
                 \fclose($STDOUT);
             }
@@ -1347,7 +1352,7 @@ class Server
         }
 
         $loop_name = '';
-        foreach (static::$_availableEventLoops as $name=>$class) {
+        foreach (static::$_availableEventLoops as $name => $class) {
             if (\extension_loaded($name)) {
                 $loop_name = $name;
                 break;
@@ -1426,14 +1431,10 @@ class Server
     {
         $files = static::getStartFilesForWindows();
         global $argv;
-        if(\in_array('-q', $argv) || \count($files) === 1)
-        {
-            if(\count(static::$_servers) > 1)
-            {
+        if (\in_array('-q', $argv) || \count($files) === 1) {
+            if (\count(static::$_servers) > 1) {
                 static::safeEcho("@@@ Error: multi servers init in one php file are not support @@@\r\n");
-            }
-            elseif(\count(static::$_servers) <= 0)
-            {
+            } elseif (\count(static::$_servers) <= 0) {
                 exit("@@@no server inited@@@\r\n\r\n");
             }
 
@@ -1446,13 +1447,10 @@ class Server
             $server->listen();
             $server->run();
             exit("@@@child exit@@@\r\n");
-        }
-        else
-        {
+        } else {
             static::$globalEvent = new \localzet\Core\Events\Select();
             Timer::init(static::$globalEvent);
-            foreach($files as $start_file)
-            {
+            foreach ($files as $start_file) {
                 static::forkOneServerForWindows($start_file);
             }
         }
@@ -1463,13 +1461,12 @@ class Server
      *
      * @return array
      */
-    public static function getStartFilesForWindows() {
+    public static function getStartFilesForWindows()
+    {
         global $argv;
         $files = array();
-        foreach($argv as $file)
-        {
-            if(\is_file($file))
-            {
+        foreach ($argv as $file) {
+            if (\is_file($file)) {
                 $files[$file] = $file;
             }
         }
@@ -1507,22 +1504,17 @@ class Server
      */
     public static function checkServerStatusForWindows()
     {
-        foreach(static::$_processForWindows as $process_data)
-        {
+        foreach (static::$_processForWindows as $process_data) {
             $process = $process_data[0];
             $start_file = $process_data[1];
             $status = \proc_get_status($process);
-            if(isset($status['running']))
-            {
-                if(!$status['running'])
-                {
+            if (isset($status['running'])) {
+                if (!$status['running']) {
                     static::safeEcho("process $start_file terminated and try to restart\n");
                     \proc_close($process);
                     static::forkOneServerForWindows($start_file);
                 }
-            }
-            else
-            {
+            } else {
                 static::safeEcho("proc_get_status fail\n");
             }
         }
@@ -1559,7 +1551,7 @@ class Server
             }
             static::$_pidMap  = array();
             // Remove other listener.
-            foreach(static::$_servers as $key => $one_server) {
+            foreach (static::$_servers as $key => $one_server) {
                 if ($one_server->serverId !== $server->serverId) {
                     $one_server->unlisten();
                     unset(static::$_servers[$key]);
@@ -1636,14 +1628,14 @@ class Server
      */
     protected static function setProcessTitle($title)
     {
-        \set_error_handler(function(){});
+        \set_error_handler(function () {
+        });
+
         // >=php 5.5
         if (\function_exists('cli_set_process_title')) {
             \cli_set_process_title($title);
-        } // Need proctitle when php<=5.5 .
-        elseif (\extension_loaded('proctitle') && \function_exists('setproctitle')) {
-            \setproctitle($title);
         }
+
         \restore_error_handler();
     }
 
@@ -1831,7 +1823,7 @@ class Server
             // Send reload signal to a server process.
             \posix_kill($one_server_pid, $sig);
             // If the process does not exit after static::$stopTimeout seconds try to kill it.
-            if(!static::$_gracefulStop){
+            if (!static::$_gracefulStop) {
                 Timer::add(static::$stopTimeout, '\posix_kill', array($one_server_pid, \SIGKILL), false);
             }
         } // For child processes.
@@ -1880,7 +1872,7 @@ class Server
             }
             foreach ($server_pid_array as $server_pid) {
                 \posix_kill($server_pid, $sig);
-                if(!static::$_gracefulStop){
+                if (!static::$_gracefulStop) {
                     Timer::add(static::$stopTimeout, '\posix_kill', array($server_pid, \SIGKILL), false);
                 }
             }
@@ -1893,7 +1885,7 @@ class Server
         else {
             // Execute exit.
             foreach (static::$_servers as $server) {
-                if(!$server->stopping){
+                if (!$server->stopping) {
                     $server->stop();
                     $server->stopping = true;
                 }
@@ -1907,7 +1899,6 @@ class Server
                 try {
                     exit($code);
                 } catch (Exception $e) {
-
                 }
             }
         }
@@ -1957,52 +1948,85 @@ class Server
         // For master process.
         if (static::$_masterPid === \posix_getpid()) {
             $all_server_info = array();
-            foreach(static::$_pidMap as $server_id => $pid_array) {
+            foreach (static::$_pidMap as $server_id => $pid_array) {
                 /** @var /localzet/Core/Server $server */
                 $server = static::$_servers[$server_id];
-                foreach($pid_array as $pid) {
+                foreach ($pid_array as $pid) {
                     $all_server_info[$pid] = array('name' => $server->name, 'listen' => $server->getSocketName());
                 }
             }
 
-            \file_put_contents(static::$_statisticsFile, \serialize($all_server_info)."\n", \FILE_APPEND);
-            $loadavg = \function_exists('sys_getloadavg') ? \array_map('round', \sys_getloadavg(), array(2,2,2)) : array('-', '-', '-');
-            \file_put_contents(static::$_statisticsFile,
-                "----------------------------------------------GLOBAL STATUS----------------------------------------------------\n", \FILE_APPEND);
-            \file_put_contents(static::$_statisticsFile,
-                'WebCore version:' . static::VERSION . "          PHP version:" . \PHP_VERSION . "\n", \FILE_APPEND);
-            \file_put_contents(static::$_statisticsFile, 'start time:' . \date('Y-m-d H:i:s',
-                    static::$_globalStatistics['start_timestamp']) . '   run ' . \floor((\time() - static::$_globalStatistics['start_timestamp']) / (24 * 60 * 60)) . ' days ' . \floor(((\time() - static::$_globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . " hours   \n",
-                FILE_APPEND);
+            \file_put_contents(static::$_statisticsFile, \serialize($all_server_info) . "\n", \FILE_APPEND);
+            $loadavg = \function_exists('sys_getloadavg') ? \array_map('round', \sys_getloadavg(), array(2, 2, 2)) : array('-', '-', '-');
+            \file_put_contents(
+                static::$_statisticsFile,
+                "----------------------------------------------GLOBAL STATUS----------------------------------------------------\n",
+                \FILE_APPEND
+            );
+            \file_put_contents(
+                static::$_statisticsFile,
+                'WebCore version:' . static::VERSION . "          PHP version:" . \PHP_VERSION . "\n",
+                \FILE_APPEND
+            );
+            \file_put_contents(
+                static::$_statisticsFile,
+                'start time:' . \date(
+                    'Y-m-d H:i:s',
+                    static::$_globalStatistics['start_timestamp']
+                ) . '   run ' . \floor((\time() - static::$_globalStatistics['start_timestamp']) / (24 * 60 * 60)) . ' days ' . \floor(((\time() - static::$_globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . " hours   \n",
+                FILE_APPEND
+            );
             $load_str = 'load average: ' . \implode(", ", $loadavg);
-            \file_put_contents(static::$_statisticsFile,
-                \str_pad($load_str, 33) . 'event-loop:' . static::getEventLoopName() . "\n", \FILE_APPEND);
-            \file_put_contents(static::$_statisticsFile,
+            \file_put_contents(
+                static::$_statisticsFile,
+                \str_pad($load_str, 33) . 'event-loop:' . static::getEventLoopName() . "\n",
+                \FILE_APPEND
+            );
+            \file_put_contents(
+                static::$_statisticsFile,
                 \count(static::$_pidMap) . ' servers       ' . \count(static::getAllServerPids()) . " processes\n",
-                \FILE_APPEND);
-            \file_put_contents(static::$_statisticsFile,
-                \str_pad('server_name', static::$_maxServerNameLength) . " exit_status      exit_count\n", \FILE_APPEND);
+                \FILE_APPEND
+            );
+            \file_put_contents(
+                static::$_statisticsFile,
+                \str_pad('server_name', static::$_maxServerNameLength) . " exit_status      exit_count\n",
+                \FILE_APPEND
+            );
             foreach (static::$_pidMap as $server_id => $server_pid_array) {
                 $server = static::$_servers[$server_id];
                 if (isset(static::$_globalStatistics['server_exit_info'][$server_id])) {
                     foreach (static::$_globalStatistics['server_exit_info'][$server_id] as $server_exit_status => $server_exit_count) {
-                        \file_put_contents(static::$_statisticsFile,
-                            \str_pad($server->name, static::$_maxServerNameLength) . " " . \str_pad($server_exit_status,
-                                16) . " $server_exit_count\n", \FILE_APPEND);
+                        \file_put_contents(
+                            static::$_statisticsFile,
+                            \str_pad($server->name, static::$_maxServerNameLength) . " " . \str_pad(
+                                $server_exit_status,
+                                16
+                            ) . " $server_exit_count\n",
+                            \FILE_APPEND
+                        );
                     }
                 } else {
-                    \file_put_contents(static::$_statisticsFile,
+                    \file_put_contents(
+                        static::$_statisticsFile,
                         \str_pad($server->name, static::$_maxServerNameLength) . " " . \str_pad(0, 16) . " 0\n",
-                        \FILE_APPEND);
+                        \FILE_APPEND
+                    );
                 }
             }
-            \file_put_contents(static::$_statisticsFile,
+            \file_put_contents(
+                static::$_statisticsFile,
                 "----------------------------------------------PROCESS STATUS---------------------------------------------------\n",
-                \FILE_APPEND);
-            \file_put_contents(static::$_statisticsFile,
-                "pid\tmemory  " . \str_pad('listening', static::$_maxSocketNameLength) . " " . \str_pad('server_name',
-                    static::$_maxServerNameLength) . " connections " . \str_pad('send_fail', 9) . " "
-                . \str_pad('timers', 8) . \str_pad('total_request', 13) ." qps    status\n", \FILE_APPEND);
+                \FILE_APPEND
+            );
+            \file_put_contents(
+                static::$_statisticsFile,
+                "pid\tmemory  " . \str_pad('listening', static::$_maxSocketNameLength) . " " . \str_pad(
+                    'server_name',
+                    static::$_maxServerNameLength
+                ) . " connections " . \str_pad('send_fail', 9) . " "
+                    . \str_pad('timers', 8) . \str_pad('total_request', 13) . " qps    status\n",
+                \FILE_APPEND
+            );
 
             \chmod(static::$_statisticsFile, 0722);
 
@@ -2050,21 +2074,20 @@ class Server
         }
 
         // For child processes.
-        $bytes_format = function($bytes)
-        {
-            if($bytes > 1024*1024*1024*1024) {
-                return round($bytes/(1024*1024*1024*1024), 1)."TB";
+        $bytes_format = function ($bytes) {
+            if ($bytes > 1024 * 1024 * 1024 * 1024) {
+                return round($bytes / (1024 * 1024 * 1024 * 1024), 1) . "TB";
             }
-            if($bytes > 1024*1024*1024) {
-                return round($bytes/(1024*1024*1024), 1)."GB";
+            if ($bytes > 1024 * 1024 * 1024) {
+                return round($bytes / (1024 * 1024 * 1024), 1) . "GB";
             }
-            if($bytes > 1024*1024) {
-                return round($bytes/(1024*1024), 1)."MB";
+            if ($bytes > 1024 * 1024) {
+                return round($bytes / (1024 * 1024), 1) . "MB";
             }
-            if($bytes > 1024) {
-                return round($bytes/(1024), 1)."KB";
+            if ($bytes > 1024) {
+                return round($bytes / (1024), 1) . "KB";
             }
-            return $bytes."B";
+            return $bytes . "B";
         };
 
         $pid = \posix_getpid();
@@ -2074,7 +2097,7 @@ class Server
         $default_server_name = $current_server->name;
 
         /** @var \localzet\Core\Server $server */
-        foreach(TcpConnection::$connections as $connection) {
+        foreach (TcpConnection::$connections as $connection) {
             /** @var \localzet\Core\Connection\TcpConnection $connection */
             $transport      = $connection->transport;
             $ipv4           = $connection->isIpV4() ? ' 1' : ' 0';
@@ -2090,7 +2113,7 @@ class Server
             $protocol       = $connection->protocol ? $connection->protocol : $connection->transport;
             $pos            = \strrpos($protocol, '\\');
             if ($pos) {
-                $protocol = \substr($protocol, $pos+1);
+                $protocol = \substr($protocol, $pos + 1);
             }
             if (\strlen($protocol) > 15) {
                 $protocol = \substr($protocol, 0, 13) . '..';
@@ -2102,7 +2125,7 @@ class Server
             $str .= \str_pad($pid, 9) . \str_pad($server_name, 16) .  \str_pad($id, 10) . \str_pad($transport, 8)
                 . \str_pad($protocol, 16) . \str_pad($ipv4, 7) . \str_pad($ipv6, 7) . \str_pad($recv_q, 13)
                 . \str_pad($send_q, 13) . \str_pad($bytes_read, 13) . \str_pad($bytes_written, 13) . ' '
-                . \str_pad($state, 14) . ' ' . \str_pad($local_address, 22) . ' ' . \str_pad($remote_address, 22) ."\n";
+                . \str_pad($state, 14) . ' ' . \str_pad($local_address, 22) . ' ' . \str_pad($remote_address, 22) . "\n";
         }
         if ($str) {
             \file_put_contents(static::$_statisticsFile, $str, \FILE_APPEND);
@@ -2117,9 +2140,10 @@ class Server
     public static function checkErrors()
     {
         if (static::STATUS_SHUTDOWN !== static::$_status) {
-            $error_msg = static::$_OS === \OS_TYPE_LINUX ? 'Server['. \posix_getpid() .'] process terminated' : 'Server process terminated';
+            $error_msg = static::$_OS === \OS_TYPE_LINUX ? 'Server[' . \posix_getpid() . '] process terminated' : 'Server process terminated';
             $errors    = error_get_last();
-            if ($errors && ($errors['type'] === \E_ERROR ||
+            if (
+                $errors && ($errors['type'] === \E_ERROR ||
                     $errors['type'] === \E_PARSE ||
                     $errors['type'] === \E_CORE_ERROR ||
                     $errors['type'] === \E_COMPILE_ERROR ||
@@ -2139,7 +2163,7 @@ class Server
      */
     protected static function getErrorType($type)
     {
-        if(isset(self::$_errorType[$type])) {
+        if (isset(self::$_errorType[$type])) {
             return self::$_errorType[$type];
         }
 
@@ -2306,7 +2330,8 @@ class Server
 
             // Try to open keepalive for tcp and disable Nagle algorithm.
             if (\function_exists('socket_import_stream') && static::$_builtinTransports[$this->transport] === 'tcp') {
-                \set_error_handler(function(){});
+                \set_error_handler(function () {
+                });
                 $socket = \socket_import_stream($this->_mainSocket);
                 \socket_set_option($socket, \SOL_SOCKET, \SO_KEEPALIVE, 1);
                 \socket_set_option($socket, \SOL_TCP, \TCP_NODELAY, 1);
@@ -2325,10 +2350,12 @@ class Server
      *
      * @return void
      */
-    public function unlisten() {
+    public function unlisten()
+    {
         $this->pauseAccept();
         if ($this->_mainSocket) {
-            \set_error_handler(function(){});
+            \set_error_handler(function () {
+            });
             \fclose($this->_mainSocket);
             \restore_error_handler();
             $this->_mainSocket = null;
@@ -2340,7 +2367,8 @@ class Server
      *
      * @throws Exception
      */
-    protected function parseSocketAddress() {
+    protected function parseSocketAddress()
+    {
         if (!$this->_socketName) {
             return;
         }
@@ -2349,7 +2377,7 @@ class Server
         // Check application layer protocol class.
         if (!isset(static::$_builtinTransports[$scheme])) {
             $scheme         = \ucfirst($scheme);
-            $this->protocol = \substr($scheme,0,1)==='\\' ? $scheme : 'Protocols\\' . $scheme;
+            $this->protocol = \substr($scheme, 0, 1) === '\\' ? $scheme : 'Protocols\\' . $scheme;
             if (!\class_exists($this->protocol)) {
                 $this->protocol = "localzet\\Core\\Protocols\\$scheme";
                 if (!\class_exists($this->protocol)) {
@@ -2439,7 +2467,8 @@ class Server
 
         // Set an empty onMessage callback.
         if (empty($this->onMessage)) {
-            $this->onMessage = function () {};
+            $this->onMessage = function () {
+            };
         }
 
         \restore_error_handler();
@@ -2501,7 +2530,8 @@ class Server
     public function acceptConnection($socket)
     {
         // Accept a connection on server socket.
-        \set_error_handler(function(){});
+        \set_error_handler(function () {
+        });
         $new_socket = \stream_socket_accept($socket, 0, $remote_address);
         \restore_error_handler();
 
@@ -2542,7 +2572,8 @@ class Server
      */
     public function acceptUdpConnection($socket)
     {
-        \set_error_handler(function(){});
+        \set_error_handler(function () {
+        });
         $recv_buffer = \stream_socket_recvfrom($socket, static::MAX_UDP_PACKAGE_SIZE, 0, $remote_address);
         \restore_error_handler();
         if (false === $recv_buffer || empty($remote_address)) {
@@ -2618,4 +2649,3 @@ class Server
         return stripos($content, static::$processTitle) !== false || stripos($content, 'php') !== false;
     }
 }
-

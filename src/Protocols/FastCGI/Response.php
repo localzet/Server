@@ -1,7 +1,7 @@
 <?php
 /**
  * @package     WebCore Server
- * @link        https://localzet.gitbook.io
+ * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
  * 

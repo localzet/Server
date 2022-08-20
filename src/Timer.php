@@ -1,7 +1,8 @@
 <?php
+
 /**
  * @package     WebCore Server
- * @link        https://localzet.gitbook.io
+ * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
  * 
@@ -10,6 +11,7 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
+
 namespace localzet\Core;
 
 use localzet\Core\Events\EventInterface;
@@ -17,19 +19,18 @@ use localzet\Core\Server;
 use \Exception;
 
 /**
- * Timer.
+ * Таймер
  *
- * example:
+ * Например:
  * localzet\Core\Timer::add($time_interval, callback, array($arg1, $arg2..));
  */
 class Timer
 {
     /**
-     * Tasks that based on ALARM signal.
+     * Задачи, основанные на сигнале
      * [
      *   run_time => [[$func, $args, $persistent, time_interval],[$func, $args, $persistent, time_interval],..]],
      *   run_time => [[$func, $args, $persistent, time_interval],[$func, $args, $persistent, time_interval],..]],
-     *   ..
      * ]
      *
      * @var array
@@ -37,25 +38,24 @@ class Timer
     protected static $_tasks = array();
 
     /**
-     * event
+     * Событие
      *
      * @var EventInterface
      */
     protected static $_event = null;
 
     /**
-     * timer id
+     * ID Таймера
      *
      * @var int
      */
     protected static $_timerId = 0;
 
     /**
-     * timer status
+     * Статус таймера
      * [
      *   timer_id1 => bool,
      *   timer_id2 => bool,
-     *   ....................,
      * ]
      *
      * @var array
@@ -63,7 +63,7 @@ class Timer
     protected static $_status = array();
 
     /**
-     * Init.
+     * Инициализация
      *
      * @param EventInterface $event
      * @return void
@@ -75,12 +75,12 @@ class Timer
             return;
         }
         if (\function_exists('pcntl_signal')) {
-            \pcntl_signal(\SIGALRM, array('\localzet\Core\Lib\Timer', 'signalHandle'), false);
+            \pcntl_signal(\SIGALRM, array('\localzet\Core\Timer', 'signalHandle'), false);
         }
     }
 
     /**
-     * ALARM signal handler.
+     * Обработчик сигнала
      *
      * @return void
      */
@@ -93,18 +93,18 @@ class Timer
     }
 
     /**
-     * Add a timer.
+     * Добавить таймер
      *
-     * @param float    $time_interval
+     * @param float $time_interval
      * @param callable $func
-     * @param mixed    $args
-     * @param bool     $persistent
+     * @param mixed $args
+     * @param bool $persistent
      * @return int|bool
      */
-    public static function add($time_interval, $func, $args = array(), $persistent = true)
+    public static function add($time_interval, callable $func, $args = array(), bool $persistent = true)
     {
         if ($time_interval <= 0) {
-            Server::safeEcho(new Exception("bad time_interval"));
+            Server::safeEcho(new Exception("Некорректный time_interval"));
             return false;
         }
 
@@ -113,16 +113,20 @@ class Timer
         }
 
         if (self::$_event) {
-            return self::$_event->add($time_interval,
-                $persistent ? EventInterface::EV_TIMER : EventInterface::EV_TIMER_ONCE, $func, $args);
+            return self::$_event->add(
+                $time_interval,
+                $persistent ? EventInterface::EV_TIMER : EventInterface::EV_TIMER_ONCE,
+                $func,
+                $args
+            );
         }
-        
+
         if (!Server::getAllServers()) {
             return;
         }
 
         if (!\is_callable($func)) {
-            Server::safeEcho(new Exception("not callable"));
+            Server::safeEcho(new Exception("Невозможно вызвать функцию"));
             return false;
         }
 
@@ -144,7 +148,7 @@ class Timer
 
 
     /**
-     * Tick.
+     * Тик
      *
      * @return void
      */
@@ -167,9 +171,9 @@ class Timer
                     } catch (\Exception $e) {
                         Server::safeEcho($e);
                     }
-                    if($persistent && !empty(self::$_status[$index])) {
+                    if ($persistent && !empty(self::$_status[$index])) {
                         $new_run_time = \time() + $time_interval;
-                        if(!isset(self::$_tasks[$new_run_time])) self::$_tasks[$new_run_time] = array();
+                        if (!isset(self::$_tasks[$new_run_time])) self::$_tasks[$new_run_time] = array();
                         self::$_tasks[$new_run_time][$index] = array($task_func, (array)$task_args, $persistent, $time_interval);
                     }
                 }
@@ -179,7 +183,7 @@ class Timer
     }
 
     /**
-     * Remove a timer.
+     * Удалить таймер
      *
      * @param mixed $timer_id
      * @return bool
@@ -190,18 +194,17 @@ class Timer
             return self::$_event->del($timer_id, EventInterface::EV_TIMER);
         }
 
-        foreach(self::$_tasks as $run_time => $task_data) 
-        {
-            if(array_key_exists($timer_id, $task_data)) unset(self::$_tasks[$run_time][$timer_id]);
+        foreach (self::$_tasks as $run_time => $task_data) {
+            if (array_key_exists($timer_id, $task_data)) unset(self::$_tasks[$run_time][$timer_id]);
         }
 
-        if(array_key_exists($timer_id, self::$_status)) unset(self::$_status[$timer_id]);
+        if (array_key_exists($timer_id, self::$_status)) unset(self::$_status[$timer_id]);
 
         return true;
     }
 
     /**
-     * Remove all timers.
+     * Удалить все таймеры
      *
      * @return void
      */

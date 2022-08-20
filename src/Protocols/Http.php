@@ -1,7 +1,7 @@
 <?php
 /**
  * @package     WebCore Server
- * @link        https://localzet.gitbook.io
+ * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
  * 
@@ -10,6 +10,7 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
+
 namespace localzet\Core\Protocols;
 
 use localzet\Core\Connection\TcpConnection;

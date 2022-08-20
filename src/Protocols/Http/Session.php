@@ -1,7 +1,7 @@
 <?php
 /**
  * @package     WebCore Server
- * @link        https://localzet.gitbook.io
+ * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
  * 
@@ -409,7 +409,7 @@ class Session
     public function __destruct()
     {
         $this->save();
-        if (\rand(1, static::$gcProbability[1]) <= static::$gcProbability[0]) {
+        if (\random_int(1, static::$gcProbability[1]) <= static::$gcProbability[0]) {
             $this->gc();
         }
     }

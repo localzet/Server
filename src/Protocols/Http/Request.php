@@ -1,7 +1,7 @@
 <?php
 /**
  * @package     WebCore Server
- * @link        https://localzet.gitbook.io
+ * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
  * 
@@ -10,6 +10,7 @@
  * 
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
+
 namespace localzet\Core\Protocols\Http;
 
 use localzet\Core\Connection\TcpConnection;
@@ -595,7 +596,7 @@ class Request
      */
     protected static function createSessionId()
     {
-        return \bin2hex(\pack('d', \microtime(true)) . \pack('N', \mt_rand()));
+        return \bin2hex(\pack('d', \microtime(true)) . random_bytes(8));
     }
 
     /**
