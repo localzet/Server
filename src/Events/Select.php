@@ -218,6 +218,7 @@ class Select implements EventInterface
             $timer_id             = $scheduler_data['data'];
             $next_run_time        = -$scheduler_data['priority'];
             $time_now             = \microtime(true);
+            $tasks_to_insert      = [];
             $this->_selectTimeout = (int) (($next_run_time - $time_now) * 1000000);
             if ($this->_selectTimeout <= 0) {
                 $this->_scheduler->extract();
