@@ -16,6 +16,7 @@ namespace localzet\Core\Connection;
 /**
  * ConnectionInterface.
  */
+#[\AllowDynamicProperties]
 abstract class  ConnectionInterface
 {
     /**

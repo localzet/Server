@@ -2,12 +2,12 @@
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
- * 
+ *
  * @author      localzet <creator@localzet.ru>
- * 
- * @copyright   Copyright (c) 2018-2020 Zorin Projects 
+ *
+ * @copyright   Copyright (c) 2018-2020 Zorin Projects
  * @copyright   Copyright (c) 2020-2022 NONA Team
- * 
+ *
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
 
@@ -46,7 +46,7 @@ class Fcgi
     const FCGI_HEADER_LEN = 8;
 
     /**
-     * the max length of payload 
+     * the max length of payload
      *
      * @var int
      */
@@ -187,35 +187,35 @@ class Fcgi
      *
      * @var int
      */
-    const FCGI_REQUEST_COMPLETE = 0; 
+    const FCGI_REQUEST_COMPLETE = 0;
 
     /**
      * the protocol status of FCGI_CANT_MPX_CONN
      *
      * @var int
      */
-    const FCGI_CANT_MPX_CONN = 1;  
+    const FCGI_CANT_MPX_CONN = 1;
 
     /**
      * the protocol status of FCGI_OVERLOADED
      *
      * @var int
      */
-    const FCGI_OVERLOADED = 2;  
+    const FCGI_OVERLOADED = 2;
 
     /**
      * the protocol status of FCGI_UNKNOWN_ROLE
      *
      * @var int
      */
-    const FCGI_UNKNOWN_ROLE = 3;  
+    const FCGI_UNKNOWN_ROLE = 3;
 
     /**
      * the request object
      *
      * @var object
      */
-    static private $_request = NULL;
+    private static $_request = null;
 
     /**
      * check the integrity of the package
@@ -229,37 +229,49 @@ class Fcgi
     {
         $recv_len = \strlen($buffer);
 
-        if($recv_len < static::FCGI_HEADER_LEN) return 0;
+        if ($recv_len < static::FCGI_HEADER_LEN) {
+            return 0;
+        }
 
-        if(!isset($connection->packetLength)) $connection->packetLength = 0;
+        if (!isset($connection->packetLength)) {
+            $connection->packetLength = 0;
+        }
 
-        $data = \unpack("Cversion/Ctype/nrequestId/ncontentLength/CpaddingLength/Creserved", $buffer);
-        if(false === $data) return 0;
+        $data = \unpack(
+            'Cversion/Ctype/nrequestId/ncontentLength/CpaddingLength/Creserved',
+            $buffer
+        );
+        if (false === $data) {
+            return 0;
+        }
 
-        $chunk_len = static::FCGI_HEADER_LEN + $data['contentLength'] + $data['paddingLength'];
-        if($recv_len < $chunk_len) return 0;
+        $chunk_len =
+            static::FCGI_HEADER_LEN +
+            $data['contentLength'] +
+            $data['paddingLength'];
+        if ($recv_len < $chunk_len) {
+            return 0;
+        }
 
-        if(static::FCGI_END_REQUEST != $data['type'])
-        {
+        if (static::FCGI_END_REQUEST != $data['type']) {
             $connection->packetLength += $chunk_len;
-            $next_chunk_len = static::input(\substr($buffer, $chunk_len), $connection);
+            $next_chunk_len = static::input(
+                \substr($buffer, $chunk_len),
+                $connection
+            );
 
-            if(0 == $next_chunk_len) 
-            {
+            if (0 == $next_chunk_len) {
                 //important!! don't forget to reset to zero byte!!
                 $connection->packetLength = 0;
                 return 0;
             }
-        }
-        else
-        {
+        } else {
             $connection->packetLength += $chunk_len;
         }
 
         //check package length exceeds the max package length or not
-        if($connection->packetLength > $connection->maxPackageSize) 
-        {
-            $msg  = "Exception: recv error package. package_length = {$connection->packetLength} ";
+        if ($connection->packetLength > $connection->maxPackageSize) {
+            $msg = "Exception: recv error package. package_length = {$connection->packetLength} ";
             $msg .= "exceeds the limit {$connection->maxPackageSize}" . PHP_EOL;
             Server::safeEcho($msg);
             $connection->close();
@@ -282,42 +294,58 @@ class Fcgi
         $offset = 0;
         $stdout = $stderr = '';
 
-        do
-        {
+        do {
             $header_buffer = \substr($buffer, $offset, static::FCGI_HEADER_LEN);
-            $data = \unpack("Cversion/Ctype/nrequestId/ncontentLength/CpaddingLength/Creserved", $header_buffer);
+            $data = \unpack(
+                'Cversion/Ctype/nrequestId/ncontentLength/CpaddingLength/Creserved',
+                $header_buffer
+            );
 
             //we are not going to throw new \Exception("Failed to unpack header data from the binary buffer.");
             //but just break out of the loop to avoid bring much unnecessary TCP connections with TIME_WAIT status
-            if(false === $data) 
-            {
-                $stderr = "Failed to unpack header data from the binary buffer";
+            if (false === $data) {
+                $stderr = 'Failed to unpack header data from the binary buffer';
                 Server::safeEcho($stderr);
                 $connection->close();
                 break;
             }
 
-            $chunk_len = static::FCGI_HEADER_LEN + $data['contentLength'] + $data['paddingLength'];
-            $body_buffer = \substr($buffer, $offset + static::FCGI_HEADER_LEN, $chunk_len - static::FCGI_HEADER_LEN);
+            $chunk_len =
+                static::FCGI_HEADER_LEN +
+                $data['contentLength'] +
+                $data['paddingLength'];
+            $body_buffer = \substr(
+                $buffer,
+                $offset + static::FCGI_HEADER_LEN,
+                $chunk_len - static::FCGI_HEADER_LEN
+            );
 
-
-            switch($data['type'])
-            {
+            switch ($data['type']) {
                 case static::FCGI_STDOUT:
-                    $payload = \unpack("a{$data['contentLength']}contentData/a{$data['paddingLength']}paddingData", $body_buffer);
-                    $stdout .= $payload['contentData']; 
+                    $payload = \unpack(
+                        "a{$data['contentLength']}contentData/a{$data['paddingLength']}paddingData",
+                        $body_buffer
+                    );
+                    $stdout .= $payload['contentData'];
                     break;
                 case static::FCGI_STDERR:
-                    $payload = \unpack("a{$data['contentLength']}contentData/a{$data['paddingLength']}paddingData", $body_buffer);
-                    $stderr .= $payload['contentData']; 
+                    $payload = \unpack(
+                        "a{$data['contentLength']}contentData/a{$data['paddingLength']}paddingData",
+                        $body_buffer
+                    );
+                    $stderr .= $payload['contentData'];
                     break;
                 case static::FCGI_END_REQUEST:
-                    $payload = \unpack("NappStatus/CprotocolStatus/a3reserved", $body_buffer);
-                    $result = static::checkProtocolStatus($payload['protocolStatus']);
+                    $payload = \unpack(
+                        'NappStatus/CprotocolStatus/a3reserved',
+                        $body_buffer
+                    );
+                    $result = static::checkProtocolStatus(
+                        $payload['protocolStatus']
+                    );
 
-                    if(0 <> $result['code']) 
-                    {
-                        $stderr = $result['msg']; 
+                    if (0 != $result['code']) {
+                        $stderr = $result['msg'];
                         Server::safeEcho($stderr);
                         $connection->close();
                     }
@@ -329,29 +357,36 @@ class Fcgi
             }
 
             $offset += $chunk_len;
-        }while($offset < $connection->packetLength);
+        } while ($offset < $connection->packetLength);
 
-        //important!! don't forget to reset to zero byte!! 
+        //important!! don't forget to reset to zero byte!!
         $connection->packetLength = 0;
 
         //build response
         $response = new Response();
-        $output = $response->setRequestId($data['requestId'] ?? -1)
+        $output = $response
+            ->setRequestId($data['requestId'] ?? -1)
             ->setStdout($stdout)
             ->setStderr($stderr)
             ->formatOutput();
 
         //trigger user callback as onResponse
-        if(!empty($connection->onResponse) && is_callable($connection->onResponse)) 
-        {
+        if (
+            !empty($connection->onResponse) &&
+            is_callable($connection->onResponse)
+        ) {
             try {
-                \call_user_func($connection->onResponse, $connection, $response);
+                \call_user_func(
+                    $connection->onResponse,
+                    $connection,
+                    $response
+                );
             } catch (\Exception $e) {
-                $msg = "Exception: onResponse: " . $e->getMessage();
+                $msg = 'Exception: onResponse: ' . $e->getMessage();
                 Server::safeEcho($msg);
                 $connection->close();
             } catch (\Error $e) {
-                $msg = "Exception: onResponse: " . $e->getMessage();
+                $msg = 'Exception: onResponse: ' . $e->getMessage();
                 Server::safeEcho($msg);
                 $connection->close();
             }
@@ -361,7 +396,7 @@ class Fcgi
     }
 
     /**
-     * @brief   encode package 
+     * @brief   encode package
      *
      * @param   Request                 $request
      * @param   TcpConnection           $connection
@@ -370,7 +405,9 @@ class Fcgi
      */
     public static function encode(Request $request, TcpConnection $connection)
     {
-        if(!$request instanceof Request) return '';
+        if (!$request instanceof Request) {
+            return '';
+        }
 
         static::$_request = $request;
 
@@ -381,13 +418,14 @@ class Fcgi
         $packet .= static::createPacket(static::FCGI_STDIN);
         $packet .= static::createPacket(static::FCGI_STDIN_END);
 
-        $connection->maxSendBufferSize = TcpConnection::$defaultMaxSendBufferSize * 10;
+        $connection->maxSendBufferSize =
+            TcpConnection::$defaultMaxSendBufferSize * 10;
         $packet_len = \strlen($packet);
 
-        if($packet_len > $connection->maxSendBufferSize) 
-        {
-            $msg  = "Exception: send error package. package_length = {$packet_len} ";
-            $msg .= "exceeds the limit {$connection->maxSendBufferSize}" . PHP_EOL;
+        if ($packet_len > $connection->maxSendBufferSize) {
+            $msg = "Exception: send error package. package_length = {$packet_len} ";
+            $msg .=
+                "exceeds the limit {$connection->maxSendBufferSize}" . PHP_EOL;
             Server::safeEcho($msg);
             $connection->close();
             return '';
@@ -397,45 +435,46 @@ class Fcgi
     }
 
     /**
-     * @brief    pack payload 
+     * @brief    pack payload
      *
      * @param    string  $type
      *
      * @return   string
      */
-    static private function packPayload($type = '')
+    private static function packPayload($type = '')
     {
         $payload = '';
 
-        switch($type)
-        {
+        switch ($type) {
             case static::FCGI_BEGIN_REQUEST:
                 $payload = \pack(
-                    "nCa5",
+                    'nCa5',
                     static::$_request->getRole(),
                     static::$_request->getKeepAlive(),
                     static::FCGI_RESERVED
-                );  
+                );
                 break;
             case static::FCGI_PARAMS:
             case static::FCGI_PARAMS_END:
                 $payload = '';
-                $params = (static::FCGI_PARAMS == $type) ? static::$_request->getParams() : [];
-                foreach($params as $name => $value) 
-                {
-                    $name_len  = \strlen($name);
+                $params =
+                    static::FCGI_PARAMS == $type
+                        ? static::$_request->getParams()
+                        : [];
+                foreach ($params as $name => $value) {
+                    $name_len = \strlen($name);
                     $value_len = \strlen($value);
                     $format = [
-                        $name_len  > 127 ? 'N' : 'C',
+                        $name_len > 127 ? 'N' : 'C',
                         $value_len > 127 ? 'N' : 'C',
                         "a{$name_len}",
                         "a{$value_len}",
                     ];
-                    $format = implode ('', $format);
+                    $format = implode('', $format);
                     $payload .= \pack(
                         $format,
-                        $name_len  > 127 ? ($name_len  | 0x80000000) : $name_len,
-                        $value_len > 127 ? ($value_len | 0x80000000) : $value_len,
+                        $name_len > 127 ? $name_len | 0x80000000 : $name_len,
+                        $value_len > 127 ? $value_len | 0x80000000 : $value_len,
                         $name,
                         $value
                     );
@@ -444,13 +483,20 @@ class Fcgi
             case static::FCGI_STDIN:
             case static::FCGI_ABORT_REQUEST:
             case static::FCGI_DATA:
-                $payload = \pack("a" . static::$_request->getContentLength(), static::$_request->getContent());
+                $payload = \pack(
+                    'a' . static::$_request->getContentLength(),
+                    static::$_request->getContent()
+                );
                 break;
             case static::FCGI_STDIN_END:
                 $payload = '';
                 break;
             case static::FCGI_UNKNOWN_TYPE:
-                $payload = \pack("Ca7", static::FCGI_UNKNOWN_TYPE, static::FCGI_RESERVED);
+                $payload = \pack(
+                    'Ca7',
+                    static::FCGI_UNKNOWN_TYPE,
+                    static::FCGI_RESERVED
+                );
                 break;
             default:
                 $payload = '';
@@ -467,7 +513,7 @@ class Fcgi
      *
      * @return   string
      */
-    static public function createPacket($type = '')
+    public static function createPacket($type = '')
     {
         $packet = '';
         $offset = 0;
@@ -475,23 +521,22 @@ class Fcgi
         $total_len = \strlen($payload);
 
         //don't forget to reset pseudo record type to normal
-        $type == static::FCGI_PARAMS_END && $type = static::FCGI_PARAMS;
-        $type == static::FCGI_STDIN_END  && $type = static::FCGI_STDIN;
+        $type == static::FCGI_PARAMS_END && ($type = static::FCGI_PARAMS);
+        $type == static::FCGI_STDIN_END && ($type = static::FCGI_STDIN);
 
-        //maybe need to split payload into many chunks 
-        do
-        {
+        //maybe need to split payload into many chunks
+        do {
             $chunk = \substr($payload, $offset, static::FCGI_MAX_PAYLOAD_LEN);
             $chunk_len = \strlen($chunk);
             $remainder = \abs($chunk_len % 8);
             $padding_len = $remainder > 0 ? 8 - $remainder : 0;
 
             $header = \pack(
-                "CCnnCC",
+                'CCnnCC',
                 static::FCGI_VERSION_1,
                 $type,
                 static::$_request->getRequestId(),
-                $chunk_len, 
+                $chunk_len,
                 $padding_len,
                 static::FCGI_RESERVED
             );
@@ -499,7 +544,7 @@ class Fcgi
             $padding = \pack("a{$padding_len}", static::FCGI_PADDING);
             $packet .= $header . $chunk . $padding;
             $offset += $chunk_len;
-        }while($offset < $total_len);
+        } while ($offset < $total_len);
 
         return $packet;
     }
@@ -511,21 +556,23 @@ class Fcgi
      *
      * @return   array
      */
-    static public function checkProtocolStatus($status = 0)
+    public static function checkProtocolStatus($status = 0)
     {
-        switch($status)
-        {
+        switch ($status) {
             case static::FCGI_REQUEST_COMPLETE:
                 $msg = 'Accepted: request completed ok';
                 break;
             case static::FCGI_CANT_MPX_CONN:
-                $msg = 'Rejected: FastCGI server does not support concurrent processing';
+                $msg =
+                    'Rejected: FastCGI server does not support concurrent processing';
                 break;
             case static::FCGI_OVERLOADED:
-                $msg = 'Rejected: FastCGI server run out of resources or reached the limit';
+                $msg =
+                    'Rejected: FastCGI server run out of resources or reached the limit';
                 break;
             case static::FCGI_UNKNOWN_ROLE:
-                $msg = 'Rejected: FastCGI server not support the specified role';
+                $msg =
+                    'Rejected: FastCGI server not support the specified role';
                 break;
             default:
                 $msg = 'Rejected: FastCGI server does not know what happened';
@@ -534,8 +581,7 @@ class Fcgi
 
         return [
             'code' => $status,
-            'msg'  => $msg,
+            'msg' => $msg,
         ];
     }
-
 }
