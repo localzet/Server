@@ -24,7 +24,7 @@ use localzet\Core\Server;
  * Class Http.
  * @package localzet\Core\Protocols
  */
-class Http
+class Http implements \localzet\Core\Protocols\ProtocolInterface
 {
     /**
      * Request class name.

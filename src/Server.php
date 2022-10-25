@@ -812,7 +812,7 @@ class Server
                     "\r\n"
             );
             static::safeEcho(
-                "------------------------ WORKERS -------------------------------\r\n"
+                "------------------------ SERVERS -------------------------------\r\n"
             );
             static::safeEcho(
                 "server                        listen                              processes status\r\n"
@@ -846,7 +846,7 @@ class Server
             \PHP_EOL;
         $line_two =
             \str_pad(
-                '<w> WORKERS </w>',
+                '<w> SERVERS </w>',
                 $total_length + \strlen('<w></w>'),
                 '-',
                 \STR_PAD_BOTH
