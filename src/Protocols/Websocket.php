@@ -82,13 +82,13 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
             switch ($opcode) {
                 case 0x0:
                     break;
-                // Blob type.
+                    // Blob type.
                 case 0x1:
                     break;
-                // Arraybuffer type.
+                    // Arraybuffer type.
                 case 0x2:
                     break;
-                // Close package.
+                    // Close package.
                 case 0x8:
                     // Try to emit onWebSocketClose callback.
                     if (
@@ -113,13 +113,13 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                         $connection->close("\x88\x02\x03\xe8", true);
                     }
                     return 0;
-                // Ping package.
+                    // Ping package.
                 case 0x9:
                     break;
-                // Pong package.
+                    // Pong package.
                 case 0xa:
                     break;
-                // Wrong opcode.
+                    // Wrong opcode.
                 default:
                     Server::safeEcho(
                         "error opcode $opcode and close websocket connection. Buffer:" .
@@ -170,7 +170,8 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                             $connection
                         );
                         $connection->consumeRecvBuffer($current_frame_length);
-                        $tmp_connection_type = $connection->websocketType ?? static::BINARY_TYPE_BLOB;                        $connection->websocketType = "\x8a";
+                        $tmp_connection_type = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
+                        $connection->websocketType = "\x8a";
                         if (
                             isset($connection->onWebSocketPing) ||
                             isset($connection->server->onWebSocketPing)
@@ -207,7 +208,8 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                             $connection
                         );
                         $connection->consumeRecvBuffer($current_frame_length);
-                        $tmp_connection_type = $connection->websocketType ?? static::BINARY_TYPE_BLOB;                        $connection->websocketType = "\x8a";
+                        $tmp_connection_type = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
+                        $connection->websocketType = "\x8a";
                         // Try to emit onWebSocketPong callback.
                         if (
                             isset($connection->onWebSocketPong) ||
@@ -589,7 +591,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
             $value = \trim($value);
             $_SERVER['HTTP_' . $key] = $value;
             switch ($key) {
-                // HTTP_HOST
+                    // HTTP_HOST
                 case 'HOST':
                     $tmp = \explode(':', $value);
                     $_SERVER['SERVER_NAME'] = $tmp[0];
@@ -597,7 +599,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                         $_SERVER['SERVER_PORT'] = $tmp[1];
                     }
                     break;
-                // cookie
+                    // cookie
                 case 'COOKIE':
                     \parse_str(
                         \str_replace('; ', '&', $_SERVER['HTTP_COOKIE']),

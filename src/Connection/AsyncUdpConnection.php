@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -71,11 +72,11 @@ class AsyncUdpConnection extends UdpConnection
                 }
             }
         }
-        
+
         $this->_remoteAddress = \substr($address, 2);
         $this->_contextOption = $context_option;
     }
-    
+
     /**
      * For udp package.
      *
@@ -88,7 +89,7 @@ class AsyncUdpConnection extends UdpConnection
         if (false === $recv_buffer || empty($remote_address)) {
             return false;
         }
-        
+
         if ($this->onMessage) {
             if ($this->protocol) {
                 $parser      = $this->protocol;
@@ -127,8 +128,8 @@ class AsyncUdpConnection extends UdpConnection
         }
         return \strlen($send_buffer) === \stream_socket_sendto($this->_socket, $send_buffer, 0);
     }
-    
-    
+
+
     /**
      * Close connection.
      *
@@ -171,8 +172,14 @@ class AsyncUdpConnection extends UdpConnection
         }
         if ($this->_contextOption) {
             $context = \stream_context_create($this->_contextOption);
-            $this->_socket = \stream_socket_client("udp://{$this->_remoteAddress}", $errno, $errmsg,
-                30, \STREAM_CLIENT_CONNECT, $context);
+            $this->_socket = \stream_socket_client(
+                "udp://{$this->_remoteAddress}",
+                $errno,
+                $errmsg,
+                30,
+                \STREAM_CLIENT_CONNECT,
+                $context
+            );
         } else {
             $this->_socket = \stream_socket_client("udp://{$this->_remoteAddress}", $errno, $errmsg);
         }
@@ -181,9 +188,9 @@ class AsyncUdpConnection extends UdpConnection
             Server::safeEcho(new \Exception($errmsg));
             return;
         }
-        
+
         \stream_set_blocking($this->_socket, false);
-        
+
         if ($this->onMessage) {
             // Server::$globalEvent->add($this->_socket, EventInterface::EV_READ, array($this, 'baseRead'));
             Server::$globalEvent->onWritable($this->_socket, [$this, 'baseRead']);
@@ -200,5 +207,4 @@ class AsyncUdpConnection extends UdpConnection
             }
         }
     }
-
 }

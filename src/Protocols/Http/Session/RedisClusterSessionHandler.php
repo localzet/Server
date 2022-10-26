@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -41,5 +42,4 @@ class RedisClusterSessionHandler extends RedisSessionHandler
     {
         return $this->_redis->get($session_id);
     }
-
 }

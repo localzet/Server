@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -170,7 +171,7 @@ class TcpConnection extends ConnectionInterface
      * @var int
      */
     public $maxPackageSize = 1048576;
-    
+
     /**
      * Default maximum acceptable packet size.
      *
@@ -271,7 +272,7 @@ class TcpConnection extends ConnectionInterface
     {
         ++self::$statistics['connection_count'];
         $this->id = $this->_id = self::$_idRecorder++;
-        if(self::$_idRecorder === \PHP_INT_MAX){
+        if (self::$_idRecorder === \PHP_INT_MAX) {
             self::$_idRecorder = 0;
         }
         $this->_socket = $socket;
@@ -324,7 +325,8 @@ class TcpConnection extends ConnectionInterface
             }
         }
 
-        if ($this->_status !== self::STATUS_ESTABLISHED ||
+        if (
+            $this->_status !== self::STATUS_ESTABLISHED ||
             ($this->transport === 'ssl' && $this->_sslHandshakeCompleted !== true)
         ) {
             if ($this->_sendBuffer && $this->bufferIsFull()) {
@@ -572,7 +574,9 @@ class TcpConnection extends ConnectionInterface
         $buffer = '';
         try {
             $buffer = @\fread($socket, self::READ_BUFFER_SIZE);
-        } catch (\Exception $e) {} catch (\Error $e) {}
+        } catch (\Exception $e) {
+        } catch (\Error $e) {
+        }
 
         // Check connection closed.
         if ($buffer === '' || $buffer === false) {
@@ -599,7 +603,9 @@ class TcpConnection extends ConnectionInterface
                     // Get current package length.
                     try {
                         $this->_currentPackageLength = $parser::input($this->_recvBuffer, $this);
-                    } catch (\Exception $e) {} catch (\Error $e) {}
+                    } catch (\Exception $e) {
+                    } catch (\Error $e) {
+                    }
                     // The packet length is unknown.
                     if ($this->_currentPackageLength === 0) {
                         break;
@@ -673,7 +679,8 @@ class TcpConnection extends ConnectionInterface
      */
     public function baseWrite()
     {
-        \set_error_handler(function(){});
+        \set_error_handler(function () {
+        });
         if ($this->transport === 'ssl') {
             $len = @\fwrite($this->_socket, $this->_sendBuffer, 8192);
         } else {
@@ -714,31 +721,32 @@ class TcpConnection extends ConnectionInterface
      * @param resource $socket
      * @return bool
      */
-    public function doSslHandshake($socket){
+    public function doSslHandshake($socket)
+    {
         if (\feof($socket)) {
             $this->destroy();
             return false;
         }
         $async = $this instanceof AsyncTcpConnection;
-        
+
         /**
-          *  We disabled ssl3 because https://blog.qualys.com/ssllabs/2014/10/15/ssl-3-is-dead-killed-by-the-poodle-attack.
-          *  You can enable ssl3 by the codes below.
-          */
+         *  We disabled ssl3 because https://blog.qualys.com/ssllabs/2014/10/15/ssl-3-is-dead-killed-by-the-poodle-attack.
+         *  You can enable ssl3 by the codes below.
+         */
         /*if($async){
             $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT | STREAM_CRYPTO_METHOD_SSLv3_CLIENT;
         }else{
             $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER | STREAM_CRYPTO_METHOD_SSLv3_SERVER;
         }*/
-        
-        if($async){
+
+        if ($async) {
             $type = \STREAM_CRYPTO_METHOD_SSLv2_CLIENT | \STREAM_CRYPTO_METHOD_SSLv23_CLIENT;
-        }else{
+        } else {
             $type = \STREAM_CRYPTO_METHOD_SSLv2_SERVER | \STREAM_CRYPTO_METHOD_SSLv23_SERVER;
         }
-        
+
         // Hidden error.
-        \set_error_handler(function($errno, $errstr, $file){
+        \set_error_handler(function ($errno, $errstr, $file) {
             if (!Server::$daemonize) {
                 Server::safeEcho("SSL handshake error: $errstr \n");
             }
@@ -808,7 +816,7 @@ class TcpConnection extends ConnectionInterface
      */
     public function close($data = null, $raw = false)
     {
-        if($this->_status === self::STATUS_CONNECTING){
+        if ($this->_status === self::STATUS_CONNECTING) {
             $this->destroy();
             return;
         }
@@ -822,7 +830,7 @@ class TcpConnection extends ConnectionInterface
         }
 
         $this->_status = self::STATUS_CLOSING;
-        
+
         if ($this->_sendBuffer === '') {
             $this->destroy();
         } else {
@@ -882,7 +890,7 @@ class TcpConnection extends ConnectionInterface
         }
         return false;
     }
-    
+
     /**
      * Whether send buffer is Empty.
      *
@@ -890,7 +898,7 @@ class TcpConnection extends ConnectionInterface
      */
     public function bufferIsEmpty()
     {
-    	return empty($this->_sendBuffer);
+        return empty($this->_sendBuffer);
     }
 
     /**
@@ -911,7 +919,9 @@ class TcpConnection extends ConnectionInterface
         // Close socket.
         try {
             @\fclose($this->_socket);
-        } catch (\Exception $e) {} catch (\Error $e) {}
+        } catch (\Exception $e) {
+        } catch (\Error $e) {
+        }
 
         $this->_status = self::STATUS_CLOSED;
         // Try to emit onClose callback.
@@ -966,7 +976,7 @@ class TcpConnection extends ConnectionInterface
                 Server::log('server[' . \posix_getpid() . '] remains ' . self::$statistics['connection_count'] . ' connection(s)');
             }
 
-            if(0 === self::$statistics['connection_count']) {
+            if (0 === self::$statistics['connection_count']) {
                 Server::stopAll();
             }
         }

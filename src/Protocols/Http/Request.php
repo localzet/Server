@@ -690,7 +690,8 @@ class Request
      */
     public function __set($name, $value)
     {
-        return $this->properties[$name] ?? null;    }
+        return $this->properties[$name] ?? null;
+    }
 
     /**
      * Getter.

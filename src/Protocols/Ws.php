@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -85,13 +86,13 @@ class Ws
             switch ($opcode) {
                 case 0x0:
                     break;
-                // Blob type.
+                    // Blob type.
                 case 0x1:
                     break;
-                // Arraybuffer type.
+                    // Arraybuffer type.
                 case 0x2:
                     break;
-                // Close package.
+                    // Close package.
                 case 0x8:
                     // Try to emit onWebSocketClose callback.
                     if (isset($connection->onWebSocketClose)) {
@@ -111,13 +112,13 @@ class Ws
                         $connection->close();
                     }
                     return 0;
-                // Ping package.
+                    // Ping package.
                 case 0x9:
                     break;
-                // Pong package.
+                    // Pong package.
                 case 0xa:
                     break;
-                // Wrong opcode.
+                    // Wrong opcode.
                 default:
                     Server::safeEcho(
                         "error opcode $opcode and close websocket connection. Buffer:" .
@@ -423,11 +424,12 @@ class Ws
         $port = $connection->getRemotePort();
         $host =
             $port === 80
-                ? $connection->getRemoteHost()
-                : $connection->getRemoteHost() . ':' . $port;
+            ? $connection->getRemoteHost()
+            : $connection->getRemoteHost() . ':' . $port;
         // Handshake header.
         $connection->websocketSecKey = \base64_encode(random_bytes(16));
-        $user_header = $connection->headers ?? $connection->wsHttpHeader ?? null;        $user_header_str = '';
+        $user_header = $connection->headers ?? $connection->wsHttpHeader ?? null;
+        $user_header_str = '';
         if (!empty($user_header)) {
             if (\is_array($user_header)) {
                 foreach ($user_header as $k => $v) {
@@ -452,8 +454,8 @@ class Ws
                 : '') .
             (isset($connection->WSClientProtocol)
                 ? 'Sec-WebSocket-Protocol: ' .
-                    $connection->WSClientProtocol .
-                    "\r\n"
+                $connection->WSClientProtocol .
+                "\r\n"
                 : '') .
             "Sec-WebSocket-Version: 13\r\n" .
             'Sec-WebSocket-Key: ' .

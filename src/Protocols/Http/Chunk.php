@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -43,6 +44,6 @@ class Chunk
      */
     public function __toString()
     {
-        return \dechex(\strlen($this->_buffer))."\r\n$this->_buffer\r\n";
+        return \dechex(\strlen($this->_buffer)) . "\r\n$this->_buffer\r\n";
     }
 }

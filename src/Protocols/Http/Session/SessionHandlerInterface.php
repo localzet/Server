@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -110,5 +111,4 @@ interface SessionHandlerInterface
      * @return bool
      */
     public function updateTimestamp($id, $data = "");
-
 }

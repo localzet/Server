@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -195,7 +196,7 @@ class UdpConnection extends ConnectionInterface
         }
         return true;
     }
-    
+
     /**
      * Get the real socket.
      *

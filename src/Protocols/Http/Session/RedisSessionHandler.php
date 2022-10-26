@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -108,7 +109,6 @@ class RedisSessionHandler implements SessionHandlerInterface
             }
             throw $e;
         }
-
     }
 
     /**

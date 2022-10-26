@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -459,8 +460,8 @@ class Fcgi
                 $payload = '';
                 $params =
                     static::FCGI_PARAMS == $type
-                        ? static::$_request->getParams()
-                        : [];
+                    ? static::$_request->getParams()
+                    : [];
                 foreach ($params as $name => $value) {
                     $name_len = \strlen($name);
                     $value_len = \strlen($value);

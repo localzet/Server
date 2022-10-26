@@ -384,7 +384,8 @@ class Response
 
         $file_info = \pathinfo($file);
         $extension = $file_info['extension'] ?? '';
-        $base_name = $file_info['basename'] ?? 'unknown';        if (!isset($headers['Content-Type'])) {
+        $base_name = $file_info['basename'] ?? 'unknown';
+        if (!isset($headers['Content-Type'])) {
             if (isset(self::$_mimeTypeMap[$extension])) {
                 $head .= "Content-Type: " . self::$_mimeTypeMap[$extension] . "\r\n";
             } else {
