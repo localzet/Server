@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -70,75 +71,86 @@ class Response
     /**
      * Phrases.
      *
-     * @var array
-     */
-    protected static $_phrases = array(
+     * @var array<int,string>
+     * 
+     * @link https://en.wikipedia.org/wiki/List_of_HTTP_status_codes     */
+    const PHRASES = [
         100 => 'Continue',
         101 => 'Switching Protocols',
-        102 => 'Processing',
+        102 => 'Processing', // WebDAV; RFC 2518
+        103 => 'Early Hints', // RFC 8297
+
         200 => 'OK',
         201 => 'Created',
         202 => 'Accepted',
-        203 => 'Non-Authoritative Information',
+        203 => 'Non-Authoritative Information', // since HTTP/1.1
         204 => 'No Content',
         205 => 'Reset Content',
-        206 => 'Partial Content',
-        207 => 'Multi-status',
-        208 => 'Already Reported',
+        206 => 'Partial Content', // RFC 7233
+        207 => 'Multi-Status', // WebDAV; RFC 4918
+        208 => 'Already Reported', // WebDAV; RFC 5842
+        226 => 'IM Used', // RFC 3229
+
         300 => 'Multiple Choices',
         301 => 'Moved Permanently',
-        302 => 'Found',
-        303 => 'See Other',
-        304 => 'Not Modified',
-        305 => 'Use Proxy',
+        302 => 'Found', // Previously "Moved temporarily"
+        303 => 'See Other', // since HTTP/1.1
+        304 => 'Not Modified', // RFC 7232
+        305 => 'Use Proxy', // since HTTP/1.1
         306 => 'Switch Proxy',
-        307 => 'Temporary Redirect',
+        307 => 'Temporary Redirect', // since HTTP/1.1
+        308 => 'Permanent Redirect', // RFC 7538
+
         400 => 'Bad Request',
-        401 => 'Unauthorized',
+        401 => 'Unauthorized', // RFC 7235
         402 => 'Payment Required',
         403 => 'Forbidden',
         404 => 'Not Found',
         405 => 'Method Not Allowed',
         406 => 'Not Acceptable',
-        407 => 'Proxy Authentication Required',
-        408 => 'Request Time-out',
+        407 => 'Proxy Authentication Required', // RFC 7235
+        408 => 'Request Timeout',
         409 => 'Conflict',
         410 => 'Gone',
         411 => 'Length Required',
-        412 => 'Precondition Failed',
-        413 => 'Request Entity Too Large',
-        414 => 'Request-URI Too Large',
-        415 => 'Unsupported Media Type',
-        416 => 'Requested range not satisfiable',
+        412 => 'Precondition Failed', // RFC 7232
+        413 => 'Payload Too Large', // RFC 7231
+        414 => 'URI Too Long', // RFC 7231
+        415 => 'Unsupported Media Type', // RFC 7231
+        416 => 'Range Not Satisfiable', // RFC 7233
         417 => 'Expectation Failed',
-        418 => 'I\'m a teapot',
-        422 => 'Unprocessable Entity',
-        423 => 'Locked',
-        424 => 'Failed Dependency',
-        425 => 'Unordered Collection',
+        418 => 'I\'m a teapot', // RFC 2324, RFC 7168
+        421 => 'Misdirected Request', // RFC 7540
+        422 => 'Unprocessable Entity', // WebDAV; RFC 4918
+        423 => 'Locked', // WebDAV; RFC 4918
+        424 => 'Failed Dependency', // WebDAV; RFC 4918
+        425 => 'Too Early', // RFC 8470
         426 => 'Upgrade Required',
-        428 => 'Precondition Required',
-        429 => 'Too Many Requests',
-        431 => 'Request Header Fields Too Large',
-        451 => 'Unavailable For Legal Reasons',
+        428 => 'Precondition Required', // RFC 6585
+        429 => 'Too Many Requests', // RFC 6585
+        431 => 'Request Header Fields Too Large', // RFC 6585
+        451 => 'Unavailable For Legal Reasons', // RFC 7725
+
         500 => 'Internal Server Error',
         501 => 'Not Implemented',
         502 => 'Bad Gateway',
         503 => 'Service Unavailable',
-        504 => 'Gateway Time-out',
-        505 => 'HTTP Version not supported',
-        506 => 'Variant Also Negotiates',
-        507 => 'Insufficient Storage',
-        508 => 'Loop Detected',
-        511 => 'Network Authentication Required',
-    );
+        504 => 'Gateway Timeout',
+        505 => 'HTTP Version Not Supported',
+        506 => 'Variant Also Negotiates', // RFC 2295
+        507 => 'Insufficient Storage', // WebDAV; RFC 4918
+        508 => 'Loop Detected', // WebDAV; RFC 5842
+        510 => 'Not Extended', // RFC 2774
+        511 => 'Network Authentication Required', // RFC 6585
+    ];
 
     /**
      * Init.
      *
      * @return void
      */
-    public static function init() {
+    public static function init()
+    {
         static::initMimeTypeMap();
     }
 
@@ -166,7 +178,8 @@ class Response
      * @param string $value
      * @return $this
      */
-    public function header($name, $value) {
+    public function header($name, $value)
+    {
         $this->_header[$name] = $value;
         return $this;
     }
@@ -178,7 +191,8 @@ class Response
      * @param string $value
      * @return Response
      */
-    public function withHeader($name, $value) {
+    public function withHeader($name, $value)
+    {
         return $this->header($name, $value);
     }
 
@@ -188,20 +202,21 @@ class Response
      * @param array $headers
      * @return $this
      */
-    public function withHeaders($headers) {
+    public function withHeaders($headers)
+    {
         $this->_header = \array_merge_recursive($this->_header, $headers);
         return $this;
     }
-    
+
     /**
      * Remove header.
      *
      * @param string $name
      * @return $this
      */
-    public function withoutHeader($name) {
-        unset($this->_header[$name]);
-        return $this;
+    public function withoutHeader($name)
+    {
+        return $this->_header[$name] ?? null;
     }
 
     /**
@@ -210,7 +225,8 @@ class Response
      * @param string $name
      * @return null|array|string
      */
-    public function getHeader($name) {
+    public function getHeader($name)
+    {
         if (!isset($this->_header[$name])) {
             return null;
         }
@@ -222,7 +238,8 @@ class Response
      *
      * @return array
      */
-    public function getHeaders() {
+    public function getHeaders()
+    {
         return $this->_header;
     }
 
@@ -233,7 +250,8 @@ class Response
      * @param string|null $reason_phrase
      * @return $this
      */
-    public function withStatus($code, $reason_phrase = null) {
+    public function withStatus($code, $reason_phrase = null)
+    {
         $this->_status = $code;
         $this->_reason = $reason_phrase;
         return $this;
@@ -244,7 +262,8 @@ class Response
      *
      * @return int
      */
-    public function getStatusCode() {
+    public function getStatusCode()
+    {
         return $this->_status;
     }
 
@@ -253,7 +272,8 @@ class Response
      *
      * @return string
      */
-    public function getReasonPhrase() {
+    public function getReasonPhrase()
+    {
         return $this->_reason;
     }
 
@@ -263,7 +283,8 @@ class Response
      * @param int $version
      * @return $this
      */
-    public function withProtocolVersion($version) {
+    public function withProtocolVersion($version)
+    {
         $this->_version = $version;
         return $this;
     }
@@ -274,7 +295,8 @@ class Response
      * @param string $body
      * @return $this
      */
-    public function withBody($body) {
+    public function withBody($body)
+    {
         $this->_body = $body;
         return $this;
     }
@@ -284,7 +306,8 @@ class Response
      * 
      * @return string
      */
-    public function rawBody() {
+    public function rawBody()
+    {
         return $this->_body;
     }
 
@@ -296,7 +319,8 @@ class Response
      * @param int $length
      * @return $this
      */
-    public function withFile($file, $offset = 0, $length = 0) {
+    public function withFile($file, $offset = 0, $length = 0)
+    {
         if (!\is_file($file)) {
             return $this->withStatus(404)->withBody('<h3>404 Not Found</h3>');
         }
@@ -338,7 +362,7 @@ class Response
     protected function createHeadForFile($file_info)
     {
         $file = $file_info['file'];
-        $reason = $this->_reason ? $this->_reason : static::$_phrases[$this->_status];
+        $reason = $this->_reason ? $this->_reason : static::PHRASES[$this->_status];
         $head = "HTTP/{$this->_version} {$this->_status} $reason\r\n";
         $headers = $this->_header;
         if (!isset($headers['Server'])) {
@@ -359,9 +383,8 @@ class Response
         }
 
         $file_info = \pathinfo($file);
-        $extension = isset($file_info['extension']) ? $file_info['extension'] : '';
-        $base_name = isset($file_info['basename']) ? $file_info['basename'] : 'unknown';
-        if (!isset($headers['Content-Type'])) {
+        $extension = $file_info['extension'] ?? '';
+        $base_name = $file_info['basename'] ?? 'unknown';        if (!isset($headers['Content-Type'])) {
             if (isset(self::$_mimeTypeMap[$extension])) {
                 $head .= "Content-Type: " . self::$_mimeTypeMap[$extension] . "\r\n";
             } else {
@@ -375,7 +398,7 @@ class Response
 
         if (!isset($headers['Last-Modified'])) {
             if ($mtime = \filemtime($file)) {
-                $head .= 'Last-Modified: '. \gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
+                $head .= 'Last-Modified: ' . \gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
             }
         }
 
@@ -393,7 +416,7 @@ class Response
             return $this->createHeadForFile($this->file);
         }
 
-        $reason = $this->_reason ? $this->_reason : static::$_phrases[$this->_status];
+        $reason = $this->_reason ? $this->_reason : static::PHRASES[$this->_status];
         $body_len = \strlen($this->_body);
         if (empty($this->_header)) {
             return "HTTP/{$this->_version} {$this->_status} $reason\r\nServer: WebCore Server\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $body_len\r\nConnection: keep-alive\r\n\r\n{$this->_body}";
@@ -427,7 +450,7 @@ class Response
         if (!isset($headers['Transfer-Encoding'])) {
             $head .= "Content-Length: $body_len\r\n\r\n";
         } else {
-            return "$head\r\n".dechex($body_len)."\r\n{$this->_body}\r\n";
+            return "$head\r\n" . dechex($body_len) . "\r\n{$this->_body}\r\n";
         }
 
         // The whole http package

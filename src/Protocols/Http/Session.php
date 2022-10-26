@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -169,7 +170,7 @@ class Session
      */
     public function get($name, $default = null)
     {
-        return isset($this->_data[$name]) ? $this->_data[$name] : $default;
+        return $this->_data[$name] ?? $default;
     }
 
     /**
@@ -433,7 +434,6 @@ class Session
  */
 class SessionException extends \RuntimeException
 {
-
 }
 
 // Init session.

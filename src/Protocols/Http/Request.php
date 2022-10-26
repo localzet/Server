@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -96,9 +97,7 @@ class Request
         if (null === $name) {
             return $this->_data['get'];
         }
-        return isset($this->_data['get'][$name])
-            ? $this->_data['get'][$name]
-            : $default;
+        return $this->_data['get'][$name] ?? $default;
     }
 
     /**
@@ -116,9 +115,7 @@ class Request
         if (null === $name) {
             return $this->_data['post'];
         }
-        return isset($this->_data['post'][$name])
-            ? $this->_data['post'][$name]
-            : $default;
+        return $this->_data['post'][$name] ?? $default;
     }
 
     /**
@@ -137,9 +134,7 @@ class Request
             return $this->_data['headers'];
         }
         $name = \strtolower($name);
-        return isset($this->_data['headers'][$name])
-            ? $this->_data['headers'][$name]
-            : $default;
+        return $this->_data['headers'][$name] ?? $default;
     }
 
     /**
@@ -161,9 +156,7 @@ class Request
         if ($name === null) {
             return $this->_data['cookie'];
         }
-        return isset($this->_data['cookie'][$name])
-            ? $this->_data['cookie'][$name]
-            : $default;
+        return $this->_data['cookie'][$name] ?? $default;
     }
 
     /**
@@ -180,9 +173,7 @@ class Request
         if (null === $name) {
             return $this->_data['files'];
         }
-        return isset($this->_data['files'][$name])
-            ? $this->_data['files'][$name]
-            : null;
+        return $this->_data['files'][$name] ?? null;
     }
 
     /**
@@ -313,22 +304,22 @@ class Request
                 $cookie_params = Session::getCookieParams();
                 $this->connection->__header['Set-Cookie'] = [
                     $session_name .
-                    '=' .
-                    $sid .
-                    (empty($cookie_params['domain'])
-                        ? ''
-                        : '; Domain=' . $cookie_params['domain']) .
-                    (empty($cookie_params['lifetime'])
-                        ? ''
-                        : '; Max-Age=' . $cookie_params['lifetime']) .
-                    (empty($cookie_params['path'])
-                        ? ''
-                        : '; Path=' . $cookie_params['path']) .
-                    (empty($cookie_params['samesite'])
-                        ? ''
-                        : '; SameSite=' . $cookie_params['samesite']) .
-                    (!$cookie_params['secure'] ? '' : '; Secure') .
-                    (!$cookie_params['httponly'] ? '' : '; HttpOnly'),
+                        '=' .
+                        $sid .
+                        (empty($cookie_params['domain'])
+                            ? ''
+                            : '; Domain=' . $cookie_params['domain']) .
+                        (empty($cookie_params['lifetime'])
+                            ? ''
+                            : '; Max-Age=' . $cookie_params['lifetime']) .
+                        (empty($cookie_params['path'])
+                            ? ''
+                            : '; Path=' . $cookie_params['path']) .
+                        (empty($cookie_params['samesite'])
+                            ? ''
+                            : '; SameSite=' . $cookie_params['samesite']) .
+                        (!$cookie_params['secure'] ? '' : '; Secure') .
+                        (!$cookie_params['httponly'] ? '' : '; HttpOnly'),
                 ];
             }
             $this->sid = $sid;
@@ -389,7 +380,7 @@ class Request
         $first_line = \strstr($this->_buffer, "\r\n", true);
         $tmp = \explode(' ', $first_line, 3);
         $this->_data['method'] = $tmp[0];
-        $this->_data['uri'] = isset($tmp[1]) ? $tmp[1] : '/';
+        $this->_data['uri'] = $tmp[1] ?? '/';
     }
 
     /**
@@ -437,9 +428,7 @@ class Request
                 $value = '';
             }
             if (isset($this->_data['headers'][$key])) {
-                $this->_data['headers'][
-                    $key
-                ] = "{$this->_data['headers'][$key]},$value";
+                $this->_data['headers'][$key] = "{$this->_data['headers'][$key]},$value";
             } else {
                 $this->_data['headers'][$key] = $value;
             }
@@ -634,10 +623,10 @@ class Request
                             if (
                                 $tmp_file === false ||
                                 false ==
-                                    \file_put_contents(
-                                        $tmp_file,
-                                        $boundary_value
-                                    )
+                                \file_put_contents(
+                                    $tmp_file,
+                                    $boundary_value
+                                )
                             ) {
                                 $error = UPLOAD_ERR_CANT_WRITE;
                             }
@@ -701,8 +690,7 @@ class Request
      */
     public function __set($name, $value)
     {
-        $this->properties[$name] = $value;
-    }
+        return $this->properties[$name] ?? null;    }
 
     /**
      * Getter.

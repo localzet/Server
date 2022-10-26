@@ -170,10 +170,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                             $connection
                         );
                         $connection->consumeRecvBuffer($current_frame_length);
-                        $tmp_connection_type = isset($connection->websocketType)
-                            ? $connection->websocketType
-                            : static::BINARY_TYPE_BLOB;
-                        $connection->websocketType = "\x8a";
+                        $tmp_connection_type = $connection->websocketType ?? static::BINARY_TYPE_BLOB;                        $connection->websocketType = "\x8a";
                         if (
                             isset($connection->onWebSocketPing) ||
                             isset($connection->server->onWebSocketPing)
@@ -210,10 +207,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                             $connection
                         );
                         $connection->consumeRecvBuffer($current_frame_length);
-                        $tmp_connection_type = isset($connection->websocketType)
-                            ? $connection->websocketType
-                            : static::BINARY_TYPE_BLOB;
-                        $connection->websocketType = "\x8a";
+                        $tmp_connection_type = $connection->websocketType ?? static::BINARY_TYPE_BLOB;                        $connection->websocketType = "\x8a";
                         // Try to emit onWebSocketPong callback.
                         if (
                             isset($connection->onWebSocketPong) ||

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -92,7 +93,7 @@ class AsyncTcpConnection extends TcpConnection
      *
      * @var array
      */
-    protected static $_builtinTransports = array(
+    const BUILD_IN_TRANSPORTS = array(
         'tcp'   => 'tcp',
         'udp'   => 'udp',
         'unix'  => 'unix',
@@ -114,7 +115,7 @@ class AsyncTcpConnection extends TcpConnection
         $address_info = \parse_url($remote_address);
         if (!$address_info) {
             list($scheme, $this->_remoteAddress) = \explode(':', $remote_address, 2);
-            if('unix' === strtolower($scheme)) { 
+            if ('unix' === strtolower($scheme)) {
                 $this->_remoteAddress = substr($remote_address, strpos($remote_address, '/') + 2);
             }
             if (!$this->_remoteAddress) {
@@ -135,18 +136,18 @@ class AsyncTcpConnection extends TcpConnection
             $this->_remoteHost    = $address_info['host'];
             $this->_remotePort    = $address_info['port'];
             $this->_remoteURI     = "{$address_info['path']}{$address_info['query']}";
-            $scheme               = isset($address_info['scheme']) ? $address_info['scheme'] : 'tcp';
-            $this->_remoteAddress = 'unix' === strtolower($scheme) 
-                                    ? substr($remote_address, strpos($remote_address, '/') + 2)
-                                    : $this->_remoteHost . ':' . $this->_remotePort;
+            $scheme = $address_info['scheme'] ?? 'tcp';
+            $this->_remoteAddress = 'unix' === strtolower($scheme)
+                ? substr($remote_address, strpos($remote_address, '/') + 2)
+                : $this->_remoteHost . ':' . $this->_remotePort;
         }
 
         $this->id = $this->_id = self::$_idRecorder++;
-        if(\PHP_INT_MAX === self::$_idRecorder){
+        if (\PHP_INT_MAX === self::$_idRecorder) {
             self::$_idRecorder = 0;
         }
         // Check application layer protocol class.
-        if (!isset(self::$_builtinTransports[$scheme])) {
+        if (!isset(self::BUILD_IN_TRANSPORTS[$scheme])) {
             $scheme         = \ucfirst($scheme);
             $this->protocol = '\\Protocols\\' . $scheme;
             if (!\class_exists($this->protocol)) {
@@ -156,7 +157,7 @@ class AsyncTcpConnection extends TcpConnection
                 }
             }
         } else {
-            $this->transport = self::$_builtinTransports[$scheme];
+            $this->transport = self::BUILD_IN_TRANSPORTS[$scheme];
         }
 
         // For statistics.
@@ -174,8 +175,10 @@ class AsyncTcpConnection extends TcpConnection
      */
     public function connect()
     {
-        if ($this->_status !== self::STATUS_INITIAL && $this->_status !== self::STATUS_CLOSING &&
-            $this->_status !== self::STATUS_CLOSED) {
+        if (
+            $this->_status !== self::STATUS_INITIAL && $this->_status !== self::STATUS_CLOSING &&
+            $this->_status !== self::STATUS_CLOSED
+        ) {
             return;
         }
         $this->_status           = self::STATUS_CONNECTING;
@@ -183,20 +186,36 @@ class AsyncTcpConnection extends TcpConnection
         if ($this->transport !== 'unix') {
             if (!$this->_remotePort) {
                 $this->_remotePort = $this->transport === 'ssl' ? 443 : 80;
-                $this->_remoteAddress = $this->_remoteHost.':'.$this->_remotePort;
+                $this->_remoteAddress = $this->_remoteHost . ':' . $this->_remotePort;
             }
             // Open socket connection asynchronously.
             if ($this->_contextOption) {
                 $context = \stream_context_create($this->_contextOption);
-                $this->_socket = \stream_socket_client("tcp://{$this->_remoteHost}:{$this->_remotePort}",
-                    $errno, $errstr, 0, \STREAM_CLIENT_ASYNC_CONNECT, $context);
+                $this->_socket = \stream_socket_client(
+                    "tcp://{$this->_remoteHost}:{$this->_remotePort}",
+                    $errno,
+                    $errstr,
+                    0,
+                    \STREAM_CLIENT_ASYNC_CONNECT,
+                    $context
+                );
             } else {
-                $this->_socket = \stream_socket_client("tcp://{$this->_remoteHost}:{$this->_remotePort}",
-                    $errno, $errstr, 0, \STREAM_CLIENT_ASYNC_CONNECT);
+                $this->_socket = \stream_socket_client(
+                    "tcp://{$this->_remoteHost}:{$this->_remotePort}",
+                    $errno,
+                    $errstr,
+                    0,
+                    \STREAM_CLIENT_ASYNC_CONNECT
+                );
             }
         } else {
-            $this->_socket = \stream_socket_client("{$this->transport}://{$this->_remoteAddress}", $errno, $errstr, 0,
-                \STREAM_CLIENT_ASYNC_CONNECT);
+            $this->_socket = \stream_socket_client(
+                "{$this->transport}://{$this->_remoteAddress}",
+                $errno,
+                $errstr,
+                0,
+                \STREAM_CLIENT_ASYNC_CONNECT
+            );
         }
         // If failed attempt to emit onError callback.
         if (!$this->_socket || !\is_resource($this->_socket)) {
@@ -212,7 +231,7 @@ class AsyncTcpConnection extends TcpConnection
         // Add socket to global event loop waiting connection is successfully established or faild.
         Server::$globalEvent->add($this->_socket, EventInterface::EV_WRITE, array($this, 'checkConnection'));
         // For windows.
-        if(\DIRECTORY_SEPARATOR === '\\') {
+        if (\DIRECTORY_SEPARATOR === '\\') {
             Server::$globalEvent->add($this->_socket, EventInterface::EV_EXCEPT, array($this, 'checkConnection'));
         }
     }
@@ -297,7 +316,7 @@ class AsyncTcpConnection extends TcpConnection
     public function checkConnection()
     {
         // Remove EV_EXPECT for windows.
-        if(\DIRECTORY_SEPARATOR === '\\') {
+        if (\DIRECTORY_SEPARATOR === '\\') {
             Server::$globalEvent->del($this->_socket, EventInterface::EV_EXCEPT);
         }
 

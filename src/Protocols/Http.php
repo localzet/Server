@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
@@ -24,7 +25,7 @@ use localzet\Core\Server;
  * Class Http.
  * @package localzet\Core\Protocols
  */
-class Http implements \localzet\Core\Protocols\ProtocolInterface
+class Http
 {
     /**
      * Request class name.
@@ -103,7 +104,7 @@ class Http implements \localzet\Core\Protocols\ProtocolInterface
             // Judge whether the package length exceeds the limit.
             if (\strlen($recv_buffer) >= 16384) {
                 $connection->close(
-                    "HTTP/1.1 413 Request Entity Too Large\r\n\r\n",
+                    "HTTP/1.1 413 Payload Too Large\r\n\r\n",
                     true
                 );
                 return 0;
@@ -112,7 +113,8 @@ class Http implements \localzet\Core\Protocols\ProtocolInterface
         }
 
         $length = $crlf_pos + 4;
-        $method = \strstr($recv_buffer, ' ', true);
+        $firstLine = \explode(" ", \strstr($recv_buffer, "\r\n", true), 3);
+        $firstLine = \explode(" ", \strstr($recv_buffer, "\r\n", true), 3);
 
         // if ($method === 'GET' || $method === 'OPTIONS' || $method === 'HEAD' || $method === 'DELETE') {
         //     if (!isset($recv_buffer[512])) {
@@ -123,22 +125,18 @@ class Http implements \localzet\Core\Protocols\ProtocolInterface
         //     }
         //     return $head_len;
         // } else if ($method !== 'POST' && $method !== 'PUT' && $method !== 'PATCH') {
-        if (
-            !\in_array($method, [
-                'GET',
-                'POST',
-                'OPTIONS',
-                'HEAD',
-                'DELETE',
-                'PUT',
-                'PATCH',
-            ])
-        ) {
+        if (!\in_array($firstLine[0], ['GET', 'POST', 'OPTIONS', 'HEAD', 'DELETE', 'PUT', 'PATCH'])) {
+            $connection->close("HTTP/1.1 400 Bad Request\r\n\r\n", true);
+            return 0;
+        }
+        $header = \substr($recv_buffer, 0, $crlf_pos);
+        $hostHeaderPosition = \strpos($header, "\r\nHost: ");
+
+        if (false === $hostHeaderPosition && $firstLine[2] === "HTTP/1.1") {
             $connection->close("HTTP/1.1 400 Bad Request\r\n\r\n", true);
             return 0;
         }
 
-        $header = \substr($recv_buffer, 0, $crlf_pos);
         if ($pos = \strpos($header, "\r\nContent-Length: ")) {
             $length = $length + (int) \substr($header, $pos + 18, 10);
             $has_content_length = true;
@@ -164,7 +162,7 @@ class Http implements \localzet\Core\Protocols\ProtocolInterface
             // }
             if ($length > $connection->maxPackageSize) {
                 $connection->close(
-                    "HTTP/1.1 413 Request Entity Too Large\r\n\r\n",
+                    "HTTP/1.1 413 Payload Too Large\r\n\r\n",
                     true
                 );
                 return 0;

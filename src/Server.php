@@ -494,7 +494,7 @@ class Server
      *
      * @var array
      */
-    protected static $_builtinTransports = [
+    const BUILD_IN_TRANSPORTS = [
         'tcp' => 'tcp',
         'udp' => 'udp',
         'unix' => 'unix',
@@ -504,9 +504,9 @@ class Server
     /**
      * PHP built-in error types.
      *
-     * @var array
+     * @var array<int,string>
      */
-    protected static $_errorType = [
+    protected static const ERROR_TYPE = [
         \E_ERROR => 'E_ERROR', // 1
         \E_WARNING => 'E_WARNING', // 2
         \E_PARSE => 'E_PARSE', // 4
@@ -812,7 +812,7 @@ class Server
                     "\r\n"
             );
             static::safeEcho(
-                "------------------------ SERVERS -------------------------------\r\n"
+                "------------------------ WORKERS -------------------------------\r\n"
             );
             static::safeEcho(
                 "server                        listen                              processes status\r\n"
@@ -846,7 +846,7 @@ class Server
             \PHP_EOL;
         $line_two =
             \str_pad(
-                '<w> SERVERS </w>',
+                '<w> WORKERS </w>',
                 $total_length + \strlen('<w></w>'),
                 '-',
                 \STR_PAD_BOTH
@@ -1380,7 +1380,7 @@ class Server
     public static function signalHandler($signal)
     {
         switch ($signal) {
-            // Stop.
+                // Stop.
             case \SIGINT:
             case \SIGTERM:
             case \SIGHUP:
@@ -1388,23 +1388,23 @@ class Server
                 static::$_gracefulStop = false;
                 static::stopAll();
                 break;
-            // Graceful stop.
+                // Graceful stop.
             case \SIGQUIT:
                 static::$_gracefulStop = true;
                 static::stopAll();
                 break;
-            // Reload.
+                // Reload.
             case \SIGUSR2:
             case \SIGUSR1:
                 static::$_gracefulStop = $signal === \SIGUSR2;
                 static::$_pidsToRestart = static::getAllServerPids();
                 static::reload();
                 break;
-            // Show status.
+                // Show status.
             case \SIGIOT:
                 static::writeStatisticsToStatusFile();
                 break;
-            // Show connection status.
+                // Show connection status.
             case \SIGIO:
                 static::writeConnectionsStatisticsToStatusFile();
                 break;
@@ -1454,7 +1454,8 @@ class Server
         $handle = \fopen(static::$stdoutFile, 'a');
         if ($handle) {
             unset($handle);
-            \set_error_handler(function () {});
+            \set_error_handler(function () {
+            });
             if ($STDOUT) {
                 \fclose($STDOUT);
             }
@@ -1829,7 +1830,8 @@ class Server
      */
     protected static function setProcessTitle($title)
     {
-        \set_error_handler(function () {});
+        \set_error_handler(function () {
+        });
 
         // >=php 5.5
         if (\function_exists('cli_set_process_title')) {
@@ -1905,18 +1907,12 @@ class Server
                         // For Statistics.
                         if (
                             !isset(
-                                static::$_globalStatistics['server_exit_info'][
-                                    $server_id
-                                ][$status]
+                                static::$_globalStatistics['server_exit_info'][$server_id][$status]
                             )
                         ) {
-                            static::$_globalStatistics['server_exit_info'][
-                                $server_id
-                            ][$status] = 0;
+                            static::$_globalStatistics['server_exit_info'][$server_id][$status] = 0;
                         }
-                        ++static::$_globalStatistics['server_exit_info'][
-                            $server_id
-                        ][$status];
+                        ++static::$_globalStatistics['server_exit_info'][$server_id][$status];
 
                         // Clear process data.
                         unset(static::$_pidMap[$server_id][$pid]);
@@ -2289,17 +2285,11 @@ class Server
                 $server = static::$_servers[$server_id];
                 if (
                     isset(
-                        static::$_globalStatistics['server_exit_info'][
-                            $server_id
-                        ]
+                        static::$_globalStatistics['server_exit_info'][$server_id]
                     )
                 ) {
-                    foreach (
-                        static::$_globalStatistics['server_exit_info'][
-                            $server_id
-                        ]
-                        as $server_exit_status => $server_exit_count
-                    ) {
+                    foreach (static::$_globalStatistics['server_exit_info'][$server_id]
+                        as $server_exit_status => $server_exit_count) {
                         \file_put_contents(
                             static::$_statisticsFile,
                             \str_pad(
@@ -2506,8 +2496,8 @@ class Server
         if (static::STATUS_SHUTDOWN !== static::$_status) {
             $error_msg =
                 static::$_OS === \OS_TYPE_LINUX
-                    ? 'WebCore [' . \posix_getpid() . '] процесс завершен'
-                    : 'Серверный процесс завершен';
+                ? 'WebCore [' . \posix_getpid() . '] процесс завершен'
+                : 'Серверный процесс завершен';
             $errors = error_get_last();
             if (
                 $errors &&
@@ -2534,11 +2524,7 @@ class Server
      */
     protected static function getErrorType($type)
     {
-        if (isset(self::$_errorType[$type])) {
-            return self::$_errorType[$type];
-        }
-
-        return '';
+        return self::ERROR_TYPE[$type] ?? '';
     }
 
     /**
@@ -2689,8 +2675,8 @@ class Server
             // Flag.
             $flags =
                 $this->transport === 'udp'
-                    ? \STREAM_SERVER_BIND
-                    : \STREAM_SERVER_BIND | \STREAM_SERVER_LISTEN;
+                ? \STREAM_SERVER_BIND
+                : \STREAM_SERVER_BIND | \STREAM_SERVER_LISTEN;
             $errno = 0;
             $errmsg = '';
             // SO_REUSEPORT.
@@ -2730,9 +2716,10 @@ class Server
             // Try to open keepalive for tcp and disable Nagle algorithm.
             if (
                 \function_exists('socket_import_stream') &&
-                static::$_builtinTransports[$this->transport] === 'tcp'
+                static::BUILD_IN_TRANSPORTS[$this->transport] === 'tcp'
             ) {
-                \set_error_handler(function () {});
+                \set_error_handler(function () {
+                });
                 $socket = \socket_import_stream($this->_mainSocket);
                 \socket_set_option($socket, \SOL_SOCKET, \SO_KEEPALIVE, 1);
                 \socket_set_option($socket, \SOL_TCP, \TCP_NODELAY, 1);
@@ -2755,7 +2742,8 @@ class Server
     {
         $this->pauseAccept();
         if ($this->_mainSocket) {
-            \set_error_handler(function () {});
+            \set_error_handler(function () {
+            });
             \fclose($this->_mainSocket);
             \restore_error_handler();
             $this->_mainSocket = null;
@@ -2775,12 +2763,12 @@ class Server
         // Get the application layer communication protocol and listening address.
         list($scheme, $address) = \explode(':', $this->_socketName, 2);
         // Check application layer protocol class.
-        if (!isset(static::$_builtinTransports[$scheme])) {
+        if (!isset(self::BUILD_IN_TRANSPORTS[$scheme])) {
             $scheme = \ucfirst($scheme);
             $this->protocol =
                 \substr($scheme, 0, 1) === '\\'
-                    ? $scheme
-                    : 'Protocols\\' . $scheme;
+                ? $scheme
+                : 'Protocols\\' . $scheme;
             if (!\class_exists($this->protocol)) {
                 $this->protocol = "localzet\\Core\\Protocols\\$scheme";
                 if (!\class_exists($this->protocol)) {
@@ -2790,7 +2778,7 @@ class Server
                 }
             }
 
-            if (!isset(static::$_builtinTransports[$this->transport])) {
+            if (!isset(self::BUILD_IN_TRANSPORTS[$this->transport])) {
                 throw new Exception(
                     'Некорректный server->transport ' .
                         \var_export($this->transport, true)
@@ -2800,7 +2788,7 @@ class Server
             $this->transport = $scheme;
         }
         //local socket
-        return static::$_builtinTransports[$this->transport] . ':' . $address;
+        return self::BUILD_IN_TRANSPORTS[$this->transport] . ':' . $address;
     }
 
     /**
@@ -2897,7 +2885,8 @@ class Server
 
         // Set an empty onMessage callback.
         if (empty($this->onMessage)) {
-            $this->onMessage = function () {};
+            $this->onMessage = function () {
+            };
         }
 
         \restore_error_handler();
@@ -2959,7 +2948,8 @@ class Server
     public function acceptConnection($socket)
     {
         // Accept a connection on server socket.
-        \set_error_handler(function () {});
+        \set_error_handler(function () {
+        });
         $new_socket = \stream_socket_accept($socket, 0, $remote_address);
         \restore_error_handler();
 
@@ -3000,7 +2990,8 @@ class Server
      */
     public function acceptUdpConnection($socket)
     {
-        \set_error_handler(function () {});
+        \set_error_handler(function () {
+        });
         $recv_buffer = \stream_socket_recvfrom(
             $socket,
             static::MAX_UDP_PACKAGE_SIZE,
