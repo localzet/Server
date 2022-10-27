@@ -506,7 +506,7 @@ class Server
      *
      * @var array<int,string>
      */
-    protected static const ERROR_TYPE = [
+    const ERROR_TYPE = [
         \E_ERROR => 'E_ERROR', // 1
         \E_WARNING => 'E_WARNING', // 2
         \E_PARSE => 'E_PARSE', // 4
