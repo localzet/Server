@@ -731,7 +731,7 @@ class Server
     /**
      * Get all server instances.
      *
-     * @return array
+     * @return Server[]
      */
     public static function getAllServers()
     {
