@@ -1,13 +1,11 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
- * 
- * @copyright   Copyright (c) 2018-2020 Zorin Projects 
- * @copyright   Copyright (c) 2020-2022 NONA Team
- * 
+ * @copyright   Copyright (c) 2018-2022 RootX Group
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
 
@@ -73,70 +71,70 @@ class Request
      *
      * @var string
      */
-	public $script = '';
+    public $script = '';
 
     /**
      * content MIME Type
      *
      * @var string
      */
-	public $contentType = self::MIME_URL_ENCODED_FORM_DATA;
+    public $contentType = self::MIME_URL_ENCODED_FORM_DATA;
 
     /**
      * content data
      *
      * @var string
      */
-	public $content = '';
+    public $content = '';
 
     /**
      * content length
      *
      * @var int
      */
-	public $contentLength = 0;
+    public $contentLength = 0;
 
     /**
      * request uri
      *
      * @var string
      */
-	public $requestUri = '';
+    public $requestUri = '';
 
     /**
      * request method 
      *
      * @var string
      */
-	public $requestMethod = 'GET';
+    public $requestMethod = 'GET';
 
     /**
      * query string 
      *
      * @var string
      */
-	public $queryString = '';
+    public $queryString = '';
 
     /**
      * gateway inteface
      *
      * @var string
      */
-	public $gatewayInterface = 'FastCGI/1.0';
+    public $gatewayInterface = 'FastCGI/1.0';
 
     /**
      * server software
      *
      * @var string
      */
-	public $serverSoftware = 'FastCGI-Client';
+    public $serverSoftware = 'FastCGI-Client';
 
     /**
      * server name 
      *
      * @var string
      */
-	public $serverName = 'localhost';
+    public $serverName = 'localhost';
 
     /**
      * request id 
@@ -157,7 +155,7 @@ class Request
      *
      * @var array
      */
-	public $customParams = [];
+    public $customParams = [];
 
     /**
      * indicates FastCGI server to keep connection alive or not after finishing one request
@@ -181,20 +179,20 @@ class Request
      *
      * @return   void
      */
-	public function __construct($script = '', $content = '')
-	{
-		$this->setScript($script);
-		$this->setContent($content);
+    public function __construct($script = '', $content = '')
+    {
+        $this->setScript($script);
+        $this->setContent($content);
         (self::$_idCounter >= (1 << 16)) && self::$_idCounter = 0;
         $this->requestId = self::$_idCounter++;
-	}
+    }
 
     /**
      * @brief    get request id   
      *
      * @return   int
      */
-    public function getRequestId() 
+    public function getRequestId()
     {
         return $this->requestId;
     }
@@ -206,10 +204,9 @@ class Request
      *
      * @return   object
      */
-    public function setRole($role = Fcgi::FCGI_RESPONDER) 
+    public function setRole($role = Fcgi::FCGI_RESPONDER)
     {
-        if(!is_int($role) || !in_array($role, static::ALLOWED_ROLES))
-        {
+        if (!is_int($role) || !in_array($role, static::ALLOWED_ROLES)) {
             $role = Fcgi::FCGI_RESPONDER;
         }
 
@@ -223,7 +220,7 @@ class Request
      *
      * @return   int
      */
-	public function getRole() 
+    public function getRole()
     {
         return $this->role;
     }
@@ -235,7 +232,7 @@ class Request
      *
      * @return   object
      */
-    public function setKeepAlive($status = true) 
+    public function setKeepAlive($status = true)
     {
         $this->keepAlive = !is_bool($status) ? true : $status;
 
@@ -247,7 +244,7 @@ class Request
      *
      * @return   boolean
      */
-    public function getKeepAlive() 
+    public function getKeepAlive()
     {
         return $this->keepAlive;
     }
@@ -257,10 +254,10 @@ class Request
      *
      * @return   string
      */
-    public function getServerSoftware() 
+    public function getServerSoftware()
     {
         return $this->serverSoftware;
-	}
+    }
 
     /**
      * @brief    set server software  
@@ -269,25 +266,24 @@ class Request
      *
      * @return   object
      */
-    public function setServerSoftware($software) 
-	{
-        if(!empty($software) && \is_string($software))
-        {
+    public function setServerSoftware($software)
+    {
+        if (!empty($software) && \is_string($software)) {
             $this->serverSoftware = $software;
         }
 
         return $this;
-	}
+    }
 
     /**
      * @brief    get server name  
      *
      * @return   string
      */
-    public function getServerName() 
+    public function getServerName()
     {
         return $this->serverName;
-	}
+    }
 
     /**
      * @brief    set server name  
@@ -296,25 +292,24 @@ class Request
      *
      * @return   object
      */
-    public function setServerName($name) 
-	{
-        if(!empty($name) && \is_string($name))
-        {
+    public function setServerName($name)
+    {
+        if (!empty($name) && \is_string($name)) {
             $this->serverName = $name;
         }
 
         return $this;
-	}
+    }
 
     /**
      * @brief    get content type     
      *
      * @return   string
      */
-    public function getContentType() 
+    public function getContentType()
     {
         return $this->contentType;
-	}
+    }
 
     /**
      * @brief    set content type     
@@ -323,27 +318,26 @@ class Request
      *
      * @return   object
      */
-    public function setContentType($type) 
-	{
-        if(!\is_string($type) || !in_array($type, static::ALLOWED_CONTENT_TYPES))
-        {
+    public function setContentType($type)
+    {
+        if (!\is_string($type) || !in_array($type, static::ALLOWED_CONTENT_TYPES)) {
             $type = static::MIME_URL_ENCODED_FORM_DATA;
         }
 
-		$this->contentType = $type;
+        $this->contentType = $type;
 
         return $this;
-	}
+    }
 
     /**
      * @brief    get content     
      *
      * @return   string
      */
-    public function getContent() 
+    public function getContent()
     {
         return $this->content;
-	}
+    }
 
     /**
      * @brief    set content     
@@ -352,10 +346,9 @@ class Request
      *
      * @return   object
      */
-    public function setContent($content) 
-	{
-        if(\is_string($content) || \is_array($content)) 
-        {
+    public function setContent($content)
+    {
+        if (\is_string($content) || \is_array($content)) {
             $this->content = !\is_string($content) ? http_build_query($content) : $content;
             $this->contentLength = \strlen($this->content);
         }
@@ -371,17 +364,17 @@ class Request
     public function getContentLength()
     {
         return $this->contentLength;
-	}
+    }
 
     /**
      * @brief    get gateway interface    
      *
      * @return   string
      */
-    public function getGatewayInterface() 
+    public function getGatewayInterface()
     {
         return $this->gatewayInterface;
-	}
+    }
 
     /**
      * @brief    set FastCGI script  
@@ -390,25 +383,24 @@ class Request
      *
      * @return   object
      */
-    public function setScript($filename) 
-	{
-        if(!empty($filename) && \is_string($filename))
-        {
+    public function setScript($filename)
+    {
+        if (!empty($filename) && \is_string($filename)) {
             $this->script = $filename;
         }
 
         return $this;
-	}
+    }
 
     /**
      * @brief    get FastCGI script  
      *
      * @return   string
      */
-    public function getScript() 
+    public function getScript()
     {
         return $this->script;
-	}
+    }
 
     /**
      * @brief    set custom params    
@@ -417,18 +409,17 @@ class Request
      *
      * @return   object
      */
-	public function setCustomParams($pair) 
-	{
-        if(!\is_array($pair)) return $this;
+    public function setCustomParams($pair)
+    {
+        if (!\is_array($pair)) return $this;
 
-        foreach($pair as $k => $v)
-        {
-            if(!\is_string($v)) continue;
+        foreach ($pair as $k => $v) {
+            if (!\is_string($v)) continue;
             $this->customParams[$k] = $v;
         }
 
         return $this;
-	}
+    }
 
     /**
      * @brief    append custom params     
@@ -437,27 +428,26 @@ class Request
      *
      * @return   object
      */
-    public function appendCustomParams($pair) 
-	{
-        if(\is_array($pair))
-        {
+    public function appendCustomParams($pair)
+    {
+        if (\is_array($pair)) {
             $this->customParams = \array_merge($this->customParams, $pair);
         }
 
         return $this;
-	}
+    }
 
     /**
      * @brief    reset custom params  
      *
      * @return   object
      */
-    public function resetCustomParams() 
+    public function resetCustomParams()
     {
         $this->customParams = [];
 
         return $this;
-	}
+    }
 
     /**
      * @brief    set query string     
@@ -468,8 +458,7 @@ class Request
      */
     public function setQueryString($data = '')
     {
-        if(\is_string($data) || \is_array($data)) 
-        {
+        if (\is_string($data) || \is_array($data)) {
             $this->queryString = !\is_string($data) ? http_build_query($data) : $data;
         }
 
@@ -494,7 +483,7 @@ class Request
     public function getCustomParams()
     {
         return $this->customParams;
-	}
+    }
 
     /**
      * @brief    get all params  
@@ -504,7 +493,7 @@ class Request
     public function getParams()
     {
         return \array_merge($this->customParams, $this->getDefaultParams());
-	}
+    }
 
     /**
      * @brief    get default params   
@@ -535,8 +524,7 @@ class Request
      */
     public function setRequestMethod($method = 'GET')
     {
-        if(!\is_string($method) || !in_array(strtoupper($method), static::ALLOWED_REQUEST_METHODS))
-        {
+        if (!\is_string($method) || !in_array(strtoupper($method), static::ALLOWED_REQUEST_METHODS)) {
             $method = 'GET';
         }
 
@@ -550,7 +538,7 @@ class Request
      *
      * @return   string
      */
-    public function getRequestMethod() 
+    public function getRequestMethod()
     {
         return $this->requestMethod;
     }
@@ -560,10 +548,10 @@ class Request
      *
      * @return   string
      */
-    public function getRequestUri() 
+    public function getRequestUri()
     {
         return $this->requestUri;
-	}
+    }
 
     /**
      * @brief    set request uri  
@@ -572,14 +560,12 @@ class Request
      *
      * @return   object
      */
-    public function setRequestUri($uri) 
-	{
-        if(\is_string($uri))
-        {
+    public function setRequestUri($uri)
+    {
+        if (\is_string($uri)) {
             $this->requestUri = $uri;
         }
 
         return $this;
-	}
-
+    }
 }

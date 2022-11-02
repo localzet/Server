@@ -21,7 +21,8 @@
         "url": "https://www.tinkoff.ru/cf/Ad5MBNhodod"
     }],
     "require": {
-        "php": ">=7.4"
+        "php": ">=7.4",
+        "react/event-loop": "^1.3.0"
     },
     "autoload": {
         "psr-4": {

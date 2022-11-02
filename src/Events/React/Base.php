@@ -1,13 +1,11 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
- * 
- * @copyright   Copyright (c) 2018-2020 Zorin Projects 
- * @copyright   Copyright (c) 2020-2022 NONA Team
- * 
+ * @copyright   Copyright (c) 2018-2022 RootX Group
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
 
@@ -75,15 +73,15 @@ class Base implements LoopInterface
                 $this->_signalHandlerMap[$fd] = $func;
                 return $this->addSignal($fd, $func);
             case EventInterface::EV_TIMER:
-                $timer_obj = $this->addPeriodicTimer($fd, function() use ($func, $args) {
+                $timer_obj = $this->addPeriodicTimer($fd, function () use ($func, $args) {
                     \call_user_func_array($func, $args);
                 });
                 $this->_timerIdMap[++$this->_timerIdIndex] = $timer_obj;
                 return $this->_timerIdIndex;
             case EventInterface::EV_TIMER_ONCE:
                 $index = ++$this->_timerIdIndex;
-                $timer_obj = $this->addTimer($fd, function() use ($func, $args, $index) {
-                    $this->del($index,EventInterface::EV_TIMER_ONCE);
+                $timer_obj = $this->addTimer($fd, function () use ($func, $args, $index) {
+                    $this->del($index, EventInterface::EV_TIMER_ONCE);
                     \call_user_func_array($func, $args);
                 });
                 $this->_timerIdMap[$index] = $timer_obj;
@@ -116,7 +114,7 @@ class Base implements LoopInterface
 
             case EventInterface::EV_TIMER:
             case EventInterface::EV_TIMER_ONCE:
-                if (isset($this->_timerIdMap[$fd])){
+                if (isset($this->_timerIdMap[$fd])) {
                     $timer_obj = $this->_timerIdMap[$fd];
                     unset($this->_timerIdMap[$fd]);
                     $this->cancelTimer($timer_obj);
@@ -145,7 +143,6 @@ class Base implements LoopInterface
      */
     public function destroy()
     {
-
     }
 
     /**

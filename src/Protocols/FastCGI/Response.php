@@ -1,13 +1,11 @@
 <?php
+
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
  * 
  * @author      localzet <creator@localzet.ru>
- * 
- * @copyright   Copyright (c) 2018-2020 Zorin Projects 
- * @copyright   Copyright (c) 2020-2022 NONA Team
- * 
+ * @copyright   Copyright (c) 2018-2022 RootX Group
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
 
@@ -97,8 +95,7 @@ class Response
      */
     public function setStdout($stdout = '')
     {
-        if(\is_string($stdout)) 
-        {
+        if (\is_string($stdout)) {
             $this->_stdout = $stdout;
         }
 
@@ -124,8 +121,7 @@ class Response
      */
     public function setStderr($stderr = '')
     {
-        if(\is_string($stderr)) 
-        {
+        if (\is_string($stderr)) {
             $this->_stderr = $stderr;
         }
 
@@ -184,8 +180,7 @@ class Response
         $body = '';
         $crlf_pos = \strpos($this->getStdout(), "\r\n\r\n");
 
-        if(false !== $crlf_pos) 
-        {
+        if (false !== $crlf_pos) {
             $status = static::STATUS_OK;
             $head = \substr($this->getStdout(), 0, $crlf_pos);
             $body = \substr($this->getStdout(), $crlf_pos + 4);
@@ -193,25 +188,21 @@ class Response
             $this->_body = $body;
             $header_lines = \explode(PHP_EOL, $head);
 
-            foreach($header_lines as $line) 
-            {
-                if(preg_match('/([\w-]+):\s*(.*)$/', $line, $matches)) 
-                {
+            foreach ($header_lines as $line) {
+                if (preg_match('/([\w-]+):\s*(.*)$/', $line, $matches)) {
                     $name  = \trim($matches[1]);
                     $value = \trim($matches[2]);
 
-                    if('status' === strtolower($name)) 
-                    {
-                        $pos = strpos($value, ' ') ;
+                    if ('status' === strtolower($name)) {
+                        $pos = strpos($value, ' ');
                         $status = false !== $pos ? \substr($value, 0, $pos) : static::STATUS_OK;
                         continue;
                     }
 
-                    if(!array_key_exists($name, $header)) 
-                    {
+                    if (!array_key_exists($name, $header)) {
                         $header[$name] = $value;
                         continue;
-                    } 
+                    }
 
                     !\is_array($header[$name]) && $header[$name] = [$header[$name]];
                     $header[$name][] = $value;
@@ -230,4 +221,3 @@ class Response
         return $output;
     }
 }
-

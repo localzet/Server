@@ -3,12 +3,9 @@
 /**
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
- *
+ * 
  * @author      localzet <creator@localzet.ru>
- *
- * @copyright   Copyright (c) 2018-2020 Zorin Projects
- * @copyright   Copyright (c) 2020-2022 NONA Team
- *
+ * @copyright   Copyright (c) 2018-2022 RootX Group
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
 
@@ -812,7 +809,7 @@ class Server
                     "\r\n"
             );
             static::safeEcho(
-                "------------------------ WORKERS -------------------------------\r\n"
+                "------------------------ SERVERS -------------------------------\r\n"
             );
             static::safeEcho(
                 "server                        listen                              processes status\r\n"
@@ -846,7 +843,7 @@ class Server
             \PHP_EOL;
         $line_two =
             \str_pad(
-                '<w> WORKERS </w>',
+                '<w> SERVERS </w>',
                 $total_length + \strlen('<w></w>'),
                 '-',
                 \STR_PAD_BOTH
