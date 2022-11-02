@@ -33,8 +33,8 @@ class Server
      *
      * @var string
      */
-    const WVERSION = '4.1.4';
-    const VERSION = '1.1.5';
+    const WVERSION = '5.0.0';
+    const VERSION = '1.1.9';
 
     /**
      * Статус: запуск
