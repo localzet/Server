@@ -4,8 +4,8 @@
  * @package     WebCore Server
  * @link        https://localzet.gitbook.io/webcore
  * 
- * @author      localzet <creator@localzet.ru>
- * @copyright   Copyright (c) 2018-2022 RootX Group
+ * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @copyright   Copyright (c) 2018-2022 Localzet Group
  * @license     https://www.localzet.ru/license GNU GPLv3 License
  */
 
