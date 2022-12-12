@@ -152,7 +152,9 @@ class Timer
     public static function tick()
     {
         if (empty(self::$_tasks)) {
-            \pcntl_alarm(0);
+            if (\function_exists('pcntl_alarm')) {
+                \pcntl_alarm(0);
+            }
             return;
         }
         $time_now = \time();
@@ -208,7 +210,9 @@ class Timer
     public static function delAll()
     {
         self::$_tasks = self::$_status = array();
-        \pcntl_alarm(0);
+        if (\function_exists('pcntl_alarm')) {
+            \pcntl_alarm(0);
+        }
         if (self::$_event) {
             self::$_event->clearAllTimer();
         }
