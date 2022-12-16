@@ -1468,7 +1468,7 @@ class Server
             $STDOUT = \fopen(static::$stdoutFile, 'a');
             $STDERR = \fopen(static::$stdoutFile, 'a');
             // Fix standard output cannot redirect of PHP 8.1.8's bug
-            if (\posix_isatty(2)) {
+            if (\function_exists('posix_isatty') && \posix_isatty(2)) {
                 \ob_start(function ($string) {
                     \file_put_contents(
                         static::$stdoutFile,
