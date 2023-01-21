@@ -63,11 +63,11 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 return 0;
             }
         } else {
-            $firstbyte = \ord($buffer[0]);
-            $secondbyte = \ord($buffer[1]);
-            $data_len = $secondbyte & 127;
-            $is_fin_frame = $firstbyte >> 7;
-            $masked = $secondbyte >> 7;
+            $first_byte = \ord($buffer[0]);
+            $second_byte = \ord($buffer[1]);
+            $data_len = $second_byte & 127;
+            $is_fin_frame = $first_byte >> 7;
+            $masked = $second_byte >> 7;
 
             if (!$masked) {
                 Server::safeEcho("frame not masked so close the connection\n");
@@ -75,7 +75,7 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 return 0;
             }
 
-            $opcode = $firstbyte & 0xf;
+            $opcode = $first_byte & 0xf;
             switch ($opcode) {
                 case 0x0:
                     break;

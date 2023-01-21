@@ -1727,6 +1727,7 @@ class Server
         elseif (0 === $pid) {
             \srand();
             \mt_srand();
+            static::$_gracefulStop = false;
             if ($server->reusePort) {
                 $server->listen();
             }
@@ -2112,6 +2113,10 @@ class Server
             } else {
                 $sig = \SIGINT;
             }
+
+            // Избегаем статуса 2
+            usleep(50000);
+
             foreach ($server_pid_array as $server_pid) {
                 \posix_kill($server_pid, $sig);
                 if (!static::$_gracefulStop) {
