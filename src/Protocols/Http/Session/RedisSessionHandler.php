@@ -1,19 +1,23 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Protocols\Http\Session;
 
+use Redis;
+use RedisException;
+use RuntimeException;
+use Throwable;
 use localzet\Core\Protocols\Http\Session;
 use localzet\Core\Timer;
-use RedisException;
 
 /**
  * Class RedisSessionHandler
@@ -23,14 +27,14 @@ class RedisSessionHandler implements SessionHandlerInterface
 {
 
     /**
-     * @var \Redis
+     * @var Redis
      */
-    protected $_redis;
+    protected Redis $redis;
 
     /**
      * @var array
      */
-    protected $_config;
+    protected array $config;
 
     /**
      * RedisSessionHandler constructor.
@@ -44,65 +48,66 @@ class RedisSessionHandler implements SessionHandlerInterface
      *  'ping'     => 55,
      * ]
      */
-    public function __construct($config)
+    public function __construct(array $config)
     {
         if (false === extension_loaded('redis')) {
-            throw new \RuntimeException('Please install redis extension.');
+            throw new RuntimeException('Please install redis extension.');
         }
 
         if (!isset($config['timeout'])) {
             $config['timeout'] = 2;
         }
 
-        $this->_config = $config;
+        $this->config = $config;
 
         $this->connect();
 
-        Timer::add(!empty($config['ping']) ? $config['ping'] : 55, function () {
-            $this->_redis->get('ping');
+        Timer::add($config['ping'] ?? 55, function () {
+            $this->redis->get('ping');
         });
     }
 
     public function connect()
     {
-        $config = $this->_config;
+        $config = $this->config;
 
-        $this->_redis = new \Redis();
-        if (false === $this->_redis->connect($config['host'], $config['port'], $config['timeout'])) {
-            throw new \RuntimeException("Redis connect {$config['host']}:{$config['port']} fail.");
+        $this->redis = new Redis();
+        if (false === $this->redis->connect($config['host'], $config['port'], $config['timeout'])) {
+            throw new RuntimeException("Redis connect {$config['host']}:{$config['port']} fail.");
         }
         if (!empty($config['auth'])) {
-            $this->_redis->auth($config['auth']);
+            $this->redis->auth($config['auth']);
         }
         if (!empty($config['database'])) {
-            $this->_redis->select($config['database']);
+            $this->redis->select($config['database']);
         }
         if (empty($config['prefix'])) {
             $config['prefix'] = 'redis_session_';
         }
-        $this->_redis->setOption(\Redis::OPT_PREFIX, $config['prefix']);
+        $this->redis->setOption(Redis::OPT_PREFIX, $config['prefix']);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function open($save_path, $name)
+    public function open(string $savePath, string $name): bool
     {
         return true;
     }
 
     /**
      * {@inheritdoc}
+     * @throws RedisException
      */
-    public function read($session_id)
+    public function read(string $sessionId): string
     {
         try {
-            return $this->_redis->get($session_id);
-        } catch (RedisException $e) {
+            return $this->redis->get($sessionId);
+        } catch (Throwable $e) {
             $msg = strtolower($e->getMessage());
             if ($msg === 'connection lost' || strpos($msg, 'went away')) {
                 $this->connect();
-                return $this->_redis->get($session_id);
+                return $this->redis->get($sessionId);
             }
             throw $e;
         }
@@ -111,32 +116,32 @@ class RedisSessionHandler implements SessionHandlerInterface
     /**
      * {@inheritdoc}
      */
-    public function write($session_id, $session_data)
+    public function write(string $sessionId, string $sessionData): bool
     {
-        return true === $this->_redis->setex($session_id, Session::$lifetime, $session_data);
+        return true === $this->redis->setex($sessionId, Session::$lifetime, $sessionData);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function updateTimestamp($id, $data = "")
+    public function updateTimestamp(string $sessionId, string $data = ""): bool
     {
-        return true === $this->_redis->expire($id, Session::$lifetime);
+        return true === $this->redis->expire($sessionId, Session::$lifetime);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function destroy($session_id)
+    public function destroy(string $sessionId): bool
     {
-        $this->_redis->del($session_id);
+        $this->redis->del($sessionId);
         return true;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function close()
+    public function close(): bool
     {
         return true;
     }
@@ -144,7 +149,7 @@ class RedisSessionHandler implements SessionHandlerInterface
     /**
      * {@inheritdoc}
      */
-    public function gc($maxlifetime)
+    public function gc(int $maxLifetime): bool
     {
         return true;
     }

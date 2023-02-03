@@ -1,17 +1,21 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Protocols;
 
 use localzet\Core\Connection\ConnectionInterface;
+use function rtrim;
+use function strlen;
+use function strpos;
 
 /**
  * Текстовый протокол.
@@ -21,19 +25,19 @@ class Text
     /**
      * Проверим целостность пакета.
      *
-     * @param string        $buffer
+     * @param string $buffer
      * @param ConnectionInterface $connection
      * @return int
      */
-    public static function input($buffer, ConnectionInterface $connection)
+    public static function input(string $buffer, ConnectionInterface $connection): int
     {
         // Превышает ли длина пакета предел?
-        if (isset($connection->maxPackageSize) && \strlen($buffer) >= $connection->maxPackageSize) {
+        if (isset($connection->maxPackageSize) && strlen($buffer) >= $connection->maxPackageSize) {
             $connection->close();
             return 0;
         }
         //  Найти положение  "\n".
-        $pos = \strpos($buffer, "\n");
+        $pos = strpos($buffer, "\n");
 
         // Нет "\n", длина пакета неизвестна, продолжаем ждать данных, поэтому вернём 0.
         if ($pos === false) {
@@ -50,7 +54,7 @@ class Text
      * @param string $buffer
      * @return string
      */
-    public static function encode($buffer)
+    public static function encode(string $buffer): string
     {
         // Добавим "\n"
         return $buffer . "\n";
@@ -62,9 +66,9 @@ class Text
      * @param string $buffer
      * @return string
      */
-    public static function decode($buffer)
+    public static function decode(string $buffer): string
     {
         // Удалим "\n"
-        return \rtrim($buffer, "\r\n");
+        return rtrim($buffer, "\r\n");
     }
 }

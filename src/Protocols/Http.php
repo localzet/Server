@@ -1,22 +1,40 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Protocols;
 
+use Throwable;
 use localzet\Core\Connection\TcpConnection;
 use localzet\Core\Protocols\Http\Request;
 use localzet\Core\Protocols\Http\Response;
-use localzet\Core\Protocols\Http\Session;
-use localzet\Core\Protocols\Websocket;
-use localzet\Core\Server;
+use function clearstatcache;
+use function count;
+use function explode;
+use function filesize;
+use function fopen;
+use function fread;
+use function fseek;
+use function ftell;
+use function in_array;
+use function ini_get;
+use function is_array;
+use function is_object;
+use function key;
+use function preg_match;
+use function strlen;
+use function strpos;
+use function strstr;
+use function substr;
+use function sys_get_temp_dir;
 
 /**
  * Class Http.
@@ -29,149 +47,110 @@ class Http
      *
      * @var string
      */
-    protected static $_requestClass = 'localzet\Core\Protocols\Http\Request';
+    protected static string $requestClass = Request::class;
 
     /**
      * Upload tmp dir.
      *
      * @var string
      */
-    protected static $_uploadTmpDir = '';
+    protected static string $uploadTmpDir = '';
 
     /**
-     * Open cache.
+     * Cache.
      *
      * @var bool.
      */
-    protected static $_enableCache = true;
-
-    /**
-     * Get or set session name.
-     *
-     * @param string|null $name
-     * @return string
-     */
-    public static function sessionName($name = null)
-    {
-        if ($name !== null && $name !== '') {
-            Session::$name = (string) $name;
-        }
-        return Session::$name;
-    }
+    protected static bool $enableCache = true;
 
     /**
      * Get or set the request class name.
      *
-     * @param string|null $class_name
+     * @param string|null $className
      * @return string
      */
-    public static function requestClass($class_name = null)
+    public static function requestClass(string $className = null): string
     {
-        if ($class_name) {
-            static::$_requestClass = $class_name;
+        if ($className) {
+            static::$requestClass = $className;
         }
-        return static::$_requestClass;
+        return static::$requestClass;
     }
 
     /**
      * Enable or disable Cache.
      *
-     * @param mixed $value
+     * @param bool $value
      */
-    public static function enableCache($value)
+    public static function enableCache(bool $value)
     {
-        static::$_enableCache = (bool) $value;
+        static::$enableCache = $value;
     }
 
     /**
      * Check the integrity of the package.
      *
-     * @param string $recv_buffer
+     * @param string $buffer
      * @param TcpConnection $connection
      * @return int
+     * @throws Throwable
      */
-    public static function input($recv_buffer, TcpConnection $connection)
+    public static function input(string $buffer, TcpConnection $connection): int
     {
         static $input = [];
-        if (!isset($recv_buffer[512]) && isset($input[$recv_buffer])) {
-            return $input[$recv_buffer];
+        if (!isset($buffer[512]) && isset($input[$buffer])) {
+            return $input[$buffer];
         }
-        $crlf_pos = \strpos($recv_buffer, "\r\n\r\n");
-        if (false === $crlf_pos) {
+        $crlfPos = strpos($buffer, "\r\n\r\n");
+        if (false === $crlfPos) {
             // Judge whether the package length exceeds the limit.
-            if (\strlen($recv_buffer) >= 16384) {
-                $connection->close(
-                    "HTTP/1.1 413 Payload Too Large\r\n\r\n",
-                    true
-                );
+            if (strlen($buffer) >= 16384) {
+                $connection->close("HTTP/1.1 413 Payload Too Large\r\n\r\n", true);
                 return 0;
             }
             return 0;
         }
 
-        $length = $crlf_pos + 4;
-        $firstLine = \explode(" ", \strstr($recv_buffer, "\r\n", true), 3);
-        $firstLine = \explode(" ", \strstr($recv_buffer, "\r\n", true), 3);
+        $length = $crlfPos + 4;
+        $firstLine = explode(" ", strstr($buffer, "\r\n", true), 3);
 
-        // if ($method === 'GET' || $method === 'OPTIONS' || $method === 'HEAD' || $method === 'DELETE') {
-        //     if (!isset($recv_buffer[512])) {
-        //         $input[$recv_buffer] = $head_len;
-        //         if (\count($input) > 512) {
-        //             unset($input[key($input)]);
-        //         }
-        //     }
-        //     return $head_len;
-        // } else if ($method !== 'POST' && $method !== 'PUT' && $method !== 'PATCH') {
-        if (!\in_array($firstLine[0], ['GET', 'POST', 'OPTIONS', 'HEAD', 'DELETE', 'PUT', 'PATCH'])) {
+        if (!in_array($firstLine[0], ['GET', 'POST', 'OPTIONS', 'HEAD', 'DELETE', 'PUT', 'PATCH'])) {
             $connection->close("HTTP/1.1 400 Bad Request\r\n\r\n", true);
             return 0;
         }
-        $header = \substr($recv_buffer, 0, $crlf_pos);
-        $hostHeaderPosition = \strpos($header, "\r\nHost: ");
+
+        $header = substr($buffer, 0, $crlfPos);
+        $hostHeaderPosition = strpos($header, "\r\nHost: ");
 
         if (false === $hostHeaderPosition && $firstLine[2] === "HTTP/1.1") {
             $connection->close("HTTP/1.1 400 Bad Request\r\n\r\n", true);
             return 0;
         }
 
-        if ($pos = \strpos($header, "\r\nContent-Length: ")) {
-            $length = $length + (int) \substr($header, $pos + 18, 10);
-            $has_content_length = true;
-        } elseif (
-            \preg_match("/\r\ncontent-length: ?(\d+)/i", $header, $match)
-        ) {
+        if ($pos = strpos($header, "\r\nContent-Length: ")) {
+            $length = $length + (int)substr($header, $pos + 18, 10);
+            $hasContentLength = true;
+        } else if (preg_match("/\r\ncontent-length: ?(\d+)/i", $header, $match)) {
             $length = $length + $match[1];
-            $has_content_length = true;
+            $hasContentLength = true;
         } else {
-            $has_content_length = false;
+            $hasContentLength = false;
             if (false !== stripos($header, "\r\nTransfer-Encoding:")) {
                 $connection->close("HTTP/1.1 400 Bad Request\r\n\r\n", true);
                 return 0;
             }
         }
 
-        if ($has_content_length) {
-            // if (!isset($recv_buffer[512])) {
-            //     $input[$recv_buffer] = $length;
-            //     if (\count($input) > 512) {
-            //         unset($input[key($input)]);
-            //     }
-            // }
+        if ($hasContentLength) {
             if ($length > $connection->maxPackageSize) {
-                $connection->close(
-                    "HTTP/1.1 413 Payload Too Large\r\n\r\n",
-                    true
-                );
+                $connection->close("HTTP/1.1 413 Payload Too Large\r\n\r\n", true);
                 return 0;
             }
-            // } elseif (\in_array($method, ['POST', 'PUT', 'PATCH'])) {
-            //     $connection->close("HTTP/1.1 400 Bad Request\r\n\r\n", true);
-            //     return 0;
         }
 
-        if (!isset($recv_buffer[512])) {
-            $input[$recv_buffer] = $length;
-            if (\count($input) > 512) {
+        if (!isset($buffer[512])) {
+            $input[$buffer] = $length;
+            if (count($input) > 512) {
                 unset($input[key($input)]);
             }
         }
@@ -182,27 +161,27 @@ class Http
     /**
      * Http decode.
      *
-     * @param string $recv_buffer
+     * @param string $buffer
      * @param TcpConnection $connection
-     * @return \localzet\Core\Protocols\Http\Request
+     * @return Request
      */
-    public static function decode($recv_buffer, TcpConnection $connection)
+    public static function decode(string $buffer, TcpConnection $connection): Request
     {
         static $requests = [];
-        $cacheable = static::$_enableCache && !isset($recv_buffer[512]);
-        if (true === $cacheable && isset($requests[$recv_buffer])) {
-            $request = $requests[$recv_buffer];
+        $cacheable = static::$enableCache && !isset($buffer[512]);
+        if (true === $cacheable && isset($requests[$buffer])) {
+            $request = clone $requests[$buffer];
             $request->connection = $connection;
-            $connection->__request = $request;
+            $connection->request = $request;
             $request->properties = [];
             return $request;
         }
-        $request = new static::$_requestClass($recv_buffer);
+        $request = new static::$requestClass($buffer);
         $request->connection = $connection;
-        $connection->__request = $request;
+        $connection->request = $request;
         if (true === $cacheable) {
-            $requests[$recv_buffer] = $request;
-            if (\count($requests) > 512) {
+            $requests[$buffer] = $request;
+            if (count($requests) > 512) {
                 unset($requests[key($requests)]);
             }
         }
@@ -215,80 +194,67 @@ class Http
      * @param string|Response $response
      * @param TcpConnection $connection
      * @return string
+     * @throws Throwable
      */
-    public static function encode($response, TcpConnection $connection)
+    public static function encode(mixed $response, TcpConnection $connection): string
     {
-        if (isset($connection->__request)) {
-            $connection->__request->session = null;
-            $connection->__request->connection = null;
-            $connection->__request = null;
+        if (isset($connection->request)) {
+            $request = $connection->request;
+            $request->session = $request->connection = $connection->request = null;
         }
-        if (!\is_object($response)) {
-            $ext_header = '';
-            if (isset($connection->__header)) {
-                foreach ($connection->__header as $name => $value) {
-                    if (\is_array($value)) {
+        if (!is_object($response)) {
+            $extHeader = '';
+            if (isset($connection->headers)) {
+                foreach ($connection->headers as $name => $value) {
+                    if (is_array($value)) {
                         foreach ($value as $item) {
-                            $ext_header = "$name: $item\r\n";
+                            $extHeader = "$name: $item\r\n";
                         }
                     } else {
-                        $ext_header = "$name: $value\r\n";
+                        $extHeader = "$name: $value\r\n";
                     }
                 }
-                unset($connection->__header);
+                $connection->headers = [];
             }
-            $body_len = \strlen((string) $response);
-            return "HTTP/1.1 200 OK\r\nServer: WebCore Server\r\n{$ext_header}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $body_len\r\n\r\n$response";
+            $bodyLen = strlen((string)$response);
+            return "HTTP/1.1 200 OK\r\nServer: Triangle Server\r\n{$extHeader}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\n\r\n$response";
         }
 
-        if (isset($connection->__header)) {
-            $response->withHeaders($connection->__header);
-            unset($connection->__header);
+        if (isset($connection->headers)) {
+            $response->withHeaders($connection->headers);
+            $connection->headers = [];
         }
 
         if (isset($response->file)) {
             $file = $response->file['file'];
             $offset = $response->file['offset'];
             $length = $response->file['length'];
-            \clearstatcache();
-            $file_size = (int) \filesize($file);
-            $body_len = $length > 0 ? $length : $file_size - $offset;
+            clearstatcache();
+            $fileSize = (int)filesize($file);
+            $bodyLen = $length > 0 ? $length : $fileSize - $offset;
             $response->withHeaders([
-                'Content-Length' => $body_len,
+                'Content-Length' => $bodyLen,
                 'Accept-Ranges' => 'bytes',
             ]);
             if ($offset || $length) {
-                $offset_end = $offset + $body_len - 1;
-                $response->header(
-                    'Content-Range',
-                    "bytes $offset-$offset_end/$file_size"
-                );
+                $offsetEnd = $offset + $bodyLen - 1;
+                $response->header('Content-Range', "bytes $offset-$offsetEnd/$fileSize");
             }
-            if ($body_len < 2 * 1024 * 1024) {
-                $connection->send(
-                    (string) $response .
-                        file_get_contents(
-                            $file,
-                            false,
-                            null,
-                            $offset,
-                            $body_len
-                        ),
-                    true
-                );
+            if ($bodyLen < 2 * 1024 * 1024) {
+                $connection->send($response . file_get_contents($file, false, null, $offset, $bodyLen), true);
                 return '';
             }
-            $handler = \fopen($file, 'r');
+            $handler = fopen($file, 'r');
             if (false === $handler) {
-                $connection->close(new Response(403, null, '403 Forbidden'));
+                $connection->close(new Response(403, [], '403 Forbidden'));
                 return '';
             }
-            $connection->send((string) $response, true);
+            $connection->send((string)$response, true);
             static::sendStream($connection, $handler, $offset, $length);
             return '';
         }
 
-        return (string) $response;
+        return (string)$response;
     }
 
     /**
@@ -298,45 +264,39 @@ class Http
      * @param resource $handler
      * @param int $offset
      * @param int $length
+     * @throws Throwable
      */
-    protected static function sendStream(
-        TcpConnection $connection,
-        $handler,
-        $offset = 0,
-        $length = 0
-    ) {
-        $connection->bufferFull = false;
+    protected static function sendStream(TcpConnection $connection, $handler, int $offset = 0, int $length = 0)
+    {
+        $connection->context->bufferFull = false;
+        $connection->context->streamSending = true;
         if ($offset !== 0) {
-            \fseek($handler, $offset);
+            fseek($handler, $offset);
         }
-        $offset_end = $offset + $length;
+        $offsetEnd = $offset + $length;
         // Read file content from disk piece by piece and send to client.
-        $do_write = function () use (
-            $connection,
-            $handler,
-            $length,
-            $offset_end
-        ) {
+        $doWrite = function () use ($connection, $handler, $length, $offsetEnd) {
             // Send buffer not full.
-            while ($connection->bufferFull === false) {
+            while ($connection->context->bufferFull === false) {
                 // Read from disk.
                 $size = 1024 * 1024;
                 if ($length !== 0) {
-                    $tell = \ftell($handler);
-                    $remain_size = $offset_end - $tell;
-                    if ($remain_size <= 0) {
+                    $tell = ftell($handler);
+                    $remainSize = $offsetEnd - $tell;
+                    if ($remainSize <= 0) {
                         fclose($handler);
                         $connection->onBufferDrain = null;
                         return;
                     }
-                    $size = $remain_size > $size ? $size : $remain_size;
+                    $size = $remainSize > $size ? $size : $remainSize;
                 }
 
-                $buffer = \fread($handler, $size);
+                $buffer = fread($handler, $size);
                 // Read eof.
                 if ($buffer === '' || $buffer === false) {
                     fclose($handler);
                     $connection->onBufferDrain = null;
+                    $connection->context->streamSending = false;
                     return;
                 }
                 $connection->send($buffer, true);
@@ -344,33 +304,34 @@ class Http
         };
         // Send buffer full.
         $connection->onBufferFull = function ($connection) {
-            $connection->bufferFull = true;
+            $connection->context->bufferFull = true;
         };
         // Send buffer drain.
-        $connection->onBufferDrain = function ($connection) use ($do_write) {
-            $connection->bufferFull = false;
-            $do_write();
+        $connection->onBufferDrain = function ($connection) use ($doWrite) {
+            $connection->context->bufferFull = false;
+            $doWrite();
         };
-        $do_write();
+        $doWrite();
     }
 
     /**
      * Set or get uploadTmpDir.
      *
-     * @return bool|string
+     * @param string|null $dir
+     * @return string
      */
-    public static function uploadTmpDir($dir = null)
+    public static function uploadTmpDir(string|null $dir = null): string
     {
         if (null !== $dir) {
-            static::$_uploadTmpDir = $dir;
+            static::$uploadTmpDir = $dir;
         }
-        if (static::$_uploadTmpDir === '') {
-            if ($upload_tmp_dir = \ini_get('upload_tmp_dir')) {
-                static::$_uploadTmpDir = $upload_tmp_dir;
-            } elseif ($upload_tmp_dir = \sys_get_temp_dir()) {
-                static::$_uploadTmpDir = $upload_tmp_dir;
+        if (static::$uploadTmpDir === '') {
+            if ($uploadTmpDir = ini_get('upload_tmp_dir')) {
+                static::$uploadTmpDir = $uploadTmpDir;
+            } else if ($uploadTmpDir = sys_get_temp_dir()) {
+                static::$uploadTmpDir = $uploadTmpDir;
             }
         }
-        return static::$_uploadTmpDir;
+        return static::$uploadTmpDir;
     }
 }

@@ -1,19 +1,33 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Connection;
 
-use localzet\Core\Events\EventInterface;
+use Exception;
+use Throwable;
+use localzet\Core\Protocols\ProtocolInterface;
 use localzet\Core\Server;
-use \Exception;
+use function class_exists;
+use function explode;
+use function fclose;
+use function stream_context_create;
+use function stream_set_blocking;
+use function stream_socket_client;
+use function stream_socket_recvfrom;
+use function stream_socket_sendto;
+use function strlen;
+use function substr;
+use function ucfirst;
+use const STREAM_CLIENT_CONNECT;
 
 /**
  * AsyncUdpConnection.
@@ -23,14 +37,14 @@ class AsyncUdpConnection extends UdpConnection
     /**
      * Emitted when socket connection is successfully established.
      *
-     * @var callable
+     * @var ?callable
      */
     public $onConnect = null;
 
     /**
      * Emitted when socket connection closed.
      *
-     * @var callable
+     * @var ?callable
      */
     public $onClose = null;
 
@@ -39,168 +53,166 @@ class AsyncUdpConnection extends UdpConnection
      *
      * @var bool
      */
-    protected $connected = false;
+    protected bool $connected = false;
 
     /**
      * Context option.
      *
      * @var array
      */
-    protected $_contextOption = null;
+    protected array $contextOption = [];
 
     /**
      * Construct.
      *
-     * @param string $remote_address
+     * @param string $remoteAddress
      * @throws Exception
      */
-    public function __construct($remote_address, $context_option = null)
+    public function __construct($remoteAddress, $contextOption = [])
     {
         // Get the application layer communication protocol and listening address.
-        list($scheme, $address) = \explode(':', $remote_address, 2);
+        list($scheme, $address) = explode(':', $remoteAddress, 2);
         // Check application layer protocol class.
         if ($scheme !== 'udp') {
-            $scheme         = \ucfirst($scheme);
+            $scheme = ucfirst($scheme);
             $this->protocol = '\\Protocols\\' . $scheme;
-            if (!\class_exists($this->protocol)) {
+            if (!class_exists($this->protocol)) {
                 $this->protocol = "\\localzet\\Core\\Protocols\\$scheme";
-                if (!\class_exists($this->protocol)) {
+                if (!class_exists($this->protocol)) {
                     throw new Exception("class \\Protocols\\$scheme not exist");
                 }
             }
         }
 
-        $this->_remoteAddress = \substr($address, 2);
-        $this->_contextOption = $context_option;
+        $this->remoteAddress = substr($address, 2);
+        $this->contextOption = $contextOption;
     }
 
     /**
      * For udp package.
      *
      * @param resource $socket
-     * @return bool
+     * @return void
+     * @throws Throwable
      */
     public function baseRead($socket)
     {
-        $recv_buffer = \stream_socket_recvfrom($socket, Server::MAX_UDP_PACKAGE_SIZE, 0, $remote_address);
-        if (false === $recv_buffer || empty($remote_address)) {
-            return false;
+        $recvBuffer = stream_socket_recvfrom($socket, static::MAX_UDP_PACKAGE_SIZE, 0, $remoteAddress);
+        if (false === $recvBuffer || empty($remoteAddress)) {
+            return;
         }
 
         if ($this->onMessage) {
             if ($this->protocol) {
-                $parser      = $this->protocol;
-                $recv_buffer = $parser::decode($recv_buffer, $this);
+                /** @var ProtocolInterface $parser */
+                $parser = $this->protocol;
+                $recvBuffer = $parser::decode($recvBuffer, $this);
             }
             ++ConnectionInterface::$statistics['total_request'];
             try {
-                \call_user_func($this->onMessage, $this, $recv_buffer);
-            } catch (\Exception $e) {
-                Server::stopAll(250, $e);
-            } catch (\Error $e) {
-                Server::stopAll(250, $e);
+                ($this->onMessage)($this, $recvBuffer);
+            } catch (Throwable $e) {
+                $this->error($e);
             }
         }
-        return true;
+    }
+
+    /**
+     * Close connection.
+     *
+     * @param mixed|null $data
+     * @param bool $raw
+     * @return void
+     * @throws Throwable
+     */
+    public function close(mixed $data = null, bool $raw = false)
+    {
+        if ($data !== null) {
+            $this->send($data, $raw);
+        }
+        $this->eventLoop->offReadable($this->socket);
+        fclose($this->socket);
+        $this->connected = false;
+        // Try to emit onClose callback.
+        if ($this->onClose) {
+            try {
+                ($this->onClose)($this);
+            } catch (Throwable $e) {
+                $this->error($e);
+            }
+        }
+        $this->onConnect = $this->onMessage = $this->onClose = $this->eventLoop = $this->errorHandler = null;
     }
 
     /**
      * Sends data on the connection.
      *
-     * @param string $send_buffer
-     * @param bool   $raw
+     * @param mixed $sendBuffer
+     * @param bool $raw
      * @return void|boolean
+     * @throws Throwable
      */
-    public function send($send_buffer, $raw = false)
+    public function send(mixed $sendBuffer, bool $raw = false)
     {
         if (false === $raw && $this->protocol) {
-            $parser      = $this->protocol;
-            $send_buffer = $parser::encode($send_buffer, $this);
-            if ($send_buffer === '') {
+            /** @var ProtocolInterface $parser */
+            $parser = $this->protocol;
+            $sendBuffer = $parser::encode($sendBuffer, $this);
+            if ($sendBuffer === '') {
                 return;
             }
         }
         if ($this->connected === false) {
             $this->connect();
         }
-        return \strlen($send_buffer) === \stream_socket_sendto($this->_socket, $send_buffer, 0);
-    }
-
-
-    /**
-     * Close connection.
-     *
-     * @param mixed $data
-     * @param bool $raw
-     *
-     * @return bool
-     */
-    public function close($data = null, $raw = false)
-    {
-        if ($data !== null) {
-            $this->send($data, $raw);
-        }
-        Server::$globalEvent->del($this->_socket, EventInterface::EV_READ);
-        \fclose($this->_socket);
-        $this->connected = false;
-        // Try to emit onClose callback.
-        if ($this->onClose) {
-            try {
-                \call_user_func($this->onClose, $this);
-            } catch (\Exception $e) {
-                Server::stopAll(250, $e);
-            } catch (\Error $e) {
-                Server::stopAll(250, $e);
-            }
-        }
-        $this->onConnect = $this->onMessage = $this->onClose = null;
-        return true;
+        return strlen($sendBuffer) === stream_socket_sendto($this->socket, $sendBuffer, 0);
     }
 
     /**
      * Connect.
      *
      * @return void
+     * @throws Throwable
      */
     public function connect()
     {
         if ($this->connected === true) {
             return;
         }
-        if ($this->_contextOption) {
-            $context = \stream_context_create($this->_contextOption);
-            $this->_socket = \stream_socket_client(
-                "udp://{$this->_remoteAddress}",
+        if (!$this->eventLoop) {
+            $this->eventLoop = Server::$globalEvent;
+        }
+        if ($this->contextOption) {
+            $context = stream_context_create($this->contextOption);
+            $this->socket = stream_socket_client(
+                "udp://$this->remoteAddress",
                 $errno,
                 $errmsg,
                 30,
-                \STREAM_CLIENT_CONNECT,
+                STREAM_CLIENT_CONNECT,
                 $context
             );
         } else {
-            $this->_socket = \stream_socket_client("udp://{$this->_remoteAddress}", $errno, $errmsg);
+            $this->socket = stream_socket_client("udp://$this->remoteAddress", $errno, $errmsg);
         }
 
-        if (!$this->_socket) {
-            Server::safeEcho(new \Exception($errmsg));
+        if (!$this->socket) {
+            Server::safeEcho(new Exception($errmsg));
+            $this->eventLoop = null;
             return;
         }
 
-        \stream_set_blocking($this->_socket, false);
-
+        stream_set_blocking($this->socket, false);
         if ($this->onMessage) {
-            // Server::$globalEvent->add($this->_socket, EventInterface::EV_READ, array($this, 'baseRead'));
-            Server::$globalEvent->onWritable($this->_socket, [$this, 'baseRead']);
+            $this->eventLoop->onReadable($this->socket, [$this, 'baseRead']);
         }
         $this->connected = true;
         // Try to emit onConnect callback.
         if ($this->onConnect) {
             try {
-                \call_user_func($this->onConnect, $this);
-            } catch (\Exception $e) {
-                Server::stopAll(250, $e);
-            } catch (\Error $e) {
-                Server::stopAll(250, $e);
+                ($this->onConnect)($this);
+            } catch (Throwable $e) {
+                $this->error($e);
             }
         }
     }

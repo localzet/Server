@@ -1,79 +1,92 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Connection;
 
+use JetBrains\PhpStorm\ArrayShape;
+use JetBrains\PhpStorm\Pure;
+use JsonSerializable;
+use localzet\Core\Protocols\ProtocolInterface;
+use function stream_socket_get_name;
+use function stream_socket_sendto;
+use function strlen;
+use function strrchr;
+use function strrpos;
+use function substr;
+use function trim;
+
 /**
  * UdpConnection.
  */
-class UdpConnection extends ConnectionInterface
+class UdpConnection extends ConnectionInterface implements JsonSerializable
 {
     /**
-     * Application layer protocol.
-     * The format is like this localzet\\Core\\Protocols\\Http.
+     * Max udp package size.
      *
-     * @var \localzet\Core\Protocols\ProtocolInterface
+     * @var int
      */
-    public $protocol = null;
+    const MAX_UDP_PACKAGE_SIZE = 65535;
 
     /**
      * Transport layer protocol.
      *
      * @var string
      */
-    public $transport = 'udp';
+    public string $transport = 'udp';
 
     /**
      * Udp socket.
      *
      * @var resource
      */
-    protected $_socket = null;
+    protected $socket;
 
     /**
      * Remote address.
      *
      * @var string
      */
-    protected $_remoteAddress = '';
+    protected string $remoteAddress = '';
 
     /**
      * Construct.
      *
      * @param resource $socket
-     * @param string   $remote_address
+     * @param string $remoteAddress
      */
-    public function __construct($socket, $remote_address)
+    public function __construct($socket, string $remoteAddress)
     {
-        $this->_socket        = $socket;
-        $this->_remoteAddress = $remote_address;
+        $this->socket = $socket;
+        $this->remoteAddress = $remoteAddress;
     }
 
     /**
      * Sends data on the connection.
      *
-     * @param string $send_buffer
-     * @param bool   $raw
+     * @param mixed $sendBuffer
+     * @param bool $raw
      * @return void|boolean
      */
-    public function send($send_buffer, $raw = false)
+    public function send(mixed $sendBuffer, bool $raw = false)
     {
         if (false === $raw && $this->protocol) {
-            $parser      = $this->protocol;
-            $send_buffer = $parser::encode($send_buffer, $this);
-            if ($send_buffer === '') {
+            /** @var ProtocolInterface $parser */
+            $parser = $this->protocol;
+            $sendBuffer = $parser::encode($sendBuffer, $this);
+            if ($sendBuffer === '') {
                 return;
             }
         }
-        return \strlen($send_buffer) === \stream_socket_sendto($this->_socket, $send_buffer, 0, $this->isIpV6() ? '[' . $this->getRemoteIp() . ']:' . $this->getRemotePort() : $this->_remoteAddress);
+        return strlen($sendBuffer) === stream_socket_sendto($this->socket, $sendBuffer, 0, $this->isIpV6() ? '[' . $this->getRemoteIp() . ']:' . $this->getRemotePort() : $this->remoteAddress);
     }
 
     /**
@@ -81,11 +94,11 @@ class UdpConnection extends ConnectionInterface
      *
      * @return string
      */
-    public function getRemoteIp()
+    public function getRemoteIp(): string
     {
-        $pos = \strrpos($this->_remoteAddress, ':');
+        $pos = strrpos($this->remoteAddress, ':');
         if ($pos) {
-            return \trim(\substr($this->_remoteAddress, 0, $pos), '[]');
+            return trim(substr($this->remoteAddress, 0, $pos), '[]');
         }
         return '';
     }
@@ -95,10 +108,10 @@ class UdpConnection extends ConnectionInterface
      *
      * @return int
      */
-    public function getRemotePort()
+    public function getRemotePort(): int
     {
-        if ($this->_remoteAddress) {
-            return (int)\substr(\strrchr($this->_remoteAddress, ':'), 1);
+        if ($this->remoteAddress) {
+            return (int)substr(strrchr($this->remoteAddress, ':'), 1);
         }
         return 0;
     }
@@ -108,9 +121,9 @@ class UdpConnection extends ConnectionInterface
      *
      * @return string
      */
-    public function getRemoteAddress()
+    public function getRemoteAddress(): string
     {
-        return $this->_remoteAddress;
+        return $this->remoteAddress;
     }
 
     /**
@@ -118,14 +131,14 @@ class UdpConnection extends ConnectionInterface
      *
      * @return string
      */
-    public function getLocalIp()
+    public function getLocalIp(): string
     {
         $address = $this->getLocalAddress();
-        $pos = \strrpos($address, ':');
+        $pos = strrpos($address, ':');
         if (!$pos) {
             return '';
         }
-        return \substr($address, 0, $pos);
+        return substr($address, 0, $pos);
     }
 
     /**
@@ -133,14 +146,14 @@ class UdpConnection extends ConnectionInterface
      *
      * @return int
      */
-    public function getLocalPort()
+    public function getLocalPort(): int
     {
         $address = $this->getLocalAddress();
-        $pos = \strrpos($address, ':');
+        $pos = strrpos($address, ':');
         if (!$pos) {
             return 0;
         }
-        return (int)\substr(\strrchr($address, ':'), 1);
+        return (int)substr(strrchr($address, ':'), 1);
     }
 
     /**
@@ -148,9 +161,24 @@ class UdpConnection extends ConnectionInterface
      *
      * @return string
      */
-    public function getLocalAddress()
+    public function getLocalAddress(): string
     {
-        return (string)@\stream_socket_get_name($this->_socket, false);
+        return (string)@stream_socket_get_name($this->socket, false);
+    }
+
+
+    /**
+     * Close connection.
+     *
+     * @param mixed|null $data
+     * @return void
+     */
+    public function close(mixed $data = null, bool $raw = false)
+    {
+        if ($data !== null) {
+            $this->send($data, $raw);
+        }
+        $this->eventLoop = $this->errorHandler = null;
     }
 
     /**
@@ -158,12 +186,13 @@ class UdpConnection extends ConnectionInterface
      *
      * @return bool.
      */
-    public function isIpV4()
+    #[Pure]
+    public function isIpV4(): bool
     {
         if ($this->transport === 'unix') {
             return false;
         }
-        return \strpos($this->getRemoteIp(), ':') === false;
+        return !str_contains($this->getRemoteIp(), ':');
     }
 
     /**
@@ -171,27 +200,13 @@ class UdpConnection extends ConnectionInterface
      *
      * @return bool.
      */
-    public function isIpV6()
+    #[Pure]
+    public function isIpV6(): bool
     {
         if ($this->transport === 'unix') {
             return false;
         }
-        return \strpos($this->getRemoteIp(), ':') !== false;
-    }
-
-    /**
-     * Close connection.
-     *
-     * @param mixed $data
-     * @param bool  $raw
-     * @return bool
-     */
-    public function close($data = null, $raw = false)
-    {
-        if ($data !== null) {
-            $this->send($data, $raw);
-        }
-        return true;
+        return str_contains($this->getRemoteIp(), ':');
     }
 
     /**
@@ -201,6 +216,26 @@ class UdpConnection extends ConnectionInterface
      */
     public function getSocket()
     {
-        return $this->_socket;
+        return $this->socket;
+    }
+
+    /**
+     * Get the json_encode information.
+     *
+     * @return array
+     */
+    #[ArrayShape(['transport' => "string", 'getRemoteIp' => "string", 'remotePort' => "int", 'getRemoteAddress' => "string", 'getLocalIp' => "string", 'getLocalPort' => "int", 'getLocalAddress' => "string", 'isIpV4' => "bool", 'isIpV6' => "bool"])] public function jsonSerialize(): array
+    {
+        return [
+            'transport' => $this->transport,
+            'getRemoteIp' => $this->getRemoteIp(),
+            'remotePort' => $this->getRemotePort(),
+            'getRemoteAddress' => $this->getRemoteAddress(),
+            'getLocalIp' => $this->getLocalIp(),
+            'getLocalPort' => $this->getLocalPort(),
+            'getLocalAddress' => $this->getLocalAddress(),
+            'isIpV4' => $this->isIpV4(),
+            'isIpV6' => $this->isIpV6(),
+        ];
     }
 }

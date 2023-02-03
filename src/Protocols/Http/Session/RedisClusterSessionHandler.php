@@ -1,42 +1,49 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Protocols\Http\Session;
 
-use localzet\Core\Protocols\Http\Session;
+use Redis;
+use RedisCluster;
+use RedisClusterException;
 
 class RedisClusterSessionHandler extends RedisSessionHandler
 {
+    /**
+     * @param $config
+     * @throws RedisClusterException
+     */
     public function __construct($config)
     {
-        $timeout = isset($config['timeout']) ? $config['timeout'] : 2;
-        $read_timeout = isset($config['read_timeout']) ? $config['read_timeout'] : $timeout;
-        $persistent = isset($config['persistent']) ? $config['persistent'] : false;
-        $auth = isset($config['auth']) ? $config['auth'] : '';
+        $timeout = $config['timeout'] ?? 2;
+        $readTimeout = $config['read_timeout'] ?? $timeout;
+        $persistent = $config['persistent'] ?? false;
+        $auth = $config['auth'] ?? '';
+        $args = [null, $config['host'], $timeout, $readTimeout, $persistent];
         if ($auth) {
-            $this->_redis = new \RedisCluster(null, $config['host'], $timeout, $read_timeout, $persistent, $auth);
-        } else {
-            $this->_redis = new \RedisCluster(null, $config['host'], $timeout, $read_timeout, $persistent);
+            $args[] = $auth;
         }
+        $this->redis = new RedisCluster(...$args);
         if (empty($config['prefix'])) {
             $config['prefix'] = 'redis_session_';
         }
-        $this->_redis->setOption(\Redis::OPT_PREFIX, $config['prefix']);
+        $this->redis->setOption(Redis::OPT_PREFIX, $config['prefix']);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function read($session_id)
+    public function read(string $sessionId): string
     {
-        return $this->_redis->get($session_id);
+        return $this->redis->get($sessionId);
     }
 }

@@ -1,24 +1,40 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Protocols;
 
+use Throwable;
 use localzet\Core\Connection\ConnectionInterface;
 use localzet\Core\Connection\TcpConnection;
+use localzet\Core\Protocols\Http\Request;
 use localzet\Core\Server;
+use function base64_encode;
+use function chr;
+use function floor;
+use function ord;
+use function pack;
+use function preg_match;
+use function sha1;
+use function str_repeat;
+use function stripos;
+use function strlen;
+use function strpos;
+use function substr;
+use function unpack;
 
 /**
  * WebSocket protocol.
  */
-class Websocket implements \localzet\Core\Protocols\ProtocolInterface
+class Websocket
 {
     /**
      * Websocket blob type.
@@ -37,37 +53,38 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
     /**
      * Check the integrity of the package.
      *
-     * @param string              $buffer
-     * @param ConnectionInterface $connection
+     * @param string $buffer
+     * @param TcpConnection $connection
      * @return int
+     * @throws Throwable
      */
-    public static function input($buffer, ConnectionInterface $connection)
+    public static function input(string $buffer, TcpConnection $connection): int
     {
         // Receive length.
-        $recv_len = \strlen($buffer);
+        $recvLen = strlen($buffer);
         // We need more data.
-        if ($recv_len < 6) {
+        if ($recvLen < 6) {
             return 0;
         }
 
         // Has not yet completed the handshake.
-        if (empty($connection->websocketHandshake)) {
+        if (empty($connection->context->websocketHandshake)) {
             return static::dealHandshake($buffer, $connection);
         }
 
         // Buffer websocket frame data.
-        if ($connection->websocketCurrentFrameLength) {
+        if ($connection->context->websocketCurrentFrameLength) {
             // We need more frame data.
-            if ($connection->websocketCurrentFrameLength > $recv_len) {
+            if ($connection->context->websocketCurrentFrameLength > $recvLen) {
                 // Return 0, because it is not clear the full packet length, waiting for the frame of fin=1.
                 return 0;
             }
         } else {
-            $first_byte = \ord($buffer[0]);
-            $second_byte = \ord($buffer[1]);
-            $data_len = $second_byte & 127;
-            $is_fin_frame = $first_byte >> 7;
-            $masked = $second_byte >> 7;
+            $firstbyte = ord($buffer[0]);
+            $secondbyte = ord($buffer[1]);
+            $dataLen = $secondbyte & 127;
+            $isFinFrame = $firstbyte >> 7;
+            $masked = $secondbyte >> 7;
 
             if (!$masked) {
                 Server::safeEcho("frame not masked so close the connection\n");
@@ -75,33 +92,26 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                 return 0;
             }
 
-            $opcode = $first_byte & 0xf;
+            $opcode = $firstbyte & 0xf;
             switch ($opcode) {
                 case 0x0:
-                    break;
                     // Blob type.
                 case 0x1:
-                    break;
                     // Arraybuffer type.
                 case 0x2:
+                    // Ping package.
+                case 0x9:
+                    // Pong package.
+                case 0xa:
                     break;
                     // Close package.
                 case 0x8:
                     // Try to emit onWebSocketClose callback.
-                    if (
-                        isset($connection->onWebSocketClose) ||
-                        isset($connection->server->onWebSocketClose)
-                    ) {
+                    $closeCb = $connection->onWebSocketClose ?? $connection->server->onWebSocketClose ?? false;
+                    if ($closeCb) {
                         try {
-                            \call_user_func(
-                                isset($connection->onWebSocketClose)
-                                    ? $connection->onWebSocketClose
-                                    : $connection->server->onWebSocketClose,
-                                $connection
-                            );
-                        } catch (\Exception $e) {
-                            Server::stopAll(250, $e);
-                        } catch (\Error $e) {
+                            $closeCb($connection);
+                        } catch (Throwable $e) {
                             Server::stopAll(250, $e);
                         }
                     }
@@ -110,165 +120,107 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
                         $connection->close("\x88\x02\x03\xe8", true);
                     }
                     return 0;
-                    // Ping package.
-                case 0x9:
-                    break;
-                    // Pong package.
-                case 0xa:
-                    break;
                     // Wrong opcode.
                 default:
-                    Server::safeEcho(
-                        "error opcode $opcode and close websocket connection. Buffer:" .
-                            bin2hex($buffer) .
-                            "\n"
-                    );
+                    Server::safeEcho("error opcode $opcode and close websocket connection. Buffer:" . bin2hex($buffer) . "\n");
                     $connection->close();
                     return 0;
             }
 
             // Calculate packet length.
-            $head_len = 6;
-            if ($data_len === 126) {
-                $head_len = 8;
-                if ($head_len > $recv_len) {
+            $headLen = 6;
+            if ($dataLen === 126) {
+                $headLen = 8;
+                if ($headLen > $recvLen) {
                     return 0;
                 }
-                $pack = \unpack('nn/ntotal_len', $buffer);
-                $data_len = $pack['total_len'];
+                $pack = unpack('nn/ntotal_len', $buffer);
+                $dataLen = $pack['total_len'];
             } else {
-                if ($data_len === 127) {
-                    $head_len = 14;
-                    if ($head_len > $recv_len) {
+                if ($dataLen === 127) {
+                    $headLen = 14;
+                    if ($headLen > $recvLen) {
                         return 0;
                     }
-                    $arr = \unpack('n/N2c', $buffer);
-                    $data_len = $arr['c1'] * 4294967296 + $arr['c2'];
+                    $arr = unpack('n/N2c', $buffer);
+                    $dataLen = $arr['c1'] * 4294967296 + $arr['c2'];
                 }
             }
-            $current_frame_length = $head_len + $data_len;
+            $currentFrameLength = $headLen + $dataLen;
 
-            $total_package_size =
-                \strlen($connection->websocketDataBuffer) +
-                $current_frame_length;
-            if ($total_package_size > $connection->maxPackageSize) {
-                Server::safeEcho(
-                    "error package. package_length=$total_package_size\n"
-                );
+            $totalPackageSize = strlen($connection->context->websocketDataBuffer) + $currentFrameLength;
+            if ($totalPackageSize > $connection->maxPackageSize) {
+                Server::safeEcho("error package. package_length=$totalPackageSize\n");
                 $connection->close();
                 return 0;
             }
 
-            if ($is_fin_frame) {
+            if ($isFinFrame) {
                 if ($opcode === 0x9) {
-                    if ($recv_len >= $current_frame_length) {
-                        $ping_data = static::decode(
-                            \substr($buffer, 0, $current_frame_length),
-                            $connection
-                        );
-                        $connection->consumeRecvBuffer($current_frame_length);
-                        $tmp_connection_type = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
+                    if ($recvLen >= $currentFrameLength) {
+                        $pingData = static::decode(substr($buffer, 0, $currentFrameLength), $connection);
+                        $connection->consumeRecvBuffer($currentFrameLength);
+                        $tmpConnectionType = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
                         $connection->websocketType = "\x8a";
-                        if (
-                            isset($connection->onWebSocketPing) ||
-                            isset($connection->server->onWebSocketPing)
-                        ) {
+                        $pingCb = $connection->onWebSocketPing ?? $connection->server->onWebSocketPing ?? false;
+                        if ($pingCb) {
                             try {
-                                \call_user_func(
-                                    isset($connection->onWebSocketPing)
-                                        ? $connection->onWebSocketPing
-                                        : $connection->server->onWebSocketPing,
-                                    $connection,
-                                    $ping_data
-                                );
-                            } catch (\Exception $e) {
-                                Server::stopAll(250, $e);
-                            } catch (\Error $e) {
+                                $pingCb($connection, $pingData);
+                            } catch (Throwable $e) {
                                 Server::stopAll(250, $e);
                             }
                         } else {
-                            $connection->send($ping_data);
+                            $connection->send($pingData);
                         }
-                        $connection->websocketType = $tmp_connection_type;
-                        if ($recv_len > $current_frame_length) {
-                            return static::input(
-                                \substr($buffer, $current_frame_length),
-                                $connection
-                            );
+                        $connection->websocketType = $tmpConnectionType;
+                        if ($recvLen > $currentFrameLength) {
+                            return static::input(substr($buffer, $currentFrameLength), $connection);
                         }
                     }
                     return 0;
-                } elseif ($opcode === 0xa) {
-                    if ($recv_len >= $current_frame_length) {
-                        $pong_data = static::decode(
-                            \substr($buffer, 0, $current_frame_length),
-                            $connection
-                        );
-                        $connection->consumeRecvBuffer($current_frame_length);
-                        $tmp_connection_type = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
+                } else if ($opcode === 0xa) {
+                    if ($recvLen >= $currentFrameLength) {
+                        $pongData = static::decode(substr($buffer, 0, $currentFrameLength), $connection);
+                        $connection->consumeRecvBuffer($currentFrameLength);
+                        $tmpConnectionType = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
                         $connection->websocketType = "\x8a";
                         // Try to emit onWebSocketPong callback.
-                        if (
-                            isset($connection->onWebSocketPong) ||
-                            isset($connection->server->onWebSocketPong)
-                        ) {
+                        $pongCb = $connection->onWebSocketPong ?? $connection->server->onWebSocketPong ?? false;
+                        if ($pongCb) {
                             try {
-                                \call_user_func(
-                                    isset($connection->onWebSocketPong)
-                                        ? $connection->onWebSocketPong
-                                        : $connection->server->onWebSocketPong,
-                                    $connection,
-                                    $pong_data
-                                );
-                            } catch (\Exception $e) {
-                                Server::stopAll(250, $e);
-                            } catch (\Error $e) {
+                                $pongCb($connection, $pongData);
+                            } catch (Throwable $e) {
                                 Server::stopAll(250, $e);
                             }
                         }
-                        $connection->websocketType = $tmp_connection_type;
-                        if ($recv_len > $current_frame_length) {
-                            return static::input(
-                                \substr($buffer, $current_frame_length),
-                                $connection
-                            );
+                        $connection->websocketType = $tmpConnectionType;
+                        if ($recvLen > $currentFrameLength) {
+                            return static::input(substr($buffer, $currentFrameLength), $connection);
                         }
                     }
                     return 0;
                 }
-                return $current_frame_length;
+                return $currentFrameLength;
             } else {
-                $connection->websocketCurrentFrameLength = $current_frame_length;
+                $connection->context->websocketCurrentFrameLength = $currentFrameLength;
             }
         }
 
         // Received just a frame length data.
-        if ($connection->websocketCurrentFrameLength === $recv_len) {
+        if ($connection->context->websocketCurrentFrameLength === $recvLen) {
             static::decode($buffer, $connection);
-            $connection->consumeRecvBuffer(
-                $connection->websocketCurrentFrameLength
-            );
-            $connection->websocketCurrentFrameLength = 0;
+            $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
+            $connection->context->websocketCurrentFrameLength = 0;
             return 0;
-        }
-        // The length of the received data is greater than the length of a frame.
-        elseif ($connection->websocketCurrentFrameLength < $recv_len) {
-            static::decode(
-                \substr($buffer, 0, $connection->websocketCurrentFrameLength),
-                $connection
-            );
-            $connection->consumeRecvBuffer(
-                $connection->websocketCurrentFrameLength
-            );
-            $current_frame_length = $connection->websocketCurrentFrameLength;
-            $connection->websocketCurrentFrameLength = 0;
+        } // The length of the received data is greater than the length of a frame.
+        elseif ($connection->context->websocketCurrentFrameLength < $recvLen) {
+            static::decode(substr($buffer, 0, $connection->context->websocketCurrentFrameLength), $connection);
+            $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
+            $currentFrameLength = $connection->context->websocketCurrentFrameLength;
+            $connection->context->websocketCurrentFrameLength = 0;
             // Continue to read next frame.
-            return static::input(
-                \substr($buffer, $current_frame_length),
-                $connection
-            );
-        }
-        // The length of the received data is less than the length of a frame.
+            return static::input(substr($buffer, $currentFrameLength), $connection);
+        } // The length of the received data is less than the length of a frame.
         else {
             return 0;
         }
@@ -277,122 +229,97 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
     /**
      * Websocket encode.
      *
-     * @param string              $buffer
-     * @param ConnectionInterface $connection
+     * @param string $buffer
+     * @param TcpConnection $connection
      * @return string
      */
-    public static function encode($buffer, ConnectionInterface $connection)
+    public static function encode(string $buffer, TcpConnection $connection): string
     {
-        if (!is_scalar($buffer)) {
-            throw new \Exception(
-                "You can't send(" .
-                    \gettype($buffer) .
-                    ') to client, you need to convert it to a string. '
-            );
-        }
-        $len = \strlen($buffer);
+        $len = strlen($buffer);
         if (empty($connection->websocketType)) {
             $connection->websocketType = static::BINARY_TYPE_BLOB;
         }
 
-        $first_byte = $connection->websocketType;
+        $firstByte = $connection->websocketType;
 
         if ($len <= 125) {
-            $encode_buffer = $first_byte . \chr($len) . $buffer;
+            $encodeBuffer = $firstByte . chr($len) . $buffer;
         } else {
             if ($len <= 65535) {
-                $encode_buffer =
-                    $first_byte . \chr(126) . \pack('n', $len) . $buffer;
+                $encodeBuffer = $firstByte . chr(126) . pack("n", $len) . $buffer;
             } else {
-                $encode_buffer =
-                    $first_byte . \chr(127) . \pack('xxxxN', $len) . $buffer;
+                $encodeBuffer = $firstByte . chr(127) . pack("xxxxN", $len) . $buffer;
             }
         }
 
         // Handshake not completed so temporary buffer websocket data waiting for send.
-        if (empty($connection->websocketHandshake)) {
-            if (empty($connection->tmpWebsocketData)) {
-                $connection->tmpWebsocketData = '';
+        if (empty($connection->context->websocketHandshake)) {
+            if (empty($connection->context->tmpWebsocketData)) {
+                $connection->context->tmpWebsocketData = '';
             }
             // If buffer has already full then discard the current package.
-            if (
-                \strlen($connection->tmpWebsocketData) >
-                $connection->maxSendBufferSize
-            ) {
+            if (strlen($connection->context->tmpWebsocketData) > $connection->maxSendBufferSize) {
                 if ($connection->onError) {
                     try {
-                        \call_user_func(
-                            $connection->onError,
-                            $connection,
-                            \WEBCORE_SEND_FAIL,
-                            'send buffer full and drop package'
-                        );
-                    } catch (\Exception $e) {
-                        Server::stopAll(250, $e);
-                    } catch (\Error $e) {
+                        ($connection->onError)($connection, ConnectionInterface::SEND_FAIL, 'send buffer full and drop package');
+                    } catch (Throwable $e) {
                         Server::stopAll(250, $e);
                     }
                 }
                 return '';
             }
-            $connection->tmpWebsocketData .= $encode_buffer;
+            $connection->context->tmpWebsocketData .= $encodeBuffer;
             // Check buffer is full.
-            if (
-                $connection->maxSendBufferSize <=
-                \strlen($connection->tmpWebsocketData)
-            ) {
+            if ($connection->maxSendBufferSize <= strlen($connection->context->tmpWebsocketData)) {
                 if ($connection->onBufferFull) {
                     try {
-                        \call_user_func($connection->onBufferFull, $connection);
-                    } catch (\Exception $e) {
-                        Server::stopAll(250, $e);
-                    } catch (\Error $e) {
+                        ($connection->onBufferFull)($connection);
+                    } catch (Throwable $e) {
                         Server::stopAll(250, $e);
                     }
                 }
             }
-
             // Return empty string.
             return '';
         }
 
-        return $encode_buffer;
+        return $encodeBuffer;
     }
 
     /**
      * Websocket decode.
      *
-     * @param string              $buffer
-     * @param ConnectionInterface $connection
+     * @param string $buffer
+     * @param TcpConnection $connection
      * @return string
      */
-    public static function decode($buffer, ConnectionInterface $connection)
+    public static function decode(string $buffer, TcpConnection $connection): string
     {
-        $len = \ord($buffer[1]) & 127;
+        $firstByte = ord($buffer[1]);
+        $len = $firstByte & 127;
+
         if ($len === 126) {
-            $masks = \substr($buffer, 4, 4);
-            $data = \substr($buffer, 8);
+            $masks = substr($buffer, 4, 4);
+            $data = substr($buffer, 8);
         } else {
             if ($len === 127) {
-                $masks = \substr($buffer, 10, 4);
-                $data = \substr($buffer, 14);
+                $masks = substr($buffer, 10, 4);
+                $data = substr($buffer, 14);
             } else {
-                $masks = \substr($buffer, 2, 4);
-                $data = \substr($buffer, 6);
+                $masks = substr($buffer, 2, 4);
+                $data = substr($buffer, 6);
             }
         }
-        $dataLength = \strlen($data);
-        $masks =
-            \str_repeat($masks, \floor($dataLength / 4)) .
-            \substr($masks, 0, $dataLength % 4);
+        $dataLength = strlen($data);
+        $masks = str_repeat($masks, floor($dataLength / 4)) . substr($masks, 0, $dataLength % 4);
         $decoded = $data ^ $masks;
-        if ($connection->websocketCurrentFrameLength) {
-            $connection->websocketDataBuffer .= $decoded;
-            return $connection->websocketDataBuffer;
+        if ($connection->context->websocketCurrentFrameLength) {
+            $connection->context->websocketDataBuffer .= $decoded;
+            return $connection->context->websocketDataBuffer;
         } else {
-            if ($connection->websocketDataBuffer !== '') {
-                $decoded = $connection->websocketDataBuffer . $decoded;
-                $connection->websocketDataBuffer = '';
+            if ($connection->context->websocketDataBuffer !== '') {
+                $decoded = $connection->context->websocketDataBuffer . $decoded;
+                $connection->context->websocketDataBuffer = '';
             }
             return $decoded;
         }
@@ -401,221 +328,99 @@ class Websocket implements \localzet\Core\Protocols\ProtocolInterface
     /**
      * Websocket handshake.
      *
-     * @param string                              $buffer
+     * @param string $buffer
      * @param TcpConnection $connection
      * @return int
+     * @throws Throwable
      */
-    public static function dealHandshake($buffer, TcpConnection $connection)
+    public static function dealHandshake(string $buffer, TcpConnection $connection): int
     {
         // HTTP protocol.
-        if (0 === \strpos($buffer, 'GET')) {
+        if (str_starts_with($buffer, 'GET')) {
             // Find \r\n\r\n.
-            $heder_end_pos = \strpos($buffer, "\r\n\r\n");
-            if (!$heder_end_pos) {
+            $headerEndPos = strpos($buffer, "\r\n\r\n");
+            if (!$headerEndPos) {
                 return 0;
             }
-            $header_length = $heder_end_pos + 4;
+            $headerLength = $headerEndPos + 4;
 
             // Get Sec-WebSocket-Key.
-            $Sec_WebSocket_Key = '';
-            if (
-                \preg_match("/Sec-WebSocket-Key: *(.*?)\r\n/i", $buffer, $match)
-            ) {
-                $Sec_WebSocket_Key = $match[1];
+            if (preg_match("/Sec-WebSocket-Key: *(.*?)\r\n/i", $buffer, $match)) {
+                $SecWebSocketKey = $match[1];
             } else {
                 $connection->close(
-                    "HTTP/1.1 200 WebSocket\r\nServer: WebCore Server/" .
-                        Server::VERSION .
-                        "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>WebCore Server/" .
-                        Server::VERSION .
-                        '</div>',
+                    "HTTP/1.1 200 WebSocket\r\nServer: Triangle Server/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Triangle Server/" . Server::VERSION . "</div>",
                     true
                 );
                 return 0;
             }
             // Calculation websocket key.
-            $new_key = \base64_encode(
-                \sha1(
-                    $Sec_WebSocket_Key . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11',
-                    true
-                )
-            );
+            $newKey = base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true));
             // Handshake response data.
-            $handshake_message =
-                "HTTP/1.1 101 Switching Protocols\r\n" .
-                "Upgrade: websocket\r\n" .
-                "Sec-WebSocket-Version: 13\r\n" .
-                "Connection: Upgrade\r\n" .
-                'Sec-WebSocket-Accept: ' .
-                $new_key .
-                "\r\n";
+            $handshakeMessage = "HTTP/1.1 101 Switching Protocols\r\n"
+                . "Upgrade: websocket\r\n"
+                . "Sec-WebSocket-Version: 13\r\n"
+                . "Connection: Upgrade\r\n"
+                . "Sec-WebSocket-Accept: " . $newKey . "\r\n";
 
             // Websocket data buffer.
-            $connection->websocketDataBuffer = '';
+            $connection->context->websocketDataBuffer = '';
             // Current websocket frame length.
-            $connection->websocketCurrentFrameLength = 0;
+            $connection->context->websocketCurrentFrameLength = 0;
             // Current websocket frame data.
-            $connection->websocketCurrentFrameBuffer = '';
+            $connection->context->websocketCurrentFrameBuffer = '';
             // Consume handshake data.
-            $connection->consumeRecvBuffer($header_length);
+            $connection->consumeRecvBuffer($headerLength);
+
+            // Try to emit onWebSocketConnect callback.
+            $onWebsocketConnect = $connection->onWebSocketConnect ?? $connection->server->onWebSocketConnect ?? false;
+            if ($onWebsocketConnect) {
+                try {
+                    $onWebsocketConnect($connection, new Request($buffer));
+                } catch (Throwable $e) {
+                    Server::stopAll(250, $e);
+                }
+            }
 
             // blob or arraybuffer
             if (empty($connection->websocketType)) {
                 $connection->websocketType = static::BINARY_TYPE_BLOB;
             }
 
-            $has_server_header = false;
+            $hasServerHeader = false;
 
-            if (isset($connection->headers)) {
-                if (\is_array($connection->headers)) {
-                    foreach ($connection->headers as $header) {
-                        if (\stripos($header, 'Server:') === 0) {
-                            $has_server_header = true;
-                        }
-                        $handshake_message .= "$header\r\n";
+            if ($connection->headers) {
+                foreach ($connection->headers as $header) {
+                    if (stripos($header, 'Server:') === 0) {
+                        $hasServerHeader = true;
                     }
-                } else {
-                    if (\stripos($connection->headers, 'Server:') !== false) {
-                        $has_server_header = true;
-                    }
-                    $handshake_message .= "$connection->headers\r\n";
+                    $handshakeMessage .= "$header\r\n";
                 }
             }
-            if (!$has_server_header) {
-                $handshake_message .=
-                    'Server: WebCore Server/' . Server::VERSION . "\r\n";
+            if (!$hasServerHeader) {
+                $handshakeMessage .= "Server: Triangle Server/" . Server::VERSION . "\r\n";
             }
-            $handshake_message .= "\r\n";
+            $handshakeMessage .= "\r\n";
             // Send handshake response.
-            $connection->send($handshake_message, true);
+            $connection->send($handshakeMessage, true);
             // Mark handshake complete..
-            $connection->websocketHandshake = true;
-
-            // Try to emit onWebSocketConnect callback.
-            $on_websocket_connect = isset($connection->onWebSocketConnect)
-                ? $connection->onWebSocketConnect
-                : (isset($connection->server->onWebSocketConnect)
-                    ? $connection->server->onWebSocketConnect
-                    : false);
-            if ($on_websocket_connect) {
-                static::parseHttpHeader($buffer);
-                try {
-                    \call_user_func(
-                        $on_websocket_connect,
-                        $connection,
-                        $buffer
-                    );
-                } catch (\Exception $e) {
-                    Server::stopAll(250, $e);
-                } catch (\Error $e) {
-                    Server::stopAll(250, $e);
-                }
-                if (
-                    !empty($_SESSION) &&
-                    \class_exists('\GatewayServer\Lib\Context')
-                ) {
-                    $connection->session = \GatewayServer\Lib\Context::sessionEncode(
-                        $_SESSION
-                    );
-                }
-                $_GET = $_SERVER = $_SESSION = $_COOKIE = [];
-            }
+            $connection->context->websocketHandshake = true;
 
             // There are data waiting to be sent.
-            if (!empty($connection->tmpWebsocketData)) {
-                $connection->send($connection->tmpWebsocketData, true);
-                $connection->tmpWebsocketData = '';
+            if (!empty($connection->context->tmpWebsocketData)) {
+                $connection->send($connection->context->tmpWebsocketData, true);
+                $connection->context->tmpWebsocketData = '';
             }
-            if (\strlen($buffer) > $header_length) {
-                return static::input(
-                    \substr($buffer, $header_length),
-                    $connection
-                );
+            if (strlen($buffer) > $headerLength) {
+                return static::input(substr($buffer, $headerLength), $connection);
             }
-            return 0;
-        }
-        // Is flash policy-file-request.
-        elseif (0 === \strpos($buffer, '<polic')) {
-            $policy_xml =
-                '<?xml version="1.0"?><cross-domain-policy><site-control permitted-cross-domain-policies="all"/><allow-access-from domain="*" to-ports="*"/></cross-domain-policy>' .
-                "\0";
-            $connection->send($policy_xml, true);
-            $connection->consumeRecvBuffer(\strlen($buffer));
             return 0;
         }
         // Bad websocket handshake request.
         $connection->close(
-            "HTTP/1.1 200 WebSocket\r\nServer: WebCore Server/" .
-                Server::VERSION .
-                "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>WebCore Server/" .
-                Server::VERSION .
-                '</div>',
+            "HTTP/1.1 200 WebSocket\r\nServer: Triangle Server/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Triangle Server/" . Server::VERSION . "</div>",
             true
         );
         return 0;
-    }
-
-    /**
-     * Parse http header.
-     *
-     * @param string $buffer
-     * @return void
-     */
-    protected static function parseHttpHeader($buffer)
-    {
-        // Parse headers.
-        list($http_header) = \explode("\r\n\r\n", $buffer, 2);
-        $header_data = \explode("\r\n", $http_header);
-
-        if ($_SERVER) {
-            $_SERVER = [];
-        }
-
-        list(
-            $_SERVER['REQUEST_METHOD'],
-            $_SERVER['REQUEST_URI'],
-            $_SERVER['SERVER_PROTOCOL'],
-        ) = \explode(' ', $header_data[0]);
-
-        unset($header_data[0]);
-        foreach ($header_data as $content) {
-            // \r\n\r\n
-            if (empty($content)) {
-                continue;
-            }
-            list($key, $value) = \explode(':', $content, 2);
-            $key = \str_replace('-', '_', \strtoupper($key));
-            $value = \trim($value);
-            $_SERVER['HTTP_' . $key] = $value;
-            switch ($key) {
-                    // HTTP_HOST
-                case 'HOST':
-                    $tmp = \explode(':', $value);
-                    $_SERVER['SERVER_NAME'] = $tmp[0];
-                    if (isset($tmp[1])) {
-                        $_SERVER['SERVER_PORT'] = $tmp[1];
-                    }
-                    break;
-                    // cookie
-                case 'COOKIE':
-                    \parse_str(
-                        \str_replace('; ', '&', $_SERVER['HTTP_COOKIE']),
-                        $_COOKIE
-                    );
-                    break;
-            }
-        }
-
-        // QUERY_STRING
-        $_SERVER['QUERY_STRING'] = \parse_url(
-            $_SERVER['REQUEST_URI'],
-            \PHP_URL_QUERY
-        );
-        if ($_SERVER['QUERY_STRING']) {
-            // $GET
-            \parse_str($_SERVER['QUERY_STRING'], $_GET);
-        } else {
-            $_SERVER['QUERY_STRING'] = '';
-        }
     }
 }

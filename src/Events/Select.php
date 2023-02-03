@@ -1,18 +1,25 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Events;
 
+use SplPriorityQueue;
 use Throwable;
-use localzet\Core\Server;
+use function count;
+use function max;
+use function microtime;
+use function pcntl_signal;
+use function pcntl_signal_dispatch;
+use const DIRECTORY_SEPARATOR;
 
 /**
  * select eventloop
@@ -20,47 +27,65 @@ use localzet\Core\Server;
 class Select implements EventInterface
 {
     /**
+     * Running.
+     * @var bool
+     */
+    protected bool $running = true;
+
+    /**
      * All listeners for read/write event.
      *
      * @var array
      */
-    public $_allEvents = array();
+    protected array $readEvents = [];
+
+    /**
+     * All listeners for read/write event.
+     *
+     * @var array
+     */
+    protected array $writeEvents = [];
+
+    /**
+     * @var array
+     */
+    protected array $exceptEvents = [];
 
     /**
      * Event listeners of signal.
      *
      * @var array
      */
-    public $_signalEvents = array();
+    protected array $signalEvents = [];
 
     /**
      * Fds waiting for read event.
      *
      * @var array
      */
-    protected $_readFds = array();
+    protected array $readFds = [];
 
     /**
      * Fds waiting for write event.
      *
      * @var array
      */
-    protected $_writeFds = array();
+    protected array $writeFds = [];
 
     /**
      * Fds waiting for except event.
      *
      * @var array
      */
-    protected $_exceptFds = array();
+    protected array $exceptFds = [];
 
     /**
      * Timer scheduler.
      * {['data':timer_id, 'priority':run_timestamp], ..}
      *
-     * @var \SplPriorityQueue
+     * @var SplPriorityQueue
      */
-    protected $_scheduler = null;
+    protected SplPriorityQueue $scheduler;
 
     /**
      * All timer event listeners.
@@ -68,28 +93,26 @@ class Select implements EventInterface
      *
      * @var array
      */
-    protected $_eventTimer = array();
+    protected array $eventTimer = [];
 
     /**
      * Timer id.
      *
      * @var int
      */
-    protected $_timerId = 1;
+    protected int $timerId = 1;
 
     /**
      * Select timeout.
      *
      * @var int
      */
-    protected $_selectTimeout = 100000000;
+    protected int $selectTimeout = 100000000;
 
     /**
-     * Paired socket channels
-     *
-     * @var array
+     * @var ?callable
      */
-    protected $channel = array();
+    protected $errorHandler = null;
 
     /**
      * Construct.
@@ -97,61 +120,171 @@ class Select implements EventInterface
     public function __construct()
     {
         // Init SplPriorityQueue.
-        $this->_scheduler = new \SplPriorityQueue();
-        $this->_scheduler->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
+        $this->scheduler = new SplPriorityQueue();
+        $this->scheduler->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function add($fd, $flag, $func, $args = array())
+    public function delay(float $delay, callable $func, array $args = []): int
     {
-        switch ($flag) {
-            case self::EV_READ:
-            case self::EV_WRITE:
-                $count = $flag === self::EV_READ ? \count($this->_readFds) : \count($this->_writeFds);
-                if ($count >= 1024) {
-                    echo "Warning: system call select exceeded the maximum number of connections 1024, please install event/libevent extension for more connections.\n";
-                } else if (\DIRECTORY_SEPARATOR !== '/' && $count >= 256) {
-                    echo "Warning: system call select exceeded the maximum number of connections 256.\n";
-                }
-                $fd_key                           = (int)$fd;
-                $this->_allEvents[$fd_key][$flag] = array($func, $fd);
-                if ($flag === self::EV_READ) {
-                    $this->_readFds[$fd_key] = $fd;
-                } else {
-                    $this->_writeFds[$fd_key] = $fd;
-                }
-                break;
-            case self::EV_EXCEPT:
-                $fd_key = (int)$fd;
-                $this->_allEvents[$fd_key][$flag] = array($func, $fd);
-                $this->_exceptFds[$fd_key] = $fd;
-                break;
-            case self::EV_SIGNAL:
-                // Windows not support signal.
-                if (\DIRECTORY_SEPARATOR !== '/') {
-                    return false;
-                }
-                $fd_key                              = (int)$fd;
-                $this->_signalEvents[$fd_key][$flag] = array($func, $fd);
-                \pcntl_signal($fd, array($this, 'signalHandler'));
-                break;
-            case self::EV_TIMER:
-            case self::EV_TIMER_ONCE:
-                $timer_id = $this->_timerId++;
-                $run_time = \microtime(true) + $fd;
-                $this->_scheduler->insert($timer_id, -$run_time);
-                $this->_eventTimer[$timer_id] = array($func, (array)$args, $flag, $fd);
-                $select_timeout = ($run_time - \microtime(true)) * 1000000;
-                $select_timeout = $select_timeout <= 0 ? 1 : $select_timeout;
-                if ($this->_selectTimeout > $select_timeout) {
-                    $this->_selectTimeout = (int) $select_timeout;
-                }
-                return $timer_id;
+        $timerId = $this->timerId++;
+        $runTime = microtime(true) + $delay;
+        $this->scheduler->insert($timerId, -$runTime);
+        $this->eventTimer[$timerId] = [$func, $args];
+        $selectTimeout = ($runTime - microtime(true)) * 1000000;
+        $selectTimeout = $selectTimeout <= 0 ? 1 : (int)$selectTimeout;
+        if ($this->selectTimeout > $selectTimeout) {
+            $this->selectTimeout = $selectTimeout;
         }
+        return $timerId;
+    }
 
-        return true;
+    /**
+     * {@inheritdoc}
+     */
+    public function repeat(float $interval, callable $func, array $args = []): int
+    {
+        $timerId = $this->timerId++;
+        $runTime = microtime(true) + $interval;
+        $this->scheduler->insert($timerId, -$runTime);
+        $this->eventTimer[$timerId] = [$func, $args, $interval];
+        $selectTimeout = ($runTime - microtime(true)) * 1000000;
+        $selectTimeout = $selectTimeout <= 0 ? 1 : (int)$selectTimeout;
+        if ($this->selectTimeout > $selectTimeout) {
+            $this->selectTimeout = $selectTimeout;
+        }
+        return $timerId;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offDelay(int $timerId): bool
+    {
+        if (isset($this->eventTimer[$timerId])) {
+            unset($this->eventTimer[$timerId]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offRepeat(int $timerId): bool
+    {
+        return $this->offDelay($timerId);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function onReadable($stream, callable $func)
+    {
+        $count = count($this->readFds);
+        if ($count >= 1024) {
+            echo "Warning: system call select exceeded the maximum number of connections 1024, please install event/libevent extension for more connections.\n";
+        } else if (DIRECTORY_SEPARATOR !== '/' && $count >= 256) {
+            echo "Warning: system call select exceeded the maximum number of connections 256.\n";
+        }
+        $fdKey = (int)$stream;
+        $this->readEvents[$fdKey] = $func;
+        $this->readFds[$fdKey] = $stream;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offReadable($stream): bool
+    {
+        $fdKey = (int)$stream;
+        if (isset($this->readEvents[$fdKey])) {
+            unset($this->readEvents[$fdKey], $this->readFds[$fdKey]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function onWritable($stream, callable $func)
+    {
+        $count = count($this->writeFds);
+        if ($count >= 1024) {
+            echo "Warning: system call select exceeded the maximum number of connections 1024, please install event/libevent extension for more connections.\n";
+        } else if (DIRECTORY_SEPARATOR !== '/' && $count >= 256) {
+            echo "Warning: system call select exceeded the maximum number of connections 256.\n";
+        }
+        $fdKey = (int)$stream;
+        $this->writeEvents[$fdKey] = $func;
+        $this->writeFds[$fdKey] = $stream;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offWritable($stream): bool
+    {
+        $fdKey = (int)$stream;
+        if (isset($this->writeEvents[$fdKey])) {
+            unset($this->writeEvents[$fdKey], $this->writeFds[$fdKey]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * On except.
+     */
+    public function onExcept($stream, $func)
+    {
+        $fdKey = (int)$stream;
+        $this->exceptEvents[$fdKey] = $func;
+        $this->exceptFds[$fdKey] = $stream;
+    }
+
+    /**
+     * Off except.
+     */
+    public function offExcept($stream): bool
+    {
+        $fdKey = (int)$stream;
+        if (isset($this->exceptEvents[$fdKey])) {
+            unset($this->exceptEvents[$fdKey], $this->exceptFds[$fdKey]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function onSignal(int $signal, callable $func)
+    {
+        if (!function_exists('pcntl_signal')) {
+            return;
+        }
+        $this->signalEvents[$signal] = $func;
+        pcntl_signal($signal, [$this, 'signalHandler']);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offSignal(int $signal): bool
+    {
+        if (!function_exists('pcntl_signal')) {
+            return false;
+        }
+        pcntl_signal($signal, SIG_IGN);
+        if (isset($this->signalEvents[$signal])) {
+            unset($this->signalEvents[$signal]);
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -159,202 +292,173 @@ class Select implements EventInterface
      *
      * @param int $signal
      */
-    public function signalHandler($signal)
+    public function signalHandler(int $signal)
     {
-        \call_user_func_array($this->_signalEvents[$signal][self::EV_SIGNAL][0], array($signal));
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function del($fd, $flag)
-    {
-        $fd_key = (int)$fd;
-        switch ($flag) {
-            case self::EV_READ:
-                unset($this->_allEvents[$fd_key][$flag], $this->_readFds[$fd_key]);
-                if (empty($this->_allEvents[$fd_key])) {
-                    unset($this->_allEvents[$fd_key]);
-                }
-                return true;
-            case self::EV_WRITE:
-                unset($this->_allEvents[$fd_key][$flag], $this->_writeFds[$fd_key]);
-                if (empty($this->_allEvents[$fd_key])) {
-                    unset($this->_allEvents[$fd_key]);
-                }
-                return true;
-            case self::EV_EXCEPT:
-                unset($this->_allEvents[$fd_key][$flag], $this->_exceptFds[$fd_key]);
-                if (empty($this->_allEvents[$fd_key])) {
-                    unset($this->_allEvents[$fd_key]);
-                }
-                return true;
-            case self::EV_SIGNAL:
-                if (\DIRECTORY_SEPARATOR !== '/') {
-                    return false;
-                }
-                unset($this->_signalEvents[$fd_key]);
-                \pcntl_signal($fd, SIG_IGN);
-                break;
-            case self::EV_TIMER:
-            case self::EV_TIMER_ONCE;
-                unset($this->_eventTimer[$fd_key]);
-                return true;
-        }
-        return false;
+        $this->signalEvents[$signal]($signal);
     }
 
     /**
      * Tick for timer.
      *
      * @return void
+     * @throws Throwable
      */
     protected function tick()
     {
-        while (!$this->_scheduler->isEmpty()) {
-            $scheduler_data       = $this->_scheduler->top();
-            $timer_id             = $scheduler_data['data'];
-            $next_run_time        = -$scheduler_data['priority'];
-            $time_now             = \microtime(true);
-            $tasks_to_insert      = [];
-            $this->_selectTimeout = (int) (($next_run_time - $time_now) * 1000000);
-            if ($this->_selectTimeout <= 0) {
-                $this->_scheduler->extract();
+        $tasksToInsert = [];
+        while (!$this->scheduler->isEmpty()) {
+            $schedulerData = $this->scheduler->top();
+            $timerId = $schedulerData['data'];
+            $nextRunTime = -$schedulerData['priority'];
+            $timeNow = microtime(true);
+            $this->selectTimeout = (int)(($nextRunTime - $timeNow) * 1000000);
+            if ($this->selectTimeout <= 0) {
+                $this->scheduler->extract();
 
-                if (!isset($this->_eventTimer[$timer_id])) {
+                if (!isset($this->eventTimer[$timerId])) {
                     continue;
                 }
 
-                // [func, args, flag, timer_interval]
-                $task_data = $this->_eventTimer[$timer_id];
-                if ($task_data[2] === self::EV_TIMER) {
-                    $next_run_time = $time_now + $task_data[3];
-                    $tasks_to_insert[] = [$timer_id, -$next_run_time];
+                // [func, args, timer_interval]
+                $taskData = $this->eventTimer[$timerId];
+                if (isset($taskData[2])) {
+                    $nextRunTime = $timeNow + $taskData[2];
+                    $tasksToInsert[] = [$timerId, -$nextRunTime];
+                } else {
+                    unset($this->eventTimer[$timerId]);
                 }
                 try {
-                    \call_user_func_array($task_data[0], $task_data[1]);
+                    $taskData[0](...$taskData[1]);
                 } catch (Throwable $e) {
-                    Server::stopAll(250, $e);
+                    $this->error($e);
+                    continue;
                 }
-                if (isset($this->_eventTimer[$timer_id]) && $task_data[2] === self::EV_TIMER_ONCE) {
-                    $this->del($timer_id, self::EV_TIMER_ONCE);
-                } else {
-                    break;
-                }
+            } else {
+                break;
             }
-            foreach ($tasks_to_insert as $item) {
-                $this->_scheduler->insert($item[0], $item[1]);
-            }
-            if (!$this->_scheduler->isEmpty()) {
-                $scheduler_data = $this->_scheduler->top();
-                $next_run_time = -$scheduler_data['priority'];
-                $time_now = \microtime(true);
-                $this->_selectTimeout = \max((int) (($next_run_time - $time_now) * 1000000), 0);
-            }
+        }
+        foreach ($tasksToInsert as $item) {
+            $this->scheduler->insert($item[0], $item[1]);
+        }
+        if (!$this->scheduler->isEmpty()) {
+            $schedulerData = $this->scheduler->top();
+            $nextRunTime = -$schedulerData['priority'];
+            $timeNow = microtime(true);
+            $this->selectTimeout = max((int)(($nextRunTime - $timeNow) * 1000000), 0);
             return;
         }
-        $this->_selectTimeout = 100000000;
+        $this->selectTimeout = 100000000;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function clearAllTimer()
+    public function deleteAllTimer()
     {
-        $this->_scheduler = new \SplPriorityQueue();
-        $this->_scheduler->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
-        $this->_eventTimer = array();
+        $this->scheduler = new SplPriorityQueue();
+        $this->scheduler->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
+        $this->eventTimer = [];
     }
 
     /**
      * {@inheritdoc}
      */
-    public function loop()
+    public function run()
     {
-        while (1) {
-            if (\DIRECTORY_SEPARATOR === '/') {
-                // Calls signal handlers for pending signals
-                \pcntl_signal_dispatch();
-            }
-
-            $read   = $this->_readFds;
-            $write  = $this->_writeFds;
-            $except = $this->_exceptFds;
-            $ret    = false;
-
+        while ($this->running) {
+            $read = $this->readFds;
+            $write = $this->writeFds;
+            $except = $this->exceptFds;
             if ($read || $write || $except) {
                 // Waiting read/write/signal/timeout events.
                 try {
-                    $ret = @stream_select($read, $write, $except, 0, $this->_selectTimeout);
-                } catch (\Exception $e) {
-                } catch (\Error $e) {
+                    @stream_select($read, $write, $except, 0, $this->selectTimeout);
+                } catch (Throwable) {
                 }
             } else {
-                $this->_selectTimeout >= 1 && usleep($this->_selectTimeout);
+                $this->selectTimeout >= 1 && usleep($this->selectTimeout);
             }
 
-            if (!$this->_scheduler->isEmpty()) {
+            if (!$this->scheduler->isEmpty()) {
                 $this->tick();
             }
 
-            if (!$ret) {
-                continue;
-            }
-
-            if ($read) {
-                foreach ($read as $fd) {
-                    $fd_key = (int)$fd;
-                    if (isset($this->_allEvents[$fd_key][self::EV_READ])) {
-                        \call_user_func_array(
-                            $this->_allEvents[$fd_key][self::EV_READ][0],
-                            array($this->_allEvents[$fd_key][self::EV_READ][1])
-                        );
-                    }
+            foreach ($read as $fd) {
+                $fdKey = (int)$fd;
+                if (isset($this->readEvents[$fdKey])) {
+                    $this->readEvents[$fdKey]($fd);
                 }
             }
 
-            if ($write) {
-                foreach ($write as $fd) {
-                    $fd_key = (int)$fd;
-                    if (isset($this->_allEvents[$fd_key][self::EV_WRITE])) {
-                        \call_user_func_array(
-                            $this->_allEvents[$fd_key][self::EV_WRITE][0],
-                            array($this->_allEvents[$fd_key][self::EV_WRITE][1])
-                        );
-                    }
+            foreach ($write as $fd) {
+                $fdKey = (int)$fd;
+                if (isset($this->writeEvents[$fdKey])) {
+                    $this->writeEvents[$fdKey]($fd);
                 }
             }
 
-            if ($except) {
-                foreach ($except as $fd) {
-                    $fd_key = (int) $fd;
-                    if (isset($this->_allEvents[$fd_key][self::EV_EXCEPT])) {
-                        \call_user_func_array(
-                            $this->_allEvents[$fd_key][self::EV_EXCEPT][0],
-                            array($this->_allEvents[$fd_key][self::EV_EXCEPT][1])
-                        );
-                    }
+            foreach ($except as $fd) {
+                $fdKey = (int)$fd;
+                if (isset($this->exceptEvents[$fdKey])) {
+                    $this->exceptEvents[$fdKey]($fd);
                 }
+            }
+
+            if (!empty($this->signalEvents)) {
+                // Calls signal handlers for pending signals
+                pcntl_signal_dispatch();
             }
         }
     }
 
     /**
-     * Destroy loop.
-     *
-     * @return void
+     * {@inheritdoc}
      */
-    public function destroy()
+    public function stop()
     {
+        $this->running = false;
+        $this->deleteAllTimer();
+        foreach ($this->signalEvents as $signal => $item) {
+            $this->offsignal($signal);
+        }
+        $this->readFds = $this->writeFds = $this->exceptFds = $this->readEvents
+            = $this->writeEvents = $this->exceptEvents = $this->signalEvents = [];
     }
 
     /**
-     * Get timer count.
-     *
-     * @return integer
+     * {@inheritdoc}
      */
-    public function getTimerCount()
+    public function getTimerCount(): int
     {
-        return \count($this->_eventTimer);
+        return count($this->eventTimer);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setErrorHandler(callable $errorHandler)
+    {
+        $this->errorHandler = $errorHandler;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getErrorHandler(): ?callable
+    {
+        return $this->errorHandler;
+    }
+
+    /**
+     * @param Throwable $e
+     * @return void
+     * @throws Throwable
+     */
+    public function error(Throwable $e)
+    {
+        if (!$this->errorHandler) {
+            throw new $e;
+        }
+        ($this->errorHandler)($e);
     }
 }

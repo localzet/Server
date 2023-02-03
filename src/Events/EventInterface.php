@@ -1,105 +1,134 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Events;
 
+use Throwable;
+
 interface EventInterface
 {
     /**
-     * Read event.
-     *
-     * @var int
-     */
-    const EV_READ = 1;
-
-    /**
-     * Write event.
-     *
-     * @var int
-     */
-    const EV_WRITE = 2;
-
-    /**
-     * Except event
-     *
-     * @var int
-     */
-    const EV_EXCEPT = 3;
-
-    /**
-     * Signal event.
-     *
-     * @var int
-     */
-    const EV_SIGNAL = 4;
-
-    /**
-     * Timer event.
-     *
-     * @var int
-     */
-    const EV_TIMER = 8;
-
-    /**
-     * Timer once event.
-     *
-     * @var int
-     */
-    const EV_TIMER_ONCE = 16;
-
-    /**
-     * Add event listener to event loop.
-     *
-     * @param mixed    $fd
-     * @param int      $flag
+     * Delay the execution of a callback.
+     * @param float $delay
      * @param callable $func
-     * @param array    $args
+     * @param array $args
+     * @return int
+     */
+    public function delay(float $delay, callable $func, array $args = []): int;
+
+    /**
+     * Delete a delay timer.
+     * @param int $timerId
      * @return bool
      */
-    public function add($fd, $flag, $func, $args = array());
+    public function offDelay(int $timerId): bool;
 
     /**
-     * Remove event listener from event loop.
-     *
-     * @param mixed $fd
-     * @param int   $flag
+     * Repeatedly execute a callback.
+     * @param float $interval
+     * @param callable $func
+     * @param array $args
+     * @return int
+     */
+    public function repeat(float $interval, callable $func, array $args = []): int;
+
+    /**
+     * Delete a repeat timer.
+     * @param int $timerId
      * @return bool
      */
-    public function del($fd, $flag);
+    public function offRepeat(int $timerId): bool;
 
     /**
-     * Remove all timers.
-     *
+     * Execute a callback when a stream resource becomes readable or is closed for reading.
+     * @param resource $stream
+     * @param callable $func
      * @return void
      */
-    public function clearAllTimer();
+    public function onReadable($stream, callable $func);
 
     /**
-     * Main loop.
-     *
+     * Cancel a callback of stream readable.
+     * @param resource $stream
+     * @return bool
+     */
+    public function offReadable($stream): bool;
+
+    /**
+     * Execute a callback when a stream resource becomes writable or is closed for writing.
+     * @param resource $stream
+     * @param callable $func
      * @return void
      */
-    public function loop();
+    public function onWritable($stream, callable $func);
 
     /**
-     * Destroy loop.
-     *
-     * @return mixed
+     * Cancel a callback of stream writable.
+     * @param resource $stream
+     * @return bool
      */
-    public function destroy();
+    public function offWritable($stream): bool;
+
+    /**
+     * Execute a callback when a signal is received.
+     * @param int $signal
+     * @param callable $func
+     * @return void
+     * @throws Throwable
+     */
+    public function onSignal(int $signal, callable $func);
+
+    /**
+     * Cancel a callback of signal.
+     * @param int $signal
+     * @return bool
+     */
+    public function offSignal(int $signal): bool;
+
+    /**
+     * Delete all timer.
+     * @return void
+     */
+    public function deleteAllTimer();
+
+    /**
+     * Run the event loop.
+     * @return void
+     * @throws Throwable
+     */
+    public function run();
+
+    /**
+     * Stop event loop.
+     * @return void
+     */
+    public function stop();
 
     /**
      * Get Timer count.
-     *
-     * @return mixed
+     * @return int
      */
-    public function getTimerCount();
+    public function getTimerCount(): int;
+
+    /**
+     * Set error handler
+     * @param callable $errorHandler
+     * @return void
+     */
+    public function setErrorHandler(callable $errorHandler);
+
+    /**
+     * Get error handler
+     * @return ?callable(Throwable)
+     */
+    public function getErrorHandler(): ?callable;
 }

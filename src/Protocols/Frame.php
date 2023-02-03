@@ -1,17 +1,21 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Protocols;
 
-use localzet\Core\Connection\TcpConnection;
+use function pack;
+use function strlen;
+use function substr;
+use function unpack;
 
 /**
  * Frame Protocol.
@@ -21,17 +25,16 @@ class Frame
     /**
      * Check the integrity of the package.
      *
-     * @param string        $buffer
-     * @param TcpConnection $connection
+     * @param string $buffer
      * @return int
      */
-    public static function input($buffer, TcpConnection $connection)
+    public static function input(string $buffer): int
     {
-        if (\strlen($buffer) < 4) {
+        if (strlen($buffer) < 4) {
             return 0;
         }
-        $unpack_data = \unpack('Ntotal_length', $buffer);
-        return $unpack_data['total_length'];
+        $unpackData = unpack('Ntotal_length', $buffer);
+        return $unpackData['total_length'];
     }
 
     /**
@@ -40,20 +43,20 @@ class Frame
      * @param string $buffer
      * @return string
      */
-    public static function decode($buffer)
+    public static function decode(string $buffer): string
     {
-        return \substr($buffer, 4);
+        return substr($buffer, 4);
     }
 
     /**
      * Encode.
      *
-     * @param string $buffer
+     * @param string $data
      * @return string
      */
-    public static function encode($buffer)
+    public static function encode(string $data): string
     {
-        $total_length = 4 + \strlen($buffer);
-        return \pack('N', $total_length) . $buffer;
+        $totalLength = 4 + strlen($data);
+        return pack('N', $totalLength) . $data;
     }
 }

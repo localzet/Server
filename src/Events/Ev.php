@@ -1,189 +1,238 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Events;
 
-use localzet\Core\Server;
-use \EvWatcher;
+use EvIo;
+use EvSignal;
+use EvTimer;
+use function count;
 
 /**
- * ev eventloop
+ * Ev eventloop
  */
 class Ev implements EventInterface
 {
     /**
-     * All listeners for read/write event.
+     * All listeners for read event.
      *
      * @var array
      */
-    protected $_allEvents = array();
+    protected array $readEvents = [];
+
+    /**
+     * All listeners for write event.
+     *
+     * @var array
+     */
+    protected array $writeEvents = [];
 
     /**
      * Event listeners of signal.
      *
      * @var array
      */
-    protected $_eventSignal = array();
+    protected array $eventSignal = [];
 
     /**
      * All timer event listeners.
-     * [func, args, event, flag, time_interval]
      *
      * @var array
      */
-    protected $_eventTimer = array();
+    protected array $eventTimer = [];
+
+    /**
+     * @var ?callable
+     */
+    protected $errorHandler = null;
 
     /**
      * Timer id.
      *
      * @var int
      */
-    protected static $_timerId = 1;
+    protected static int $timerId = 1;
 
     /**
-     * Add a timer.
      * {@inheritdoc}
      */
-    public function add($fd, $flag, $func, $args = null)
+    public function delay(float $delay, callable $func, array $args = []): int
     {
-        $callback = function ($event, $socket) use ($fd, $func) {
-            try {
-                \call_user_func($func, $fd);
-            } catch (\Exception $e) {
-                Server::stopAll(250, $e);
-            } catch (\Error $e) {
-                Server::stopAll(250, $e);
-            }
-        };
-        switch ($flag) {
-            case self::EV_SIGNAL:
-                $event                   = new \EvSignal($fd, $callback);
-                $this->_eventSignal[$fd] = $event;
-                return true;
-            case self::EV_TIMER:
-            case self::EV_TIMER_ONCE:
-                $repeat                             = $flag === self::EV_TIMER_ONCE ? 0 : $fd;
-                $param                              = array($func, (array)$args, $flag, $fd, self::$_timerId);
-                $event                              = new \EvTimer($fd, $repeat, array($this, 'timerCallback'), $param);
-                $this->_eventTimer[self::$_timerId] = $event;
-                return self::$_timerId++;
-            default:
-                $fd_key                           = (int)$fd;
-                $real_flag                        = $flag === self::EV_READ ? \Ev::READ : \Ev::WRITE;
-                $event                            = new \EvIo($fd, $real_flag, $callback);
-                $this->_allEvents[$fd_key][$flag] = $event;
-                return true;
-        }
+        $timerId = self::$timerId;
+        $event = new EvTimer($delay, 0, function () use ($func, $args, $timerId) {
+            unset($this->eventTimer[$timerId]);
+            $func(...$args);
+        });
+        $this->eventTimer[self::$timerId] = $event;
+        return self::$timerId++;
     }
 
     /**
-     * Remove a timer.
      * {@inheritdoc}
      */
-    public function del($fd, $flag)
+    public function offDelay(int $timerId): bool
     {
-        switch ($flag) {
-            case self::EV_READ:
-            case self::EV_WRITE:
-                $fd_key = (int)$fd;
-                if (isset($this->_allEvents[$fd_key][$flag])) {
-                    $this->_allEvents[$fd_key][$flag]->stop();
-                    unset($this->_allEvents[$fd_key][$flag]);
-                }
-                if (empty($this->_allEvents[$fd_key])) {
-                    unset($this->_allEvents[$fd_key]);
-                }
-                break;
-            case  self::EV_SIGNAL:
-                $fd_key = (int)$fd;
-                if (isset($this->_eventSignal[$fd_key])) {
-                    $this->_eventSignal[$fd_key]->stop();
-                    unset($this->_eventSignal[$fd_key]);
-                }
-                break;
-            case self::EV_TIMER:
-            case self::EV_TIMER_ONCE:
-                if (isset($this->_eventTimer[$fd])) {
-                    $this->_eventTimer[$fd]->stop();
-                    unset($this->_eventTimer[$fd]);
-                }
-                break;
+        if (isset($this->eventTimer[$timerId])) {
+            $this->eventTimer[$timerId]->stop();
+            unset($this->eventTimer[$timerId]);
+            return true;
         }
-        return true;
+        return false;
     }
 
     /**
-     * Timer callback.
-     *
-     * @param EvWatcher $event
+     * {@inheritdoc}
      */
-    public function timerCallback(EvWatcher $event)
+    public function offRepeat(int $timerId): bool
     {
-        $param    = $event->data;
-        $timer_id = $param[4];
-        if ($param[2] === self::EV_TIMER_ONCE) {
-            $this->_eventTimer[$timer_id]->stop();
-            unset($this->_eventTimer[$timer_id]);
-        }
-        try {
-            \call_user_func_array($param[0], $param[1]);
-        } catch (\Exception $e) {
-            Server::stopAll(250, $e);
-        } catch (\Error $e) {
-            Server::stopAll(250, $e);
-        }
+        return $this->offDelay($timerId);
     }
 
     /**
-     * Remove all timers.
-     *
-     * @return void
+     * {@inheritdoc}
      */
-    public function clearAllTimer()
+    public function repeat(float $interval, callable $func, array $args = []): int
     {
-        foreach ($this->_eventTimer as $event) {
+        $event = new EvTimer($interval, $interval, function () use ($func, $args) {
+            $func(...$args);
+        });
+        $this->eventTimer[self::$timerId] = $event;
+        return self::$timerId++;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function onReadable($stream, callable $func)
+    {
+        $fdKey = (int)$stream;
+        $event = new EvIo($stream, \Ev::READ, function () use ($func, $stream) {
+            $func($stream);
+        });
+        $this->readEvents[$fdKey] = $event;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offReadable($stream): bool
+    {
+        $fdKey = (int)$stream;
+        if (isset($this->readEvents[$fdKey])) {
+            $this->readEvents[$fdKey]->stop();
+            unset($this->readEvents[$fdKey]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function onWritable($stream, callable $func)
+    {
+        $fdKey = (int)$stream;
+        $event = new EvIo($stream, \Ev::WRITE, function () use ($func, $stream) {
+            $func($stream);
+        });
+        $this->readEvents[$fdKey] = $event;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offWritable($stream): bool
+    {
+        $fdKey = (int)$stream;
+        if (isset($this->writeEvents[$fdKey])) {
+            $this->writeEvents[$fdKey]->stop();
+            unset($this->writeEvents[$fdKey]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function onSignal(int $signal, callable $func)
+    {
+        $event = new EvSignal($signal, function () use ($func, $signal) {
+            $func($signal);
+        });
+        $this->eventSignal[$signal] = $event;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offSignal(int $signal): bool
+    {
+        if (isset($this->eventSignal[$signal])) {
+            $this->eventSignal[$signal]->stop();
+            unset($this->eventSignal[$signal]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function deleteAllTimer()
+    {
+        foreach ($this->eventTimer as $event) {
             $event->stop();
         }
-        $this->_eventTimer = array();
+        $this->eventTimer = [];
     }
 
     /**
-     * Main loop.
-     *
-     * @see EventInterface::loop()
+     * {@inheritdoc}
      */
-    public function loop()
+    public function run()
     {
         \Ev::run();
     }
 
     /**
-     * Destroy loop.
-     *
-     * @return void
+     * {@inheritdoc}
      */
-    public function destroy()
+    public function stop()
     {
-        foreach ($this->_allEvents as $event) {
-            $event->stop();
-        }
+        \Ev::stop();
     }
 
     /**
-     * Get timer count.
-     *
-     * @return integer
+     * {@inheritdoc}
      */
-    public function getTimerCount()
+    public function getTimerCount(): int
     {
-        return \count($this->_eventTimer);
+        return count($this->eventTimer);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setErrorHandler(callable $errorHandler)
+    {
+        $this->errorHandler = $errorHandler;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getErrorHandler(): ?callable
+    {
+        return $this->errorHandler;
     }
 }

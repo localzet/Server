@@ -1,17 +1,32 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Protocols\Http;
 
+use Exception;
+use JetBrains\PhpStorm\ArrayShape;
+use RuntimeException;
+use localzet\Core\Protocols\Http\Session\FileSessionHandler;
 use localzet\Core\Protocols\Http\Session\SessionHandlerInterface;
+use function array_key_exists;
+use function ini_get;
+use function is_array;
+use function is_scalar;
+use function preg_match;
+use function random_int;
+use function serialize;
+use function session_get_cookie_params;
+use function unserialize;
+
 
 /**
  * Class Session
@@ -24,127 +39,127 @@ class Session
      *
      * @var string
      */
-    protected static $_handlerClass = 'localzet\Core\Protocols\Http\Session\FileSessionHandler';
+    protected static string $handlerClass = FileSessionHandler::class;
 
     /**
      * Parameters of __constructor for session handler class.
      *
-     * @var null
+     * @var mixed
      */
-    protected static $_handlerConfig = null;
+    protected static mixed $handlerConfig = null;
 
     /**
      * Session name.
      *
      * @var string
      */
-    public static $name = 'PHPSID';
+    public static string $name = 'PHPSID';
 
     /**
      * Auto update timestamp.
      *
      * @var bool
      */
-    public static $autoUpdateTimestamp = false;
+    public static bool $autoUpdateTimestamp = false;
 
     /**
      * Session lifetime.
      *
      * @var int
      */
-    public static $lifetime = 1440;
+    public static int $lifetime = 1440;
 
     /**
      * Cookie lifetime.
      *
      * @var int
      */
-    public static $cookieLifetime = 1440;
+    public static int $cookieLifetime = 1440;
 
     /**
      * Session cookie path.
      *
      * @var string
      */
-    public static $cookiePath = '/';
+    public static string $cookiePath = '/';
 
     /**
      * Session cookie domain.
      *
      * @var string
      */
-    public static $domain = '';
+    public static string $domain = '';
 
     /**
      * HTTPS only cookies.
      *
      * @var bool
      */
-    public static $secure = false;
+    public static bool $secure = false;
 
     /**
      * HTTP access only.
      *
      * @var bool
      */
-    public static $httpOnly = true;
+    public static bool $httpOnly = true;
 
     /**
      * Same-site cookies.
      *
      * @var string
      */
-    public static $sameSite = '';
+    public static string $sameSite = '';
 
     /**
      * Gc probability.
      *
      * @var int[]
      */
-    public static $gcProbability = [1, 1000];
+    public static array $gcProbability = [1, 20000];
 
     /**
      * Session handler instance.
      *
-     * @var SessionHandlerInterface
+     * @var ?SessionHandlerInterface
      */
-    protected static $_handler = null;
+    protected static ?SessionHandlerInterface $handler = null;
 
     /**
      * Session data.
      *
      * @var array
      */
-    protected $_data = [];
+    protected mixed $data = [];
 
     /**
      * Session changed and need to save.
      *
      * @var bool
      */
-    protected $_needSave = false;
+    protected bool $needSave = false;
 
     /**
      * Session id.
      *
-     * @var null
+     * @var string
      */
-    protected $_sessionId = null;
+    protected string $sessionId;
 
     /**
      * Session constructor.
      *
-     * @param string $session_id
+     * @param string $sessionId
      */
-    public function __construct($session_id)
+    public function __construct(string $sessionId)
     {
-        static::checkSessionId($session_id);
-        if (static::$_handler === null) {
+        static::checkSessionId($sessionId);
+        if (static::$handler === null) {
             static::initHandler();
         }
-        $this->_sessionId = $session_id;
-        if ($data = static::$_handler->read($session_id)) {
-            $this->_data = \unserialize($data);
+        $this->sessionId = $sessionId;
+        if ($data = static::$handler->read($sessionId)) {
+            $this->data = unserialize($data);
         }
     }
 
@@ -153,9 +168,9 @@ class Session
      *
      * @return string
      */
-    public function getId()
+    public function getId(): string
     {
-        return $this->_sessionId;
+        return $this->sessionId;
     }
 
     /**
@@ -163,11 +178,11 @@ class Session
      *
      * @param string $name
      * @param mixed|null $default
-     * @return mixed|null
+     * @return mixed
      */
-    public function get($name, $default = null)
+    public function get(string $name, mixed $default = null): mixed
     {
-        return $this->_data[$name] ?? $default;
+        return $this->data[$name] ?? $default;
     }
 
     /**
@@ -176,10 +191,10 @@ class Session
      * @param string $name
      * @param mixed $value
      */
-    public function set($name, $value)
+    public function set(string $name, mixed $value)
     {
-        $this->_data[$name] = $value;
-        $this->_needSave = true;
+        $this->data[$name] = $value;
+        $this->needSave = true;
     }
 
     /**
@@ -187,10 +202,10 @@ class Session
      *
      * @param string $name
      */
-    public function delete($name)
+    public function delete(string $name)
     {
-        unset($this->_data[$name]);
-        $this->_needSave = true;
+        unset($this->data[$name]);
+        $this->needSave = true;
     }
 
     /**
@@ -198,9 +213,9 @@ class Session
      *
      * @param string $name
      * @param mixed|null $default
-     * @return mixed|null
+     * @return mixed
      */
-    public function pull($name, $default = null)
+    public function pull(string $name, mixed $default = null): mixed
     {
         $value = $this->get($name, $default);
         $this->delete($name);
@@ -210,39 +225,39 @@ class Session
     /**
      * Store data in the session.
      *
-     * @param string|array $key
+     * @param array|string $key
      * @param mixed|null $value
      */
-    public function put($key, $value = null)
+    public function put(array|string $key, mixed $value = null)
     {
-        if (!\is_array($key)) {
+        if (!is_array($key)) {
             $this->set($key, $value);
             return;
         }
 
         foreach ($key as $k => $v) {
-            $this->_data[$k] = $v;
+            $this->data[$k] = $v;
         }
-        $this->_needSave = true;
+        $this->needSave = true;
     }
 
     /**
      * Remove a piece of data from the session.
      *
-     * @param string $name
+     * @param array|string $name
      */
-    public function forget($name)
+    public function forget(array|string $name)
     {
-        if (\is_scalar($name)) {
+        if (is_scalar($name)) {
             $this->delete($name);
             return;
         }
-        if (\is_array($name)) {
+        if (is_array($name)) {
             foreach ($name as $key) {
-                unset($this->_data[$key]);
+                unset($this->data[$key]);
             }
         }
-        $this->_needSave = true;
+        $this->needSave = true;
     }
 
     /**
@@ -250,9 +265,9 @@ class Session
      *
      * @return array
      */
-    public function all()
+    public function all(): array
     {
-        return $this->_data;
+        return $this->data;
     }
 
     /**
@@ -262,8 +277,8 @@ class Session
      */
     public function flush()
     {
-        $this->_needSave = true;
-        $this->_data = [];
+        $this->needSave = true;
+        $this->data = [];
     }
 
     /**
@@ -272,9 +287,9 @@ class Session
      * @param string $name
      * @return bool
      */
-    public function has($name)
+    public function has(string $name): bool
     {
-        return isset($this->_data[$name]);
+        return isset($this->data[$name]);
     }
 
     /**
@@ -283,9 +298,9 @@ class Session
      * @param string $name
      * @return bool
      */
-    public function exists($name)
+    public function exists(string $name): bool
     {
-        return \array_key_exists($name, $this->_data);
+        return array_key_exists($name, $this->data);
     }
 
     /**
@@ -295,16 +310,16 @@ class Session
      */
     public function save()
     {
-        if ($this->_needSave) {
-            if (empty($this->_data)) {
-                static::$_handler->destroy($this->_sessionId);
+        if ($this->needSave) {
+            if (empty($this->data)) {
+                static::$handler->destroy($this->sessionId);
             } else {
-                static::$_handler->write($this->_sessionId, \serialize($this->_data));
+                static::$handler->write($this->sessionId, serialize($this->data));
             }
         } elseif (static::$autoUpdateTimestamp) {
             static::refresh();
         }
-        $this->_needSave = false;
+        $this->needSave = false;
     }
 
     /**
@@ -312,9 +327,9 @@ class Session
      *
      * @return bool
      */
-    public function refresh()
+    public function refresh(): bool
     {
-        static::$_handler->updateTimestamp($this->getId());
+        return static::$handler->updateTimestamp($this->getId());
     }
 
     /**
@@ -324,38 +339,38 @@ class Session
      */
     public static function init()
     {
-        if (($gc_probability = (int)\ini_get('session.gc_probability')) && ($gc_divisor = (int)\ini_get('session.gc_divisor'))) {
-            static::$gcProbability = [$gc_probability, $gc_divisor];
+        if (($gcProbability = (int)ini_get('session.gc_probability')) && ($gcDivisor = (int)ini_get('session.gc_divisor'))) {
+            static::$gcProbability = [$gcProbability, $gcDivisor];
         }
 
-        if ($gc_max_life_time = \ini_get('session.gc_maxlifetime')) {
-            self::$lifetime = (int)$gc_max_life_time;
+        if ($gcMaxLifeTime = ini_get('session.gc_maxlifetime')) {
+            self::$lifetime = (int)$gcMaxLifeTime;
         }
 
-        $session_cookie_params = \session_get_cookie_params();
-        static::$cookieLifetime = $session_cookie_params['lifetime'];
-        static::$cookiePath = $session_cookie_params['path'];
-        static::$domain = $session_cookie_params['domain'];
-        static::$secure = $session_cookie_params['secure'];
-        static::$httpOnly = $session_cookie_params['httponly'];
+        $sessionCookieParams = session_get_cookie_params();
+        static::$cookieLifetime = $sessionCookieParams['lifetime'];
+        static::$cookiePath = $sessionCookieParams['path'];
+        static::$domain = $sessionCookieParams['domain'];
+        static::$secure = $sessionCookieParams['secure'];
+        static::$httpOnly = $sessionCookieParams['httponly'];
     }
 
     /**
      * Set session handler class.
      *
-     * @param mixed|null $class_name
+     * @param mixed|null $className
      * @param mixed|null $config
      * @return string
      */
-    public static function handlerClass($class_name = null, $config = null)
+    public static function handlerClass(mixed $className = null, mixed $config = null): string
     {
-        if ($class_name) {
-            static::$_handlerClass = $class_name;
+        if ($className) {
+            static::$handlerClass = $className;
         }
         if ($config) {
-            static::$_handlerConfig = $config;
+            static::$handlerConfig = $config;
         }
-        return static::$_handlerClass;
+        return static::$handlerClass;
     }
 
     /**
@@ -363,7 +378,8 @@ class Session
      *
      * @return array
      */
-    public static function getCookieParams()
+    #[ArrayShape(['lifetime' => "int", 'path' => "string", 'domain' => "string", 'secure' => "bool", 'httponly' => "bool", 'samesite' => "string"])]
+    public static function getCookieParams(): array
     {
         return [
             'lifetime' => static::$cookieLifetime,
@@ -382,10 +398,10 @@ class Session
      */
     protected static function initHandler()
     {
-        if (static::$_handlerConfig === null) {
-            static::$_handler = new static::$_handlerClass();
+        if (static::$handlerConfig === null) {
+            static::$handler = new static::$handlerClass();
         } else {
-            static::$_handler = new static::$_handlerClass(static::$_handlerConfig);
+            static::$handler = new static::$handlerClass(static::$handlerConfig);
         }
     }
 
@@ -396,18 +412,19 @@ class Session
      */
     public function gc()
     {
-        static::$_handler->gc(static::$lifetime);
+        static::$handler->gc(static::$lifetime);
     }
 
     /**
      * __destruct.
      *
      * @return void
+     * @throws Exception
      */
     public function __destruct()
     {
         $this->save();
-        if (\random_int(1, static::$gcProbability[1]) <= static::$gcProbability[0]) {
+        if (random_int(1, static::$gcProbability[1]) <= static::$gcProbability[0]) {
             $this->gc();
         }
     }
@@ -415,22 +432,14 @@ class Session
     /**
      * Check session id.
      *
-     * @param string $session_id
+     * @param string $sessionId
      */
-    protected static function checkSessionId($session_id)
+    protected static function checkSessionId(string $sessionId)
     {
-        if (!\preg_match('/^[a-zA-Z0-9]+$/', $session_id)) {
-            throw new SessionException("session_id $session_id is invalid");
+        if (!preg_match('/^[a-zA-Z0-9]+$/', $sessionId)) {
+            throw new RuntimeException("session_id $sessionId is invalid");
         }
     }
-}
-
-/**
- * Class SessionException
- * @package localzet\Core\Protocols\Http
- */
-class SessionException extends \RuntimeException
-{
 }
 
 // Init session.

@@ -1,12 +1,13 @@
 <?php
 
 /**
- * @package     WebCore Server
- * @link        https://localzet.gitbook.io/webcore
+ * @package     Triangle Server (WebCore)
+ * @link        https://github.com/localzet/WebCore
+ * @link        https://github.com/Triangle-org/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.ru>
+ * @author      Ivan Zorin (localzet) <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2022 Localzet Group
- * @license     https://www.localzet.ru/license GNU GPLv3 License
+ * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
 namespace localzet\Core\Protocols\Http;
@@ -21,7 +22,7 @@ class ServerSentEvents
      * Data.
      * @var array
      */
-    protected $_data = null;
+    protected array $data;
 
     /**
      * ServerSentEvents constructor.
@@ -30,7 +31,7 @@ class ServerSentEvents
      */
     public function __construct(array $data)
     {
-        $this->_data = $data;
+        $this->data = $data;
     }
 
     /**
@@ -41,7 +42,7 @@ class ServerSentEvents
     public function __toString()
     {
         $buffer = '';
-        $data = $this->_data;
+        $data = $this->data;
         if (isset($data[''])) {
             $buffer = ": {$data['']}\n";
         }
@@ -49,7 +50,7 @@ class ServerSentEvents
             $buffer .= "event: {$data['event']}\n";
         }
         if (isset($data['data'])) {
-            $buffer .= 'data: ' . \str_replace("\n", "\ndata: ", $data['data']) . "\n\n";
+            $buffer .= 'data: ' . str_replace("\n", "\ndata: ", $data['data']) . "\n\n";
         }
         if (isset($data['id'])) {
             $buffer .= "id: {$data['id']}\n";
