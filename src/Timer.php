@@ -20,6 +20,7 @@ use Swoole\Coroutine\System;
 use localzet\Core\Events\EventInterface;
 use localzet\Core\Events\Revolt;
 use localzet\Core\Events\Swoole;
+use localzet\Core\Events\Swow;
 use function function_exists;
 use function is_callable;
 use function pcntl_alarm;

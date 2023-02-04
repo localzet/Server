@@ -12,6 +12,7 @@
 
 namespace localzet\Core\Protocols;
 
+use Exception;
 use Throwable;
 use localzet\Core\Connection\ConnectionInterface;
 use localzet\Core\Connection\TcpConnection;
@@ -20,6 +21,8 @@ use localzet\Core\Server;
 use function base64_encode;
 use function chr;
 use function floor;
+use function gettype;
+use function is_scalar;
 use function ord;
 use function pack;
 use function preg_match;
@@ -229,12 +232,16 @@ class Websocket
     /**
      * Websocket encode.
      *
-     * @param string $buffer
+     * @param mixed $buffer
      * @param TcpConnection $connection
      * @return string
      */
-    public static function encode(string $buffer, TcpConnection $connection): string
+    public static function encode(mixed $buffer, TcpConnection $connection): string
     {
+        if (!is_scalar($buffer)) {
+            throw new Exception("You can't send(" . gettype($buffer) . ") to client, you need to convert it to string. ");
+        }
+
         $len = strlen($buffer);
         if (empty($connection->websocketType)) {
             $connection->websocketType = static::BINARY_TYPE_BLOB;
