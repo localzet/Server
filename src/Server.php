@@ -2054,7 +2054,7 @@ class Server
         }
 
         // For child processes.
-        $bytes_format = function ($bytes) {
+        $bytesFormat = function ($bytes) {
             if ($bytes > 1024 * 1024 * 1024 * 1024) {
                 return round($bytes / (1024 * 1024 * 1024 * 1024), 1) . 'TB';
             }
