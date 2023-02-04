@@ -17,7 +17,6 @@
     ],
     "support": {
         "email": "support@localzet.com",
-        "docs": "https://localzet.gitbook.io/webcore",
         "source": "https://github.com/localzet/webcore"
     },
     "funding": [
@@ -31,13 +30,9 @@
         "ext-json": "*"
     },
     "suggest": {
-<<<<<<< Updated upstream
-        "ext-event": "For better performance. "
-=======
         "ext-curl": "For better performance",
         "ext-json": "For better performance",
         "ext-event": "For better performance"
->>>>>>> Stashed changes
     },
     "autoload": {
         "psr-4": {
