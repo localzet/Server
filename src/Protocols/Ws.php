@@ -12,6 +12,7 @@
 
 namespace localzet\Core\Protocols;
 
+use Exception;
 use Throwable;
 use localzet\Core\Connection\AsyncTcpConnection;
 use localzet\Core\Connection\ConnectionInterface;
@@ -20,7 +21,9 @@ use localzet\Core\Server;
 use function base64_encode;
 use function bin2hex;
 use function floor;
+use function gettype;
 use function is_array;
+use function is_scalar;
 use function ord;
 use function pack;
 use function preg_match;
@@ -224,13 +227,17 @@ class Ws
     /**
      * Websocket encode.
      *
-     * @param string $payload
+     * @param mixed $payload
      * @param AsyncTcpConnection $connection
      * @return string
      * @throws Throwable
      */
-    public static function encode(string $payload, AsyncTcpConnection $connection): string
+    public static function encode(mixed $payload, AsyncTcpConnection $connection): string
     {
+        if (!is_scalar($payload)) {
+            throw new Exception("You can't send(" . gettype($payload) . ") to client, you need to convert it to string. ");
+        }
+
         if (empty($connection->websocketType)) {
             $connection->websocketType = self::BINARY_TYPE_BLOB;
         }
