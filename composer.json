@@ -9,7 +9,7 @@
     "license": "GPL-3.0-only",
     "authors": [
         {
-            "name": "localzet",
+            "name": "Ivan Zorin",
             "email": "creator@localzet.com",
             "homepage": "https://www.localzet.com",
             "role": "Developer"
@@ -27,10 +27,17 @@
         }
     ],
     "require": {
-        "php": ">=8.1"
+        "php": ">=8.1",
+        "ext-json": "*"
     },
     "suggest": {
+<<<<<<< Updated upstream
         "ext-event": "For better performance. "
+=======
+        "ext-curl": "For better performance",
+        "ext-json": "For better performance",
+        "ext-event": "For better performance"
+>>>>>>> Stashed changes
     },
     "autoload": {
         "psr-4": {
