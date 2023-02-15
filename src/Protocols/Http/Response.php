@@ -1,16 +1,15 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core\Protocols\Http;
+namespace localzet\Server\Protocols\Http;
 
 use function array_merge_recursive;
 use function explode;
@@ -29,7 +28,7 @@ use const FILE_SKIP_EMPTY_LINES;
 
 /**
  * Class Response
- * @package localzet\Core\Protocols\Http
+ * @package localzet\Server\Protocols\Http
  */
 class Response
 {
@@ -378,7 +377,7 @@ class Response
         $head = "HTTP/$this->version $this->status $reason\r\n";
         $headers = $this->headers;
         if (!isset($headers['Server'])) {
-            $head .= "Server: Triangle Server\r\n";
+            $head .= "Server: Localzet Server\r\n";
         }
         foreach ($headers as $name => $value) {
             if (is_array($value)) {
@@ -432,13 +431,13 @@ class Response
         $reason = $this->reason ?: self::PHRASES[$this->status] ?? '';
         $bodyLen = strlen($this->body);
         if (empty($this->headers)) {
-            return "HTTP/$this->version $this->status $reason\r\nServer: Triangle Server\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\nConnection: keep-alive\r\n\r\n$this->body";
+            return "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\nConnection: keep-alive\r\n\r\n$this->body";
         }
 
         $head = "HTTP/$this->version $this->status $reason\r\n";
         $headers = $this->headers;
         if (!isset($headers['Server'])) {
-            $head .= "Server: Triangle Server\r\n";
+            $head .= "Server: Localzet Server\r\n";
         }
         foreach ($headers as $name => $value) {
             if (is_array($value)) {

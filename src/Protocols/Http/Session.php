@@ -1,22 +1,21 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core\Protocols\Http;
+namespace localzet\Server\Protocols\Http;
 
 use Exception;
 use JetBrains\PhpStorm\ArrayShape;
 use RuntimeException;
-use localzet\Core\Protocols\Http\Session\FileSessionHandler;
-use localzet\Core\Protocols\Http\Session\SessionHandlerInterface;
+use localzet\Server\Protocols\Http\Session\FileSessionHandler;
+use localzet\Server\Protocols\Http\Session\SessionHandlerInterface;
 use function array_key_exists;
 use function ini_get;
 use function is_array;
@@ -30,7 +29,7 @@ use function unserialize;
 
 /**
  * Class Session
- * @package localzet\Core\Protocols\Http
+ * @package localzet\Server\Protocols\Http
  */
 class Session
 {

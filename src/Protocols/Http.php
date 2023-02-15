@@ -1,21 +1,20 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core\Protocols;
+namespace localzet\Server\Protocols;
 
 use Throwable;
-use localzet\Core\Connection\TcpConnection;
-use localzet\Core\Protocols\Http\Request;
-use localzet\Core\Protocols\Http\Response;
+use localzet\Server\Connection\TcpConnection;
+use localzet\Server\Protocols\Http\Request;
+use localzet\Server\Protocols\Http\Response;
 use function clearstatcache;
 use function count;
 use function explode;
@@ -38,7 +37,7 @@ use function sys_get_temp_dir;
 
 /**
  * Class Http.
- * @package localzet\Core\Protocols
+ * @package localzet\Server\Protocols
  */
 class Http
 {
@@ -217,7 +216,7 @@ class Http
                 $connection->headers = [];
             }
             $bodyLen = strlen((string)$response);
-            return "HTTP/1.1 200 OK\r\nServer: Triangle Server\r\n{$extHeader}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\n\r\n$response";
+            return "HTTP/1.1 200 OK\r\nServer: Localzet Server\r\n{$extHeader}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\n\r\n$response";
         }
 
         if (isset($connection->headers)) {

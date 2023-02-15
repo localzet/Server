@@ -1,21 +1,20 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core\Connection;
+namespace localzet\Server\Connection;
 
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Pure;
 use JsonSerializable;
-use localzet\Core\Protocols\ProtocolInterface;
+use localzet\Server\Protocols\ProtocolInterface;
 use function stream_socket_get_name;
 use function stream_socket_sendto;
 use function strlen;

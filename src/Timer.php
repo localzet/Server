@@ -1,26 +1,25 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core;
+namespace localzet\Server;
 
 use Exception;
 use Throwable;
 use Revolt\EventLoop;
 use RuntimeException;
 use Swoole\Coroutine\System;
-use localzet\Core\Events\EventInterface;
-use localzet\Core\Events\Revolt;
-use localzet\Core\Events\Swoole;
-use localzet\Core\Events\Swow;
+use localzet\Server\Events\EventInterface;
+use localzet\Server\Events\Revolt;
+use localzet\Server\Events\Swoole;
+use localzet\Server\Events\Swow;
 use function function_exists;
 use function is_callable;
 use function pcntl_alarm;
@@ -33,7 +32,7 @@ use const SIGALRM;
  * Таймер
  *
  * Например:
- * localzet\Core\Timer::add($time_interval, callback, array($arg1, $arg2..));
+ * localzet\Server\Timer::add($time_interval, callback, array($arg1, $arg2..));
  */
 class Timer
 {
@@ -86,7 +85,7 @@ class Timer
             return;
         }
         if (function_exists('pcntl_signal')) {
-            pcntl_signal(SIGALRM, ['\localzet\Core\Timer', 'signalHandle'], false);
+            pcntl_signal(SIGALRM, ['\localzet\Server\Timer', 'signalHandle'], false);
         }
     }
 
