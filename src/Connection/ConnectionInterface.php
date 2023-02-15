@@ -1,21 +1,20 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core\Connection;
+namespace localzet\Server\Connection;
 
 use Throwable;
-use localzet\Core\Events\Event;
-use localzet\Core\Events\EventInterface;
-use localzet\Core\Server;
+use localzet\Server\Events\Event;
+use localzet\Server\Events\EventInterface;
+use localzet\Server\Server;
 
 /**
  * ConnectionInterface.
@@ -51,7 +50,7 @@ abstract class ConnectionInterface
 
     /**
      * Application layer protocol.
-     * The format is like this localzet\\Core\\Protocols\\Http.
+     * The format is like this localzet\\Server\\Protocols\\Http.
      *
      * @var ?string
      */

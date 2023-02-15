@@ -1,21 +1,20 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core\Protocols\Http;
+namespace localzet\Server\Protocols\Http;
 
 use Exception;
 use RuntimeException;
-use localzet\Core\Connection\TcpConnection;
-use localzet\Core\Protocols\Http;
+use localzet\Server\Connection\TcpConnection;
+use localzet\Server\Protocols\Http;
 use function array_walk_recursive;
 use function bin2hex;
 use function clearstatcache;
@@ -43,7 +42,7 @@ use function urlencode;
 
 /**
  * Class Request
- * @package localzet\Core\Protocols\Http
+ * @package localzet\Server\Protocols\Http
  */
 class Request
 {
@@ -594,7 +593,7 @@ class Request
                         } else if ($boundaryValue === '') {
                             $error = UPLOAD_ERR_NO_FILE;
                         } else {
-                            $tmpFile = tempnam($tmpUploadDir, 'webcore.upload.');
+                            $tmpFile = tempnam($tmpUploadDir, 'localzet.upload.');
                             if ($tmpFile === false || false == file_put_contents($tmpFile, $boundaryValue)) {
                                 $error = UPLOAD_ERR_CANT_WRITE;
                             }

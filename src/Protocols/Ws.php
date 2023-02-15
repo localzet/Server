@@ -1,23 +1,22 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core\Protocols;
+namespace localzet\Server\Protocols;
 
 use Exception;
 use Throwable;
-use localzet\Core\Connection\AsyncTcpConnection;
-use localzet\Core\Connection\ConnectionInterface;
-use localzet\Core\Timer;
-use localzet\Core\Server;
+use localzet\Server\Connection\AsyncTcpConnection;
+use localzet\Server\Connection\ConnectionInterface;
+use localzet\Server\Timer;
+use localzet\Server\Server;
 use function base64_encode;
 use function bin2hex;
 use function floor;

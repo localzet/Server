@@ -1,6 +1,6 @@
 {
-    "name": "localzet/core",
-    "description": "Triangle Server - Асинхронный event-based сервер на PHP.",
+    "name": "localzet/server",
+    "description": "Localzet Server - Асинхронный event-based сервер на PHP.",
     "type": "library",
     "keywords": [
         "localzet",
@@ -17,7 +17,7 @@
     ],
     "support": {
         "email": "support@localzet.com",
-        "source": "https://github.com/localzet/webcore"
+        "source": "https://github.com/localzet/server"
     },
     "funding": [
         {
@@ -32,11 +32,13 @@
     "suggest": {
         "ext-curl": "For better performance",
         "ext-json": "For better performance",
-        "ext-event": "For better performance"
+        "ext-event": "For better performance",
+        "ext-swow": "For better performance",
+        "revolt/event-loop": "For better performance"
     },
     "autoload": {
         "psr-4": {
-            "localzet\\Core\\": "src/"
+            "localzet\\Server\\": "src/"
         }
     },
     "conflict": {

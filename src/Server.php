@@ -1,43 +1,40 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core;
+namespace localzet\Server;
 
 use Exception;
 use Throwable;
-use localzet\Core\Connection\ConnectionInterface;
-use localzet\Core\Connection\TcpConnection;
-use localzet\Core\Connection\UdpConnection;
-use localzet\Core\Events\Event;
-use localzet\Core\Events\EventInterface;
-use localzet\Core\Events\Revolt;
-use localzet\Core\Events\Select;
+use localzet\Server\Connection\ConnectionInterface;
+use localzet\Server\Connection\TcpConnection;
+use localzet\Server\Connection\UdpConnection;
+use localzet\Server\Events\Event;
+use localzet\Server\Events\EventInterface;
+use localzet\Server\Events\Revolt;
+use localzet\Server\Events\Select;
 use Revolt\EventLoop;
 
 
 /**
- * Triangle Server
- * Контейнер прослушиваемых портов
+ * Localzet Server
  */
 #[\AllowDynamicProperties]
 class Server
 {
     /**
-     * Версии
+     * Версия
      *
      * @var string
      */
-    const WVERSION = '5.0.0';
-    const VERSION = '1.1.9';
+    const VERSION = '2.2.0';
 
     /**
      * Статус: запуск
@@ -309,7 +306,7 @@ class Server
      *
      * @var string
      */
-    public static string $processTitle = 'Triangle Server';
+    public static string $processTitle = 'Localzet Server';
 
     /**
      * Таймаут после команды остановки для дочерних процессов
@@ -601,7 +598,7 @@ class Server
 
         // Log
         if (empty(static::$logFile)) {
-            static::$logFile = __DIR__ . '/../webcore.log';
+            static::$logFile = __DIR__ . '/../server.log';
         }
 
         if (!\is_file(static::$logFile)) {
@@ -670,7 +667,7 @@ class Server
             return;
         }
 
-        static::$statisticsFile = static::$statusFile ?: __DIR__ . '/../webcore-' . posix_getpid() . '.status';
+        static::$statisticsFile = static::$statusFile ?: __DIR__ . '/../server-' . posix_getpid() . '.status';
 
         foreach (static::$servers as $server) {
             // Server name.
@@ -786,7 +783,7 @@ class Server
 
         //show version
         $lineVersion = 'WebCore version:' . static::VERSION . \str_pad('PHP version:', 22, ' ', \STR_PAD_LEFT) . \PHP_VERSION . \str_pad('Event-loop:', 22, ' ', \STR_PAD_LEFT) . static::getEventLoopName() . \PHP_EOL;
-        !\defined('LINE_VERSIOIN_LENGTH') && \define('LINE_VERSIOIN_LENGTH', \strlen($lineVersion));
+        if (!\defined('LINE_VERSIOIN_LENGTH')) \define('LINE_VERSIOIN_LENGTH', \strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
         $lineOne = '<n>' . \str_pad('<w> WEBCORE </w>', $totalLength + \strlen('<w></w>'), '-', \STR_PAD_BOTH) . '</n>' . \PHP_EOL;
         $lineTwo = \str_pad('<w> SERVERS </w>', $totalLength + \strlen('<w></w>'), '-', \STR_PAD_BOTH) . \PHP_EOL;
@@ -862,7 +859,7 @@ class Server
         }
 
         //Keep beauty when show less columns
-        !\defined('LINE_VERSIOIN_LENGTH') && \define('LINE_VERSIOIN_LENGTH', 0);
+        if (!\defined('LINE_VERSIOIN_LENGTH')) \define('LINE_VERSIOIN_LENGTH', 0);
         $totalLength <= LINE_VERSIOIN_LENGTH && $totalLength = LINE_VERSIOIN_LENGTH;
 
         return $totalLength;
@@ -931,7 +928,7 @@ class Server
             exit;
         }
 
-        $statisticsFile = static::$statusFile ?: __DIR__ . "/../webcore-$masterPid.status";
+        $statisticsFile = static::$statusFile ?: __DIR__ . "/../server-$masterPid.status";
 
         // execute command.
         switch ($command) {
@@ -1694,7 +1691,7 @@ class Server
      */
     protected static function monitorServersForWindows()
     {
-        Timer::add(1, "\\localzet\\Core\\Server::checkServerStatusForWindows");
+        Timer::add(1, "\\localzet\\Server\\Server::checkServerStatusForWindows");
 
         static::$globalEvent->run();
     }
@@ -1833,7 +1830,7 @@ class Server
                     Timer::add(ceil(static::$stopTimeout), '\posix_kill', [$serverPid, \SIGKILL], false);
                 }
             }
-            Timer::add(1, "\\localzet\\Core\\Server::checkIfChildRunning");
+            Timer::add(1, "\\localzet\\Server\\Server::checkIfChildRunning");
             // Remove statistics file.
             if (\is_file(static::$statisticsFile)) {
                 @\unlink(static::$statisticsFile);
@@ -2078,7 +2075,7 @@ class Server
 
         /** @var static $server */
         foreach (TcpConnection::$connections as $connection) {
-            /** @var \localzet\Core\Connection\TcpConnection $connection */
+            /** @var \localzet\Server\Connection\TcpConnection $connection */
             $transport = $connection->transport;
             $ipv4 = $connection->isIpV4() ? ' 1' : ' 0';
             $ipv6 = $connection->isIpV6() ? ' 1' : ' 0';
@@ -2359,7 +2356,7 @@ class Server
             $scheme = \ucfirst($scheme);
             $this->protocol = \substr($scheme, 0, 1) === '\\' ? $scheme : 'Protocols\\' . $scheme;
             if (!\class_exists($this->protocol)) {
-                $this->protocol = "localzet\\Core\\Protocols\\$scheme";
+                $this->protocol = "localzet\\Server\\Protocols\\$scheme";
                 if (!\class_exists($this->protocol)) {
                     throw new Exception("Класс \\Protocols\\$scheme Не существует");
                 }
@@ -2429,7 +2426,7 @@ class Server
         static::$status = static::STATUS_RUNNING;
 
         // Register shutdown function for checking errors.
-        \register_shutdown_function(["\\localzet\\Core\\Server", 'checkErrors']);
+        \register_shutdown_function(["\\localzet\\Server\\Server", 'checkErrors']);
 
         // Create a global event loop.
         if (!static::$globalEvent) {
@@ -2560,7 +2557,7 @@ class Server
         if ($messageCb) {
             try {
                 if ($this->protocol !== null) {
-                    /** @var \localzet\Core\Protocols\ProtocolInterface $parser */
+                    /** @var \localzet\Server\Protocols\ProtocolInterface $parser */
                     $parser = $this->protocol;
                     if ($parser && \method_exists($parser, 'input')) {
                         while ($recvBuffer !== '') {

@@ -1,18 +1,17 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core\Protocols\Http\Session;
+namespace localzet\Server\Protocols\Http\Session;
 
-use localzet\Core\Protocols\Http\Session;
+use localzet\Server\Protocols\Http\Session;
 use function clearstatcache;
 use function file_get_contents;
 use function file_put_contents;
@@ -31,7 +30,7 @@ use function unlink;
 
 /**
  * Class FileSessionHandler
- * @package localzet\Core\Protocols\Http\Session
+ * @package localzet\Server\Protocols\Http\Session
  */
 class FileSessionHandler implements SessionHandlerInterface
 {

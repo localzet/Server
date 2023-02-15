@@ -1,23 +1,22 @@
 <?php
 
 /**
- * @package     Triangle Server (WebCore)
- * @link        https://github.com/localzet/WebCore
- * @link        https://github.com/Triangle-org/Server
+ * @package     Localzet Server
+ * @link        https://github.com/localzet/Server
  * 
- * @author      Ivan Zorin (localzet) <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2022 Localzet Group
+ * @author      Ivan Zorin <creator@localzet.com>
+ * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.localzet.com/license GNU GPLv3 License
  */
 
-namespace localzet\Core\Protocols;
+namespace localzet\Server\Protocols;
 
 use Exception;
 use Throwable;
-use localzet\Core\Connection\ConnectionInterface;
-use localzet\Core\Connection\TcpConnection;
-use localzet\Core\Protocols\Http\Request;
-use localzet\Core\Server;
+use localzet\Server\Connection\ConnectionInterface;
+use localzet\Server\Connection\TcpConnection;
+use localzet\Server\Protocols\Http\Request;
+use localzet\Server\Server;
 use function base64_encode;
 use function chr;
 use function floor;
@@ -356,7 +355,7 @@ class Websocket
                 $SecWebSocketKey = $match[1];
             } else {
                 $connection->close(
-                    "HTTP/1.1 200 WebSocket\r\nServer: Triangle Server/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Triangle Server/" . Server::VERSION . "</div>",
+                    "HTTP/1.1 200 WebSocket\r\nServer: Localzet Server/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server/" . Server::VERSION . "</div>",
                     true
                 );
                 return 0;
@@ -405,7 +404,7 @@ class Websocket
                 }
             }
             if (!$hasServerHeader) {
-                $handshakeMessage .= "Server: Triangle Server/" . Server::VERSION . "\r\n";
+                $handshakeMessage .= "Server: Localzet Server/" . Server::VERSION . "\r\n";
             }
             $handshakeMessage .= "\r\n";
             // Send handshake response.
@@ -425,7 +424,7 @@ class Websocket
         }
         // Bad websocket handshake request.
         $connection->close(
-            "HTTP/1.1 200 WebSocket\r\nServer: Triangle Server/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Triangle Server/" . Server::VERSION . "</div>",
+            "HTTP/1.1 200 WebSocket\r\nServer: Localzet Server/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server/" . Server::VERSION . "</div>",
             true
         );
         return 0;
