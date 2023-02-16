@@ -80,22 +80,25 @@ class Ws
     public static function input(string $buffer, AsyncTcpConnection $connection): bool|int
     {
         if (empty($connection->context->handshakeStep)) {
-            Server::safeEcho("recv data before handshake. Buffer:" . bin2hex($buffer) . "\n");
+            Server::safeEcho("Получение данных перед рукопожатием. Буфер:" . bin2hex($buffer) . "\n");
             return false;
         }
-        // Recv handshake response
+
+        // Получение ответа на рукопожатие
         if ($connection->context->handshakeStep === 1) {
             return self::dealHandshake($buffer, $connection);
         }
+
         $recvLen = strlen($buffer);
         if ($recvLen < 2) {
             return 0;
         }
-        // Buffer websocket frame data.
+        
+        // Буферизовать данные кадра веб-сокета.
         if ($connection->context->websocketCurrentFrameLength) {
-            // We need more frame data.
+            // Нам нужно больше данных кадра.
             if ($connection->context->websocketCurrentFrameLength > $recvLen) {
-                // Return 0, because it is not clear the full packet length, waiting for the frame of fin=1.
+                // Вернуть 0, потому что неясна полная длина пакета, ожидание кадра fin=1.
                 return 0;
             }
         } else {
@@ -106,7 +109,7 @@ class Ws
             $masked = $secondbyte >> 7;
 
             if ($masked) {
-                Server::safeEcho("frame masked so close the connection\n");
+                Server::safeEcho("Кадр замаскирован, закрываю соединение\n");
                 $connection->close();
                 return 0;
             }
@@ -115,18 +118,18 @@ class Ws
 
             switch ($opcode) {
                 case 0x0:
-                    // Blob type.
+                    // BLOB
                 case 0x1:
-                    // Arraybuffer type.
+                    // Массив
                 case 0x2:
-                    // Ping package.
+                    // Пинг-пакет
                 case 0x9:
-                    // Pong package.
+                    // Понг-пакет
                 case 0xa:
                     break;
-                    // Close package.
+                    // Закрытие
                 case 0x8:
-                    // Try to emit onWebSocketClose callback.
+                    // Попробуйте вызвать обратный вызов onWebSocketClose.
                     if (isset($connection->onWebSocketClose)) {
                         try {
                             ($connection->onWebSocketClose)($connection);
@@ -134,18 +137,18 @@ class Ws
                             Server::stopAll(250, $e);
                         }
                     }
-                    // Close connection.
+                    // Закрытие соединения
                     else {
                         $connection->close();
                     }
                     return 0;
-                    // Wrong opcode.
+                    // Неверный опкод
                 default:
-                    Server::safeEcho("error opcode $opcode and close websocket connection. Buffer:" . $buffer . "\n");
+                    Server::safeEcho("Ошибка опкода $opcode и закрытие WebSocket соединения. Буфер:" . $buffer . "\n");
                     $connection->close();
                     return 0;
             }
-            // Calculate packet length.
+            // Рассчитать длину пакета
             if ($dataLen === 126) {
                 if (strlen($buffer) < 4) {
                     return 0;
@@ -164,7 +167,7 @@ class Ws
 
             $totalPackageSize = strlen($connection->context->websocketDataBuffer) + $currentFrameLength;
             if ($totalPackageSize > $connection->maxPackageSize) {
-                Server::safeEcho("error package. package_length=$totalPackageSize\n");
+                Server::safeEcho("Ошибка пакета. package_length=$totalPackageSize\n");
                 $connection->close();
                 return 0;
             }
@@ -197,7 +200,7 @@ class Ws
                         $connection->consumeRecvBuffer($currentFrameLength);
                         $tmpConnectionType = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
                         $connection->websocketType = "\x8a";
-                        // Try to emit onWebSocketPong callback.
+                        // Попробуем вызвать обратный вызов onWebSocketPong.
                         if (isset($connection->onWebSocketPong)) {
                             try {
                                 ($connection->onWebSocketPong)($connection, $pongData);
@@ -217,23 +220,23 @@ class Ws
                 $connection->context->websocketCurrentFrameLength = $currentFrameLength;
             }
         }
-        // Received just a frame length data.
+        // Получены только данные о длине кадра.
         if ($connection->context->websocketCurrentFrameLength === $recvLen) {
             self::decode($buffer, $connection);
             $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
             $connection->context->websocketCurrentFrameLength = 0;
             return 0;
         }
-        // The length of the received data is greater than the length of a frame.
+        // Длина полученных данных больше длины кадра.
         elseif ($connection->context->websocketCurrentFrameLength < $recvLen) {
             self::decode(substr($buffer, 0, $connection->context->websocketCurrentFrameLength), $connection);
             $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
             $currentFrameLength = $connection->context->websocketCurrentFrameLength;
             $connection->context->websocketCurrentFrameLength = 0;
-            // Continue to read next frame.
+            // Продолжаем читать следующий кадр.
             return self::input(substr($buffer, $currentFrameLength), $connection);
         }
-        // The length of the received data is less than the length of a frame.
+        // Длина полученных данных меньше длины кадра.
         else {
             return 0;
         }
@@ -250,7 +253,7 @@ class Ws
     public static function encode(mixed $payload, AsyncTcpConnection $connection): string
     {
         if (!is_scalar($payload)) {
-            throw new Exception("You can't send(" . gettype($payload) . ") to client, you need to convert it to string. ");
+            throw new Exception("Вы не можете отправить (" . gettype($payload) . ") клиенту, конвертируйте это в строку.");
         }
 
         if (empty($connection->websocketType)) {
@@ -272,15 +275,15 @@ class Ws
         }
 
         $frame = $connection->websocketType . $head . $maskKey;
-        // append payload to frame:
+        // добавить полезную нагрузку в кадр:
         $maskKey = str_repeat($maskKey, floor($length / 4)) . substr($maskKey, 0, $length % 4);
         $frame .= $payload ^ $maskKey;
         if ($connection->context->handshakeStep === 1) {
-            // If buffer has already full then discard the current package.
+            // Если буфер уже заполнен, отбросить текущий пакет.
             if (strlen($connection->context->tmpWebsocketData) > $connection->maxSendBufferSize) {
                 if ($connection->onError) {
                     try {
-                        ($connection->onError)($connection, ConnectionInterface::SEND_FAIL, 'send buffer full and drop package');
+                        ($connection->onError)($connection, ConnectionInterface::SEND_FAIL, 'отправить полный буфер и удалить пакет');
                     } catch (Throwable $e) {
                         Server::stopAll(250, $e);
                     }
@@ -288,7 +291,7 @@ class Ws
                 return '';
             }
             $connection->context->tmpWebsocketData = $connection->context->tmpWebsocketData . $frame;
-            // Check buffer is full.
+            // Проверка наполненности буфера
             if ($connection->maxSendBufferSize <= strlen($connection->context->tmpWebsocketData)) {
                 if ($connection->onBufferFull) {
                     try {
@@ -374,10 +377,10 @@ class Ws
         if (!empty($connection->context->handshakeStep)) {
             return;
         }
-        // Get Host.
+        // Получение хоста
         $port = $connection->getRemotePort();
         $host = $port === 80 ? $connection->getRemoteHost() : $connection->getRemoteHost() . ':' . $port;
-        // Handshake header.
+        // Заголовок рукопожатия
         $connection->context->websocketSecKey = base64_encode(random_bytes(16));
         $userHeader = $connection->headers ?? null;
         $userHeaderStr = '';
@@ -418,23 +421,23 @@ class Ws
     {
         $pos = strpos($buffer, "\r\n\r\n");
         if ($pos) {
-            //checking Sec-WebSocket-Accept
+            // Проверка Sec-WebSocket-Accept
             if (preg_match("/Sec-WebSocket-Accept: *(.*?)\r\n/i", $buffer, $match)) {
                 if ($match[1] !== base64_encode(sha1($connection->context->websocketSecKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true))) {
-                    Server::safeEcho("Sec-WebSocket-Accept not match. Header:\n" . substr($buffer, 0, $pos) . "\n");
+                    Server::safeEcho("Sec-WebSocket-Accept не совпадает. Заголовок:\n" . substr($buffer, 0, $pos) . "\n");
                     $connection->close();
                     return 0;
                 }
             } else {
-                Server::safeEcho("Sec-WebSocket-Accept not found. Header:\n" . substr($buffer, 0, $pos) . "\n");
+                Server::safeEcho("Sec-WebSocket-Accept не найден. Заголовок:\n" . substr($buffer, 0, $pos) . "\n");
                 $connection->close();
                 return 0;
             }
 
-            // handshake complete
+            // Рукопожатие завершено
             $connection->context->handshakeStep = 2;
             $handshakeResponseLength = $pos + 4;
-            // Try to emit onWebSocketConnect callback.
+            // Попытка вызвать onWebSocketConnect
             if (isset($connection->onWebSocketConnect)) {
                 try {
                     ($connection->onWebSocketConnect)($connection, substr($buffer, 0, $handshakeResponseLength));
@@ -442,7 +445,7 @@ class Ws
                     Server::stopAll(250, $e);
                 }
             }
-            // Headbeat.
+            // Серцебиение.
             if (!empty($connection->websocketPingInterval)) {
                 $connection->context->websocketPingTimer = Timer::add($connection->websocketPingInterval, function () use ($connection) {
                     if (false === $connection->send(pack('H*', '898000000000'), true)) {
