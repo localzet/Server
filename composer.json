@@ -30,8 +30,11 @@
         "revolt/event-loop": "^1.0"
     },
     "suggest": {
+        "ext-ev": "For better performance",
+        "ext-uv": "For better performance",
         "ext-event": "For better performance",
-        "ext-swow": "For better performance"
+        "ext-swoole": "For better performance",
+        "swow/swow": "For better performance"
     },
     "autoload": {
         "psr-4": {
