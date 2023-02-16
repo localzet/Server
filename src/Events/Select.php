@@ -133,7 +133,6 @@ class Select implements EventInterface
      */
     public function __construct()
     {
-        // Init SplPriorityQueue.
         $this->scheduler = new SplPriorityQueue();
         $this->scheduler->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
     }
@@ -199,9 +198,9 @@ class Select implements EventInterface
     {
         $count = count($this->readFds);
         if ($count >= 1024) {
-            echo "Warning: system call select exceeded the maximum number of connections 1024, please install event/libevent extension for more connections.\n";
+            echo "Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений..\n";
         } else if (DIRECTORY_SEPARATOR !== '/' && $count >= 256) {
-            echo "Warning: system call select exceeded the maximum number of connections 256.\n";
+            echo "Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n";
         }
         $fdKey = (int)$stream;
         $this->readEvents[$fdKey] = $func;
@@ -228,9 +227,9 @@ class Select implements EventInterface
     {
         $count = count($this->writeFds);
         if ($count >= 1024) {
-            echo "Warning: system call select exceeded the maximum number of connections 1024, please install event/libevent extension for more connections.\n";
+            echo "Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений..\n";
         } else if (DIRECTORY_SEPARATOR !== '/' && $count >= 256) {
-            echo "Warning: system call select exceeded the maximum number of connections 256.\n";
+            echo "Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n";
         }
         $fdKey = (int)$stream;
         $this->writeEvents[$fdKey] = $func;
@@ -384,7 +383,6 @@ class Select implements EventInterface
             $write = $this->writeFds;
             $except = $this->exceptFds;
             if ($read || $write || $except) {
-                // Waiting read/write/signal/timeout events.
                 try {
                     @stream_select($read, $write, $except, 0, $this->selectTimeout);
                 } catch (Throwable) {
@@ -419,7 +417,6 @@ class Select implements EventInterface
             }
 
             if (!empty($this->signalEvents)) {
-                // Calls signal handlers for pending signals
                 pcntl_signal_dispatch();
             }
         }

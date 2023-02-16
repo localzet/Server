@@ -314,7 +314,6 @@ class Event implements EventInterface
             }
             ($this->errorHandler)($e);
         } catch (Throwable $e) {
-            // Cannot trigger an exception in the Event callback, otherwise it will cause an infinite loop
             echo $e;
         }
     }

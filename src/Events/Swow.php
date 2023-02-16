@@ -203,7 +203,6 @@ class Swow implements EventInterface
      */
     public function offReadable($stream): bool
     {
-        // 在当前协程执行 $coroutine->kill() 会导致不可预知问题，所以没有使用$coroutine->kill()
         $fd = (int)$stream;
         if (isset($this->readEvents[$fd])) {
             unset($this->readEvents[$fd]);
