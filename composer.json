@@ -5,7 +5,7 @@
     "keywords": [
         "localzet"
     ],
-    "license": "GPL-3.0-only",
+    "license": "AGPL-3.0-or-later",
     "authors": [
         {
             "name": "Ivan Zorin",
