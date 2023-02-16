@@ -3,15 +3,14 @@
     "description": "Localzet Server - Асинхронный event-based сервер на PHP.",
     "type": "library",
     "keywords": [
-        "localzet",
-        "Triangle"
+        "localzet"
     ],
     "license": "GPL-3.0-only",
     "authors": [
         {
             "name": "Ivan Zorin",
             "email": "creator@localzet.com",
-            "homepage": "https://www.localzet.com",
+            "homepage": "https://www.localzet.ru",
             "role": "Developer"
         }
     ],
