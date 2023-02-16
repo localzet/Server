@@ -93,7 +93,7 @@ class Ws
         if ($recvLen < 2) {
             return 0;
         }
-        
+
         // Буферизовать данные кадра веб-сокета.
         if ($connection->context->websocketCurrentFrameLength) {
             // Нам нужно больше данных кадра.
@@ -129,7 +129,7 @@ class Ws
                     break;
                     // Закрытие
                 case 0x8:
-                    // Попробуйте вызвать обратный вызов onWebSocketClose.
+                    // Попытка вызвать onWebSocketClose
                     if (isset($connection->onWebSocketClose)) {
                         try {
                             ($connection->onWebSocketClose)($connection);
@@ -200,7 +200,7 @@ class Ws
                         $connection->consumeRecvBuffer($currentFrameLength);
                         $tmpConnectionType = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
                         $connection->websocketType = "\x8a";
-                        // Попробуем вызвать обратный вызов onWebSocketPong.
+                        // Попытка вызвать onWebSocketPong
                         if (isset($connection->onWebSocketPong)) {
                             try {
                                 ($connection->onWebSocketPong)($connection, $pongData);
