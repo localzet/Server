@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -212,7 +212,7 @@ class AsyncUdpConnection extends UdpConnection
         }
 
         if (!$this->socket) {
-            Server::safeEcho(new Exception($errmsg));
+            Server::safeEcho((string)(new Exception($errmsg)));
             $this->eventLoop = null;
             return;
         }
