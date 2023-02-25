@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -319,7 +319,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      *
      * @var bool
      */
-    protected bool $sslHandshakeCompleted = false;
+    protected bool|int $sslHandshakeCompleted = false;
 
     /**
      * All connection instances.
@@ -356,7 +356,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             self::$idRecorder = 0;
         }
         $this->socket = $socket;
-        stream_set_blocking($this->socket, 0);
+        stream_set_blocking($this->socket, false);
         // Compatible with hhvm
         if (function_exists('stream_set_read_buffer')) {
             stream_set_read_buffer($this->socket, 0);

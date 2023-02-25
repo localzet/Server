@@ -29,12 +29,9 @@ use Exception;
 use RuntimeException;
 
 use Revolt\EventLoop;
-use Swoole\Coroutine\System;
 
 use localzet\Server\Events\EventInterface;
 use localzet\Server\Events\Revolt;
-use localzet\Server\Events\Swoole;
-use localzet\Server\Events\Swow;
 
 use function function_exists;
 use function is_callable;
@@ -183,14 +180,6 @@ class Timer
                     $suspension->resume();
                 }, null, false);
                 $suspension->suspend();
-                return;
-                // Swoole
-            case Swoole::class:
-                System::sleep($delay);
-                return;
-                // Swow
-            case Swow::class:
-                usleep($delay * 1000 * 1000);
                 return;
         }
         throw new RuntimeException('Timer::sleep() требует revolt/event-loop. Запусти команду "composer require revolt/event-loop" и перезагрузи WebCore');

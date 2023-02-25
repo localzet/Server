@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -117,8 +117,8 @@ class Event implements EventInterface
                 $this->error($e);
             }
         });
-        if (!$event || !$event->addTimer($delay)) {
-            return false;
+        if (!$event->addTimer($delay)) {
+            throw new \RuntimeException("Ошибка Event::addTimer($delay)");
         }
         $this->eventTimer[$timerId] = $event;
         return $timerId;
@@ -159,8 +159,8 @@ class Event implements EventInterface
                 $this->error($e);
             }
         });
-        if (!$event || !$event->addTimer($interval)) {
-            return false;
+        if (!$event->addTimer($interval)) {
+            throw new \RuntimeException("Event::addTimer($interval) failed");
         }
         $this->eventTimer[$timerId] = $event;
         return $timerId;

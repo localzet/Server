@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -276,7 +276,7 @@ class Ws
 
         $frame = $connection->websocketType . $head . $maskKey;
         // добавить полезную нагрузку в кадр:
-        $maskKey = str_repeat($maskKey, floor($length / 4)) . substr($maskKey, 0, $length % 4);
+        $maskKey = str_repeat($maskKey, (int)floor($length / 4)) . substr($maskKey, 0, $length % 4);
         $frame .= $payload ^ $maskKey;
         if ($connection->context->handshakeStep === 1) {
             // Если буфер уже заполнен, отбросить текущий пакет.

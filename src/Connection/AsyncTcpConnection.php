@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,6 +26,7 @@ namespace localzet\Server\Connection;
 
 use Throwable;
 use Exception;
+use RuntimeException;
 
 use stdClass;
 
@@ -166,7 +167,7 @@ class AsyncTcpConnection extends TcpConnection
                 $this->remoteAddress = substr($remoteAddress, strpos($remoteAddress, '/') + 2);
             }
             if (!$this->remoteAddress) {
-                Server::safeEcho(new Exception('bad remote_address'));
+                throw new RuntimeException('Bad remoteAddress');
             }
         } else {
             if (!isset($addressInfo['port'])) {
