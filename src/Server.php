@@ -824,7 +824,7 @@ class Server
             $content = '';
             foreach (static::getUiColumns() as $columnName => $prop) {
                 $key = 'max' . \ucfirst(\strtolower($columnName)) . 'NameLength';
-                \preg_match_all("/(<n>|<\/n>|<w>|<\/w>|<g>|<\/g>)/is", $server->$prop, $matches);
+                \preg_match_all("/(<n>|<\/n>|<w>|<\/w>|<g>|<\/g>)/is", (string)$server->$prop, $matches);
                 $placeHolderLength = !empty($matches) ? \strlen(\implode('', $matches[0])) : 0;
                 $content .= \str_pad((string)$server->$prop, static::$$key + static::UI_SAFE_LENGTH + $placeHolderLength);
             }
