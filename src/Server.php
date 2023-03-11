@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -52,7 +54,7 @@ class Server
      *
      * @var string
      */
-    public const VERSION = '2.2.0';
+    public const VERSION = '2.2.4';
 
     /**
      * Статус: запуск
@@ -777,7 +779,7 @@ class Server
     protected static function getCurrentUser(): string
     {
         $userInfo = \posix_getpwuid(\posix_getuid());
-        return $userInfo['name'];
+        return $userInfo['name'] ?? 'unknown';
     }
 
     /**
@@ -946,7 +948,7 @@ class Server
             exit;
         }
 
-        $statisticsFile = static::$statusFile ?: __DIR__ . "/../server-$masterPid.status";
+        $statisticsFile = static::$statusFile ?: __DIR__ . "/../workerman-$masterPid.$command";
 
         // execute command.
         switch ($command) {
