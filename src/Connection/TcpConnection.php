@@ -207,7 +207,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Sets the maximum send buffer size for the current connection.
-     * OnBufferFull callback will be emited When send buffer is full.
+     * OnBufferFull callback will be emitted When send buffer is full.
      *
      * @var int
      */
@@ -582,7 +582,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      *
      * @return void
      */
-    public function pauseRecv()
+    public function pauseRecv(): void
     {
         $this->eventLoop->offReadable($this->socket);
         $this->isPaused = true;
@@ -594,7 +594,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @return void
      * @throws Throwable
      */
-    public function resumeRecv()
+    public function resumeRecv(): void
     {
         if ($this->isPaused === true) {
             $this->eventLoop->onReadable($this->socket, [$this, 'baseRead']);
@@ -612,7 +612,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @return void
      * @throws Throwable
      */
-    public function baseRead($socket, bool $checkEof = true)
+    public function baseRead($socket, bool $checkEof = true): void
     {
         static $requests = [];
         // SSL handshake.
@@ -752,7 +752,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @return void
      * @throws Throwable
      */
-    public function baseWrite()
+    public function baseWrite(): void
     {
         $len = 0;
         try {
@@ -848,7 +848,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @param self $dest
      * @return void
      */
-    public function pipe(self $dest)
+    public function pipe(self $dest): void
     {
         $source = $this;
         $this->onMessage = function ($source, $data) use ($dest) {
@@ -871,7 +871,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @param int $length
      * @return void
      */
-    public function consumeRecvBuffer(int $length)
+    public function consumeRecvBuffer(int $length): void
     {
         $this->recvBuffer = substr($this->recvBuffer, $length);
     }
@@ -884,7 +884,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @return void
      * @throws Throwable
      */
-    public function close(mixed $data = null, bool $raw = false)
+    public function close(mixed $data = null, bool $raw = false): void
     {
         if ($this->status === self::STATUS_CONNECTING) {
             $this->destroy();
@@ -952,7 +952,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @return void
      * @throws Throwable
      */
-    protected function checkBufferWillFull()
+    protected function checkBufferWillFull(): void
     {
         if ($this->maxSendBufferSize <= strlen($this->sendBuffer)) {
             if ($this->onBufferFull) {
@@ -1003,7 +1003,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @return void
      * @throws Throwable
      */
-    public function destroy()
+    public function destroy(): void
     {
         // Avoid repeated calls.
         if ($this->status === self::STATUS_CLOSED) {

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -176,7 +178,7 @@ class Response
      *
      * @return void
      */
-    public static function init()
+    public static function init(): void
     {
         static::initMimeTypeMap();
     }
@@ -185,12 +187,12 @@ class Response
      * Response constructor.
      *
      * @param int $status
-     * @param array $headers
+     * @param array|null $headers
      * @param string $body
      */
     public function __construct(
         int    $status = 200,
-        array  $headers = [],
+        ?array  $headers = [],
         string $body = ''
     ) {
         $this->status = $status;
@@ -203,7 +205,7 @@ class Response
      *
      * @param string $name
      * @param string $value
-     * @return $this
+     * @return Response
      */
     public function header(string $name, string $value): static
     {
@@ -227,7 +229,7 @@ class Response
      * Set headers.
      *
      * @param array $headers
-     * @return $this
+     * @return Response
      */
     public function withHeaders(array $headers): static
     {
@@ -239,7 +241,7 @@ class Response
      * Remove header.
      *
      * @param string $name
-     * @return $this
+     * @return Response
      */
     public function withoutHeader(string $name): static
     {
@@ -273,7 +275,7 @@ class Response
      *
      * @param int $code
      * @param string|null $reasonPhrase
-     * @return $this
+     * @return Response
      */
     public function withStatus(int $code, string $reasonPhrase = null): static
     {
@@ -306,7 +308,7 @@ class Response
      * Set protocol version.
      *
      * @param string $version
-     * @return $this
+     * @return Response
      */
     public function withProtocolVersion(string $version): static
     {
@@ -318,7 +320,7 @@ class Response
      * Set http body.
      *
      * @param string $body
-     * @return $this
+     * @return Response
      */
     public function withBody(string $body): static
     {
@@ -342,7 +344,7 @@ class Response
      * @param string $file
      * @param int $offset
      * @param int $length
-     * @return $this
+     * @return Response
      */
     public function withFile(string $file, int $offset = 0, int $length = 0): static
     {
@@ -364,7 +366,7 @@ class Response
      * @param bool $secure
      * @param bool $httpOnly
      * @param bool $sameSite
-     * @return $this
+     * @return Response
      */
     public function cookie(string $name, string $value = '', int $maxAge = null, string $path = '', string $domain = '', bool $secure = false, bool $httpOnly = false, bool $sameSite = false): static
     {
@@ -488,7 +490,7 @@ class Response
      *
      * @return void
      */
-    public static function initMimeTypeMap()
+    public static function initMimeTypeMap(): void
     {
         $mimeFile = __DIR__ . '/mime.types';
         $items = file($mimeFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);

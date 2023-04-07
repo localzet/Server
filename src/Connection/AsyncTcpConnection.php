@@ -224,7 +224,7 @@ class AsyncTcpConnection extends TcpConnection
      * @return void
      * @throws Throwable
      */
-    public function reconnect(int $after = 0)
+    public function reconnect(int $after = 0): void
     {
         $this->status = self::STATUS_INITIAL;
         static::$connections[$this->realId] = $this;
@@ -244,7 +244,7 @@ class AsyncTcpConnection extends TcpConnection
      * @return void
      * @throws Throwable
      */
-    public function connect()
+    public function connect(): void
     {
         if (
             $this->status !== self::STATUS_INITIAL && $this->status !== self::STATUS_CLOSING &&
@@ -337,7 +337,7 @@ class AsyncTcpConnection extends TcpConnection
      * @return void
      * @throws Throwable
      */
-    protected function emitError(int $code, mixed $msg)
+    protected function emitError(int $code, mixed $msg): void
     {
         $this->status = self::STATUS_CLOSING;
         if ($this->onError) {
@@ -352,7 +352,7 @@ class AsyncTcpConnection extends TcpConnection
     /**
      * CancelReconnect.
      */
-    public function cancelReconnect()
+    public function cancelReconnect(): void
     {
         if ($this->reconnectTimer) {
             Timer::del($this->reconnectTimer);
@@ -381,12 +381,12 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Check connection is successfully established or faild.
+     * Check connection is successfully established or failed.
      *
      * @return void
      * @throws Throwable
      */
-    public function checkConnection()
+    public function checkConnection(): void
     {
         // Remove EV_EXPECT for windows.
         if (DIRECTORY_SEPARATOR === '\\' && method_exists($this->eventLoop, 'offExcept')) {

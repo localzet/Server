@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -339,11 +341,11 @@ class Ws
     /**
      * Send websocket handshake data.
      *
-     * @param $connection
+     * @param AsyncTcpConnection $connection
      * @return void
      * @throws Throwable
      */
-    public static function onConnect($connection)
+    public static function onConnect(AsyncTcpConnection $connection): void
     {
         static::sendHandshake($connection);
     }
@@ -353,7 +355,7 @@ class Ws
      *
      * @param AsyncTcpConnection $connection
      */
-    public static function onClose(AsyncTcpConnection $connection)
+    public static function onClose(AsyncTcpConnection $connection): void
     {
         $connection->context->handshakeStep = null;
         $connection->context->websocketCurrentFrameLength = 0;
@@ -372,7 +374,7 @@ class Ws
      * @return void
      * @throws Throwable
      */
-    public static function sendHandshake(AsyncTcpConnection $connection)
+    public static function sendHandshake(AsyncTcpConnection $connection): void
     {
         if (!empty($connection->context->handshakeStep)) {
             return;

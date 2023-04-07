@@ -194,7 +194,7 @@ class Select implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function onReadable($stream, callable $func)
+    public function onReadable($stream, callable $func): void
     {
         $count = count($this->readFds);
         if ($count >= 1024) {
@@ -223,7 +223,7 @@ class Select implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function onWritable($stream, callable $func)
+    public function onWritable($stream, callable $func): void
     {
         $count = count($this->writeFds);
         if ($count >= 1024) {
@@ -251,8 +251,10 @@ class Select implements EventInterface
 
     /**
      * On except.
+     * @param resource $stream
+     * @param $func
      */
-    public function onExcept($stream, $func)
+    public function onExcept($stream, $func): void
     {
         $fdKey = (int)$stream;
         $this->exceptEvents[$fdKey] = $func;
@@ -261,6 +263,8 @@ class Select implements EventInterface
 
     /**
      * Off except.
+     * @param resource $stream
+     * @return bool
      */
     public function offExcept($stream): bool
     {
@@ -275,7 +279,7 @@ class Select implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function onSignal(int $signal, callable $func)
+    public function onSignal(int $signal, callable $func): void
     {
         if (!function_exists('pcntl_signal')) {
             return;
@@ -305,7 +309,7 @@ class Select implements EventInterface
      *
      * @param int $signal
      */
-    public function signalHandler(int $signal)
+    public function signalHandler(int $signal): void
     {
         $this->signalEvents[$signal]($signal);
     }
@@ -316,7 +320,7 @@ class Select implements EventInterface
      * @return void
      * @throws Throwable
      */
-    protected function tick()
+    protected function tick(): void
     {
         $tasksToInsert = [];
         while (!$this->scheduler->isEmpty()) {
@@ -366,7 +370,7 @@ class Select implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function deleteAllTimer()
+    public function deleteAllTimer(): void
     {
         $this->scheduler = new SplPriorityQueue();
         $this->scheduler->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
@@ -376,7 +380,7 @@ class Select implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function run()
+    public function run(): void
     {
         while ($this->running) {
             $read = $this->readFds;
@@ -425,7 +429,7 @@ class Select implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function stop()
+    public function stop(): void
     {
         $this->running = false;
         $this->deleteAllTimer();
@@ -447,7 +451,7 @@ class Select implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function setErrorHandler(callable $errorHandler)
+    public function setErrorHandler(callable $errorHandler): void
     {
         $this->errorHandler = $errorHandler;
     }
@@ -465,7 +469,7 @@ class Select implements EventInterface
      * @return void
      * @throws Throwable
      */
-    public function error(Throwable $e)
+    public function error(Throwable $e): void
     {
         if (!$this->errorHandler) {
             throw new $e;

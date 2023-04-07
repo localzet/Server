@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -125,7 +127,7 @@ class Ev implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function onReadable($stream, callable $func)
+    public function onReadable($stream, callable $func): void
     {
         $fdKey = (int)$stream;
         $event = new EvIo($stream, \Ev::READ, function () use ($func, $stream) {
@@ -151,7 +153,7 @@ class Ev implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function onWritable($stream, callable $func)
+    public function onWritable($stream, callable $func): void
     {
         $fdKey = (int)$stream;
         $event = new EvIo($stream, \Ev::WRITE, function () use ($func, $stream) {
@@ -177,7 +179,7 @@ class Ev implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function onSignal(int $signal, callable $func)
+    public function onSignal(int $signal, callable $func): void
     {
         $event = new EvSignal($signal, function () use ($func, $signal) {
             $func($signal);
@@ -201,7 +203,7 @@ class Ev implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function deleteAllTimer()
+    public function deleteAllTimer(): void
     {
         foreach ($this->eventTimer as $event) {
             $event->stop();
@@ -212,7 +214,7 @@ class Ev implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function run()
+    public function run(): void
     {
         \Ev::run();
     }
@@ -220,7 +222,7 @@ class Ev implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function stop()
+    public function stop(): void
     {
         \Ev::stop();
     }
@@ -236,7 +238,7 @@ class Ev implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function setErrorHandler(callable $errorHandler)
+    public function setErrorHandler(callable $errorHandler): void
     {
         $this->errorHandler = $errorHandler;
     }

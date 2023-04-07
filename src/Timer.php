@@ -92,7 +92,7 @@ class Timer
      * @param EventInterface|null $event
      * @return void
      */
-    public static function init(EventInterface $event = null)
+    public static function init(EventInterface $event = null): void
     {
         if ($event) {
             self::$event = $event;
@@ -108,7 +108,7 @@ class Timer
      *
      * @return void
      */
-    public static function signalHandle()
+    public static function signalHandle(): void
     {
         if (!self::$event) {
             pcntl_alarm(1);
@@ -170,17 +170,15 @@ class Timer
      * @param float $delay
      * @return void
      */
-    public static function sleep(float $delay)
+    public static function sleep(float $delay): void
     {
-        switch (Server::$eventLoopClass) {
-                // Fiber
-            case Revolt::class:
-                $suspension = EventLoop::getSuspension();
-                static::add($delay, function () use ($suspension) {
-                    $suspension->resume();
-                }, null, false);
-                $suspension->suspend();
-                return;
+        if (Server::$eventLoopClass == Revolt::class) {
+            $suspension = \Revolt\EventLoop::getSuspension();
+            static::add($delay, function () use ($suspension) {
+                $suspension->resume();
+            }, null, false);
+            $suspension->suspend();
+            return;
         }
         throw new RuntimeException('Timer::sleep() требует revolt/event-loop. Запусти команду "composer require revolt/event-loop" и перезагрузи WebCore');
     }
@@ -190,7 +188,7 @@ class Timer
      *
      * @return void
      */
-    public static function tick()
+    public static function tick(): void
     {
         if (empty(self::$tasks)) {
             pcntl_alarm(0);
@@ -247,7 +245,7 @@ class Timer
      *
      * @return void
      */
-    public static function delAll()
+    public static function delAll(): void
     {
         self::$tasks = self::$status = [];
         if (function_exists('pcntl_alarm')) {

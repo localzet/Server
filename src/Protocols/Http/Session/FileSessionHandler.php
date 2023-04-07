@@ -113,6 +113,7 @@ class FileSessionHandler implements SessionHandlerInterface
 
     /**
      * {@inheritdoc}
+     * @throws Exception
      */
     public function write(string $sessionId, string $sessionData): bool
     {
@@ -124,7 +125,7 @@ class FileSessionHandler implements SessionHandlerInterface
     }
 
     /**
-     * Update sesstion modify time.
+     * Update session modify time.
      *
      * @see https://www.php.net/manual/en/class.sessionupdatetimestamphandlerinterface.php
      * @see https://www.php.net/manual/zh/function.touch.php

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -188,7 +190,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
      * @param mixed|null $data
      * @return void
      */
-    public function close(mixed $data = null, bool $raw = false)
+    public function close(mixed $data = null, bool $raw = false): void
     {
         if ($data !== null) {
             $this->send($data, $raw);
@@ -239,7 +241,20 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
      *
      * @return array
      */
-    #[ArrayShape(['transport' => "string", 'getRemoteIp' => "string", 'remotePort' => "int", 'getRemoteAddress' => "string", 'getLocalIp' => "string", 'getLocalPort' => "int", 'getLocalAddress' => "string", 'isIpV4' => "bool", 'isIpV6' => "bool"])] public function jsonSerialize(): array
+    #[ArrayShape(
+        [
+            'transport' => "string",
+            'getRemoteIp' => "string",
+            'remotePort' => "int",
+            'getRemoteAddress' => "string",
+            'getLocalIp' => "string",
+            'getLocalPort' => "int",
+            'getLocalAddress' => "string",
+            'isIpV4' => "bool",
+            'isIpV6' => "bool"
+        ]
+    )]
+    public function jsonSerialize(): array
     {
         return [
             'transport' => $this->transport,
