@@ -204,7 +204,9 @@ class Http
         }
 
         // Experimental :)
+        try {
         $request->ja3 = Ja3::get($buffer);
+        } catch (Throwable $e) {}
 
         return $request;
     }

@@ -33,7 +33,7 @@ class BinaryStream
      */
     protected $f;
     protected $content;
-    protected $offset;
+    protected $offset = 0;
 
 
     const uint8        = 1;
