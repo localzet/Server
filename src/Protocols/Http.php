@@ -29,7 +29,7 @@ namespace localzet\Server\Protocols;
 use Throwable;
 
 use localzet\Server\Connection\TcpConnection;
-
+use localzet\Server\Protocols\Http\Ja3;
 use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\Http\Response;
 
@@ -202,6 +202,10 @@ class Http
                 unset($requests[key($requests)]);
             }
         }
+
+        // Experimental :)
+        $request->ja3 = Ja3::get($buffer);
+
         return $request;
     }
 
