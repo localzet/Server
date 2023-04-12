@@ -159,7 +159,7 @@ abstract class ConnectionInterface
      * @param mixed|null $data
      * @return void
      */
-    abstract public function close(mixed $data = null, bool $raw = false);
+    abstract public function close(mixed $data = null, bool $raw = false): void;
 
     /**
      * Is ipv4.
@@ -180,7 +180,7 @@ abstract class ConnectionInterface
      * @return void
      * @throws Throwable
      */
-    public function error(Throwable $exception)
+    public function error(Throwable $exception): void
     {
         if (!$this->errorHandler) {
             Server::stopAll(250, $exception);

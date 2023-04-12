@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -28,6 +30,7 @@ use Throwable;
 use RuntimeException;
 
 use Redis;
+use RedisCluster;
 use RedisException;
 
 use localzet\Server\Protocols\Http\Session;
@@ -42,9 +45,9 @@ class RedisSessionHandler implements SessionHandlerInterface
 {
 
     /**
-     * @var Redis
+     * @var Redis|RedisCluster
      */
-    protected Redis $redis;
+    protected Redis|RedisCluster $redis;
 
     /**
      * @var array
@@ -62,6 +65,7 @@ class RedisSessionHandler implements SessionHandlerInterface
      *  'prefix'   => 'redis_session_',
      *  'ping'     => 55,
      * ]
+     * @throws RedisException
      */
     public function __construct(array $config)
     {
@@ -82,6 +86,9 @@ class RedisSessionHandler implements SessionHandlerInterface
         });
     }
 
+    /**
+     * @throws RedisException
+     */
     public function connect()
     {
         $config = $this->config;
@@ -112,7 +119,10 @@ class RedisSessionHandler implements SessionHandlerInterface
 
     /**
      * {@inheritdoc}
+     * @param string $sessionId
+     * @return string
      * @throws RedisException
+     * @throws Throwable
      */
     public function read(string $sessionId): string
     {
@@ -130,6 +140,7 @@ class RedisSessionHandler implements SessionHandlerInterface
 
     /**
      * {@inheritdoc}
+     * @throws RedisException
      */
     public function write(string $sessionId, string $sessionData): bool
     {
@@ -138,6 +149,7 @@ class RedisSessionHandler implements SessionHandlerInterface
 
     /**
      * {@inheritdoc}
+     * @throws RedisException
      */
     public function updateTimestamp(string $sessionId, string $data = ""): bool
     {
@@ -146,6 +158,7 @@ class RedisSessionHandler implements SessionHandlerInterface
 
     /**
      * {@inheritdoc}
+     * @throws RedisException
      */
     public function destroy(string $sessionId): bool
     {

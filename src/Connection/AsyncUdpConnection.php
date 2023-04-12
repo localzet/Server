@@ -110,7 +110,7 @@ class AsyncUdpConnection extends UdpConnection
      * @return void
      * @throws Throwable
      */
-    public function baseRead($socket)
+    public function baseRead($socket): void
     {
         $recvBuffer = stream_socket_recvfrom($socket, static::MAX_UDP_PACKAGE_SIZE, 0, $remoteAddress);
         if (false === $recvBuffer || empty($remoteAddress)) {
@@ -140,7 +140,7 @@ class AsyncUdpConnection extends UdpConnection
      * @return void
      * @throws Throwable
      */
-    public function close(mixed $data = null, bool $raw = false)
+    public function close(mixed $data = null, bool $raw = false): void
     {
         if ($data !== null) {
             $this->send($data, $raw);
@@ -180,7 +180,7 @@ class AsyncUdpConnection extends UdpConnection
         if ($this->connected === false) {
             $this->connect();
         }
-        return strlen($sendBuffer) === stream_socket_sendto($this->socket, $sendBuffer, 0);
+        return strlen($sendBuffer) === stream_socket_sendto($this->socket, $sendBuffer);
     }
 
     /**
@@ -189,7 +189,7 @@ class AsyncUdpConnection extends UdpConnection
      * @return void
      * @throws Throwable
      */
-    public function connect()
+    public function connect(): void
     {
         if ($this->connected === true) {
             return;

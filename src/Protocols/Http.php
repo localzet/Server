@@ -137,18 +137,18 @@ class Http
         }
 
         $header = substr($buffer, 0, $crlfPos);
-        $hostHeaderPosition = strpos($header, "\r\nHost: ");
+        $hostHeaderPosition = stripos($header, "\r\nHost: ");
 
         if (false === $hostHeaderPosition && $firstLine[2] === "HTTP/1.1") {
             $connection->close("HTTP/1.1 400 Bad Request\r\n\r\n", true);
             return 0;
         }
 
-        if ($pos = strpos($header, "\r\nContent-Length: ")) {
+        if ($pos = stripos($header, "\r\nContent-Length: ")) {
             $length = $length + (int)substr($header, $pos + 18, 10);
             $hasContentLength = true;
         } else if (preg_match("/\r\ncontent-length: ?(\d+)/i", $header, $match)) {
-            $length = $length + $match[1];
+            $length = $length + (int)$match[1];
             $hasContentLength = true;
         } else {
             $hasContentLength = false;
@@ -284,7 +284,7 @@ class Http
      * @param int $length
      * @throws Throwable
      */
-    protected static function sendStream(TcpConnection $connection, $handler, int $offset = 0, int $length = 0)
+    protected static function sendStream(TcpConnection $connection, $handler, int $offset = 0, int $length = 0): void
     {
         $connection->context->bufferFull = false;
         $connection->context->streamSending = true;
@@ -306,7 +306,7 @@ class Http
                         $connection->onBufferDrain = null;
                         return;
                     }
-                    $size = $remainSize > $size ? $size : $remainSize;
+                    $size = min($remainSize, $size);
                 }
 
                 $buffer = fread($handler, $size);

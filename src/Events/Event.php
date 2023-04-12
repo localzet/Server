@@ -26,6 +26,7 @@ namespace localzet\Server\Events;
 
 use Throwable;
 use EventBase;
+use RuntimeException;
 
 use function class_exists;
 use function count;
@@ -39,7 +40,7 @@ class Event implements EventInterface
      * Event base.
      * @var EventBase
      */
-    protected $eventBase;
+    protected EventBase $eventBase;
 
     /**
      * All listeners for read event.
@@ -118,7 +119,7 @@ class Event implements EventInterface
             }
         });
         if (!$event->addTimer($delay)) {
-            throw new \RuntimeException("Ошибка Event::addTimer($delay)");
+            throw new RuntimeException("Ошибка Event::addTimer($delay)");
         }
         $this->eventTimer[$timerId] = $event;
         return $timerId;
@@ -160,7 +161,7 @@ class Event implements EventInterface
             }
         });
         if (!$event->addTimer($interval)) {
-            throw new \RuntimeException("Event::addTimer($interval) failed");
+            throw new RuntimeException("Event::addTimer($interval) failed");
         }
         $this->eventTimer[$timerId] = $event;
         return $timerId;
@@ -169,7 +170,7 @@ class Event implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function onReadable($stream, callable $func)
+    public function onReadable($stream, callable $func): void
     {
         $className = $this->eventClassName;
         $fdKey = (int)$stream;
@@ -197,7 +198,7 @@ class Event implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function onWritable($stream, callable $func)
+    public function onWritable($stream, callable $func): void
     {
         $className = $this->eventClassName;
         $fdKey = (int)$stream;
@@ -225,7 +226,7 @@ class Event implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function onSignal(int $signal, callable $func)
+    public function onSignal(int $signal, callable $func): void
     {
         $className = $this->eventClassName;
         $fdKey = $signal;
@@ -253,7 +254,7 @@ class Event implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function deleteAllTimer()
+    public function deleteAllTimer(): void
     {
         foreach ($this->eventTimer as $event) {
             $event->del();
@@ -264,7 +265,7 @@ class Event implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function run()
+    public function run(): void
     {
         $this->eventBase->loop();
     }
@@ -272,7 +273,7 @@ class Event implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function stop()
+    public function stop(): void
     {
         $this->eventBase->exit();
     }
@@ -288,7 +289,7 @@ class Event implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function setErrorHandler($errorHandler)
+    public function setErrorHandler($errorHandler): void
     {
         $this->errorHandler = $errorHandler;
     }
@@ -306,7 +307,7 @@ class Event implements EventInterface
      * @return void
      * @throws Throwable
      */
-    public function error(Throwable $e)
+    public function error(Throwable $e): void
     {
         try {
             if (!$this->errorHandler) {
