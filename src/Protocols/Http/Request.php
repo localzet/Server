@@ -91,6 +91,13 @@ class Request
     public array $properties = [];
 
     /**
+     * Experimental.
+     *
+     * @var array|false
+     */
+    public array|false $ja3 = [];
+
+    /**
      * Http buffer.
      *
      * @var string
