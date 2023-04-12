@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -776,7 +778,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                 }
             }
             if ($this->status === self::STATUS_CLOSING) {
-                if ($this->context->streamSending) {
+                if (!empty($this->context->streamSending)) {
                     return;
                 }
                 $this->destroy();
@@ -820,7 +822,11 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         if ($async) {
             $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT;
         } else {
-            $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER;
+            if (defined('STREAM_CRYPTO_METHOD_SERVER')) {
+                $type = \STREAM_CRYPTO_METHOD_SERVER;
+            } else {
+                $type = \STREAM_CRYPTO_METHOD_SSLv2_SERVER | \STREAM_CRYPTO_METHOD_SSLv23_SERVER;
+            }
         }
 
         // Hidden error.

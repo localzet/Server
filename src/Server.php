@@ -1101,7 +1101,7 @@ class Server
                 $pid = $pidMath[0];
                 $dataWaitingSort[$pid] = $value;
                 if (preg_match('/^\S+?\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?/', $value, $match)) {
-                    $totalMemory += (int)str_ireplace('M', '', $match[1]);
+                    $totalMemory += (float)str_ireplace('M', '', $match[1]);
                     $maxLen1 = max($maxLen1, strlen($match[2]));
                     $maxLen2 = max($maxLen2, strlen($match[3]));
                     $totalConnections += (int)$match[4];
@@ -1426,7 +1426,7 @@ class Server
             $server = current(static::$servers);
 
             // Display UI.
-            static::safeEcho(str_pad((string)$server->name, 21) . str_pad((string)$server->getSocketName(), 36) . str_pad((string)$server->count, 10) . "[ok]\n");
+            static::safeEcho(str_pad((string)$server->name, 21) . str_pad((string)$server->getSocketName(), 36) . str_pad("1", 10) . "[ok]\n");
             $server->listen();
             $server->run();
             exit("@@@ child exit @@@\r\n");
