@@ -205,8 +205,9 @@ class Http
 
         // Experimental :)
         try {
-        $request->ja3 = Ja3::get($buffer);
-        } catch (Throwable $e) {}
+            $request->ja3 = Ja3::get($buffer);
+        } catch (Throwable $e) {
+        }
 
         return $request;
     }
@@ -231,10 +232,10 @@ class Http
                 foreach ($connection->headers as $name => $value) {
                     if (is_array($value)) {
                         foreach ($value as $item) {
-                            $extHeader = "$name: $item\r\n";
+                            $extHeader .= "$name: $item\r\n";
                         }
                     } else {
-                        $extHeader = "$name: $value\r\n";
+                        $extHeader .= "$name: $value\r\n";
                     }
                 }
                 $connection->headers = [];

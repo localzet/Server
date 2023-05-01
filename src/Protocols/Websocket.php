@@ -371,7 +371,7 @@ class Websocket
                 $SecWebSocketKey = $match[1];
             } else {
                 $connection->close(
-                    "HTTP/1.1 200 WebSocket\r\nServer: Localzet Server/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server/" . Server::VERSION . "</div>",
+                    "HTTP/1.1 200 OK\r\nServer: Localzet Server\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server</div>",
                     true
                 );
                 return 0;
@@ -420,7 +420,7 @@ class Websocket
                 }
             }
             if (!$hasServerHeader) {
-                $handshakeMessage .= "Server: Localzet Server/" . Server::VERSION . "\r\n";
+                $handshakeMessage .= "Server: Localzet Server\r\n";
             }
             $handshakeMessage .= "\r\n";
             // Отправить ответ на рукопожатие.
@@ -440,7 +440,7 @@ class Websocket
         }
         // Неверный запрос рукопожатия через веб-сокет.
         $connection->close(
-            "HTTP/1.1 200 WebSocket\r\nServer: Localzet Server/" . Server::VERSION . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server/" . Server::VERSION . "</div>",
+            "HTTP/1.1 200 OK\r\nServer: Localzet Server\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server</div>",
             true
         );
         return 0;

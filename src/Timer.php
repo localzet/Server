@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
@@ -144,7 +146,7 @@ class Timer
         }
 
         if (!is_callable($func)) {
-            Server::safeEcho(new Exception("Невозможно вызвать функцию"));
+            Server::safeEcho((string) new Exception("Невозможно вызвать функцию"));
             return false;
         }
 
@@ -180,7 +182,7 @@ class Timer
             $suspension->suspend();
             return;
         }
-        throw new RuntimeException('Timer::sleep() требует revolt/event-loop. Запусти команду "composer require revolt/event-loop" и перезагрузи WebCore');
+        throw new RuntimeException('Timer::sleep() требует revolt/event-loop. Запусти команду "composer require revolt/event-loop" и перезагрузи сервер');
     }
 
     /**
@@ -205,7 +207,7 @@ class Timer
                     try {
                         $taskFunc(...$taskArgs);
                     } catch (Throwable $e) {
-                        Server::safeEcho($e);
+                        Server::safeEcho((string) $e);
                     }
                     if ($persistent && !empty(self::$status[$index])) {
                         $newRunTime = time() + $timeInterval;

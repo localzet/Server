@@ -56,7 +56,7 @@ class Server
      *
      * @var string
      */
-    public const VERSION = '2.2.4';
+    public const VERSION = '2.3'; // 2.3.x
 
     /**
      * Статус: запуск
@@ -324,13 +324,6 @@ class Server
     public static string $eventLoopClass = '';
 
     /**
-     * Название процесса
-     *
-     * @var string
-     */
-    public static string $processTitle = 'Localzet Server';
-
-    /**
      * Таймаут после команды остановки для дочерних процессов
      * Если в течение него они не остановятся - звони киллеру
      *
@@ -592,7 +585,7 @@ class Server
     {
         // Только для CLI
         if (\PHP_SAPI !== 'cli') {
-            exit("WebCore запускается только из терминала \n");
+            exit("Localzet Server запускается только из терминала \n");
         }
     }
 
@@ -639,7 +632,7 @@ class Server
         static::$globalStatistics['start_timestamp'] = time();
 
         // Название процесса
-        static::setProcessTitle(static::$processTitle . ': мастер-процесс  start_file=' . static::$startFile);
+        static::setProcessTitle('Localzet Server: мастер-процесс  start_file=' . static::$startFile);
 
         // Init data for server id.
         static::initId();
@@ -796,18 +789,18 @@ class Server
             return;
         }
         if (\DIRECTORY_SEPARATOR !== '/') {
-            static::safeEcho("----------------------- WEBCORE -----------------------------\r\n");
-            static::safeEcho('WebCore version:' . static::VERSION . '          PHP version:' . PHP_VERSION . "\r\n");
+            static::safeEcho("----------------------- Localzet Server -----------------------------\r\n");
+            static::safeEcho('Server version:' . static::VERSION . '          PHP version:' . PHP_VERSION . "\r\n");
             static::safeEcho("------------------------ SERVERS -------------------------------\r\n");
             static::safeEcho("server                        listen                              processes status\r\n");
             return;
         }
 
         //show version
-        $lineVersion = 'WebCore version:' . static::VERSION . str_pad('PHP version:', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Event-loop:', 22, ' ', \STR_PAD_LEFT) . static::getEventLoopName() . \PHP_EOL;
+        $lineVersion = 'Server version:' . static::VERSION . str_pad('PHP version:', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Event-loop:', 22, ' ', \STR_PAD_LEFT) . static::getEventLoopName() . \PHP_EOL;
         if (!defined('LINE_VERSIOIN_LENGTH')) define('LINE_VERSIOIN_LENGTH', strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
-        $lineOne = '<n>' . str_pad('<w> WEBCORE </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . \PHP_EOL;
+        $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . \PHP_EOL;
         $lineTwo = str_pad('<w> SERVERS </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
         static::safeEcho($lineOne . $lineVersion . $lineTwo);
 
@@ -838,11 +831,9 @@ class Server
         !empty($content) && static::safeEcho($lineLast);
 
         if (static::$daemonize) {
-            global $argv;
-            $startFile = $argv[0];
-            static::safeEcho('Выполните "php ' . $startFile . ' stop" для остановки. WebCore запущен.' . "\n\n");
+            static::safeEcho('Выполните "php ' . static::$startFile . ' stop" для остановки. Localzet Server запущен.' . "\n\n");
         } else {
-            static::safeEcho("Нажмите Ctrl+C для остановки. WebCore запущен.\n");
+            static::safeEcho("Нажмите Ctrl+C для остановки. Localzet Server запущен.\n");
         }
     }
 
@@ -897,9 +888,8 @@ class Server
         if (\DIRECTORY_SEPARATOR !== '/') {
             return;
         }
-        global $argv;
-        // Check argv;
-        $startFile = $argv[0];
+
+        $startFile = basename(static::$startFile);
         $usage = "Пример: php start.php <команда> [флаг]\nКоманды: \nstart\t\tЗапуск сервера в режиме разработки.\n\t\tИспользуй флаг -d для запуска в фоновом режиме.\nstop\t\tОстановка сервера.\n\t\tИспользуй флаг -g для плавной остановки.\nrestart\t\tПерезагрузка сервера.\n\t\tИспользуй флаг -d для запуска в фоновом режиме.\n\t\tИспользуй флаг -g для плавной остановки.\nreload\t\tОбновить код.\n\t\tИспользуй флаг -g для плавной остановки.\nstatus\t\tСтатус сервера.\n\t\tИспользуй флаг -d для показа в реальном времени.\nconnections\tПоказать текущие соединения.\n";
         $availableCommands = [
             'start',
@@ -915,9 +905,10 @@ class Server
         ];
         $command = $mode = '';
         foreach (static::getArgv() as $value) {
-            if (in_array($value, $availableCommands)) {
+            if (!$command && in_array($value, $availableCommands)) {
                 $command = $value;
-            } elseif (in_array($value, $availableMode)) {
+            }
+            if (!$mode && in_array($value, $availableMode)) {
                 $mode = $value;
             }
         }
@@ -935,22 +926,22 @@ class Server
                 $modeStr = 'в режиме разработки';
             }
         }
-        static::log("WebCore [$startFile] $command $modeStr");
+        static::log("Localzet Server [$startFile] $command $modeStr");
 
         // Get master process PID.
         $masterPid = is_file(static::$pidFile) ? (int)file_get_contents(static::$pidFile) : 0;
         // Master is still alive?
         if (static::checkMasterIsAlive($masterPid)) {
             if ($command === 'start') {
-                static::log("WebCore [$startFile] уже запущен");
+                static::log("Localzet Server [$startFile] уже запущен");
                 exit;
             }
         } elseif ($command !== 'start' && $command !== 'restart') {
-            static::log("WebCore [$startFile] не запущен");
+            static::log("Localzet Server [$startFile] не запущен");
             exit;
         }
 
-        $statisticsFile = static::$statusFile ?: __DIR__ . "/../workerman-$masterPid.$command";
+        $statisticsFile = static::$statusFile ?: __DIR__ . "/../localzet-$masterPid.$command";
 
         // execute command.
         switch ($command) {
@@ -998,11 +989,11 @@ class Server
                 if ($mode === '-g') {
                     static::$gracefulStop = true;
                     $sig = \SIGQUIT;
-                    static::log("WebCore [$startFile] плавно останавливается ...");
+                    static::log("Localzet Server [$startFile] плавно останавливается ...");
                 } else {
                     static::$gracefulStop = false;
                     $sig = \SIGINT;
-                    static::log("WebCore [$startFile] останавливается ...");
+                    static::log("Localzet Server [$startFile] останавливается ...");
                 }
                 // Send stop signal to master process.
                 $masterPid && posix_kill($masterPid, $sig);
@@ -1015,7 +1006,7 @@ class Server
                     if ($masterIsAlive) {
                         // Timeout?
                         if (!static::$gracefulStop && time() - $startTime >= $timeout) {
-                            static::log("WebCore [$startFile] не остановлен!");
+                            static::log("Localzet Server [$startFile] не остановлен!");
                             exit;
                         }
                         // Waiting amoment.
@@ -1023,7 +1014,7 @@ class Server
                         continue;
                     }
                     // Stop success.
-                    static::log("WebCore [$startFile] остановлен");
+                    static::log("Localzet Server [$startFile] остановлен");
                     if ($command === 'stop') {
                         exit(0);
                     }
@@ -1055,7 +1046,7 @@ class Server
     public static function getArgv(): array
     {
         global $argv;
-        return isset($argv[1]) ? $argv : (static::$command ? explode(' ', static::$command) : $argv);
+        return static::$command ? array_merge($argv, explode(' ', static::$command)) : $argv;
     }
 
     /**
@@ -1542,7 +1533,7 @@ class Server
                 }
             }
             Timer::delAll();
-            static::setProcessTitle(self::$processTitle . ': процесс сервера  ' . $server->name . ' ' . $server->getSocketName());
+            static::setProcessTitle('Localzet Server: процесс сервера  ' . $server->name . ' ' . $server->getSocketName());
             $server->setUserAndGroup();
             $server->id = $id;
             $server->run();
@@ -1663,7 +1654,7 @@ class Server
                         }
                         // Exit status.
                         if ($status !== 0) {
-                            static::log("WebCore [{$server->name}:$pid] завершился со статусом $status");
+                            static::log("Localzet Server [{$server->name}:$pid] завершился со статусом $status");
                         }
 
                         // onServerExit
@@ -1671,7 +1662,7 @@ class Server
                             try {
                                 ($server->onServerExit)($server, $status, $pid);
                             } catch (Throwable $exception) {
-                                static::log("WebCore [{$server->name}] onServerExit $exception");
+                                static::log("Localzet Server [{$server->name}] onServerExit $exception");
                             }
                         }
 
@@ -1736,7 +1727,7 @@ class Server
             }
         }
         @unlink(static::$pidFile);
-        static::log("WebCore [" . basename(static::$startFile) . "] был остановлен");
+        static::log("Localzet Server [" . basename(static::$startFile) . "] был остановлен");
         if (static::$onMasterStop) {
             call_user_func(static::$onMasterStop);
         }
@@ -1756,7 +1747,7 @@ class Server
             $sig = static::$gracefulStop ? \SIGUSR2 : \SIGUSR1;
             // Set reloading state.
             if (static::$status !== static::STATUS_RELOADING && static::$status !== static::STATUS_SHUTDOWN) {
-                static::log("WebCore [" . basename(static::$startFile) . "] обновляется");
+                static::log("Localzet Server [" . basename(static::$startFile) . "] обновляется");
                 static::$status = static::STATUS_RELOADING;
 
                 static::resetStd(false);
@@ -1841,7 +1832,7 @@ class Server
         static::$status = static::STATUS_SHUTDOWN;
         // For master process.
         if (\DIRECTORY_SEPARATOR === '/' && static::$masterPid === posix_getpid()) {
-            static::log("WebCore [" . basename(static::$startFile) . "] останавливается ...");
+            static::log("Localzet Server [" . basename(static::$startFile) . "] останавливается ...");
             $serverPidArray = static::getAllServerPids();
             // Send stop signal to all child processes.
             $sig = static::$gracefulStop ? \SIGQUIT : \SIGINT;
@@ -1944,7 +1935,7 @@ class Server
             );
             file_put_contents(
                 static::$statisticsFile,
-                'WebCore version:' . static::VERSION . "          PHP version:" . \PHP_VERSION . "\n",
+                'Server version:' . static::VERSION . "          PHP version:" . \PHP_VERSION . "\n",
                 \FILE_APPEND
             );
             file_put_contents(
@@ -2059,7 +2050,7 @@ class Server
         if (static::$masterPid === posix_getpid()) {
             file_put_contents(
                 static::$statisticsFile,
-                "--------------------------------------------------------------------- WEBCORE CONNECTION STATUS --------------------------------------------------------------------------------\n",
+                "--------------------------------------------------------------------- SERVER CONNECTION STATUS --------------------------------------------------------------------------------\n",
                 \FILE_APPEND
             );
             file_put_contents(
@@ -2141,7 +2132,7 @@ class Server
     public static function checkErrors(): void
     {
         if (static::STATUS_SHUTDOWN !== static::$status) {
-            $errorMsg = \DIRECTORY_SEPARATOR === '/' ? 'WebCore [' . posix_getpid() . '] процесс завершен' : 'Серверный процесс завершен';
+            $errorMsg = \DIRECTORY_SEPARATOR === '/' ? 'Localzet Server [' . posix_getpid() . '] процесс завершен' : 'Серверный процесс завершен';
             $errors = error_get_last();
             if (
                 $errors && ($errors['type'] === \E_ERROR ||
@@ -2632,7 +2623,7 @@ class Server
         }
 
         $cmdline = "/proc/$masterPid/cmdline";
-        if (!is_readable($cmdline) || empty(static::$processTitle)) {
+        if (!is_readable($cmdline)) {
             return true;
         }
 
@@ -2641,6 +2632,6 @@ class Server
             return true;
         }
 
-        return stripos($content, static::$processTitle) !== false || stripos($content, 'php') !== false;
+        return stripos($content, 'Localzet Server') !== false || stripos($content, 'php') !== false;
     }
 }
