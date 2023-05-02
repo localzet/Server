@@ -24,10 +24,9 @@
 
 namespace localzet\Server\Events;
 
-use Throwable;
 use EventBase;
 use RuntimeException;
-
+use Throwable;
 use function class_exists;
 use function count;
 

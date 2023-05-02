@@ -24,15 +24,13 @@
 
 namespace localzet\Server\Events;
 
-use Throwable;
 use SplPriorityQueue;
-
+use Throwable;
 use function count;
 use function max;
 use function microtime;
 use function pcntl_signal;
 use function pcntl_signal_dispatch;
-
 use const DIRECTORY_SEPARATOR;
 
 /**

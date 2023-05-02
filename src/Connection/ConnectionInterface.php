@@ -24,17 +24,16 @@
 
 namespace localzet\Server\Connection;
 
-use Throwable;
-
-use localzet\Server\Events\EventInterface;
+use AllowDynamicProperties;
 use localzet\Server\Events\Event;
-
+use localzet\Server\Events\EventInterface;
 use localzet\Server\Server;
+use Throwable;
 
 /**
  * ConnectionInterface.
  */
-#[\AllowDynamicProperties]
+#[AllowDynamicProperties]
 abstract class ConnectionInterface
 {
     /**
@@ -157,6 +156,7 @@ abstract class ConnectionInterface
      * Close connection.
      *
      * @param mixed|null $data
+     * @param bool $raw
      * @return void
      */
     abstract public function close(mixed $data = null, bool $raw = false): void;

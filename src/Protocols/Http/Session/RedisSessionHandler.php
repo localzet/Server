@@ -26,16 +26,13 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols\Http\Session;
 
-use Throwable;
-use RuntimeException;
-
+use localzet\Server\Protocols\Http\Session;
+use localzet\Server\Timer;
 use Redis;
 use RedisCluster;
 use RedisException;
-
-use localzet\Server\Protocols\Http\Session;
-
-use localzet\Server\Timer;
+use RuntimeException;
+use Throwable;
 
 /**
  * Class RedisSessionHandler
@@ -89,7 +86,7 @@ class RedisSessionHandler implements SessionHandlerInterface
     /**
      * @throws RedisException
      */
-    public function connect()
+    public function connect(): void
     {
         $config = $this->config;
 

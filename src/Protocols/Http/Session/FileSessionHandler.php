@@ -24,8 +24,8 @@
 
 namespace localzet\Server\Protocols\Http\Session;
 
+use Exception;
 use localzet\Server\Protocols\Http\Session;
-
 use function clearstatcache;
 use function file_get_contents;
 use function file_put_contents;
@@ -65,7 +65,7 @@ class FileSessionHandler implements SessionHandlerInterface
     /**
      * Init.
      */
-    public static function init()
+    public static function init(): void
     {
         $savePath = @session_save_path();
         if (!$savePath || str_starts_with($savePath, 'tcp://')) {
@@ -113,6 +113,9 @@ class FileSessionHandler implements SessionHandlerInterface
 
     /**
      * {@inheritdoc}
+     * @param string $sessionId
+     * @param string $sessionData
+     * @return bool
      * @throws Exception
      */
     public function write(string $sessionId, string $sessionData): bool

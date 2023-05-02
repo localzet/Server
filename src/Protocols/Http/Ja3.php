@@ -28,7 +28,7 @@ namespace localzet\Server\Protocols\Http;
 
 class Ja3
 {
-    static $GREASE_TABELE = [
+    static array $GREASE_TABELE = [
         2570, //(0x0A0A)
         6682, //(0x1A1A)
         10794, //(0x2A2A)
@@ -47,7 +47,7 @@ class Ja3
         64250, //(0xFAFA)
     ];
 
-    public static function get($tcp_data)
+    public static function get($tcp_data): false|array
     {
 
         $BinaryStream = new BinaryStream();
@@ -214,8 +214,7 @@ class Ja3
                     'tls.handshake.type' => $ret['tls.handshake.type'],
                     'ja3_str' => $ja3_str,
                     'ja3' => md5($ja3_str),
-                    'session_ticket' => empty($extensions_arr_by_type['35']) ? false : ($extensions_arr_by_type['35']['length']
-                        > 0),
+                    'session_ticket' => !empty($extensions_arr_by_type['35']) && $extensions_arr_by_type['35']['length'] > 0,
                     // 'session_id'=>trim(implode('',$session_id)),
                     // 'server_name'=>trim($server_name),
                 ];

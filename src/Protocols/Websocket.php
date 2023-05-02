@@ -3,37 +3,33 @@
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
- * 
+ *
  * @author      Ivan Zorin <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl AGPL-3.0 license
- * 
+ *
  *              This program is free software: you can redistribute it and/or modify
  *              it under the terms of the GNU Affero General Public License as
  *              published by the Free Software Foundation, either version 3 of the
  *              License, or (at your option) any later version.
- *              
+ *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
  *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *              GNU Affero General Public License for more details.
- *              
+ *
  *              You should have received a copy of the GNU Affero General Public License
  *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 namespace localzet\Server\Protocols;
 
-use Throwable;
 use Exception;
-
 use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Connection\TcpConnection;
-
 use localzet\Server\Protocols\Http\Request;
-
 use localzet\Server\Server;
-
+use Throwable;
 use function base64_encode;
 use function chr;
 use function floor;
@@ -121,7 +117,7 @@ class Websocket
                     // Понг-пакет
                 case 0xa:
                     break;
-                    // Закрытие
+                // Закрытие
                 case 0x8:
                     // Попытка вызвать onWebSocketClose
                     $closeCb = $connection->onWebSocketClose ?? $connection->server->onWebSocketClose ?? false;
@@ -131,13 +127,12 @@ class Websocket
                         } catch (Throwable $e) {
                             Server::stopAll(250, $e);
                         }
-                    }
-                    // Закрытие соединения
+                    } // Закрытие соединения
                     else {
                         $connection->close("\x88\x02\x03\xe8", true);
                     }
                     return 0;
-                    // Неверный опкод
+                // Неверный опкод
                 default:
                     Server::safeEcho("Ошибка опкода $opcode и закрытие WebSocket соединения. Буфер:" . $buffer . "\n");
                     $connection->close();
@@ -229,8 +224,7 @@ class Websocket
             $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
             $connection->context->websocketCurrentFrameLength = 0;
             return 0;
-        }
-        // Длина полученных данных больше длины кадра.
+        } // Длина полученных данных больше длины кадра.
         elseif ($connection->context->websocketCurrentFrameLength < $recvLen) {
             static::decode(substr($buffer, 0, $connection->context->websocketCurrentFrameLength), $connection);
             $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
@@ -238,8 +232,7 @@ class Websocket
             $connection->context->websocketCurrentFrameLength = 0;
             // Продолжаем читать следующий кадр.
             return static::input(substr($buffer, $currentFrameLength), $connection);
-        }
-        // Длина полученных данных меньше длины кадра.
+        } // Длина полученных данных меньше длины кадра.
         else {
             return 0;
         }
@@ -251,6 +244,7 @@ class Websocket
      * @param mixed $buffer
      * @param TcpConnection $connection
      * @return string
+     * @throws Exception
      */
     public static function encode(mixed $buffer, TcpConnection $connection): string
     {

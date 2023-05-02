@@ -27,12 +27,9 @@ declare(strict_types=1);
 namespace localzet\Server\Protocols\Http;
 
 use Exception;
-use RuntimeException;
-
 use localzet\Server\Connection\TcpConnection;
-
 use localzet\Server\Protocols\Http;
-
+use RuntimeException;
 use function array_walk_recursive;
 use function bin2hex;
 use function clearstatcache;
@@ -60,6 +57,7 @@ use function urlencode;
 
 /**
  * Class Request
+ * @property mixed|string $sid
  * @package localzet\Server\Protocols\Http
  */
 class Request
@@ -89,13 +87,6 @@ class Request
      * @var array
      */
     public array $properties = [];
-
-    /**
-     * Experimental.
-     *
-     * @var array|false
-     */
-    public array|false $ja3 = [];
 
     /**
      * Http buffer.
@@ -208,7 +199,7 @@ class Request
      * @param string|null $name
      * @return array|null
      */
-    public function file(string $name = null)
+    public function file(string $name = null): ?array
     {
         if (!isset($this->data['files'])) {
             $this->parsePost();

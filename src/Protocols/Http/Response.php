@@ -38,7 +38,6 @@ use function preg_match;
 use function rawurlencode;
 use function strlen;
 use function substr;
-
 use const FILE_IGNORE_NEW_LINES;
 use const FILE_SKIP_EMPTY_LINES;
 

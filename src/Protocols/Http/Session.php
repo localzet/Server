@@ -25,13 +25,10 @@
 namespace localzet\Server\Protocols\Http;
 
 use Exception;
-use RuntimeException;
-
 use JetBrains\PhpStorm\ArrayShape;
-
-use localzet\Server\Protocols\Http\Session\SessionHandlerInterface;
 use localzet\Server\Protocols\Http\Session\FileSessionHandler;
-
+use localzet\Server\Protocols\Http\Session\SessionHandlerInterface;
+use RuntimeException;
 use function array_key_exists;
 use function ini_get;
 use function is_array;

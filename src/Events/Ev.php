@@ -29,7 +29,6 @@ namespace localzet\Server\Events;
 use EvIo;
 use EvSignal;
 use EvTimer;
-
 use function count;
 
 /**

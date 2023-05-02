@@ -54,7 +54,7 @@ class BinaryStream
     const modeWrite     = "wb";
     const modeReadWrite = "rb+";
 
-    static function backtrace()
+    static function backtrace(): void
     {
         var_dump(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS));
     }
@@ -65,6 +65,7 @@ class BinaryStream
      * @param string $filename The file name of the font to open
      *
      * @return bool
+     * @throws \Exception
      */
     public function load($filename)
     {

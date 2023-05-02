@@ -26,13 +26,11 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols;
 
-use Throwable;
-
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\Ja3;
 use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\Http\Response;
-
+use Throwable;
 use function clearstatcache;
 use function count;
 use function explode;
@@ -99,7 +97,7 @@ class Http
      *
      * @param bool $value
      */
-    public static function enableCache(bool $value)
+    public static function enableCache(bool $value): void
     {
         static::$enableCache = $value;
     }
@@ -206,7 +204,7 @@ class Http
         // Experimental :)
         try {
             $request->ja3 = Ja3::get($buffer);
-        } catch (Throwable $e) {
+        } catch (Throwable) {
         }
 
         return $request;

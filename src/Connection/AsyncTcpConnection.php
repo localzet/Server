@@ -24,15 +24,12 @@
 
 namespace localzet\Server\Connection;
 
-use Throwable;
 use Exception;
-use RuntimeException;
-
-use stdClass;
-
-use localzet\Server\Timer;
 use localzet\Server\Server;
-
+use localzet\Server\Timer;
+use RuntimeException;
+use stdClass;
+use Throwable;
 use function class_exists;
 use function explode;
 use function function_exists;
@@ -48,7 +45,6 @@ use function stream_set_read_buffer;
 use function stream_socket_client;
 use function stream_socket_get_name;
 use function ucfirst;
-
 use const DIRECTORY_SEPARATOR;
 use const PHP_INT_MAX;
 use const SO_KEEPALIVE;

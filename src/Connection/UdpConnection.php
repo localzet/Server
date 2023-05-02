@@ -26,13 +26,10 @@ declare(strict_types=1);
 
 namespace localzet\Server\Connection;
 
-use JsonSerializable;
-
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Pure;
-
+use JsonSerializable;
 use localzet\Server\Protocols\ProtocolInterface;
-
 use function stream_socket_get_name;
 use function stream_socket_sendto;
 use function strlen;
@@ -188,6 +185,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
      * Close connection.
      *
      * @param mixed|null $data
+     * @param bool $raw
      * @return void
      */
     public function close(mixed $data = null, bool $raw = false): void

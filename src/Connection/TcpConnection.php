@@ -26,19 +26,14 @@ declare(strict_types=1);
 
 namespace localzet\Server\Connection;
 
-use Throwable;
-use stdClass;
-use JsonSerializable;
-
 use JetBrains\PhpStorm\Pure;
-
+use JsonSerializable;
 use localzet\Server\Events\EventInterface;
-
-use localzet\Server\Protocols\ProtocolInterface;
 use localzet\Server\Protocols\Http\Request;
-
+use localzet\Server\Protocols\ProtocolInterface;
 use localzet\Server\Server;
-
+use stdClass;
+use Throwable;
 use function ceil;
 use function count;
 use function fclose;
@@ -825,7 +820,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             if (defined('STREAM_CRYPTO_METHOD_SERVER')) {
                 $type = \STREAM_CRYPTO_METHOD_SERVER;
             } else {
-                $type = \STREAM_CRYPTO_METHOD_SSLv2_SERVER | \STREAM_CRYPTO_METHOD_SSLv23_SERVER;
+                $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER;
             }
         }
 
@@ -1061,7 +1056,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      *
      * @param mixed $value
      */
-    public static function enableCache(bool $value = true)
+    public static function enableCache(bool $value = true): void
     {
         static::$enableCache = $value;
     }

@@ -24,12 +24,10 @@
 
 namespace localzet\Server\Connection;
 
-use Throwable;
 use Exception;
-
 use localzet\Server\Protocols\ProtocolInterface;
 use localzet\Server\Server;
-
+use Throwable;
 use function class_exists;
 use function explode;
 use function fclose;
@@ -41,7 +39,6 @@ use function stream_socket_sendto;
 use function strlen;
 use function substr;
 use function ucfirst;
-
 use const STREAM_CLIENT_CONNECT;
 
 /**
