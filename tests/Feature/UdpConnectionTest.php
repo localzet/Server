@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Symfony\Component\Process\PhpProcess;
 use Localzet\Server\Server;
+use Symfony\Component\Process\PhpProcess;
 
 $serverAddress = 'udp://127.0.0.1:6789';
 beforeAll(function () use ($serverAddress) {

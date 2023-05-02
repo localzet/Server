@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use localzet\Server\Protocols\Text;
 use localzet\Server\Connection\UdpConnection;
+use localzet\Server\Protocols\Text;
 use Symfony\Component\Process\PhpProcess;
 
 $remoteAddress = '[::1]:12345';

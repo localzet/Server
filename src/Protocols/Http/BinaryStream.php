@@ -5,21 +5,21 @@ declare(strict_types=1);
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
- * 
+ *
  * @author      Ivan Zorin <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl AGPL-3.0 license
- * 
+ *
  *              This program is free software: you can redistribute it and/or modify
  *              it under the terms of the GNU Affero General Public License as
  *              published by the Free Software Foundation, either version 3 of the
  *              License, or (at your option) any later version.
- *              
+ *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
  *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *              GNU Affero General Public License for more details.
- *              
+ *
  *              You should have received a copy of the GNU Affero General Public License
  *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -36,22 +36,22 @@ class BinaryStream
     protected $offset = 0;
 
 
-    const uint8        = 1;
-    const  int8        = 2;
-    const uint16       = 3;
-    const  int16       = 4;
-    const uint32       = 5;
-    const  int32       = 6;
-    const shortFrac    = 7;
-    const Fixed        = 8;
-    const  FWord       = 9;
-    const uFWord       = 10;
-    const F2Dot14      = 11;
+    const uint8 = 1;
+    const  int8 = 2;
+    const uint16 = 3;
+    const  int16 = 4;
+    const uint32 = 5;
+    const  int32 = 6;
+    const shortFrac = 7;
+    const Fixed = 8;
+    const  FWord = 9;
+    const uFWord = 10;
+    const F2Dot14 = 11;
     const longDateTime = 12;
-    const char         = 13;
+    const char = 13;
 
-    const modeRead      = "rb";
-    const modeWrite     = "wb";
+    const modeRead = "rb";
+    const modeWrite = "wb";
     const modeReadWrite = "rb+";
 
     static function backtrace(): void
@@ -76,10 +76,10 @@ class BinaryStream
      * Open a font file in a chosen mode
      *
      * @param string $filename The file name of the font to open
-     * @param string $mode     The opening mode
+     * @param string $mode The opening mode
      *
-     * @throws \Exception
      * @return bool
+     * @throws \Exception
      */
     public function open($filename, $mode = self::modeRead)
     {
@@ -177,7 +177,7 @@ class BinaryStream
         //        return (string) fread($this->f, $n);
         $offset = $this->offset;
         $this->offset += $n;
-        return (string) substr($this->content, $offset, $n);
+        return (string)substr($this->content, $offset, $n);
     }
 
     public function write($data, $length = null)
@@ -313,7 +313,7 @@ class BinaryStream
 
     public function readFixed()
     {
-        $d  = $this->readInt16();
+        $d = $this->readInt16();
         $d2 = $this->readUInt16();
 
         return round($d + $d2 / 0x10000, 4);
@@ -321,7 +321,7 @@ class BinaryStream
 
     public function writeFixed($data)
     {
-        $left  = floor($data);
+        $left = floor($data);
         $right = ($data - $left) * 0x10000;
 
         return $this->writeInt16($left) + $this->writeUInt16($right);

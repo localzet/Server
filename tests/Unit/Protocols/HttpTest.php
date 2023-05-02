@@ -12,8 +12,7 @@ it('customizes request class', function () {
     $oldRequestClass = Http::requestClass();
 
     //actual test
-    $class = new class
-    {
+    $class = new class {
     };
     Http::requestClass($class::class);
     expect(Http::requestClass())->toBe($class::class);
