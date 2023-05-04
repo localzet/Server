@@ -76,7 +76,7 @@ class Server
      *
      * @var string
      */
-    public const VERSION = '3.0'; // 3.0.x
+    public const VERSION = 'v3.0'; // v3.0.x
 
     /**
      * Статус: запуск
