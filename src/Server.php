@@ -977,7 +977,10 @@ class Server
                         @unlink($statisticsFile);
                     }
                     // Master process will send SIGIOT signal to all child processes.
+                    set_error_handler(function () {
+                    });
                     posix_kill($masterPid, SIGIOT);
+                    restore_error_handler();
                     // Sleep 1 second.
                     sleep(1);
                     // Clear terminal.
@@ -997,7 +1000,10 @@ class Server
                     unlink($statisticsFile);
                 }
                 // Master process will send SIGIO signal to all child processes.
+                set_error_handler(function () {
+                });
                 posix_kill($masterPid, SIGIO);
+                restore_error_handler();
                 // Waiting amoment.
                 usleep(500000);
                 // Display statisitcs data from a disk file.
@@ -1016,14 +1022,22 @@ class Server
                     $sig = SIGINT;
                     static::log("Localzet Server [$startFile] останавливается ...");
                 }
+
                 // Send stop signal to master process.
+                set_error_handler(function () {
+                });
                 $masterPid && posix_kill($masterPid, $sig);
+                restore_error_handler();
+
                 // Timeout.
                 $timeout = static::$stopTimeout + 3;
                 $startTime = time();
                 // Check master process is still alive?
                 while (1) {
+                    set_error_handler(function () {
+                    });
                     $masterIsAlive = $masterPid && posix_kill($masterPid, 0);
+                    restore_error_handler();
                     if ($masterIsAlive) {
                         // Timeout?
                         if (!static::$gracefulStop && time() - $startTime >= $timeout) {
@@ -1051,7 +1065,12 @@ class Server
                 } else {
                     $sig = SIGUSR1;
                 }
+
+                set_error_handler(function () {
+                });
                 posix_kill($masterPid, $sig);
+                restore_error_handler();
+
                 exit;
             default:
                 static::safeEcho('Неизвестная команда: ' . $command . "\n");
@@ -1199,7 +1218,7 @@ class Server
     public static function signalHandler(int $signal): void
     {
         switch ($signal) {
-            // Stop.
+                // Stop.
             case SIGINT:
             case SIGTERM:
             case SIGHUP:
@@ -1207,12 +1226,12 @@ class Server
                 static::$gracefulStop = false;
                 static::stopAll();
                 break;
-            // Graceful stop.
+                // Graceful stop.
             case SIGQUIT:
                 static::$gracefulStop = true;
                 static::stopAll();
                 break;
-            // Reload.
+                // Reload.
             case SIGUSR2:
             case SIGUSR1:
                 if (static::$status === static::STATUS_RELOADING || static::$status === static::STATUS_SHUTDOWN) {
@@ -1222,11 +1241,11 @@ class Server
                 static::$pidsToRestart = static::getAllServerPids();
                 static::reload();
                 break;
-            // Show status.
+                // Show status.
             case SIGIOT:
                 static::writeStatisticsToStatusFile();
                 break;
-            // Show connection status.
+                // Show connection status.
             case SIGIO:
                 static::writeConnectionsStatisticsToStatusFile();
                 break;
@@ -1792,7 +1811,10 @@ class Server
                     } else {
                         foreach ($serverPidArray as $pid) {
                             // Send reload signal to a server process which reloadable is false.
+                            set_error_handler(function () {
+                            });
                             posix_kill($pid, $sig);
+                            restore_error_handler();
                         }
                     }
                 }
@@ -1810,7 +1832,11 @@ class Server
             // Continue reload.
             $oneServerPid = \current(static::$pidsToRestart);
             // Send reload signal to a server process.
+            set_error_handler(function () {
+            });
             posix_kill($oneServerPid, $sig);
+            restore_error_handler();
+
             // If the process does not exit after stopTimeout seconds try to kill it.
             if (!static::$gracefulStop) {
                 Timer::add(static::$stopTimeout, 'posix_kill', [$oneServerPid, SIGKILL], false);
@@ -1860,7 +1886,10 @@ class Server
                 if ($sig === SIGINT && !static::$daemonize) {
                     Timer::add(1, 'posix_kill', [$serverPid, SIGINT], false);
                 } else {
+                    set_error_handler(function () {
+                    });
                     posix_kill($serverPid, $sig);
+                    restore_error_handler();
                 }
                 if (!static::$gracefulStop) {
                     Timer::add(ceil(static::$stopTimeout), 'posix_kill', [$serverPid, SIGKILL], false);
@@ -1961,20 +1990,20 @@ class Server
                     'Y-m-d H:i:s',
                     static::$globalStatistics['start_timestamp']
                 ) .
-                '   запущен ' .
-                \floor(
-                    (time() -
-                        static::$globalStatistics['start_timestamp']) /
-                    (24 * 60 * 60)
-                ) .
-                ' дней ' .
-                \floor(
-                    ((time() -
+                    '   запущен ' .
+                    \floor(
+                        (time() -
+                            static::$globalStatistics['start_timestamp']) /
+                            (24 * 60 * 60)
+                    ) .
+                    ' дней ' .
+                    \floor(
+                        ((time() -
                             static::$globalStatistics['start_timestamp']) %
-                        (24 * 60 * 60)) /
-                    (60 * 60)
-                ) .
-                " часов   \n",
+                            (24 * 60 * 60)) /
+                            (60 * 60)
+                    ) .
+                    " часов   \n",
                 FILE_APPEND
             );
             $loadStr = 'load average: ' . implode(", ", $loadavg);
@@ -2025,14 +2054,17 @@ class Server
                     'server_name',
                     static::$maxServerNameLength
                 ) . " connections " . str_pad('send_fail', 9) . " "
-                . str_pad('timers', 8) . str_pad('total_request', 13) . " qps    status\n",
+                    . str_pad('timers', 8) . str_pad('total_request', 13) . " qps    status\n",
                 \FILE_APPEND
             );
 
             chmod(static::$statisticsFile, 0722);
 
             foreach (static::getAllServerPids() as $serverPid) {
+                set_error_handler(function () {});
                 posix_kill($serverPid, SIGIOT);
+                restore_error_handler();
+
             }
             return;
         }
@@ -2077,7 +2109,9 @@ class Server
             );
             chmod(static::$statisticsFile, 0722);
             foreach (static::getAllServerPids() as $serverPid) {
+                set_error_handler(function () {});
                 posix_kill($serverPid, SIGIO);
+                restore_error_handler();
             }
             return;
         }
