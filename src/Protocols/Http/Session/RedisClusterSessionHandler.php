@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -29,27 +31,43 @@ use RedisCluster;
 use RedisClusterException;
 use RedisException;
 
+/**
+ * Class RedisClusterSessionHandler
+ * @package localzet\Server\Protocols\Http\Session
+ */
 class RedisClusterSessionHandler extends RedisSessionHandler
 {
     /**
-     * @param $config
+     * Конструктор RedisClusterSessionHandler.
+     *
+     * @param array $config Конфигурация Redis-кластера.
+     *
      * @throws RedisClusterException
      * @throws RedisException
      */
-    public function __construct($config)
+    public function __construct(array $config)
     {
+        // Извлекаем значения из конфигурации или устанавливаем значения по умолчанию
         $timeout = $config['timeout'] ?? 2;
         $readTimeout = $config['read_timeout'] ?? $timeout;
         $persistent = $config['persistent'] ?? false;
         $auth = $config['auth'] ?? '';
+
+        // Формируем аргументы для создания экземпляра RedisCluster
         $args = [null, $config['host'], $timeout, $readTimeout, $persistent];
         if ($auth) {
             $args[] = $auth;
         }
+
+        // Создаем экземпляр RedisCluster
         $this->redis = new RedisCluster(...$args);
+
+        // Если префикс не указан в конфигурации, устанавливаем значение по умолчанию
         if (empty($config['prefix'])) {
             $config['prefix'] = 'redis_session_';
         }
+
+        // Устанавливаем префикс для ключей сессий в Redis
         $this->redis->setOption(Redis::OPT_PREFIX, $config['prefix']);
     }
 
@@ -58,6 +76,7 @@ class RedisClusterSessionHandler extends RedisSessionHandler
      */
     public function read(string $sessionId): string
     {
+        // Читаем данные сессии из Redis по ключу
         return $this->redis->get($sessionId);
     }
 }

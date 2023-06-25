@@ -7,7 +7,6 @@ use localzet\Server\Protocols\Text;
 
 test(Text::class, function () {
     $connection = Mockery::mock(ConnectionInterface::class);
-
     //::input
     //input too long
     testWithConnectionClose(function ($connection) {
@@ -17,16 +16,14 @@ test(Text::class, function () {
     });
     //input without "\n"
     expect(Text::input('jhdxr', $connection))
-        ->toBe(0);
-    //input with "\n"
-    expect(Text::input("jhdxr\n", $connection))
-        ->toBe(6);
-
-    //::encode
-    expect(Text::encode('jhdxr'))
-        ->toBe("jhdxr\n");
-
-    //::decode
-    expect(Text::decode("jhdxr\n"))
+        ->toBe(0)
+        //input with "\n"
+        ->and(Text::input("jhdxr\n", $connection))
+        ->toBe(6)
+        //::encode
+        ->and(Text::encode('jhdxr'))
+        ->toBe("jhdxr\n")
+        //::decode
+        ->and(Text::decode("jhdxr\n"))
         ->toBe('jhdxr');
 });

@@ -642,7 +642,7 @@ class Server
                 @mkdir(dirname(static::$logFile), 0777, true);
             }
             touch(static::$logFile);
-            chmod(static::$logFile, 0622);
+            chmod(static::$logFile, 0644);
         }
 
         // Состояние
@@ -819,7 +819,7 @@ class Server
 
         //show version
         $lineVersion = 'Server version:' . static::VERSION . str_pad('PHP version:', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Event-loop:', 22, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
-        if (!defined('LINE_VERSIOIN_LENGTH')) define('LINE_VERSIOIN_LENGTH', strlen($lineVersion));
+        if (!defined('LINE_VERSION_LENGTH')) define('LINE_VERSION_LENGTH', strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
         $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
         $lineTwo = str_pad('<w> SERVERS </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
@@ -893,8 +893,8 @@ class Server
         }
 
         //Keep beauty when show less columns
-        if (!defined('LINE_VERSIOIN_LENGTH')) define('LINE_VERSIOIN_LENGTH', 0);
-        $totalLength <= LINE_VERSIOIN_LENGTH && $totalLength = LINE_VERSIOIN_LENGTH;
+        if (!defined('LINE_VERSION_LENGTH')) define('LINE_VERSION_LENGTH', 0);
+        $totalLength <= LINE_VERSION_LENGTH && $totalLength = LINE_VERSION_LENGTH;
 
         return $totalLength;
     }
@@ -1086,7 +1086,7 @@ class Server
     public static function getArgv(): array
     {
         global $argv;
-        return static::$command ? array_merge($argv, explode(' ', static::$command)) : $argv;
+        return static::$command ? [...$argv, ...explode(' ', static::$command)] : $argv;
     }
 
     /**
@@ -1153,7 +1153,7 @@ class Server
                 continue;
             }
             //$qps = isset($totalRequestCache[$pid]) ? $currentTotalRequest[$pid]
-            if (!isset($totalRequestCache[$pid]) || !isset($currentTotalRequest[$pid])) {
+            if (!isset($totalRequestCache[$pid], $currentTotalRequest[$pid])) {
                 $qps = 0;
             } else {
                 $qps = $currentTotalRequest[$pid] - $totalRequestCache[$pid];
@@ -1213,7 +1213,7 @@ class Server
      * Signal handler.
      *
      * @param int $signal
-     * @throws Exception
+     * @throws Throwable
      */
     public static function signalHandler(int $signal): void
     {
@@ -1445,7 +1445,7 @@ class Server
     protected static function forkServersForWindows(): void
     {
         $files = static::getStartFilesForWindows();
-        if (in_array('-q', static::getArgv()) || count($files) === 1) {
+        if (count($files) === 1 || in_array('-q', static::getArgv())) {
             if (count(static::$servers) > 1) {
                 static::safeEcho("@@@ Ошибка: инициализация нескольких серверов в одном php-файле не поддерживается @@@\r\n");
             } elseif (count(static::$servers) <= 0) {
@@ -1461,15 +1461,15 @@ class Server
             $server->listen();
             $server->run();
             exit("@@@ child exit @@@\r\n");
-        } else {
-            static::$globalEvent = new Select();
-            static::$globalEvent->setErrorHandler(function ($exception) {
-                static::stopAll(250, $exception);
-            });
-            Timer::init(static::$globalEvent);
-            foreach ($files as $startFile) {
-                static::forkOneServerForWindows($startFile);
-            }
+        }
+
+        static::$globalEvent = new Select();
+        static::$globalEvent->setErrorHandler(function ($exception) {
+            static::stopAll(250, $exception);
+        });
+        Timer::init(static::$globalEvent);
+        foreach ($files as $startFile) {
+            static::forkOneServerForWindows($startFile);
         }
     }
 
@@ -1760,7 +1760,7 @@ class Server
         foreach (static::$servers as $server) {
             $socketName = $server->getSocketName();
             if ($server->transport === 'unix' && $socketName) {
-                list(, $address) = explode(':', $socketName, 2);
+                [, $address] = explode(':', $socketName, 2);
                 $address = substr($address, strpos($address, '/') + 2);
                 @unlink($address);
             }
@@ -1777,7 +1777,7 @@ class Server
      * Execute reload.
      *
      * @return void
-     * @throws Exception
+     * @throws Throwable
      */
     protected static function reload(): void
     {
@@ -2061,10 +2061,10 @@ class Server
             chmod(static::$statisticsFile, 0722);
 
             foreach (static::getAllServerPids() as $serverPid) {
-                set_error_handler(function () {});
+                set_error_handler(function () {
+                });
                 posix_kill($serverPid, SIGIOT);
                 restore_error_handler();
-
             }
             return;
         }
@@ -2109,7 +2109,8 @@ class Server
             );
             chmod(static::$statisticsFile, 0722);
             foreach (static::getAllServerPids() as $serverPid) {
-                set_error_handler(function () {});
+                set_error_handler(function () {
+                });
                 posix_kill($serverPid, SIGIO);
                 restore_error_handler();
             }
@@ -2217,7 +2218,7 @@ class Server
      */
     public static function log(mixed $msg): void
     {
-        $msg = $msg . "\n";
+        $msg .= "\n";
         if (!static::$daemonize) {
             static::safeEcho($msg);
         }
@@ -2416,7 +2417,7 @@ class Server
             return null;
         }
         // Get the application layer communication protocol and listening address.
-        list($scheme, $address) = explode(':', $this->socketName, 2);
+        [$scheme, $address] = explode(':', $this->socketName, 2);
         // Check application layer protocol class.
         if (!isset(self::BUILD_IN_TRANSPORTS[$scheme])) {
             $scheme = ucfirst($scheme);
@@ -2550,7 +2551,7 @@ class Server
         // Remove listener for server socket.
         $this->unlisten();
         // Close all connections for the server.
-        if (!static::$gracefulStop) {
+        if (static::$gracefulStop) {
             foreach ($this->connections as $connection) {
                 $connection->close();
             }

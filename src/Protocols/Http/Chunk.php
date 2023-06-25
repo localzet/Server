@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -28,21 +30,22 @@ use function dechex;
 use function strlen;
 
 /**
- * Class Chunk
+ * Класс Chunk
  * @package localzet\Server\Protocols\Http
  */
 class Chunk
 {
     /**
-     * Chunk buffer.
+     * Буфер чанка.
      *
      * @var string
      */
     protected string $buffer;
 
     /**
-     * Chunk constructor.
-     * @param string $buffer
+     * Конструктор Chunk.
+     *
+     * @param string $buffer Буфер, передаваемый в чанк.
      */
     public function __construct(string $buffer)
     {
@@ -52,7 +55,9 @@ class Chunk
     /**
      * __toString
      *
-     * @return string
+     * Возвращает строковое представление чанка.
+     *
+     * @return string Строковое представление чанка.
      */
     public function __toString()
     {

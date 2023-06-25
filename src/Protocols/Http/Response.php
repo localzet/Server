@@ -102,7 +102,7 @@ class Response
      *
      * @link https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
      */
-    const PHRASES = [
+    public const PHRASES = [
         100 => 'Continue',
         101 => 'Switching Protocols',
         102 => 'Processing', // WebDAV; RFC 2518
@@ -193,8 +193,7 @@ class Response
         int    $status = 200,
         ?array $headers = [],
         string $body = ''
-    )
-    {
+    ) {
         $this->status = $status;
         $this->headers = $headers;
         $this->body = $body;
@@ -424,10 +423,8 @@ class Response
             $head .= "Content-Disposition: attachment; filename=\"$baseName\"\r\n";
         }
 
-        if (!isset($headers['Last-Modified'])) {
-            if ($mtime = filemtime($file)) {
-                $head .= 'Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
-            }
+        if (!isset($headers['Last-Modified']) && $mtime = filemtime($file)) {
+            $head .= 'Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
         }
 
         return "$head\r\n";
@@ -478,7 +475,7 @@ class Response
         if (!isset($headers['Transfer-Encoding'])) {
             $head .= "Content-Length: $bodyLen\r\n\r\n";
         } else {
-            return "$head\r\n" . dechex($bodyLen) . "\r\n$this->body\r\n";
+            return $bodyLen ? "$head\r\n" . dechex($bodyLen) . "\r\n{$this->body}\r\n" : "$head\r\n";
         }
 
         // The whole http package

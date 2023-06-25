@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -25,6 +27,7 @@
 namespace localzet\Server\Protocols\Http;
 
 use Exception;
+use InvalidArgumentException;
 use JetBrains\PhpStorm\ArrayShape;
 use localzet\Server\Protocols\Http\Session\FileSessionHandler;
 use localzet\Server\Protocols\Http\Session\SessionHandlerInterface;
@@ -41,76 +44,76 @@ use function unserialize;
 
 
 /**
- * Class Session
+ * Класс Session
  * @package localzet\Server\Protocols\Http
  */
 class Session
 {
     /**
-     * Session andler class which implements SessionHandlerInterface.
+     * Класс обработчика сессий, реализующий интерфейс SessionHandlerInterface.
      *
      * @var string
      */
     protected static string $handlerClass = FileSessionHandler::class;
 
     /**
-     * Parameters of __constructor for session handler class.
+     * Параметры конструктора для класса обработчика сессий.
      *
      * @var mixed
      */
     protected static mixed $handlerConfig = null;
 
     /**
-     * Session name.
+     * Имя сессии.
      *
      * @var string
      */
     public static string $name = 'PHPSID';
 
     /**
-     * Auto update timestamp.
+     * Автоматическое обновление метки времени.
      *
      * @var bool
      */
     public static bool $autoUpdateTimestamp = false;
 
     /**
-     * Session lifetime.
+     * Время жизни сессии.
      *
      * @var int
      */
     public static int $lifetime = 1440;
 
     /**
-     * Cookie lifetime.
+     * Время жизни cookie.
      *
      * @var int
      */
     public static int $cookieLifetime = 1440;
 
     /**
-     * Session cookie path.
+     * Путь к cookie сессии.
      *
      * @var string
      */
     public static string $cookiePath = '/';
 
     /**
-     * Session cookie domain.
+     * Домен cookie сессии.
      *
      * @var string
      */
     public static string $domain = '';
 
     /**
-     * HTTPS only cookies.
+     * Только HTTPS cookie.
      *
      * @var bool
      */
     public static bool $secure = false;
 
     /**
-     * HTTP access only.
+     * Только HTTP доступ.
      *
      * @var bool
      */
@@ -124,42 +127,42 @@ class Session
     public static string $sameSite = '';
 
     /**
-     * Gc probability.
+     * Вероятность выполнения сборки мусора.
      *
      * @var int[]
      */
     public static array $gcProbability = [1, 20000];
 
     /**
-     * Session handler instance.
+     * Экземпляр обработчика сессий.
      *
      * @var ?SessionHandlerInterface
      */
     protected static ?SessionHandlerInterface $handler = null;
 
     /**
-     * Session data.
+     * Данные сессии.
      *
      * @var array
      */
     protected mixed $data = [];
 
     /**
-     * Session changed and need to save.
+     * Флаг изменения данных сессии, требующий сохранения.
      *
      * @var bool
      */
     protected bool $needSave = false;
 
     /**
-     * Session id.
+     * Идентификатор сессии.
      *
      * @var string
      */
     protected string $sessionId;
 
     /**
-     * Session constructor.
+     * Конструктор сессии.
      *
      * @param string $sessionId
      */
@@ -176,7 +179,7 @@ class Session
     }
 
     /**
-     * Get session id.
+     * Получить идентификатор сессии.
      *
      * @return string
      */
@@ -186,7 +189,7 @@ class Session
     }
 
     /**
-     * Get session.
+     * Получить данные сессии.
      *
      * @param string $name
      * @param mixed|null $default
@@ -198,7 +201,7 @@ class Session
     }
 
     /**
-     * Store data in the session.
+     * Сохранить данные в сессии.
      *
      * @param string $name
      * @param mixed $value
@@ -210,7 +213,7 @@ class Session
     }
 
     /**
-     * Delete an item from the session.
+     * Удалить элемент из сессии.
      *
      * @param string $name
      */
@@ -221,7 +224,7 @@ class Session
     }
 
     /**
-     * Retrieve and delete an item from the session.
+     * Получить и удалить элемент из сессии.
      *
      * @param string $name
      * @param mixed|null $default
@@ -235,7 +238,7 @@ class Session
     }
 
     /**
-     * Store data in the session.
+     * Сохранить данные в сессии.
      *
      * @param array|string $key
      * @param mixed|null $value
@@ -254,7 +257,7 @@ class Session
     }
 
     /**
-     * Remove a piece of data from the session.
+     * Удалить данные из сессии.
      *
      * @param array|string $name
      */
@@ -273,7 +276,7 @@ class Session
     }
 
     /**
-     * Retrieve all the data in the session.
+     * Получить все данные сессии.
      *
      * @return array
      */
@@ -283,7 +286,7 @@ class Session
     }
 
     /**
-     * Remove all data from the session.
+     * Удалить все данные из сессии.
      *
      * @return void
      */
@@ -294,7 +297,7 @@ class Session
     }
 
     /**
-     * Determining If An Item Exists In The Session.
+     * Проверить наличие элемента в сессии.
      *
      * @param string $name
      * @return bool
@@ -305,7 +308,7 @@ class Session
     }
 
     /**
-     * To determine if an item is present in the session, even if its value is null.
+     * Проверить наличие элемента в сессии, даже если его значение равно null.
      *
      * @param string $name
      * @return bool
@@ -316,7 +319,7 @@ class Session
     }
 
     /**
-     * Save session to store.
+     * Сохранить сессию в хранилище.
      *
      * @return void
      */
@@ -329,13 +332,13 @@ class Session
                 static::$handler->write($this->sessionId, serialize($this->data));
             }
         } elseif (static::$autoUpdateTimestamp) {
-            static::refresh();
+            $this->refresh();
         }
         $this->needSave = false;
     }
 
     /**
-     * Refresh session expire time.
+     * Обновить время истечения сессии.
      *
      * @return bool
      */
@@ -345,7 +348,7 @@ class Session
     }
 
     /**
-     * Init.
+     * Инициализация.
      *
      * @return void
      */
@@ -368,7 +371,7 @@ class Session
     }
 
     /**
-     * Set session handler class.
+     * Установить класс обработчика сессии.
      *
      * @param mixed|null $className
      * @param mixed|null $config
@@ -386,7 +389,7 @@ class Session
     }
 
     /**
-     * Get cookie params.
+     * Получить параметры cookie.
      *
      * @return array
      */
@@ -404,7 +407,7 @@ class Session
     }
 
     /**
-     * Init handler.
+     * Инициализация обработчика.
      *
      * @return void
      */
@@ -418,7 +421,7 @@ class Session
     }
 
     /**
-     * GC sessions.
+     * Очистка неиспользуемых сессий.
      *
      * @return void
      */
@@ -428,7 +431,7 @@ class Session
     }
 
     /**
-     * __destruct.
+     * Деструктор.
      *
      * @return void
      * @throws Exception
@@ -442,17 +445,19 @@ class Session
     }
 
     /**
-     * Check session id.
+     * Проверка идентификатора сессии.
      *
      * @param string $sessionId
      */
     protected static function checkSessionId(string $sessionId): void
     {
-        if (!preg_match('/^[a-zA-Z0-9]+$/', $sessionId)) {
-            throw new RuntimeException("session_id $sessionId is invalid");
+        if ($sessionId === '') {
+            throw new InvalidArgumentException('Session ID cannot be empty.');
+        }
+        if (!preg_match('/^[0-9a-zA-Z,-]{22,40}$/', $sessionId)) {
+            throw new InvalidArgumentException('Invalid session ID format.');
         }
     }
 }
 
-// Init session.
 Session::init();

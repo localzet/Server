@@ -5,8 +5,8 @@ declare(strict_types=1);
 use localzet\Server\Protocols\Frame;
 
 it('tests ::input', function () {
-    expect(Frame::input('foo'))->toBe(0);
-    expect(Frame::input("\0\0\0*foobar"))
+    expect(Frame::input('foo'))->toBe(0)
+        ->and(Frame::input("\0\0\0*foobar"))
         ->toBe(42);
 });
 
@@ -15,7 +15,6 @@ it('tests ::decode', function () {
     expect(Frame::decode($buffer))
         ->toBe('jhdxr');
 });
-
 it('tests ::encode', function () {
     expect(Frame::encode('jhdxr'))
         ->toBe(pack('N', 9) . 'jhdxr');

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -24,99 +26,124 @@
 
 namespace localzet\Server\Protocols\Http\Session;
 
+/**
+ * Интерфейс SessionHandlerInterface
+ */
 interface SessionHandlerInterface
 {
     /**
-     * Close the session
-     * @link http://php.net/manual/en/sessionhandlerinterface.close.php
+     * Закрывает сессию.
+     *
+     * @link http://php.net/manual/ru/sessionhandlerinterface.close.php
+     *
      * @return bool <p>
-     * The return value (usually TRUE on success, FALSE on failure).
-     * Note this value is returned internally to PHP for processing.
+     * Возвращает результат выполнения (чаще всего TRUE в случае успеха, FALSE в случае ошибки).
+     * Обратите внимание, что эта значение возвращается внутренней частью PHP для обработки.
      * </p>
+     *
      * @since 5.4.0
      */
     public function close(): bool;
 
     /**
-     * Destroy a session
-     * @link http://php.net/manual/en/sessionhandlerinterface.destroy.php
-     * @param string $sessionId The session ID being destroyed.
+     * Уничтожает сессию.
+     *
+     * @link http://php.net/manual/ru/sessionhandlerinterface.destroy.php
+     *
+     * @param string $sessionId Идентификатор уничтожаемой сессии.
+     *
      * @return bool <p>
-     * The return value (usually TRUE on success, FALSE on failure).
-     * Note this value is returned internally to PHP for processing.
+     * Возвращает результат выполнения (чаще всего TRUE в случае успеха, FALSE в случае ошибки).
+     * Обратите внимание, что эта значение возвращается внутренней частью PHP для обработки.
      * </p>
+     *
      * @since 5.4.0
      */
     public function destroy(string $sessionId): bool;
 
     /**
-     * Cleanup old sessions
-     * @link http://php.net/manual/en/sessionhandlerinterface.gc.php
+     * Очищает старые сессии.
+     *
+     * @link http://php.net/manual/ru/sessionhandlerinterface.gc.php
+     *
      * @param int $maxLifetime <p>
-     * Sessions that have not updated for
-     * the last maxlifetime seconds will be removed.
+     * Время жизни в секундах. Сессии, не обновлявшиеся в течение
+     * последних maxlifetime секунд, будут удалены.
      * </p>
+     *
      * @return bool <p>
-     * The return value (usually TRUE on success, FALSE on failure).
-     * Note this value is returned internally to PHP for processing.
+     * Возвращает результат выполнения (чаще всего TRUE в случае успеха, FALSE в случае ошибки).
+     * Обратите внимание, что эта значение возвращается внутренней частью PHP для обработки.
      * </p>
+     *
      * @since 5.4.0
      */
     public function gc(int $maxLifetime): bool;
 
     /**
-     * Initialize session
-     * @link http://php.net/manual/en/sessionhandlerinterface.open.php
-     * @param string $savePath The path where to store/retrieve the session.
-     * @param string $name The session name.
+     * Инициализирует сессию.
+     *
+     * @link http://php.net/manual/ru/sessionhandlerinterface.open.php
+     *
+     * @param string $savePath Путь для хранения/извлечения сессии.
+     * @param string $name Имя сессии.
+     *
      * @return bool <p>
-     * The return value (usually TRUE on success, FALSE on failure).
-     * Note this value is returned internally to PHP for processing.
+     * Возвращает результат выполнения (чаще всего TRUE в случае успеха, FALSE в случае ошибки).
+     * Обратите внимание, что эта значение возвращается внутренней частью PHP для обработки.
      * </p>
+     *
      * @since 5.4.0
      */
     public function open(string $savePath, string $name): bool;
 
 
     /**
-     * Read session data
-     * @link http://php.net/manual/en/sessionhandlerinterface.read.php
-     * @param string $sessionId The session id to read data for.
+     * Читает данные сессии.
+     *
+     * @link http://php.net/manual/ru/sessionhandlerinterface.read.php
+     *
+     * @param string $sessionId Идентификатор сессии для чтения данных.
+     *
      * @return string <p>
-     * Returns an encoded string of the read data.
-     * If nothing was read, it must return an empty string.
-     * Note this value is returned internally to PHP for processing.
+     * Возвращает закодированную строку с прочитанными данными.
+     * Если данные отсутствуют, должна вернуться пустая строка.
+     * Обратите внимание, что эта значение возвращается внутренней частью PHP для обработки.
      * </p>
+     *
      * @since 5.4.0
      */
     public function read(string $sessionId): string;
 
     /**
-     * Write session data
-     * @link http://php.net/manual/en/sessionhandlerinterface.write.php
-     * @param string $sessionId The session id.
+     * Записывает данные сессии.
+     *
+     * @link http://php.net/manual/ru/sessionhandlerinterface.write.php
+     *
+     * @param string $sessionId Идентификатор сессии.
      * @param string $sessionData <p>
-     * The encoded session data. This data is the
-     * result of the PHP internally encoding
-     * the $SESSION superglobal to a serialized
-     * string and passing it as this parameter.
-     * Please note sessions use an alternative serialization method.
+     * Закодированные данные сессии. Данные представляют собой
+     * результат внутренней сериализации суперглобальной переменной $SESSION
+     * в виде сериализованной строки.
+     * Обратите внимание, что сессии используют альтернативный метод сериализации.
      * </p>
+     *
      * @return bool <p>
-     * The return value (usually TRUE on success, FALSE on failure).
-     * Note this value is returned internally to PHP for processing.
+     * Возвращает результат выполнения (чаще всего TRUE в случае успеха, FALSE в случае ошибки).
+     * Обратите внимание, что эта значение возвращается внутренней частью PHP для обработки.
      * </p>
+     *
      * @since 5.4.0
      */
     public function write(string $sessionId, string $sessionData): bool;
 
     /**
-     * Update session modify time.
+     * Обновляет метку времени модификации сессии.
      *
-     * @see https://www.php.net/manual/en/class.sessionupdatetimestamphandlerinterface.php
+     * @see https://www.php.net/manual/ru/class.sessionupdatetimestamphandlerinterface.php
      *
-     * @param string $sessionId
-     * @param string $data Session Data.
+     * @param string $sessionId Идентификатор сессии.
+     * @param string $data Данные сессии.
      *
      * @return bool
      */

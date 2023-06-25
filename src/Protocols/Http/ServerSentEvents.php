@@ -27,21 +27,21 @@ declare(strict_types=1);
 namespace localzet\Server\Protocols\Http;
 
 /**
- * Class ServerSentEvents
+ * Класс ServerSentEvents
  * @package localzet\Server\Protocols\Http
  */
 class ServerSentEvents
 {
     /**
-     * Data.
+     * Данные.
      * @var array
      */
     protected array $data;
 
     /**
-     * ServerSentEvents constructor.
-     * $data for example ['event'=>'ping', 'data' => 'some thing', 'id' => 1000, 'retry' => 5000]
-     * @param array $data
+     * Конструктор ServerSentEvents.
+     *
+     * @param array $data Данные для создания объекта ServerSentEvents. Пример: ['event' => 'ping', 'data' => 'какие-то данные', 'id' => 1000, 'retry' => 5000]
      */
     public function __construct(array $data)
     {
@@ -51,7 +51,9 @@ class ServerSentEvents
     /**
      * __toString.
      *
-     * @return string
+     * Возвращает строковое представление объекта ServerSentEvents.
+     *
+     * @return string Строковое представление объекта ServerSentEvents.
      */
     public function __toString()
     {

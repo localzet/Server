@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -59,11 +61,11 @@ use const TCP_NODELAY;
 class AsyncTcpConnection extends TcpConnection
 {
     /**
-     * PHP built-in protocols.
+     * Встроенные протоколы PHP.
      *
      * @var array<string,string>
      */
-    const BUILD_IN_TRANSPORTS = [
+    public const BUILD_IN_TRANSPORTS = [
         'tcp' => 'tcp',
         'udp' => 'udp',
         'unix' => 'unix',
@@ -73,75 +75,75 @@ class AsyncTcpConnection extends TcpConnection
         'tls' => 'tls'
     ];
     /**
-     * Emitted when socket connection is successfully established.
+     * Вызывается при успешном установлении соединения по сокету.
      *
      * @var ?callable
      */
     public $onConnect = null;
 
     /**
-     * Emitted when websocket handshake completed (Only work when protocol is ws).
+     * Вызывается, когда завершено рукопожатие веб-сокета (работает только при протоколе ws).
      *
      * @var ?callable
      */
     public $onWebSocketConnect = null;
 
     /**
-     * Transport layer protocol.
+     * Протокол транспортного уровня.
      *
      * @var string
      */
     public string $transport = 'tcp';
     /**
-     * Socks5 proxy.
+     * Socks5-прокси.
      *
      * @var string
      */
     public string $proxySocks5 = '';
     /**
-     * Http proxy.
+     * HTTP-прокси.
      *
      * @var string
      */
     public string $proxyHttp = '';
     /**
-     * Status.
+     * Статус соединения.
      *
      * @var int
      */
     protected int $status = self::STATUS_INITIAL;
     /**
-     * Remote host.
+     * Удаленный хост.
      *
      * @var string
      */
     protected string $remoteHost = '';
     /**
-     * Remote port.
+     * Удаленный порт.
      *
      * @var int
      */
     protected int $remotePort = 80;
     /**
-     * Connect start time.
+     * Время начала установки соединения.
      *
      * @var float
      */
     protected float $connectStartTime = 0;
     /**
-     * Remote URI.
+     * Удаленный URI.
      *
      * @var string
      */
     protected string $remoteURI = '';
     /**
-     * Context option.
+     * Опции контекста.
      *
      * @var array
      */
     protected array $contextOption = [];
     /**
-     * Reconnect timer.
+     * Таймер переподключения.
      *
      * @var int
      */
@@ -158,7 +160,7 @@ class AsyncTcpConnection extends TcpConnection
     {
         $addressInfo = parse_url($remoteAddress);
         if (!$addressInfo) {
-            list($scheme, $this->remoteAddress) = explode(':', $remoteAddress, 2);
+            [$scheme, $this->remoteAddress] = explode(':', $remoteAddress, 2);
             if ('unix' === strtolower($scheme)) {
                 $this->remoteAddress = substr($remoteAddress, strpos($remoteAddress, '/') + 2);
             }

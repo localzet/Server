@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -56,14 +58,14 @@ class Websocket
      *
      * @var string
      */
-    const BINARY_TYPE_BLOB = "\x81";
+    public const BINARY_TYPE_BLOB = "\x81";
 
     /**
      * Websocket arraybuffer type.
      *
      * @var string
      */
-    const BINARY_TYPE_ARRAYBUFFER = "\x82";
+    public const BINARY_TYPE_ARRAYBUFFER = "\x82";
 
     /**
      * Check the integrity of the package.
@@ -117,7 +119,7 @@ class Websocket
                     // Понг-пакет
                 case 0xa:
                     break;
-                // Закрытие
+                    // Закрытие
                 case 0x8:
                     // Попытка вызвать onWebSocketClose
                     $closeCb = $connection->onWebSocketClose ?? $connection->server->onWebSocketClose ?? false;
@@ -132,7 +134,7 @@ class Websocket
                         $connection->close("\x88\x02\x03\xe8", true);
                     }
                     return 0;
-                // Неверный опкод
+                    // Неверный опкод
                 default:
                     Server::safeEcho("Ошибка опкода $opcode и закрытие WebSocket соединения. Буфер:" . $buffer . "\n");
                     $connection->close();
@@ -190,7 +192,9 @@ class Websocket
                         }
                     }
                     return 0;
-                } else if ($opcode === 0xa) {
+                }
+
+                if ($opcode === 0xa) {
                     if ($recvLen >= $currentFrameLength) {
                         $pongData = static::decode(substr($buffer, 0, $currentFrameLength), $connection);
                         $connection->consumeRecvBuffer($currentFrameLength);
@@ -213,9 +217,9 @@ class Websocket
                     return 0;
                 }
                 return $currentFrameLength;
-            } else {
-                $connection->context->websocketCurrentFrameLength = $currentFrameLength;
             }
+
+            $connection->context->websocketCurrentFrameLength = $currentFrameLength;
         }
 
         // Получены только данные о длине кадра.
@@ -224,18 +228,20 @@ class Websocket
             $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
             $connection->context->websocketCurrentFrameLength = 0;
             return 0;
-        } // Длина полученных данных больше длины кадра.
-        elseif ($connection->context->websocketCurrentFrameLength < $recvLen) {
+        }
+
+        // Длина полученных данных больше длины кадра.
+        if ($connection->context->websocketCurrentFrameLength < $recvLen) {
             static::decode(substr($buffer, 0, $connection->context->websocketCurrentFrameLength), $connection);
             $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
             $currentFrameLength = $connection->context->websocketCurrentFrameLength;
             $connection->context->websocketCurrentFrameLength = 0;
             // Продолжаем читать следующий кадр.
             return static::input(substr($buffer, $currentFrameLength), $connection);
-        } // Длина полученных данных меньше длины кадра.
-        else {
-            return 0;
         }
+
+        // Длина полученных данных меньше длины кадра.
+        return 0;
     }
 
     /**
@@ -244,7 +250,7 @@ class Websocket
      * @param mixed $buffer
      * @param TcpConnection $connection
      * @return string
-     * @throws Exception
+     * @throws Throwable
      */
     public static function encode(mixed $buffer, TcpConnection $connection): string
     {
@@ -287,13 +293,11 @@ class Websocket
             }
             $connection->context->tmpWebsocketData .= $encodeBuffer;
             // Проверка наполненности буфера
-            if ($connection->maxSendBufferSize <= strlen($connection->context->tmpWebsocketData)) {
-                if ($connection->onBufferFull) {
-                    try {
-                        ($connection->onBufferFull)($connection);
-                    } catch (Throwable $e) {
-                        Server::stopAll(250, $e);
-                    }
+            if ($connection->onBufferFull && $connection->maxSendBufferSize <= strlen($connection->context->tmpWebsocketData)) {
+                try {
+                    ($connection->onBufferFull)($connection);
+                } catch (Throwable $e) {
+                    Server::stopAll(250, $e);
                 }
             }
             return '';
@@ -332,13 +336,13 @@ class Websocket
         if ($connection->context->websocketCurrentFrameLength) {
             $connection->context->websocketDataBuffer .= $decoded;
             return $connection->context->websocketDataBuffer;
-        } else {
-            if ($connection->context->websocketDataBuffer !== '') {
-                $decoded = $connection->context->websocketDataBuffer . $decoded;
-                $connection->context->websocketDataBuffer = '';
-            }
-            return $decoded;
         }
+
+        if ($connection->context->websocketDataBuffer !== '') {
+            $decoded = $connection->context->websocketDataBuffer . $decoded;
+            $connection->context->websocketDataBuffer = '';
+        }
+        return $decoded;
     }
 
     /**

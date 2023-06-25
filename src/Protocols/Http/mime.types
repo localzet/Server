@@ -1,4 +1,3 @@
-
 types {
     text/html                             html htm shtml;
     text/css                              css;
@@ -58,11 +57,7 @@ types {
     application/xspf+xml                  xspf;
     application/zip                       zip;
 
-    application/octet-stream              bin exe dll;
-    application/octet-stream              deb;
-    application/octet-stream              dmg;
-    application/octet-stream              iso img;
-    application/octet-stream              msi msp msm;
+    application/octet-stream              bin exe dll deb dmg iso img msi msp msm;
 
     application/vnd.openxmlformats-officedocument.wordprocessingml.document    docx;
     application/vnd.openxmlformats-officedocument.spreadsheetml.sheet          xlsx;

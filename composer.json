@@ -34,7 +34,8 @@
   },
   "require-dev": {
     "pestphp/pest": "2.x-dev",
-    "mockery/mockery": "2.0.x-dev"
+    "mockery/mockery": "2.0.x-dev",
+    "guzzlehttp/guzzle": "^7.0"
   },
   "config": {
     "allow-plugins": {
@@ -45,7 +46,8 @@
     "ext-ev": "For better performance",
     "ext-uv": "For better performance",
     "ext-event": "For better performance",
-    "ext-redis": "For better performance"
+    "ext-redis": "For Redis Session Handler",
+    "mongodb/mongodb": "For Mongo Session Handler"
   },
   "autoload": {
     "psr-4": {

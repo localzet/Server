@@ -40,50 +40,49 @@ use Throwable;
  */
 class RedisSessionHandler implements SessionHandlerInterface
 {
-
     /**
-     * @var Redis|RedisCluster
+     * @var Redis|RedisCluster Расширение Redis или RedisCluster для взаимодействия с Redis-сервером.
      */
     protected Redis|RedisCluster $redis;
 
     /**
-     * @var array
+     * @var array Конфигурация Redis-сервера и сессий.
      */
     protected array $config;
 
     /**
-     * RedisSessionHandler constructor.
-     * @param array $config = [
-     *  'host'     => '127.0.0.1',
-     *  'port'     => 6379,
-     *  'timeout'  => 2,
-     *  'auth'     => '******',
-     *  'database' => 2,
-     *  'prefix'   => 'redis_session_',
-     *  'ping'     => 55,
-     * ]
+     * Конструктор RedisSessionHandler.
+     *
+     * @param array $config Конфигурация Redis-сервера и сессий.
+     *
      * @throws RedisException
      */
     public function __construct(array $config)
     {
+        // Проверяем, установлено ли расширение Redis
         if (false === extension_loaded('redis')) {
-            throw new RuntimeException('Please install redis extension.');
+            throw new RuntimeException('Пожалуйста, установите расширение redis.');
         }
 
+        // Устанавливаем значение по умолчанию, если параметр timeout не указан в конфигурации
         if (!isset($config['timeout'])) {
             $config['timeout'] = 2;
         }
 
         $this->config = $config;
 
+        // Устанавливаем соединение с Redis-сервером
         $this->connect();
 
+        // Устанавливаем таймер для отправки команды ping на Redis-сервер
         Timer::add($config['ping'] ?? 55, function () {
             $this->redis->get('ping');
         });
     }
 
     /**
+     * Устанавливает соединение с Redis-сервером.
+     *
      * @throws RedisException
      */
     public function connect(): void
@@ -92,14 +91,20 @@ class RedisSessionHandler implements SessionHandlerInterface
 
         $this->redis = new Redis();
         if (false === $this->redis->connect($config['host'], $config['port'], $config['timeout'])) {
-            throw new RuntimeException("Redis connect {$config['host']}:{$config['port']} fail.");
+            throw new RuntimeException("Не удалось подключиться к Redis-серверу {$config['host']}:{$config['port']}.");
         }
+
+        // Аутентификация, если указан пароль
         if (!empty($config['auth'])) {
             $this->redis->auth($config['auth']);
         }
+
+        // Выбор базы данных, если указан номер базы данных
         if (!empty($config['database'])) {
             $this->redis->select($config['database']);
         }
+
+        // Установка префикса для ключей сессий в Redis
         if (empty($config['prefix'])) {
             $config['prefix'] = 'redis_session_';
         }
@@ -116,7 +121,7 @@ class RedisSessionHandler implements SessionHandlerInterface
 
     /**
      * {@inheritdoc}
-     * @param string $sessionId
+     * @param string $sessionId Идентификатор сессии.
      * @return string
      * @throws RedisException
      * @throws Throwable
@@ -124,9 +129,11 @@ class RedisSessionHandler implements SessionHandlerInterface
     public function read(string $sessionId): string
     {
         try {
+            // Читаем данные сессии из Redis по ключу
             return $this->redis->get($sessionId);
         } catch (Throwable $e) {
             $msg = strtolower($e->getMessage());
+            // Если соединение с Redis было потеряно, восстанавливаем соединение и повторяем операцию чтения
             if ($msg === 'connection lost' || strpos($msg, 'went away')) {
                 $this->connect();
                 return $this->redis->get($sessionId);
@@ -141,6 +148,7 @@ class RedisSessionHandler implements SessionHandlerInterface
      */
     public function write(string $sessionId, string $sessionData): bool
     {
+        // Записываем данные сессии в Redis с установленным временем жизни
         return true === $this->redis->setex($sessionId, Session::$lifetime, $sessionData);
     }
 
@@ -150,6 +158,7 @@ class RedisSessionHandler implements SessionHandlerInterface
      */
     public function updateTimestamp(string $sessionId, string $data = ""): bool
     {
+        // Обновляем время жизни ключа сессии в Redis
         return true === $this->redis->expire($sessionId, Session::$lifetime);
     }
 
@@ -159,6 +168,7 @@ class RedisSessionHandler implements SessionHandlerInterface
      */
     public function destroy(string $sessionId): bool
     {
+        // Удаляем ключ сессии из Redis
         $this->redis->del($sessionId);
         return true;
     }

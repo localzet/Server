@@ -34,100 +34,103 @@ use function pcntl_signal_dispatch;
 use const DIRECTORY_SEPARATOR;
 
 /**
- * select eventloop
+ * Класс Select реализует интерфейс EventInterface и представляет select event loop.
  */
 class Select implements EventInterface
 {
     /**
-     * Running.
+     * Флаг, указывающий, работает ли событийный цикл.
+     * 
      * @var bool
      */
     protected bool $running = true;
 
     /**
-     * All listeners for read/write event.
+     * Массив всех обработчиков событий чтения.
      *
      * @var array
      */
     protected array $readEvents = [];
 
     /**
-     * All listeners for read/write event.
+     * Массив всех обработчиков событий записи.
      *
      * @var array
      */
     protected array $writeEvents = [];
 
     /**
+     * Массив всех обработчиков событий исключений.
+     *
      * @var array
      */
     protected array $exceptEvents = [];
 
     /**
-     * Event listeners of signal.
+     * Массив всех обработчиков сигналов.
      *
      * @var array
      */
     protected array $signalEvents = [];
 
     /**
-     * Fds waiting for read event.
+     * Массив файловых дескрипторов, ожидающих события чтения.
      *
      * @var array
      */
     protected array $readFds = [];
 
     /**
-     * Fds waiting for write event.
+     * Массив файловых дескрипторов, ожидающих события записи.
      *
      * @var array
      */
     protected array $writeFds = [];
 
     /**
-     * Fds waiting for except event.
+     * Массив файловых дескрипторов, ожидающих исключительные события.
      *
      * @var array
      */
     protected array $exceptFds = [];
 
     /**
-     * Timer scheduler.
-     * {['data':timer_id, 'priority':run_timestamp], ..}
+     * Планировщик таймеров.
      *
      * @var SplPriorityQueue
      */
     protected SplPriorityQueue $scheduler;
 
     /**
-     * All timer event listeners.
-     * [[func, args, flag, timer_interval], ..]
+     * Массив всех таймеров.
      *
      * @var array
      */
     protected array $eventTimer = [];
 
     /**
-     * Timer id.
+     * Идентификатор таймера.
      *
      * @var int
      */
     protected int $timerId = 1;
 
     /**
-     * Select timeout.
+     * Таймаут события select.
      *
      * @var int
      */
     protected int $selectTimeout = 100000000;
 
     /**
+     * Обработчик ошибок.
+     *
      * @var ?callable
      */
     protected $errorHandler = null;
 
     /**
-     * Construct.
+     * Конструктор.
      */
     public function __construct()
     {

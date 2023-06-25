@@ -49,37 +49,41 @@ use function unlink;
 class FileSessionHandler implements SessionHandlerInterface
 {
     /**
-     * Session save path.
+     * Путь для сохранения сессий.
      *
      * @var string
      */
     protected static string $sessionSavePath;
 
     /**
-     * Session file prefix.
+     * Префикс имени файла сессии.
      *
      * @var string
      */
     protected static string $sessionFilePrefix = 'session_';
 
     /**
-     * Init.
+     * Инициализация.
      */
     public static function init(): void
     {
+        // Получаем путь для сохранения сессий
         $savePath = @session_save_path();
+        // Если путь не указан или начинается с "tcp://", используем временную директорию
         if (!$savePath || str_starts_with($savePath, 'tcp://')) {
             $savePath = sys_get_temp_dir();
         }
+        // Устанавливаем путь для сохранения сессий
         static::sessionSavePath($savePath);
     }
 
     /**
-     * FileSessionHandler constructor.
+     * Конструктор FileSessionHandler.
      * @param array $config
      */
     public function __construct(array $config = [])
     {
+        // Если указан параметр "save_path" в конфигурации, устанавливаем путь для сохранения сессий
         if (isset($config['save_path'])) {
             static::sessionSavePath($config['save_path']);
         }
@@ -90,6 +94,7 @@ class FileSessionHandler implements SessionHandlerInterface
      */
     public function open(string $savePath, string $name): bool
     {
+        // Всегда возвращаем true, так как открытие сессии происходит при инициализации класса
         return true;
     }
 
@@ -98,16 +103,23 @@ class FileSessionHandler implements SessionHandlerInterface
      */
     public function read(string $sessionId): string
     {
+        // Получаем путь к файлу сессии
         $sessionFile = static::sessionFile($sessionId);
+        // Очищаем кэш информации о файле
         clearstatcache();
+        // Если файл существует
         if (is_file($sessionFile)) {
+            // Проверяем, не истекло ли время жизни сессии
             if (time() - filemtime($sessionFile) > Session::$lifetime) {
+                // Если истекло, удаляем файл и возвращаем пустую строку
                 unlink($sessionFile);
                 return '';
             }
+            // Читаем данные из файла и возвращаем их (или пустую строку, если чтение не удалось)
             $data = file_get_contents($sessionFile);
             return $data ?: '';
         }
+        // Если файл не существует, возвращаем пустую строку
         return '';
     }
 
@@ -120,33 +132,38 @@ class FileSessionHandler implements SessionHandlerInterface
      */
     public function write(string $sessionId, string $sessionData): bool
     {
+        // Создаем временный файл для записи сессии
         $tempFile = static::$sessionSavePath . uniqid(bin2hex(random_bytes(8)), true);
+        // Записываем данные сессии во временный файл
         if (!file_put_contents($tempFile, $sessionData)) {
             return false;
         }
+        // Переименовываем временный файл в финальное имя файла сессии
         return rename($tempFile, static::sessionFile($sessionId));
     }
 
     /**
-     * Update session modify time.
+     * Обновление времени последнего изменения сессии.
      *
-     * @see https://www.php.net/manual/en/class.sessionupdatetimestamphandlerinterface.php
-     * @see https://www.php.net/manual/zh/function.touch.php
+     * @see https://www.php.net/manual/ru/class.sessionupdatetimestamphandlerinterface.php
+     * @see https://www.php.net/manual/ru/function.touch.php
      *
-     * @param string $sessionId Session id.
-     * @param string $data Session Data.
+     * @param string $sessionId Идентификатор сессии.
+     * @param string $data Данные сессии.
      *
      * @return bool
      */
     public function updateTimestamp(string $sessionId, string $data = ""): bool
     {
+        // Получаем путь к файлу сессии
         $sessionFile = static::sessionFile($sessionId);
+        // Если файл не существует, возвращаем false
         if (!file_exists($sessionFile)) {
             return false;
         }
-        // set file modify time to current time
+        // Устанавливаем время последнего изменения файла в текущее время
         $setModifyTime = touch($sessionFile);
-        // clear file stat cache
+        // Очищаем кэш информации о файле
         clearstatcache();
         return $setModifyTime;
     }
@@ -156,6 +173,7 @@ class FileSessionHandler implements SessionHandlerInterface
      */
     public function close(): bool
     {
+        // Всегда возвращаем true, так как закрытие сессии происходит при уничтожении объекта
         return true;
     }
 
@@ -164,7 +182,9 @@ class FileSessionHandler implements SessionHandlerInterface
      */
     public function destroy(string $sessionId): bool
     {
+        // Получаем путь к файлу сессии
         $sessionFile = static::sessionFile($sessionId);
+        // Если файл существует, удаляем его
         if (is_file($sessionFile)) {
             unlink($sessionFile);
         }
@@ -176,8 +196,12 @@ class FileSessionHandler implements SessionHandlerInterface
      */
     public function gc(int $maxLifetime): bool
     {
+        // Получаем текущее время
         $timeNow = time();
+        // Проходимся по всем файлам сессий в папке сохранения сессий
         foreach (glob(static::$sessionSavePath . static::$sessionFilePrefix . '*') as $file) {
+            // Если файл является обычным файлом и время последнего изменения файла превышает время жизни сессии,
+            // удаляем файл
             if (is_file($file) && $timeNow - filemtime($file) > $maxLifetime) {
                 unlink($file);
             }
@@ -186,9 +210,9 @@ class FileSessionHandler implements SessionHandlerInterface
     }
 
     /**
-     * Get session file path.
+     * Получение пути к файлу сессии.
      *
-     * @param string $sessionId
+     * @param string $sessionId Идентификатор сессии.
      * @return string
      */
     protected static function sessionFile(string $sessionId): string
@@ -197,18 +221,22 @@ class FileSessionHandler implements SessionHandlerInterface
     }
 
     /**
-     * Get or set session file path.
+     * Получение или установка пути для сохранения сессий.
      *
-     * @param string $path
+     * @param string $path Путь для сохранения сессий.
      * @return string
      */
     public static function sessionSavePath(string $path): string
     {
+        // Если путь указан
         if ($path) {
+            // Если в конце пути отсутствует разделитель директорий, добавляем его
             if ($path[strlen($path) - 1] !== DIRECTORY_SEPARATOR) {
                 $path .= DIRECTORY_SEPARATOR;
             }
+            // Устанавливаем путь для сохранения сессий
             static::$sessionSavePath = $path;
+            // Если директория не существует, создаем ее с правами 0777
             if (!is_dir($path)) {
                 mkdir($path, 0777, true);
             }
