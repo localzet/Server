@@ -357,7 +357,7 @@ class Server
      *
      * @var string
      */
-    protected static string $version;
+    protected static string $version = null;
 
     /**
      * The PID of master process.
@@ -774,7 +774,7 @@ class Server
 
     public static function getVersion()
     {
-        if (!isset(self::$version)) {
+        if (!self::$version) {
             if (InstalledVersions::isInstalled('localzet/server')) {
                 self::$version = InstalledVersions::getVersion('localzet/server');
             } else {
