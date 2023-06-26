@@ -1011,14 +1011,14 @@ class Server
         }
         if (DIRECTORY_SEPARATOR !== '/') {
             static::safeEcho("----------------------- Localzet Server -----------------------------\r\n");
-            static::safeEcho('Версия сервера:' . static::getVersion() . '          Версия PHP:' . PHP_VERSION . "\r\n");
+            static::safeEcho('Версия сервера: ' . static::getVersion() . '          Версия PHP: ' . PHP_VERSION . "\r\n");
             static::safeEcho("------------------------ СЕРВЕРЫ -------------------------------\r\n");
             static::safeEcho("сервер                        адресс                              статус процессов\r\n");
             return;
         }
 
         // Показать версию
-        $lineVersion = 'Версия сервера:' . static::getVersion() . str_pad('Версия PHP:', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Цикл событий:', 22, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
+        $lineVersion = 'Версия сервера: ' . static::getVersion() . str_pad(' Версия PHP: ', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad(' Цикл событий: ', 22, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
         if (!defined('LINE_VERSION_LENGTH')) define('LINE_VERSION_LENGTH', strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
         $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
