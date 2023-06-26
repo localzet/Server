@@ -357,7 +357,7 @@ class Server
      *
      * @var string
      */
-    protected static string $version = null;
+    protected static ?string $version = null;
 
     /**
      * The PID of master process.
