@@ -114,12 +114,6 @@ class Server
      */
     public const UI_SAFE_LENGTH = 4;
 
-    /**
-     * Версия
-     *
-     * @var string
-     */
-    public static string $version;
 
     /**
      * ID Сервера
@@ -357,6 +351,13 @@ class Server
      * @var string
      */
     public static string $command = '';
+
+    /**
+     * Версия
+     *
+     * @var string
+     */
+    protected static string $version;
 
     /**
      * The PID of master process.
@@ -773,7 +774,7 @@ class Server
 
     public static function getVersion()
     {
-        if (!self::$version) {
+        if (!isset(self::$version)) {
             if (InstalledVersions::isInstalled('localzet/server')) {
                 self::$version = InstalledVersions::getVersion('localzet/server');
             } else {
