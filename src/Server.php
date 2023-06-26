@@ -28,6 +28,7 @@ declare(strict_types=1);
 namespace localzet\Server;
 
 use AllowDynamicProperties;
+use Composer\InstalledVersions;
 use Exception;
 use JetBrains\PhpStorm\NoReturn;
 use localzet\Server\Connection\ConnectionInterface;
@@ -72,13 +73,6 @@ use const WUNTRACED;
 class Server
 {
     /**
-     * Версия
-     *
-     * @var string
-     */
-    public const VERSION = 'v3.0'; // v3.0.x
-
-    /**
      * Статус: запуск
      *
      * @var int
@@ -119,6 +113,13 @@ class Server
      * @var int
      */
     public const UI_SAFE_LENGTH = 4;
+
+    /**
+     * Версия
+     *
+     * @var string
+     */
+    public string $version;
 
     /**
      * ID Сервера
@@ -513,7 +514,7 @@ class Server
     ];
 
     /**
-     * PHP built-in protocols.
+     * Встроенные протоколы
      *
      * @var array<string,string>
      */
@@ -521,11 +522,175 @@ class Server
         'tcp' => 'tcp',
         'udp' => 'udp',
         'unix' => 'unix',
-        'ssl' => 'tcp'
+
+        'ssl' => 'tcp',
+        'ssh' => 'tcp',
+
+        'http' => 'tcp',
+        'https' => 'ssl',
+        'ftp' => 'tcp',
+        'ftps' => 'ssl',
+        'smtp' => 'tcp',
+        'smtps' => 'ssl',
+        'imap' => 'tcp',
+        'imaps' => 'ssl',
+        'pop3' => 'tcp',
+        'pop3s' => 'ssl',
+        'sftp' => 'ssh',
+        'telnet' => 'tcp',
+        'smtp' => 'tcp',
+        'smtps' => 'ssl',
+        'dns' => 'udp',
+        'gopher' => 'tcp',
+        'nntp' => 'tcp',
+        'news' => 'tcp',
+        'ldap' => 'tcp',
+        'ldaps' => 'ssl',
+        'telnet' => 'tcp',
+        'tftp' => 'udp',
+        'irc' => 'tcp',
+        'ircs' => 'ssl',
+        'pop3' => 'tcp',
+        'pop3s' => 'ssl',
+        'imap' => 'tcp',
+        'imaps' => 'ssl',
+        'rtsp' => 'tcp',
+        'rtmp' => 'tcp',
+        'rss' => 'tcp',
+        'xmpp' => 'tcp',
+        'stomp' => 'tcp',
+        'smb' => 'tcp',
+        'snmp' => 'udp',
+        'snmptrap' => 'udp',
+        'mqtt' => 'tcp',
+        'mqtts' => 'ssl',
+        'rdp' => 'tcp',
+        'rdps' => 'ssl',
+        'webdav' => 'tcp',
+        'caldav' => 'tcp',
+        'carddav' => 'tcp',
+        'dict' => 'tcp',
+        'ftp' => 'tcp',
+        'data' => 'tcp',
+        'ssh2' => 'tcp',
+        'ipp' => 'tcp',
+        'ipp' => 'udp',
+        'nfs' => 'tcp',
+        'nfs' => 'udp',
+        'rsync' => 'tcp',
+        'smb' => 'tcp',
+        'ldap' => 'tcp',
+        'ldaps' => 'ssl',
+        'smtp' => 'tcp',
+        'http' => 'tcp',
+        'pop3' => 'tcp',
+        'imap' => 'tcp',
+        'rtsp' => 'tcp',
+        'ntp' => 'udp',
+        'sftp' => 'ssh',
+        'ntp' => 'udp',
+        'telnet' => 'tcp',
+        'whois' => 'tcp',
+        'bootp' => 'udp',
+        'dhcp' => 'udp',
+        'finger' => 'tcp',
+        'ftp' => 'tcp',
+        'gopher' => 'tcp',
+        'http' => 'tcp',
+        'https' => 'ssl',
+        'imap' => 'tcp',
+        'imaps' => 'ssl',
+        'ldap' => 'tcp',
+        'ldaps' => 'ssl',
+        'nntp' => 'tcp',
+        'pop3' => 'tcp',
+        'pop3s' => 'ssl',
+        'rtsp' => 'tcp',
+        'sip' => 'tcp',
+        'sips' => 'ssl',
+        'smtp' => 'tcp',
+        'smtps' => 'ssl',
+        'ssh' => 'tcp',
+        'telnet' => 'tcp',
+        'tftp' => 'udp',
+        'sftp' => 'ssh',
+        'irc' => 'tcp',
+        'ircs' => 'ssl',
+        'nfs' => 'udp',
+        'snmp' => 'udp',
+        'soap' => 'tcp',
+        'redis' => 'tcp',
+        'mongodb' => 'tcp',
+        'amqp' => 'tcp',
+        'mqtt' => 'tcp',
+        'stomp' => 'tcp',
+        'zookeeper' => 'tcp',
+        'dns' => 'udp',
+        'dhcp' => 'udp',
+        'memcache' => 'tcp',
+        'memcached' => 'tcp',
+        'zlib' => 'tcp',
+        'compress.zlib' => 'tcp',
+        'compress.bzip2' => 'tcp',
+        'rar' => 'tcp',
+        'zip' => 'tcp',
+        'ssh2' => 'tcp',
+        'smb' => 'tcp',
+        'cifs' => 'tcp',
+        'ftp' => 'tcp',
+        'ftps' => 'ssl',
+        'sftp' => 'ssh',
+        'smb' => 'tcp',
+        'snmp' => 'udp',
+        'snmptrap' => 'udp',
+        'mqtt' => 'tcp',
+        'mqtts' => 'ssl',
+        'rdp' => 'tcp',
+        'rdps' => 'ssl',
+        'webdav' => 'tcp',
+        'caldav' => 'tcp',
+        'carddav' => 'tcp',
+        'dict' => 'tcp',
+        'ssh2' => 'tcp',
+        'smb' => 'tcp',
+        'nntp' => 'tcp',
+        'pop3' => 'tcp',
+        'imap' => 'tcp',
+        'ftp' => 'tcp',
+        'data' => 'tcp',
+        'ssh2' => 'tcp',
+        'ipp' => 'tcp',
+        'ipp' => 'udp',
+        'nfs' => 'tcp',
+        'nfs' => 'udp',
+        'rsync' => 'tcp',
+        'smb' => 'tcp',
+        'ldap' => 'tcp',
+        'ldaps' => 'ssl',
+        'smtp' => 'tcp',
+        'http' => 'tcp',
+        'pop3' => 'tcp',
+        'imap' => 'tcp',
+        'rtsp' => 'tcp',
+        'ntp' => 'udp',
+        'sftp' => 'ssh',
+        'ntp' => 'udp',
+        'telnet' => 'tcp',
+        'whois' => 'tcp',
+        'bootp' => 'udp',
+        'dhcp' => 'udp',
+        'finger' => 'tcp',
+        'ftp' => 'tcp',
+        'gopher' => 'tcp',
+        'http' => 'tcp',
+        'https' => 'ssl',
+        'imap' => 'tcp',
+        'imaps' => 'ssl'
     ];
 
+
     /**
-     * PHP built-in error types.
+     * Встроенные типы ошибок
      *
      * @var array<int,string>
      */
@@ -544,7 +709,8 @@ class Server
         E_STRICT => 'E_STRICT', // 2048
         E_RECOVERABLE_ERROR => 'E_RECOVERABLE_ERROR', // 4096
         E_DEPRECATED => 'E_DEPRECATED', // 8192
-        E_USER_DEPRECATED => 'E_USER_DEPRECATED' // 16384
+        E_USER_DEPRECATED => 'E_USER_DEPRECATED', // 16384
+        E_ALL => 'E_ALL', // 32767 (не включая E_STRICT)
     ];
 
     /**
@@ -596,6 +762,28 @@ class Server
         static::monitorServers();
     }
 
+    protected static function getTransport($protocol)
+    {
+        if ($transport = self::BUILD_IN_TRANSPORTS[$protocol]) {
+            return self::BUILD_IN_TRANSPORTS[$transport];
+        }
+
+        return null;
+    }
+
+    public static function getVersion()
+    {
+        if (!self::$version) {
+            if (InstalledVersions::isInstalled('localzet/server')) {
+                self::$version = InstalledVersions::getVersion('localzet/server');
+            } else {
+                self::$version = 'v3.0';
+            }
+        }
+
+        return self::$version;
+    }
+
     /**
      * Проверка SAPI
      *
@@ -616,28 +804,29 @@ class Server
      */
     protected static function init(): void
     {
+        // Устанавливаем обработчик ошибок, который будет выводить сообщение об ошибке
         set_error_handler(function ($code, $msg, $file, $line) {
-            static::safeEcho("$msg in file $file on line $line\n");
+            static::safeEcho("$msg в файле $file на строке $line\n");
         });
 
-        // Start
+        // Начало
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
         static::$startFile = end($backtrace)['file'];
 
         $uniquePrefix = str_replace('/', '_', static::$startFile);
 
-        // Pid
+        // Пид-файл
         if (empty(static::$pidFile)) {
             static::$pidFile = __DIR__ . "/../$uniquePrefix.pid";
         }
 
-        // Log
+        // Лог-файл
         if (empty(static::$logFile)) {
             static::$logFile = __DIR__ . '/../server.log';
         }
 
         if (!is_file(static::$logFile)) {
-            // if /runtime/logs  default folder not exists
+            // Если папка /runtime/logs по умолчанию не существует
             if (!is_dir(dirname(static::$logFile))) {
                 @mkdir(dirname(static::$logFile), 0777, true);
             }
@@ -645,41 +834,48 @@ class Server
             chmod(static::$logFile, 0644);
         }
 
-        // Состояние
+        // Устанавливаем состояние в STATUS_STARTING
         static::$status = static::STATUS_STARTING;
 
         // Для статистики
         static::$globalStatistics['start_timestamp'] = time();
 
-        // Название процесса
+        // Устанавливаем название процесса
         static::setProcessTitle('Localzet Server: мастер-процесс  start_file=' . static::$startFile);
 
-        // Init data for server id.
+        // Инициализируем данные для идентификатора сервера
         static::initId();
 
-        // Timer init.
+        // Инициализируем таймер
         Timer::init();
     }
 
+
     /**
-     * Lock.
+     * Блокировка.
      *
-     * @param int $flag
+     * @param int $flag Флаг блокировки (по умолчанию LOCK_EX)
      * @return void
      */
     protected static function lock(int $flag = LOCK_EX): void
     {
         static $fd;
 
+        // Проверяем, что используется UNIX-подобная операционная система
         if (DIRECTORY_SEPARATOR !== '/') {
             return;
         }
 
         $lockFile = static::$pidFile . '.lock';
+
+        // Открываем или создаем файл блокировки
         $fd = $fd ?: fopen($lockFile, 'a+');
 
         if ($fd) {
+            // Блокируем файл
             flock($fd, $flag);
+
+            // Если флаг равен LOCK_UN, то разблокируем файл и удаляем файл блокировки
             if ($flag === LOCK_UN) {
                 fclose($fd);
                 $fd = null;
@@ -691,14 +887,16 @@ class Server
         }
     }
 
+
     /**
-     * Init All server instances.
+     * Инициализация всех экземпляров сервера.
      *
      * @return void
      * @throws Exception
      */
     protected static function initServers(): void
     {
+        // Проверяем, что используется UNIX-подобная операционная система
         if (DIRECTORY_SEPARATOR !== '/') {
             return;
         }
@@ -706,27 +904,27 @@ class Server
         static::$statisticsFile = static::$statusFile ?: __DIR__ . '/../server-' . posix_getpid() . '.status';
 
         foreach (static::$servers as $server) {
-            // Server name.
+            // Имя сервера.
             if (empty($server->name)) {
                 $server->name = 'none';
             }
 
-            // Get unix user of the server process.
+            // Получаем пользовательское имя UNIX-пользователя для процесса сервера.
             if (empty($server->user)) {
                 $server->user = static::getCurrentUser();
             } else {
                 if (posix_getuid() !== 0 && $server->user !== static::getCurrentUser()) {
-                    static::log('Внимание: У вас должен быть root, чтобы изменить UID и GID.');
+                    static::log('Внимание: Для изменения UID и GID вам нужно быть root.');
                 }
             }
 
-            // Socket name.
+            // Имя сокета.
             $server->socket = $server->getSocketName();
 
-            // Status name.
+            // Состояние сервера.
             $server->state = '<g> [OK] </g>';
 
-            // Get column mapping for UI
+            // Получаем соответствие столбца для интерфейса пользователя.
             foreach (static::getUiColumns() as $columnName => $prop) {
                 !isset($server->$prop) && $server->$prop = 'NNNN';
                 $propLength = strlen((string)$server->$prop);
@@ -734,7 +932,7 @@ class Server
                 static::$$key = max(static::$$key, $propLength);
             }
 
-            // Listen.
+            // Начинаем прослушивание.
             if (!$server->reusePort) {
                 $server->listen();
             }
@@ -742,7 +940,7 @@ class Server
     }
 
     /**
-     * Get all server instances.
+     * Получить все экземпляры сервера.
      *
      * @return Server[]
      */
@@ -752,7 +950,7 @@ class Server
     }
 
     /**
-     * Get global event-loop instance.
+     * Получить глобальный экземпляр цикла событий.
      *
      * @return EventInterface
      */
@@ -762,7 +960,8 @@ class Server
     }
 
     /**
-     * Get main socket resource
+     * Получить основной ресурс сокета.
+     *
      * @return resource
      */
     public function getMainSocket()
@@ -771,7 +970,7 @@ class Server
     }
 
     /**
-     * Init idMap.
+     * Инициализация idMap.
      *
      * @return void
      */
@@ -788,18 +987,18 @@ class Server
     }
 
     /**
-     * Get unix user of current porcess.
+     * Получить имя UNIX-пользователя текущего процесса.
      *
      * @return string
      */
     protected static function getCurrentUser(): string
     {
         $userInfo = posix_getpwuid(posix_getuid());
-        return $userInfo['name'] ?? 'unknown';
+        return $userInfo['name'] ?? 'неизвестно';
     }
 
     /**
-     * Display staring UI.
+     * Отображение начального интерфейса пользователя.
      *
      * @return void
      */
@@ -811,31 +1010,31 @@ class Server
         }
         if (DIRECTORY_SEPARATOR !== '/') {
             static::safeEcho("----------------------- Localzet Server -----------------------------\r\n");
-            static::safeEcho('Server version:' . static::VERSION . '          PHP version:' . PHP_VERSION . "\r\n");
-            static::safeEcho("------------------------ SERVERS -------------------------------\r\n");
-            static::safeEcho("server                        listen                              processes status\r\n");
+            static::safeEcho('Версия сервера:' . static::getVersion() . '          Версия PHP:' . PHP_VERSION . "\r\n");
+            static::safeEcho("------------------------ СЕРВЕРЫ -------------------------------\r\n");
+            static::safeEcho("сервер                        адресс                              статус процессов\r\n");
             return;
         }
 
-        //show version
-        $lineVersion = 'Server version:' . static::VERSION . str_pad('PHP version:', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Event-loop:', 22, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
+        // Показать версию
+        $lineVersion = 'Версия сервера:' . static::getVersion() . str_pad('Версия PHP:', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Цикл событий:', 22, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
         if (!defined('LINE_VERSION_LENGTH')) define('LINE_VERSION_LENGTH', strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
         $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
-        $lineTwo = str_pad('<w> SERVERS </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
+        $lineTwo = str_pad('<w> СЕРВЕРЫ </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
         static::safeEcho($lineOne . $lineVersion . $lineTwo);
 
-        //Show title
+        // Показать заголовок
         $title = '';
         foreach (static::getUiColumns() as $columnName => $prop) {
             $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
-            //just keep compatible with listen name
-            $columnName === 'socket' && $columnName = 'listen';
+            // Совместимость с названием слушателя
+            $columnName === 'socket' && $columnName = 'адресс';
             $title .= "<w>$columnName</w>" . str_pad('', static::$$key + static::UI_SAFE_LENGTH - strlen($columnName));
         }
         $title && static::safeEcho($title . PHP_EOL);
 
-        //Show content
+        // Показать содержимое
         foreach (static::$servers as $server) {
             $content = '';
             foreach (static::getUiColumns() as $columnName => $prop) {
@@ -847,7 +1046,7 @@ class Server
             $content && static::safeEcho($content . PHP_EOL);
         }
 
-        //Show last line
+        // Показать последнюю строку
         $lineLast = str_pad('', static::getSingleLineTotalLength(), '-') . PHP_EOL;
         !empty($content) && static::safeEcho($lineLast);
 
@@ -1981,7 +2180,7 @@ class Server
             );
             file_put_contents(
                 static::$statisticsFile,
-                'Server version:' . static::VERSION . "          PHP version:" . \PHP_VERSION . "\n",
+                'Server version:' . static::getVersion() . "          PHP version:" . \PHP_VERSION . "\n",
                 \FILE_APPEND
             );
             file_put_contents(

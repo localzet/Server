@@ -34,6 +34,9 @@ use function pcntl_signal;
 
 /**
  * Revolt eventloop
+ * 
+ * Класс Revolt представляет собой реализацию интерфейса EventInterface с использованием Revolt EventLoop.
+ * Он предоставляет функциональность для управления обработчиками событий чтения, записи, таймеров и сигналов.
  */
 class Revolt implements EventInterface
 {
@@ -74,6 +77,8 @@ class Revolt implements EventInterface
 
     /**
      * Конструктор.
+     *
+     * Создает новый экземпляр класса Revolt и инициализирует драйвер EventLoop.
      */
     public function __construct()
     {
@@ -90,7 +95,7 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Запускает цикл обработки событий.
      */
     public function run(): void
     {
@@ -98,7 +103,7 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Останавливает цикл обработки событий.
      */
     public function stop(): void
     {
@@ -112,7 +117,11 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Устанавливает отложенное событие выполнения функции.
+     * @param float $delay Задержка перед выполнением в секундах.
+     * @param callable $func Функция для выполнения.
+     * @param array $args Аргументы функции (по умолчанию пустой массив).
+     * @return int Идентификатор таймера.
      */
     public function delay(float $delay, callable $func, array $args = []): int
     {
@@ -127,7 +136,11 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Устанавливает повторяющееся событие выполнения функции.
+     * @param float $interval Интервал между повторениями в секундах.
+     * @param callable $func Функция для выполнения.
+     * @param array $args Аргументы функции (по умолчанию пустой массив).
+     * @return int Идентификатор таймера.
      */
     public function repeat(float $interval, callable $func, array $args = []): int
     {
@@ -141,7 +154,9 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Устанавливает обработчик события чтения.
+     * @param mixed $stream Поток для чтения.
+     * @param callable $func Функция-обработчик.
      */
     public function onReadable($stream, callable $func): void
     {
@@ -152,7 +167,9 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Удаляет обработчик события чтения.
+     * @param mixed $stream Поток для чтения.
+     * @return bool Возвращает true, если обработчик был успешно удален, иначе false.
      */
     public function offReadable($stream): bool
     {
@@ -160,7 +177,9 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Устанавливает обработчик события записи.
+     * @param mixed $stream Поток для записи.
+     * @param callable $func Функция-обработчик.
      */
     public function onWritable($stream, callable $func): void
     {
@@ -171,7 +190,9 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Удаляет обработчик события записи.
+     * @param mixed $stream Поток для записи.
+     * @return bool Возвращает true, если обработчик был успешно удален, иначе false.
      */
     public function offWritable($stream): bool
     {
@@ -179,7 +200,9 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Устанавливает обработчик события сигнала.
+     * @param int $signal Номер сигнала.
+     * @param callable $func Функция-обработчик.
      */
     public function onSignal(int $signal, callable $func): void
     {
@@ -190,7 +213,9 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Удаляет обработчик события сигнала.
+     * @param int $signal Номер сигнала.
+     * @return bool Возвращает true, если обработчик был успешно удален, иначе false.
      */
     public function offSignal(int $signal): bool
     {
@@ -198,7 +223,9 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Удаляет отложенное событие по идентификатору таймера.
+     * @param int $timerId Идентификатор таймера.
+     * @return bool Возвращает true, если таймер был успешно удален, иначе false.
      */
     public function offDelay(int $timerId): bool
     {
@@ -206,7 +233,9 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Удаляет повторяющееся событие по идентификатору таймера.
+     * @param int $timerId Идентификатор таймера.
+     * @return bool Возвращает true, если таймер был успешно удален, иначе false.
      */
     public function offRepeat(int $timerId): bool
     {
@@ -214,7 +243,7 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Удаляет все таймеры.
      */
     public function deleteAllTimer(): void
     {
@@ -225,7 +254,8 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает количество таймеров.
+     * @return int Количество таймеров.
      */
     public function getTimerCount(): int
     {
@@ -233,7 +263,8 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Устанавливает обработчик ошибок.
+     * @param callable $errorHandler Функция-обработчик ошибок.
      */
     public function setErrorHandler(callable $errorHandler): void
     {
@@ -241,7 +272,8 @@ class Revolt implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает текущий обработчик ошибок.
+     * @return callable|null Обработчик ошибок или null, если обработчик не установлен.
      */
     public function getErrorHandler(): ?callable
     {
