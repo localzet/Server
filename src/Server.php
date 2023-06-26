@@ -119,7 +119,7 @@ class Server
      *
      * @var string
      */
-    public string $version;
+    public static string $version;
 
     /**
      * ID Сервера
