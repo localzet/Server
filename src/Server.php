@@ -523,70 +523,7 @@ class Server
         'tcp' => 'tcp',
         'udp' => 'udp',
         'unix' => 'unix',
-
         'ssl' => 'tcp',
-        'ssh' => 'tcp',
-
-        'http' => 'tcp',
-        'https' => 'tcp',
-        'ftp' => 'tcp',
-        'ftps' => 'tcp',
-        'smtp' => 'tcp',
-        'smtps' => 'tcp',
-        'imap' => 'tcp',
-        'imaps' => 'tcp',
-        'pop3' => 'tcp',
-        'pop3s' => 'tcp',
-        'sftp' => 'tcp',
-        'telnet' => 'tcp',
-        'dns' => 'udp',
-        'gopher' => 'tcp',
-        'nntp' => 'tcp',
-        'news' => 'tcp',
-        'ldap' => 'tcp',
-        'ldaps' => 'tcp',
-        'tftp' => 'udp',
-        'irc' => 'tcp',
-        'ircs' => 'tcp',
-        'rtsp' => 'tcp',
-        'rtmp' => 'tcp',
-        'rss' => 'tcp',
-        'xmpp' => 'tcp',
-        'stomp' => 'tcp',
-        'smb' => 'tcp',
-        'snmp' => 'udp',
-        'snmptrap' => 'udp',
-        'mqtt' => 'tcp',
-        'mqtts' => 'tcp',
-        'rdp' => 'tcp',
-        'rdps' => 'tcp',
-        'webdav' => 'tcp',
-        'caldav' => 'tcp',
-        'carddav' => 'tcp',
-        'dict' => 'tcp',
-        'data' => 'tcp',
-        'ssh2' => 'tcp',
-        'rsync' => 'tcp',
-        'ntp' => 'udp',
-        'whois' => 'tcp',
-        'bootp' => 'udp',
-        'dhcp' => 'udp',
-        'finger' => 'tcp',
-        'sip' => 'tcp',
-        'sips' => 'tcp',
-        'soap' => 'tcp',
-        'redis' => 'tcp',
-        'mongodb' => 'tcp',
-        'amqp' => 'tcp',
-        'zookeeper' => 'tcp',
-        'memcache' => 'tcp',
-        'memcached' => 'tcp',
-        'zlib' => 'tcp',
-        'compress.zlib' => 'tcp',
-        'compress.bzip2' => 'tcp',
-        'rar' => 'tcp',
-        'zip' => 'tcp',
-        'cifs' => 'tcp',
     ];
 
 
@@ -661,15 +598,6 @@ class Server
         static::forkServers();
         static::resetStd();
         static::monitorServers();
-    }
-
-    protected static function getTransport($protocol)
-    {
-        if ($transport = self::BUILD_IN_TRANSPORTS[$protocol]) {
-            return self::BUILD_IN_TRANSPORTS[$transport] ?? null;
-        }
-
-        return null;
     }
 
     public static function getVersion()
