@@ -2573,7 +2573,7 @@ class Server
             }
 
             // Try to open keepalive for tcp and disable Nagle algorithm.
-            if (function_exists('socket_import_stream') && self::BUILD_IN_TRANSPORTS[$this->transport] === 'tcp') {
+            if (function_exists('socket_import_stream') && self::getTransport($this->transport) === 'tcp') {
                 set_error_handler(function () {
                 });
                 $socket = socket_import_stream($this->mainSocket);
@@ -2619,7 +2619,7 @@ class Server
         // Get the application layer communication protocol and listening address.
         [$scheme, $address] = explode(':', $this->socketName, 2);
         // Check application layer protocol class.
-        if (!isset(self::BUILD_IN_TRANSPORTS[$scheme])) {
+        if (!isset(self::getTransport($scheme))) {
             $scheme = ucfirst($scheme);
             $this->protocol = $scheme[0] === '\\' ? $scheme : 'Protocols\\' . $scheme;
             if (!class_exists($this->protocol)) {
@@ -2629,14 +2629,14 @@ class Server
                 }
             }
 
-            if (!isset(self::BUILD_IN_TRANSPORTS[$this->transport])) {
+            if (!isset(self::getTransport($this->transport))) {
                 throw new RuntimeException('Некорректный server->transport ' . var_export($this->transport, true));
             }
         } else if ($this->transport === 'tcp') {
             $this->transport = $scheme;
         }
         //local socket
-        return self::BUILD_IN_TRANSPORTS[$this->transport] . ":" . $address;
+        return self::getTransport($this->transport) . ":" . $address;
     }
 
     /**
