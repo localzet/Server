@@ -2619,7 +2619,7 @@ class Server
         // Get the application layer communication protocol and listening address.
         [$scheme, $address] = explode(':', $this->socketName, 2);
         // Check application layer protocol class.
-        if (!isset(self::getTransport($scheme))) {
+        if (!self::getTransport($scheme)) {
             $scheme = ucfirst($scheme);
             $this->protocol = $scheme[0] === '\\' ? $scheme : 'Protocols\\' . $scheme;
             if (!class_exists($this->protocol)) {
@@ -2629,7 +2629,7 @@ class Server
                 }
             }
 
-            if (!isset(self::getTransport($this->transport))) {
+            if (!self::getTransport($this->transport)) {
                 throw new RuntimeException('Некорректный server->transport ' . var_export($this->transport, true));
             }
         } else if ($this->transport === 'tcp') {
