@@ -766,7 +766,7 @@ class Server
     protected static function getTransport($protocol)
     {
         if ($transport = self::BUILD_IN_TRANSPORTS[$protocol]) {
-            return self::BUILD_IN_TRANSPORTS[$transport];
+            return self::BUILD_IN_TRANSPORTS[$transport] ?? null;
         }
 
         return null;
@@ -2619,7 +2619,7 @@ class Server
         // Get the application layer communication protocol and listening address.
         [$scheme, $address] = explode(':', $this->socketName, 2);
         // Check application layer protocol class.
-        if (!self::getTransport($scheme)) {
+        if (empty(self::getTransport($scheme))) {
             $scheme = ucfirst($scheme);
             $this->protocol = $scheme[0] === '\\' ? $scheme : 'Protocols\\' . $scheme;
             if (!class_exists($this->protocol)) {
@@ -2629,7 +2629,7 @@ class Server
                 }
             }
 
-            if (!self::getTransport($this->transport)) {
+            if (empty(self::getTransport($this->transport))) {
                 throw new RuntimeException('Некорректный server->transport ' . var_export($this->transport, true));
             }
         } else if ($this->transport === 'tcp') {
