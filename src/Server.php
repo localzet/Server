@@ -528,26 +528,26 @@ class Server
         'ssh' => 'tcp',
 
         'http' => 'tcp',
-        'https' => 'ssl',
+        'https' => 'tcp',
         'ftp' => 'tcp',
-        'ftps' => 'ssl',
+        'ftps' => 'tcp',
         'smtp' => 'tcp',
-        'smtps' => 'ssl',
+        'smtps' => 'tcp',
         'imap' => 'tcp',
-        'imaps' => 'ssl',
+        'imaps' => 'tcp',
         'pop3' => 'tcp',
-        'pop3s' => 'ssl',
-        'sftp' => 'ssh',
+        'pop3s' => 'tcp',
+        'sftp' => 'tcp',
         'telnet' => 'tcp',
         'dns' => 'udp',
         'gopher' => 'tcp',
         'nntp' => 'tcp',
         'news' => 'tcp',
         'ldap' => 'tcp',
-        'ldaps' => 'ssl',
+        'ldaps' => 'tcp',
         'tftp' => 'udp',
         'irc' => 'tcp',
-        'ircs' => 'ssl',
+        'ircs' => 'tcp',
         'rtsp' => 'tcp',
         'rtmp' => 'tcp',
         'rss' => 'tcp',
@@ -557,9 +557,9 @@ class Server
         'snmp' => 'udp',
         'snmptrap' => 'udp',
         'mqtt' => 'tcp',
-        'mqtts' => 'ssl',
+        'mqtts' => 'tcp',
         'rdp' => 'tcp',
-        'rdps' => 'ssl',
+        'rdps' => 'tcp',
         'webdav' => 'tcp',
         'caldav' => 'tcp',
         'carddav' => 'tcp',
@@ -573,7 +573,7 @@ class Server
         'dhcp' => 'udp',
         'finger' => 'tcp',
         'sip' => 'tcp',
-        'sips' => 'ssl',
+        'sips' => 'tcp',
         'soap' => 'tcp',
         'redis' => 'tcp',
         'mongodb' => 'tcp',
@@ -2473,7 +2473,7 @@ class Server
             }
 
             // Try to open keepalive for tcp and disable Nagle algorithm.
-            if (function_exists('socket_import_stream') && self::getTransport($this->transport) === 'tcp') {
+            if (function_exists('socket_import_stream') && self::BUILD_IN_TRANSPORTS[$this->transport] === 'tcp') {
                 set_error_handler(function () {
                 });
                 $socket = socket_import_stream($this->mainSocket);
@@ -2519,7 +2519,7 @@ class Server
         // Get the application layer communication protocol and listening address.
         [$scheme, $address] = explode(':', $this->socketName, 2);
         // Check application layer protocol class.
-        if (empty(self::getTransport($scheme))) {
+        if (empty(self::BUILD_IN_TRANSPORTS[$scheme])) {
             $scheme = ucfirst($scheme);
             $this->protocol = $scheme[0] === '\\' ? $scheme : 'Protocols\\' . $scheme;
             if (!class_exists($this->protocol)) {
@@ -2529,14 +2529,14 @@ class Server
                 }
             }
 
-            if (empty(self::getTransport($this->transport))) {
+            if (empty(self::BUILD_IN_TRANSPORTS[$this->transport])) {
                 throw new RuntimeException('Некорректный server->transport ' . var_export($this->transport, true));
             }
         } else if ($this->transport === 'tcp') {
             $this->transport = $scheme;
         }
         //local socket
-        return self::getTransport($this->transport) . ":" . $address;
+        return self::BUILD_IN_TRANSPORTS[$this->transport] . ":" . $address;
     }
 
     /**
