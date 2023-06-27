@@ -611,7 +611,7 @@ class Server
         E_RECOVERABLE_ERROR => 'E_RECOVERABLE_ERROR', // 4096
         E_DEPRECATED => 'E_DEPRECATED', // 8192
         E_USER_DEPRECATED => 'E_USER_DEPRECATED', // 16384
-        E_ALL => 'E_ALL', // 32767 (не включая E_STRICT)
+        // E_ALL => 'E_ALL', // 32767 (не включая E_STRICT)
     ];
 
     /**
@@ -2519,7 +2519,7 @@ class Server
         // Get the application layer communication protocol and listening address.
         [$scheme, $address] = explode(':', $this->socketName, 2);
         // Check application layer protocol class.
-        if (empty(self::BUILD_IN_TRANSPORTS[$scheme])) {
+        if (!isset(self::BUILD_IN_TRANSPORTS[$scheme])) {
             $scheme = ucfirst($scheme);
             $this->protocol = $scheme[0] === '\\' ? $scheme : 'Protocols\\' . $scheme;
             if (!class_exists($this->protocol)) {
@@ -2529,7 +2529,7 @@ class Server
                 }
             }
 
-            if (empty(self::BUILD_IN_TRANSPORTS[$this->transport])) {
+            if (!isset(self::BUILD_IN_TRANSPORTS[$this->transport])) {
                 throw new RuntimeException('Некорректный server->transport ' . var_export($this->transport, true));
             }
         } else if ($this->transport === 'tcp') {
