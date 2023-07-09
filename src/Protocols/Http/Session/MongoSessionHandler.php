@@ -83,7 +83,7 @@ class MongoSessionHandler implements SessionHandlerInterface
     {
         $session = $this->collection->findOne(['_id' => $sessionId]);
         if ($session !== null) {
-            return $session['data'];
+            return serialize((array) $session);
         }
         return '';
     }
@@ -93,9 +93,10 @@ class MongoSessionHandler implements SessionHandlerInterface
      */
     public function write(string $sessionId, string $sessionData): bool
     {
-        $session = ['_id' => $sessionId, 'data' => $sessionData];
+        $session = ['_id' => $sessionId] + unserialize($sessionData);
         $options = ['upsert' => true];
         $this->collection->replaceOne(['_id' => $sessionId], $session, $options);
+        $this->updateTimestamp($sessionId);
         return true;
     }
 
@@ -114,7 +115,7 @@ class MongoSessionHandler implements SessionHandlerInterface
     public function gc(int $maxLifetime): bool
     {
         $expirationDate = new UTCDateTime(time() - $maxLifetime * 1000);
-        $this->collection->deleteMany(['lastModified' => ['$lt' => $expirationDate]]);
+        $this->collection->deleteMany(['updated_at' => ['$lt' => $expirationDate]]);
         return true;
     }
 
@@ -123,7 +124,7 @@ class MongoSessionHandler implements SessionHandlerInterface
      */
     public function updateTimestamp(string $sessionId, string $data = ""): bool
     {
-        $this->collection->updateOne(['_id' => $sessionId], ['$set' => ['lastModified' => new UTCDateTime()]]);
+        $this->collection->updateOne(['_id' => $sessionId], ['$set' => ['updated_at' => new UTCDateTime()]]);
         return true;
     }
 }
