@@ -27,7 +27,7 @@ declare(strict_types=1);
 namespace localzet\Server\Protocols\Http\Session;
 
 use localzet\Server\Protocols\Http\Session;
-use localzet\Server\Timer;
+use localzet\Timer;
 use Redis;
 use RedisCluster;
 use RedisException;

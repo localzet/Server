@@ -31,7 +31,7 @@ use localzet\Server\Connection\AsyncTcpConnection;
 use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Protocols\Http\Response;
 use localzet\Server;
-use localzet\Server\Timer;
+use localzet\Timer;
 use Throwable;
 use function base64_encode;
 use function bin2hex;

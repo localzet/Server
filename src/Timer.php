@@ -43,7 +43,7 @@ use const SIGALRM;
  * Таймер
  *
  * Например:
- * localzet\Server\Timer::add($time_interval, callback, array($arg1, $arg2..));
+ * localzet\Timer::add($time_interval, callback, array($arg1, $arg2..));
  */
 class Timer
 {
@@ -96,7 +96,7 @@ class Timer
             return;
         }
         if (function_exists('pcntl_signal')) {
-            pcntl_signal(SIGALRM, ['\localzet\Server\Timer', 'signalHandle'], false);
+            pcntl_signal(SIGALRM, ['\localzet\Timer', 'signalHandle'], false);
         }
     }
 

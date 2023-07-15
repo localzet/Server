@@ -28,7 +28,7 @@ namespace localzet\Server\Connection;
 
 use Exception;
 use localzet\Server;
-use localzet\Server\Timer;
+use localzet\Timer;
 use RuntimeException;
 use stdClass;
 use Throwable;

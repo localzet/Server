@@ -30,7 +30,7 @@ namespace localzet\Server;
  * Таймер
  *
  * Например:
- * localzet\Server\Timer::add($time_interval, callback, array($arg1, $arg2..));
+ * localzet\Timer::add($time_interval, callback, array($arg1, $arg2..));
  */
 class Timer extends \localzet\Timer
 {
