@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols;
 
+use localzet\Server;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\Ja3;
 use localzet\Server\Protocols\Http\Request;
@@ -237,7 +238,7 @@ class Http
             }
             $response = (string)$response;
             $bodyLen = strlen($response);
-            return "HTTP/1.1 200 OK\r\nServer: Localzet Server\r\n{$extHeader}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\n\r\n$response";
+            return "HTTP/1.1 200 OK\r\nServer: Localzet Server " . Server::getVersion() . "\r\n{$extHeader}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\n\r\n$response";
         }
 
         if ($connection->headers) {

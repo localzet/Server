@@ -24,7 +24,7 @@ declare(strict_types=1);
  *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-namespace localzet\Server;
+namespace localzet;
 
 use Exception;
 use localzet\Server\Events\EventInterface;

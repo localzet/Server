@@ -27,7 +27,7 @@ declare(strict_types=1);
 namespace localzet\Server\Connection;
 
 use Exception;
-use localzet\Server\Server;
+use localzet\Server;
 use localzet\Server\Timer;
 use RuntimeException;
 use stdClass;

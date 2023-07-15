@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use localzet\Server\Server;
+use localzet\Server;
 use Symfony\Component\Process\PhpProcess;
 
 $serverAddress = 'udp://127.0.0.1:6789';
@@ -18,7 +18,7 @@ beforeAll(function () use ($serverAddress, &$process) {
 
         require './vendor/autoload.php';
 
-        use localzet\Server\Server;
+        use localzet\Server;
         
         \$server = new Server('$serverAddress');
         \$server->onMessage = function (\$connection, \$data) {

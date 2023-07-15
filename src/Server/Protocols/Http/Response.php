@@ -26,6 +26,8 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols\Http;
 
+use localzet\Server;
+
 use function array_merge_recursive;
 use function explode;
 use function file;
@@ -389,12 +391,13 @@ class Response
     {
         $file = $fileInfo['file'];
         $reason = $this->reason ?: self::PHRASES[$this->status];
-        $head = "HTTP/$this->version $this->status $reason\r\n";
+        $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
         $headers = $this->headers;
-        if (!isset($headers['Server'])) {
-            $head .= "Server: Localzet Server\r\n";
-        }
+
         foreach ($headers as $name => $value) {
+            if (strtolower($name) == 'server') {
+                continue;
+            }
             if (is_array($value)) {
                 foreach ($value as $item) {
                     $head .= "$name: $item\r\n";
@@ -444,15 +447,16 @@ class Response
         $reason = $this->reason ?: self::PHRASES[$this->status] ?? '';
         $bodyLen = strlen($this->body);
         if (empty($this->headers)) {
-            return "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\nConnection: keep-alive\r\n\r\n$this->body";
+            return "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\nConnection: keep-alive\r\n\r\n$this->body";
         }
 
-        $head = "HTTP/$this->version $this->status $reason\r\n";
+        $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
         $headers = $this->headers;
-        if (!isset($headers['Server'])) {
-            $head .= "Server: Localzet Server\r\n";
-        }
+
         foreach ($headers as $name => $value) {
+            if (strtolower($name) == 'server') {
+                continue;
+            }
             if (is_array($value)) {
                 foreach ($value as $item) {
                     $head .= "$name: $item\r\n";

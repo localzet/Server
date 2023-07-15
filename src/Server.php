@@ -25,7 +25,7 @@ declare(strict_types=1);
  */
 
 
-namespace localzet\Server;
+namespace localzet;
 
 use AllowDynamicProperties;
 use Composer\InstalledVersions;
@@ -604,7 +604,7 @@ class Server
     {
         if (!self::$version) {
             if (InstalledVersions::isInstalled('localzet/server')) {
-                self::$version = InstalledVersions::getVersion('localzet/server');
+                self::$version = 'v' . InstalledVersions::getVersion('localzet/server');
             } else {
                 self::$version = 'v3.0';
             }

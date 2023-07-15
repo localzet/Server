@@ -30,7 +30,7 @@ use Exception;
 use localzet\Server\Connection\AsyncTcpConnection;
 use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Protocols\Http\Response;
-use localzet\Server\Server;
+use localzet\Server;
 use localzet\Server\Timer;
 use Throwable;
 use function base64_encode;

@@ -27,7 +27,7 @@ namespace localzet\Server\Connection;
 use AllowDynamicProperties;
 use localzet\Server\Events\Event;
 use localzet\Server\Events\EventInterface;
-use localzet\Server\Server;
+use localzet\Server;
 use Throwable;
 
 /**

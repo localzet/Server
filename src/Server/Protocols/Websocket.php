@@ -30,7 +30,7 @@ use Exception;
 use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\Request;
-use localzet\Server\Server;
+use localzet\Server;
 use Throwable;
 use function base64_encode;
 use function chr;
@@ -369,7 +369,7 @@ class Websocket
                 $SecWebSocketKey = $match[1];
             } else {
                 $connection->close(
-                    "HTTP/1.1 200 OK\r\nServer: Localzet Server\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server</div>",
+                    "HTTP/1.1 200 OK\r\nServer: Localzet Server " . Server::getVersion() . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server " . Server::getVersion() . "</div>",
                     true
                 );
                 return 0;
@@ -378,9 +378,11 @@ class Websocket
             $newKey = base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true));
             // Handshake response data.
             $handshakeMessage = "HTTP/1.1 101 Switching Protocols\r\n"
+                . "Server: Localzet Server " . Server::getVersion() . "\r\n"
                 . "Upgrade: websocket\r\n"
                 . "Sec-WebSocket-Version: 13\r\n"
                 . "Connection: Upgrade\r\n"
+                . "Sec-WebSocket-Accept: " . $newKey . "\r\n"
                 . "Sec-WebSocket-Accept: " . $newKey . "\r\n";
 
             // Websocket data buffer.
@@ -407,19 +409,15 @@ class Websocket
                 $connection->websocketType = static::BINARY_TYPE_BLOB;
             }
 
-            $hasServerHeader = false;
-
             if ($connection->headers) {
                 foreach ($connection->headers as $header) {
                     if (stripos($header, 'Server:') === 0) {
-                        $hasServerHeader = true;
+                        continue;
                     }
                     $handshakeMessage .= "$header\r\n";
                 }
             }
-            if (!$hasServerHeader) {
-                $handshakeMessage .= "Server: Localzet Server\r\n";
-            }
+
             $handshakeMessage .= "\r\n";
             // Отправить ответ на рукопожатие.
             $connection->send($handshakeMessage, true);
@@ -438,7 +436,7 @@ class Websocket
         }
         // Неверный запрос рукопожатия через веб-сокет.
         $connection->close(
-            "HTTP/1.1 200 OK\r\nServer: Localzet Server\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server</div>",
+            "HTTP/1.1 200 OK\r\nServer: Localzet Server " . Server::getVersion() . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server " . Server::getVersion() . "</div>",
             true
         );
         return 0;

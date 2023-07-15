@@ -6,7 +6,7 @@ use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\Http\Response;
 use localzet\Server\Protocols\Http\ServerSentEvents;
-use localzet\Server\Server;
+use localzet\Server;
 use localzet\Server\Timer;
 
 require_once __DIR__ . '/vendor/autoload.php';
