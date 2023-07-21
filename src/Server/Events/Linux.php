@@ -42,7 +42,7 @@ use function pcntl_signal;
 /**
  * Linux eventloop
  * 
- * Класс Linux представляет собой реализацию интерфейса EventInterface с использованием Revolt EventLoop.
+ * Класс Linux представляет собой реализацию интерфейса EventInterface.
  * Он предоставляет функциональность для управления обработчиками событий чтения, записи, таймеров и сигналов.
  */
 final class Linux implements EventInterface

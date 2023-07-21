@@ -44,22 +44,5 @@
     "psr-4": {
       "localzet\\": "src"
     }
-  },
-  "conflict": {
-    "ext-swow": "<v1.0.0"
-  },
-  "require-dev": {
-    "pestphp/pest": "2.x-dev",
-    "mockery/mockery": "2.0.x-dev",
-    "guzzlehttp/guzzle": "^7.0",
-    "phpstan/phpstan": "1.11.x-dev"
-  },
-  "config": {
-    "allow-plugins": {
-      "pestphp/pest-plugin": true
-    }
-  },
-  "scripts": {
-    "analyze": "phpstan"
   }
 }
