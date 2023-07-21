@@ -127,7 +127,7 @@ class Select implements EventInterface
      *
      * @var ?callable
      */
-    protected $errorHandler = null;
+    protected $errorHandler;
 
     /**
      * Конструктор.
@@ -286,7 +286,7 @@ class Select implements EventInterface
             return;
         }
         $this->signalEvents[$signal] = $func;
-        pcntl_signal($signal, [$this, 'signalHandler']);
+        pcntl_signal($signal, $this->signalHandler(...));
     }
 
     /**

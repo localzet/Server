@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols\Http;
 
+use Stringable;
 use Exception;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http;
@@ -60,7 +61,7 @@ use function urlencode;
  * @property mixed|string $sid
  * @package localzet\Server\Protocols\Http
  */
-class Request
+class Request implements Stringable
 {
     /**
      * Connection.
@@ -103,11 +104,25 @@ class Request
     protected array $data = [];
 
     /**
+     * Is safe.
+     *
+     * @var bool
+     */
+    protected $isSafe = true;
+
+    /**
      * Enable cache.
      *
      * @var bool
      */
     protected static bool $enableCache = true;
+
+    /**
+     * Session id.
+     *
+     * @var mixed|string
+     */
+    protected mixed $sid;
 
     /**
      * Request constructor.
@@ -307,11 +322,11 @@ class Request
     /**
      * Get/Set session id.
      *
-     * @param null $sessionId
+     * @param string|null $sessionId
      * @return string
      * @throws Exception
      */
-    public function sessionId($sessionId = null): string
+    public function sessionId(string $sessionId = null): string
     {
         if ($sessionId) {
             unset($this->sid);
@@ -617,7 +632,7 @@ class Request
                         }
                         $uploadKey = $fileName;
                         // Parse upload files.
-                        $file = [...$file, 'name' => $match[2], 'tmp_name' => $tmpFile, 'size' => $size, 'error' => $error];
+                        $file = [...$file, 'name' => $match[2], 'tmp_name' => $tmpFile, 'size' => $size, 'error' => $error, 'full_path' => $match[2]];
                         if (!isset($file['type'])) {
                             $file['type'] = '';
                         }
@@ -633,6 +648,9 @@ class Request
 
                 case "content-type":
                     $file['type'] = trim($value);
+                    break;
+                case "webkitrelativepath":
+                    $file['full_path'] = \trim($value);
                     break;
             }
         }
@@ -679,7 +697,7 @@ class Request
     /**
      * __toString.
      */
-    public function __toString()
+    public function __toString(): string
     {
         return $this->buffer;
     }
@@ -730,13 +748,22 @@ class Request
     }
 
     /**
+     * __wakeup.
+     *
+     * @return void
+     */
+    public function __wakeup()
+    {
+        $this->isSafe = false;
+    }
+    /**
      * __destruct.
      *
      * @return void
      */
     public function __destruct()
     {
-        if (isset($this->data['files'])) {
+        if (isset($this->data['files']) && $this->isSafe) {
             clearstatcache();
             array_walk_recursive($this->data['files'], function ($value, $key) {
                 if ($key === 'tmp_name' && is_file($value)) {

@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols\Http;
 
+use Stringable;
 use function dechex;
 use function strlen;
 
@@ -33,7 +34,7 @@ use function strlen;
  * Класс Chunk
  * @package localzet\Server\Protocols\Http
  */
-class Chunk
+class Chunk implements Stringable
 {
     /**
      * Буфер чанка.
@@ -59,7 +60,7 @@ class Chunk
      *
      * @return string Строковое представление чанка.
      */
-    public function __toString()
+    public function __toString(): string
     {
         return dechex(strlen($this->buffer)) . "\r\n$this->buffer\r\n";
     }

@@ -188,7 +188,7 @@ class Server
     /**
      * Выполняется при получении данных
      *
-     * @var callable
+     * @var ?callable
      */
     public $onMessage = null;
 
@@ -334,7 +334,7 @@ class Server
     /**
      * Класс петли событий
      *
-     * @var class-string
+     * @var string|class-string
      */
     public static string $eventLoopClass = '';
 
@@ -369,7 +369,7 @@ class Server
     /**
      * Listening socket.
      *
-     * @var resource
+     * @var ?resource
      */
     protected $mainSocket = null;
 
@@ -560,7 +560,7 @@ class Server
 
     /**
      * Standard output stream
-     * @var resource
+     * @var ?resource
      */
     protected static $outputStream = null;
 
@@ -1135,7 +1135,10 @@ class Server
         }
         $statusStr = '';
         $currentTotalRequest = [];
-        $serverInfo = unserialize($info[0]);
+        try {
+            $serverInfo = unserialize($info[0], ['allowed_classes' => false]);
+        } catch (Throwable $exception) {
+        }
         ksort($serverInfo, SORT_NUMERIC);
         unset($info[0]);
         $dataWaitingSort = [];
@@ -1349,7 +1352,7 @@ class Server
             }
             // change output stream
             static::$outputStream = null;
-            static::outputStream($STDOUT);
+            self::outputStream($STDOUT);
             restore_error_handler();
             return;
         }
@@ -1553,14 +1556,10 @@ class Server
             $process = $processData[0];
             $startFile = $processData[1];
             $status = proc_get_status($process);
-            if (isset($status['running'])) {
-                if (!$status['running']) {
-                    static::safeEcho("Процесс $startFile завершен и пытается перезапуститься\n");
-                    proc_close($process);
-                    static::forkOneServerForWindows($startFile);
-                }
-            } else {
-                static::safeEcho("Ошибка proc_get_status\n");
+            if (!$status['running']) {
+                static::safeEcho("Процесс $startFile завершен и пытается перезапуститься\n");
+                proc_close($process);
+                static::forkOneServerForWindows($startFile);
             }
         }
     }
@@ -1600,6 +1599,30 @@ class Server
                 }
             }
             Timer::delAll();
+
+            //Update process state.
+            static::$status = static::STATUS_RUNNING;
+
+            // Register shutdown function for checking errors.
+            register_shutdown_function(["\\localzet\\Server\\Server", 'checkErrors']);
+
+            // Create a global event loop.
+            if (!static::$globalEvent) {
+                $eventLoopClass = static::getEventLoopName();
+                static::$globalEvent = new $eventLoopClass;
+                static::$globalEvent->setErrorHandler(function ($exception) {
+                    static::stopAll(250, $exception);
+                });
+            }
+
+            // Reinstall signal.
+            static::reinstallSignal();
+
+            // Init Timer.
+            Timer::init(static::$globalEvent);
+
+            restore_error_handler();
+
             static::setProcessTitle('Localzet Server: процесс сервера  ' . $server->name . ' ' . $server->getSocketName());
             $server->setUserAndGroup();
             $server->id = $id;
@@ -1701,6 +1724,8 @@ class Server
     protected static function monitorServersForLinux(): void
     {
         static::$status = static::STATUS_RUNNING;
+        // @phpstan-ignore-next-line While loop condition is always true.
+
         while (1) {
             // Calls signal handlers for pending signals.
             pcntl_signal_dispatch();
@@ -1941,10 +1966,7 @@ class Server
                 static::$servers = [];
                 static::$globalEvent?->stop();
 
-                try {
-                    exit($code);
-                } catch (Exception $e) {
-                }
+                exit($code);
             }
         }
     }
@@ -2168,7 +2190,6 @@ class Server
         $currentServer = current(static::$servers);
         $defaultServerName = $currentServer->name;
 
-        /** @var static $server */
         foreach (TcpConnection::$connections as $connection) {
             /** @var TcpConnection $connection */
             $transport = $connection->transport;
@@ -2262,7 +2283,7 @@ class Server
      */
     public static function safeEcho(string $msg, bool $decorated = false): bool
     {
-        $stream = static::outputStream();
+        $stream = self::outputStream();
         if (!$stream) {
             return false;
         }
@@ -2293,6 +2314,7 @@ class Server
         if (!$stream) {
             $stream = static::$outputStream ?: STDOUT;
         }
+        // @phpstan-ignore-next-line Negated boolean expression is always false.
         if (!$stream || !is_resource($stream) || 'stream' !== \get_resource_type($stream)) {
             return false;
         }
@@ -2653,6 +2675,7 @@ class Server
                 if ($this->protocol !== null) {
                     /** @var ProtocolInterface $parser */
                     $parser = $this->protocol;
+                    // @phpstan-ignore-next-line Left side of && is always true.
                     if ($parser && \method_exists($parser, 'input')) {
                         while ($recvBuffer !== '') {
                             $len = $parser::input($recvBuffer, $connection);

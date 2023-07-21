@@ -244,17 +244,13 @@ class Ws
     /**
      * Websocket encode.
      *
-     * @param mixed $payload
+     * @param string $payload
      * @param AsyncTcpConnection $connection
      * @return string
      * @throws Throwable
      */
-    public static function encode(mixed $payload, AsyncTcpConnection $connection): string
+    public static function encode(string $payload, AsyncTcpConnection $connection): string
     {
-        if (!is_scalar($payload)) {
-            throw new Exception("Вы не можете отправить (" . gettype($payload) . ") клиенту, конвертируйте это в строку.");
-        }
-
         if (empty($connection->websocketType)) {
             $connection->websocketType = self::BINARY_TYPE_BLOB;
         }
@@ -381,12 +377,8 @@ class Ws
         $userHeader = $connection->headers ?? null;
         $userHeaderStr = '';
         if (!empty($userHeader)) {
-            if (is_array($userHeader)) {
-                foreach ($userHeader as $k => $v) {
-                    $userHeaderStr .= "$k: $v\r\n";
-                }
-            } else {
-                $userHeaderStr .= $userHeader;
+            foreach ($userHeader as $k => $v) {
+                $userHeaderStr .= "$k: $v\r\n";
             }
             $userHeaderStr = "\r\n" . trim($userHeaderStr);
         }

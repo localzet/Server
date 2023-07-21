@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -174,6 +176,7 @@ class Event implements EventInterface
         $className = $this->eventClassName;
         $fdKey = (int)$stream;
         $event = new $this->eventClassName($this->eventBase, $stream, $className::READ | $className::PERSIST, $func, $stream);
+        // @phpstan-ignore-next-line Negated boolean expression is always false.
         if (!$event || !$event->add()) {
             return;
         }
@@ -202,6 +205,7 @@ class Event implements EventInterface
         $className = $this->eventClassName;
         $fdKey = (int)$stream;
         $event = new $this->eventClassName($this->eventBase, $stream, $className::WRITE | $className::PERSIST, $func, $stream);
+        // @phpstan-ignore-next-line Negated boolean expression is always false.
         if (!$event || !$event->add()) {
             return;
         }

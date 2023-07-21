@@ -26,11 +26,13 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols\Http;
 
+use Stringable;
+
 /**
  * Класс ServerSentEvents
  * @package localzet\Server\Protocols\Http
  */
-class ServerSentEvents
+class ServerSentEvents implements Stringable
 {
     /**
      * Данные.
@@ -55,7 +57,7 @@ class ServerSentEvents
      *
      * @return string Строковое представление объекта ServerSentEvents.
      */
-    public function __toString()
+    public function __toString(): string
     {
         $buffer = '';
         $data = $this->data;

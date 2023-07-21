@@ -15,8 +15,8 @@ if (!defined('STDIN')) define('STDIN', fopen('php://stdin', 'r'));
 if (!defined('STDOUT')) define('STDOUT', fopen('php://stdout', 'w'));
 if (!defined('STDERR')) define('STDERR', fopen('php://stderr', 'w'));
 
-$worker = new Server('http://0.0.0.0:8080');
-$worker->onMessage = function (TcpConnection $connection, Request $request) {
+$server = new Server('http://0.0.0.0:8080');
+$server->onMessage = function (TcpConnection $connection, Request $request) {
     match ($request->path()) {
         '/' => $connection->send('Hello Chance'),
         '/get' => $connection->send(json_encode($request->get())),

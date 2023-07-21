@@ -6,6 +6,7 @@ use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Protocols\Text;
 
 test(Text::class, function () {
+    /** @var ConnectionInterface $connection */
     $connection = Mockery::mock(ConnectionInterface::class);
     //::input
     //input too long

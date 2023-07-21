@@ -27,7 +27,7 @@ it('tests http connection', function () {
     expect($response->getStatusCode())
         ->toBe(200)
         ->and($response->getHeaderLine('Server'))
-        ->tobe('workerman')
+        ->tobe('localzet')
         ->and($response->getHeaderLine('Content-Length'))
         ->tobe('12')
         ->and($response->getBody()->getContents())

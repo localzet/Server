@@ -28,7 +28,6 @@ namespace localzet\Server\Protocols\Http;
 
 use Exception;
 use InvalidArgumentException;
-use JetBrains\PhpStorm\ArrayShape;
 use localzet\Server\Protocols\Http\Session\FileSessionHandler;
 use localzet\Server\Protocols\Http\Session\SessionHandlerInterface;
 use RuntimeException;
@@ -146,6 +145,13 @@ class Session
      * @var array
      */
     protected mixed $data = [];
+
+    /**
+     * Is safe.
+     *
+     * @var bool
+     */
+    protected $isSafe = true;
 
     /**
      * Флаг изменения данных сессии, требующий сохранения.
@@ -393,7 +399,6 @@ class Session
      *
      * @return array
      */
-    #[ArrayShape(['lifetime' => "int", 'path' => "string", 'domain' => "string", 'secure' => "bool", 'httponly' => "bool", 'samesite' => "string"])]
     public static function getCookieParams(): array
     {
         return [
@@ -431,6 +436,16 @@ class Session
     }
 
     /**
+     * __wakeup.
+     *
+     * @return void
+     */
+    public function __wakeup()
+    {
+        $this->isSafe = false;
+    }
+
+    /**
      * Деструктор.
      *
      * @return void
@@ -438,6 +453,10 @@ class Session
      */
     public function __destruct()
     {
+        if (!$this->isSafe) {
+            return;
+        }
+
         $this->save();
         if (random_int(1, static::$gcProbability[1]) <= static::$gcProbability[0]) {
             $this->gc();

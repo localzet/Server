@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace localzet\Server\Protocols\Http;
 
 use localzet\Server;
+use Stringable;
 
 use function array_merge_recursive;
 use function explode;
@@ -47,7 +48,7 @@ use const FILE_SKIP_EMPTY_LINES;
  * Class Response
  * @package localzet\Server\Protocols\Http
  */
-class Response
+class Response implements Stringable
 {
     /**
      * Header data.
@@ -413,7 +414,7 @@ class Response
 
         $fileInfo = pathinfo($file);
         $extension = $fileInfo['extension'] ?? '';
-        $baseName = $fileInfo['basename'] ?? 'unknown';
+        $baseName = $fileInfo['basename'] ?: 'unknown';
         if (!isset($headers['Content-Type'])) {
             if (isset(self::$mimeTypeMap[$extension])) {
                 $head .= "Content-Type: " . self::$mimeTypeMap[$extension] . "\r\n";
@@ -438,7 +439,7 @@ class Response
      *
      * @return string
      */
-    public function __toString()
+    public function __toString(): string
     {
         if ($this->file) {
             return $this->createHeadForFile($this->file);

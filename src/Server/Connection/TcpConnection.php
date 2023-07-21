@@ -65,7 +65,7 @@ use const STREAM_CRYPTO_METHOD_SSLv2_SERVER;
 
 /**
  * TcpConnection.
- * @property string websocketType
+ * @property string $websocketType
  */
 class TcpConnection extends ConnectionInterface implements JsonSerializable
 {
@@ -258,7 +258,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Cache.
      *
-     * @var bool.
+     * @var bool
      */
     protected static bool $enableCache = true;
 
@@ -836,7 +836,8 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         if (false === $ret) {
             $this->destroy();
             return false;
-        } elseif (0 === $ret) {
+        }
+        if (0 === $ret) {
             // There isn't enough data and should try again.
             return 0;
         }
@@ -1052,7 +1053,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Enable or disable Cache.
      *
-     * @param mixed $value
+     * @param bool $value
      */
     public static function enableCache(bool $value = true): void
     {
