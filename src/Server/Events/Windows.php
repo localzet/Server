@@ -34,9 +34,9 @@ use function pcntl_signal_dispatch;
 use const DIRECTORY_SEPARATOR;
 
 /**
- * Класс Select реализует интерфейс EventInterface и представляет select event loop.
+ * Класс Windows реализует интерфейс EventInterface и представляет select event loop.
  */
-class Select implements EventInterface
+final class Windows implements EventInterface
 {
     /**
      * Флаг, указывающий, работает ли событийный цикл.

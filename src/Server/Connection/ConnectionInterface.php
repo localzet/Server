@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -25,7 +27,6 @@
 namespace localzet\Server\Connection;
 
 use AllowDynamicProperties;
-use localzet\Server\Events\Event;
 use localzet\Server\Events\EventInterface;
 use localzet\Server;
 use Throwable;
@@ -186,14 +187,7 @@ abstract class ConnectionInterface
             Server::stopAll(250, $exception);
             return;
         }
-        try {
-            ($this->errorHandler)($exception);
-        } catch (Throwable $exception) {
-            if ($this->eventLoop instanceof Event) {
-                echo $exception;
-                return;
-            }
-            throw $exception;
-        }
+
+        ($this->errorHandler)($exception);
     }
 }

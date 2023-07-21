@@ -28,11 +28,7 @@ namespace localzet;
 
 use Exception;
 use localzet\Server\Events\EventInterface;
-use localzet\Server\Events\Revolt;
-use localzet\Server\Events\Swoole;
-use localzet\Server\Events\Swow;
-use Swoole\Coroutine\System;
-use Revolt\EventLoop;
+use localzet\Server\Events\Linux;
 use RuntimeException;
 use Throwable;
 use function function_exists;
@@ -172,22 +168,13 @@ class Timer
      */
     public static function sleep(float $delay): void
     {
-        switch (Server::$eventLoopClass) {
-            case Revolt::class: // Fiber
-                $suspension = EventLoop::getSuspension();
-                static::add($delay, function () use ($suspension) {
-                    $suspension->resume();
-                }, null, false);
-                $suspension->suspend();
-                return;
-            case Swoole::class: // Swoole
-                System::sleep($delay);
-                return;
-            case Swow::class: // Swow
-                usleep((int)($delay * 1000 * 1000));
-                return;
+        if (Server::$globalEvent && Server::$globalEvent instanceof Linux) {
+            $suspension = Server::$globalEvent->getSuspension();
+            static::add($delay, function () use ($suspension) {
+                $suspension->resume();
+            }, null, false);
+            $suspension->suspend();
         }
-        throw new RuntimeException('Timer::sleep() требует revolt/event-loop. Запусти команду "composer require revolt/event-loop" и перезагрузи сервер');
     }
 
     /**

@@ -34,12 +34,10 @@ use JetBrains\PhpStorm\NoReturn;
 use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Connection\UdpConnection;
-use localzet\Server\Events\Event;
 use localzet\Server\Events\EventInterface;
-use localzet\Server\Events\Revolt;
-use localzet\Server\Events\Select;
+use localzet\Server\Events\Linux;
+use localzet\Server\Events\Windows;
 use localzet\Server\Protocols\ProtocolInterface;
-use Revolt\EventLoop;
 use RuntimeException;
 use Throwable;
 use function array_intersect;
@@ -332,13 +330,6 @@ class Server
     public static $onMasterStop = null;
 
     /**
-     * Класс петли событий
-     *
-     * @var string|class-string
-     */
-    public static string $eventLoopClass = '';
-
-    /**
      * Таймаут после команды остановки для дочерних процессов
      * Если в течение него они не остановятся - звони киллеру
      *
@@ -503,15 +494,6 @@ class Server
     protected static array $globalStatistics = [
         'start_timestamp' => 0,
         'server_exit_info' => []
-    ];
-
-    /**
-     * Available event loops.
-     *
-     * @var array<string, string>
-     */
-    protected static array $availableEventLoops = [
-        'event' => Event::class,
     ];
 
     /**
@@ -846,7 +828,7 @@ class Server
         }
 
         // Показать версию
-        $lineVersion = 'Версия сервера: ' . static::getVersion() . str_pad(' Версия PHP: ', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad(' Цикл событий: ', 22, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
+        $lineVersion = 'Версия сервера: ' . static::getVersion() . str_pad(' Версия PHP: ', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad(' Цикл событий: ', 22, ' ', STR_PAD_LEFT) . Linux::class . PHP_EOL;
         if (!defined('LINE_VERSION_LENGTH')) define('LINE_VERSION_LENGTH', strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
         $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
@@ -1380,38 +1362,6 @@ class Server
     }
 
     /**
-     * Get event loop name.
-     *
-     * @return string
-     */
-    protected static function getEventLoopName(): string
-    {
-        if (static::$eventLoopClass) {
-            return static::$eventLoopClass;
-        }
-
-        if (class_exists(EventLoop::class)) {
-            static::$eventLoopClass = Revolt::class;
-            return static::$eventLoopClass;
-        }
-
-        $loopName = '';
-        foreach (static::$availableEventLoops as $name => $class) {
-            if (extension_loaded($name)) {
-                $loopName = $name;
-                break;
-            }
-        }
-
-        if ($loopName) {
-            static::$eventLoopClass = static::$availableEventLoops[$loopName];
-        } else {
-            static::$eventLoopClass = Select::class;
-        }
-        return static::$eventLoopClass;
-    }
-
-    /**
      * Get all pids of server processes.
      *
      * @return array
@@ -1494,7 +1444,7 @@ class Server
             exit("@@@ child exit @@@\r\n");
         }
 
-        static::$globalEvent = new Select();
+        static::$globalEvent = new Windows();
         static::$globalEvent->setErrorHandler(function ($exception) {
             static::stopAll(250, $exception);
         });
@@ -1535,7 +1485,7 @@ class Server
         $process = proc_open("php \"$startFile\" -q", $descriptor_spec, $pipes);
 
         if (empty(static::$globalEvent)) {
-            static::$globalEvent = new Select();
+            static::$globalEvent = new Windows();
             static::$globalEvent->setErrorHandler(function ($exception) {
                 static::stopAll(250, $exception);
             });
@@ -1608,8 +1558,7 @@ class Server
 
             // Create a global event loop.
             if (!static::$globalEvent) {
-                $eventLoopClass = static::getEventLoopName();
-                static::$globalEvent = new $eventLoopClass;
+                static::$globalEvent = new Linux;
                 static::$globalEvent->setErrorHandler(function ($exception) {
                     static::stopAll(250, $exception);
                 });
@@ -2059,7 +2008,7 @@ class Server
             $loadStr = 'load average: ' . implode(", ", $loadavg);
             file_put_contents(
                 static::$statisticsFile,
-                str_pad($loadStr, 33) . 'event-loop:' . static::getEventLoopName() . "\n",
+                str_pad($loadStr, 33) . 'event-loop:' . Linux::class . "\n",
                 \FILE_APPEND
             );
             file_put_contents(
@@ -2546,8 +2495,7 @@ class Server
 
         // Create a global event loop.
         if (!static::$globalEvent) {
-            $eventLoopClass = static::getEventLoopName();
-            static::$globalEvent = new $eventLoopClass;
+            static::$globalEvent = new Linux;
             static::$globalEvent->setErrorHandler(function ($exception) {
                 static::stopAll(250, $exception);
             });
