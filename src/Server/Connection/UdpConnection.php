@@ -39,40 +39,40 @@ use function substr;
 use function trim;
 
 /**
- * UdpConnection.
+ * UDP-соединение.
  */
 class UdpConnection extends ConnectionInterface implements JsonSerializable
 {
     /**
-     * Max udp package size.
+     * Максимальный размер пакета UDP.
      *
      * @var int
      */
     public const MAX_UDP_PACKAGE_SIZE = 65535;
 
     /**
-     * Transport layer protocol.
+     * Протокол транспортного уровня.
      *
      * @var string
      */
     public string $transport = 'udp';
 
     /**
-     * Udp socket.
+     * UDP-сокет.
      *
      * @var resource
      */
     protected $socket;
 
     /**
-     * Remote address.
+     * Удаленный адрес.
      *
      * @var string
      */
     protected string $remoteAddress = '';
 
     /**
-     * Construct.
+     * Конструктор.
      *
      * @param resource $socket
      * @param string $remoteAddress
@@ -84,11 +84,18 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Sends data on the connection.
-     *
-     * @param mixed $sendBuffer
-     * @param bool $raw
-     * @return void|boolean
+     * @inheritdoc
+     */
+    public function close(mixed $data = null, bool $raw = false): void
+    {
+        if ($data !== null) {
+            $this->send($data, $raw);
+        }
+        $this->eventLoop = $this->errorHandler = null;
+    }
+
+    /**
+     * @inheritdoc
      */
     public function send(mixed $sendBuffer, bool $raw = false)
     {
@@ -104,116 +111,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get remote IP.
-     *
-     * @return string
-     */
-    public function getRemoteIp(): string
-    {
-        $pos = strrpos($this->remoteAddress, ':');
-        if ($pos) {
-            return trim(substr($this->remoteAddress, 0, $pos), '[]');
-        }
-        return '';
-    }
-
-    /**
-     * Get remote port.
-     *
-     * @return int
-     */
-    public function getRemotePort(): int
-    {
-        if ($this->remoteAddress) {
-            return (int)substr(strrchr($this->remoteAddress, ':'), 1);
-        }
-        return 0;
-    }
-
-    /**
-     * Get remote address.
-     *
-     * @return string
-     */
-    public function getRemoteAddress(): string
-    {
-        return $this->remoteAddress;
-    }
-
-    /**
-     * Get local IP.
-     *
-     * @return string
-     */
-    public function getLocalIp(): string
-    {
-        $address = $this->getLocalAddress();
-        $pos = strrpos($address, ':');
-        if (!$pos) {
-            return '';
-        }
-        return substr($address, 0, $pos);
-    }
-
-    /**
-     * Get local port.
-     *
-     * @return int
-     */
-    public function getLocalPort(): int
-    {
-        $address = $this->getLocalAddress();
-        $pos = strrpos($address, ':');
-        if (!$pos) {
-            return 0;
-        }
-        return (int)substr(strrchr($address, ':'), 1);
-    }
-
-    /**
-     * Get local address.
-     *
-     * @return string
-     */
-    public function getLocalAddress(): string
-    {
-        return (string)@stream_socket_get_name($this->socket, false);
-    }
-
-
-    /**
-     * Close connection.
-     *
-     * @param mixed|null $data
-     * @param bool $raw
-     * @return void
-     */
-    public function close(mixed $data = null, bool $raw = false): void
-    {
-        if ($data !== null) {
-            $this->send($data, $raw);
-        }
-        $this->eventLoop = $this->errorHandler = null;
-    }
-
-    /**
-     * Is ipv4.
-     *
-     * @return bool.
-     */
-    #[Pure]
-    public function isIpV4(): bool
-    {
-        if ($this->transport === 'unix') {
-            return false;
-        }
-        return !str_contains($this->getRemoteIp(), ':');
-    }
-
-    /**
-     * Is ipv6.
-     *
-     * @return bool.
+     * @inheritdoc
      */
     #[Pure]
     public function isIpV6(): bool
@@ -225,7 +123,30 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get the real socket.
+     * @inheritdoc
+     */
+    public function getRemoteIp(): string
+    {
+        $pos = strrpos($this->remoteAddress, ':');
+        if ($pos) {
+            return trim(substr($this->remoteAddress, 0, $pos), '[]');
+        }
+        return '';
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getRemotePort(): int
+    {
+        if ($this->remoteAddress) {
+            return (int)substr(strrchr($this->remoteAddress, ':'), 1);
+        }
+        return 0;
+    }
+
+    /**
+     * Получает реальный сокет.
      *
      * @return resource
      */
@@ -235,7 +156,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get the json_encode information.
+     * Получает информацию для json_encode.
      *
      * @return array
      */
@@ -265,5 +186,59 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
             'isIpV4' => $this->isIpV4(),
             'isIpV6' => $this->isIpV6(),
         ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getRemoteAddress(): string
+    {
+        return $this->remoteAddress;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getLocalIp(): string
+    {
+        $address = $this->getLocalAddress();
+        $pos = strrpos($address, ':');
+        if (!$pos) {
+            return '';
+        }
+        return substr($address, 0, $pos);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getLocalAddress(): string
+    {
+        return (string)@stream_socket_get_name($this->socket, false);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getLocalPort(): int
+    {
+        $address = $this->getLocalAddress();
+        $pos = strrpos($address, ':');
+        if (!$pos) {
+            return 0;
+        }
+        return (int)substr(strrchr($address, ':'), 1);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    #[Pure]
+    public function isIpV4(): bool
+    {
+        if ($this->transport === 'unix') {
+            return false;
+        }
+        return !str_contains($this->getRemoteIp(), ':');
     }
 }

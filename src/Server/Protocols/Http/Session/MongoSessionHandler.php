@@ -26,9 +26,9 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols\Http\Session;
 
+use MongoDB\BSON\UTCDateTime;
 use MongoDB\Client;
 use MongoDB\Collection;
-use MongoDB\BSON\UTCDateTime;
 
 /**
  * Class MongoSessionHandler
@@ -48,7 +48,7 @@ class MongoSessionHandler implements SessionHandlerInterface
 
     /**
      * Конструктор MongoSessionHandler.
-     * 
+     *
      * @param array $config Конфигурация Redis-сервера и сессий.
      */
     public function __construct(array $config)
@@ -83,7 +83,7 @@ class MongoSessionHandler implements SessionHandlerInterface
     {
         $session = $this->collection->findOne(['_id' => $sessionId]);
         if ($session !== null) {
-            return serialize((array) $session);
+            return serialize((array)$session);
         }
         return '';
     }
@@ -103,6 +103,15 @@ class MongoSessionHandler implements SessionHandlerInterface
     /**
      * {@inheritdoc}
      */
+    public function updateTimestamp(string $sessionId, string $data = ""): bool
+    {
+        $this->collection->updateOne(['_id' => $sessionId], ['$set' => ['updated_at' => new UTCDateTime()]]);
+        return true;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function destroy(string $sessionId): bool
     {
         $this->collection->deleteOne(['_id' => $sessionId]);
@@ -116,15 +125,6 @@ class MongoSessionHandler implements SessionHandlerInterface
     {
         $expirationDate = new UTCDateTime(time() - $maxLifetime * 1000);
         $this->collection->deleteMany(['updated_at' => ['$lt' => $expirationDate]]);
-        return true;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function updateTimestamp(string $sessionId, string $data = ""): bool
-    {
-        $this->collection->updateOne(['_id' => $sessionId], ['$set' => ['updated_at' => new UTCDateTime()]]);
         return true;
     }
 }

@@ -63,6 +63,42 @@ class FileSessionHandler implements SessionHandlerInterface
     protected static string $sessionFilePrefix = 'session_';
 
     /**
+     * Конструктор FileSessionHandler.
+     * @param array $config
+     */
+    public function __construct(array $config = [])
+    {
+        // Если указан параметр "save_path" в конфигурации, устанавливаем путь для сохранения сессий
+        if (isset($config['save_path'])) {
+            static::sessionSavePath($config['save_path']);
+        }
+    }
+
+    /**
+     * Получение или установка пути для сохранения сессий.
+     *
+     * @param string $path Путь для сохранения сессий.
+     * @return string
+     */
+    public static function sessionSavePath(string $path): string
+    {
+        // Если путь указан
+        if ($path) {
+            // Если в конце пути отсутствует разделитель директорий, добавляем его
+            if ($path[strlen($path) - 1] !== DIRECTORY_SEPARATOR) {
+                $path .= DIRECTORY_SEPARATOR;
+            }
+            // Устанавливаем путь для сохранения сессий
+            static::$sessionSavePath = $path;
+            // Если директория не существует, создаем ее с правами 0777
+            if (!is_dir($path)) {
+                mkdir($path, 0777, true);
+            }
+        }
+        return $path;
+    }
+
+    /**
      * Инициализация.
      */
     public static function init(): void
@@ -75,18 +111,6 @@ class FileSessionHandler implements SessionHandlerInterface
         }
         // Устанавливаем путь для сохранения сессий
         static::sessionSavePath($savePath);
-    }
-
-    /**
-     * Конструктор FileSessionHandler.
-     * @param array $config
-     */
-    public function __construct(array $config = [])
-    {
-        // Если указан параметр "save_path" в конфигурации, устанавливаем путь для сохранения сессий
-        if (isset($config['save_path'])) {
-            static::sessionSavePath($config['save_path']);
-        }
     }
 
     /**
@@ -121,6 +145,17 @@ class FileSessionHandler implements SessionHandlerInterface
         }
         // Если файл не существует, возвращаем пустую строку
         return '';
+    }
+
+    /**
+     * Получение пути к файлу сессии.
+     *
+     * @param string $sessionId Идентификатор сессии.
+     * @return string
+     */
+    protected static function sessionFile(string $sessionId): string
+    {
+        return static::$sessionSavePath . static::$sessionFilePrefix . $sessionId;
     }
 
     /**
@@ -207,41 +242,6 @@ class FileSessionHandler implements SessionHandlerInterface
             }
         }
         return true;
-    }
-
-    /**
-     * Получение пути к файлу сессии.
-     *
-     * @param string $sessionId Идентификатор сессии.
-     * @return string
-     */
-    protected static function sessionFile(string $sessionId): string
-    {
-        return static::$sessionSavePath . static::$sessionFilePrefix . $sessionId;
-    }
-
-    /**
-     * Получение или установка пути для сохранения сессий.
-     *
-     * @param string $path Путь для сохранения сессий.
-     * @return string
-     */
-    public static function sessionSavePath(string $path): string
-    {
-        // Если путь указан
-        if ($path) {
-            // Если в конце пути отсутствует разделитель директорий, добавляем его
-            if ($path[strlen($path) - 1] !== DIRECTORY_SEPARATOR) {
-                $path .= DIRECTORY_SEPARATOR;
-            }
-            // Устанавливаем путь для сохранения сессий
-            static::$sessionSavePath = $path;
-            // Если директория не существует, создаем ее с правами 0777
-            if (!is_dir($path)) {
-                mkdir($path, 0777, true);
-            }
-        }
-        return $path;
     }
 }
 

@@ -28,7 +28,6 @@ namespace localzet\Server\Protocols\Http;
 
 use localzet\Server;
 use Stringable;
-
 use function array_merge_recursive;
 use function explode;
 use function file;
@@ -50,54 +49,6 @@ use const FILE_SKIP_EMPTY_LINES;
  */
 class Response implements Stringable
 {
-    /**
-     * Header data.
-     *
-     * @var array
-     */
-    protected array $headers = [];
-
-    /**
-     * Http status.
-     *
-     * @var int
-     */
-    protected int $status;
-
-    /**
-     * Http reason.
-     *
-     * @var ?string
-     */
-    protected ?string $reason = null;
-
-    /**
-     * Http version.
-     *
-     * @var string
-     */
-    protected string $version = '1.1';
-
-    /**
-     * Http body.
-     *
-     * @var string
-     */
-    protected string $body = '';
-
-    /**
-     * Send file info
-     *
-     * @var ?array
-     */
-    public ?array $file = null;
-
-    /**
-     * Mine type map.
-     * @var array
-     */
-    protected static array $mimeTypeMap = [];
-
     /**
      * Phrases.
      *
@@ -174,16 +125,47 @@ class Response implements Stringable
         510 => 'Not Extended', // RFC 2774
         511 => 'Network Authentication Required', // RFC 6585
     ];
-
     /**
-     * Init.
-     *
-     * @return void
+     * Mine type map.
+     * @var array
      */
-    public static function init(): void
-    {
-        static::initMimeTypeMap();
-    }
+    protected static array $mimeTypeMap = [];
+    /**
+     * Send file info
+     *
+     * @var ?array
+     */
+    public ?array $file = null;
+    /**
+     * Header data.
+     *
+     * @var array
+     */
+    protected array $headers = [];
+    /**
+     * Http status.
+     *
+     * @var int
+     */
+    protected int $status;
+    /**
+     * Http reason.
+     *
+     * @var ?string
+     */
+    protected ?string $reason = null;
+    /**
+     * Http version.
+     *
+     * @var string
+     */
+    protected string $version = '1.1';
+    /**
+     * Http body.
+     *
+     * @var string
+     */
+    protected string $body = '';
 
     /**
      * Response constructor.
@@ -196,10 +178,54 @@ class Response implements Stringable
         int    $status = 200,
         ?array $headers = [],
         string $body = ''
-    ) {
+    )
+    {
         $this->status = $status;
         $this->headers = $headers;
         $this->body = $body;
+    }
+
+    /**
+     * Init.
+     *
+     * @return void
+     */
+    public static function init(): void
+    {
+        static::initMimeTypeMap();
+    }
+
+    /**
+     * Init mime map.
+     *
+     * @return void
+     */
+    public static function initMimeTypeMap(): void
+    {
+        $mimeFile = __DIR__ . '/mime.types';
+        $items = file($mimeFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($items as $content) {
+            if (preg_match("/\s*(\S+)\s+(\S.+)/", $content, $match)) {
+                $mimeType = $match[1];
+                $extensionVar = $match[2];
+                $extensionArray = explode(' ', substr($extensionVar, 0, -1));
+                foreach ($extensionArray as $fileExtension) {
+                    static::$mimeTypeMap[$fileExtension] = $mimeType;
+                }
+            }
+        }
+    }
+
+    /**
+     * Set header.
+     *
+     * @param string $name
+     * @param string $value
+     * @return Response
+     */
+    public function withHeader(string $name, string $value): static
+    {
+        return $this->header($name, $value);
     }
 
     /**
@@ -213,18 +239,6 @@ class Response implements Stringable
     {
         $this->headers[$name] = $value;
         return $this;
-    }
-
-    /**
-     * Set header.
-     *
-     * @param string $name
-     * @param string $value
-     * @return Response
-     */
-    public function withHeader(string $name, string $value): static
-    {
-        return $this->header($name, $value);
     }
 
     /**
@@ -273,20 +287,6 @@ class Response implements Stringable
     }
 
     /**
-     * Set status.
-     *
-     * @param int $code
-     * @param string|null $reasonPhrase
-     * @return Response
-     */
-    public function withStatus(int $code, string $reasonPhrase = null): static
-    {
-        $this->status = $code;
-        $this->reason = $reasonPhrase;
-        return $this;
-    }
-
-    /**
      * Get status code.
      *
      * @return int
@@ -319,18 +319,6 @@ class Response implements Stringable
     }
 
     /**
-     * Set http body.
-     *
-     * @param string $body
-     * @return Response
-     */
-    public function withBody(string $body): static
-    {
-        $this->body = $body;
-        return $this;
-    }
-
-    /**
      * Get http raw body.
      *
      * @return string
@@ -358,6 +346,32 @@ class Response implements Stringable
     }
 
     /**
+     * Set http body.
+     *
+     * @param string $body
+     * @return Response
+     */
+    public function withBody(string $body): static
+    {
+        $this->body = $body;
+        return $this;
+    }
+
+    /**
+     * Set status.
+     *
+     * @param int $code
+     * @param string|null $reasonPhrase
+     * @return Response
+     */
+    public function withStatus(int $code, string $reasonPhrase = null): static
+    {
+        $this->status = $code;
+        $this->reason = $reasonPhrase;
+        return $this;
+    }
+
+    /**
      * Set cookie.
      *
      * @param string $name
@@ -380,58 +394,6 @@ class Response implements Stringable
             . (!$httpOnly ? '' : '; HttpOnly')
             . (empty($sameSite) ? '' : '; SameSite=' . $sameSite);
         return $this;
-    }
-
-    /**
-     * Create header for file.
-     *
-     * @param array $fileInfo
-     * @return string
-     */
-    protected function createHeadForFile(array $fileInfo): string
-    {
-        $file = $fileInfo['file'];
-        $reason = $this->reason ?: self::PHRASES[$this->status];
-        $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
-        $headers = $this->headers;
-
-        foreach ($headers as $name => $value) {
-            if (strtolower($name) == 'server') {
-                continue;
-            }
-            if (is_array($value)) {
-                foreach ($value as $item) {
-                    $head .= "$name: $item\r\n";
-                }
-                continue;
-            }
-            $head .= "$name: $value\r\n";
-        }
-
-        if (!isset($headers['Connection'])) {
-            $head .= "Connection: keep-alive\r\n";
-        }
-
-        $fileInfo = pathinfo($file);
-        $extension = $fileInfo['extension'] ?? '';
-        $baseName = $fileInfo['basename'] ?: 'unknown';
-        if (!isset($headers['Content-Type'])) {
-            if (isset(self::$mimeTypeMap[$extension])) {
-                $head .= "Content-Type: " . self::$mimeTypeMap[$extension] . "\r\n";
-            } else {
-                $head .= "Content-Type: application/octet-stream\r\n";
-            }
-        }
-
-        if (!isset($headers['Content-Disposition']) && !isset(self::$mimeTypeMap[$extension])) {
-            $head .= "Content-Disposition: attachment; filename=\"$baseName\"\r\n";
-        }
-
-        if (!isset($headers['Last-Modified']) && $mtime = filemtime($file)) {
-            $head .= 'Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
-        }
-
-        return "$head\r\n";
     }
 
     /**
@@ -488,24 +450,55 @@ class Response implements Stringable
     }
 
     /**
-     * Init mime map.
+     * Create header for file.
      *
-     * @return void
+     * @param array $fileInfo
+     * @return string
      */
-    public static function initMimeTypeMap(): void
+    protected function createHeadForFile(array $fileInfo): string
     {
-        $mimeFile = __DIR__ . '/mime.types';
-        $items = file($mimeFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($items as $content) {
-            if (preg_match("/\s*(\S+)\s+(\S.+)/", $content, $match)) {
-                $mimeType = $match[1];
-                $extensionVar = $match[2];
-                $extensionArray = explode(' ', substr($extensionVar, 0, -1));
-                foreach ($extensionArray as $fileExtension) {
-                    static::$mimeTypeMap[$fileExtension] = $mimeType;
+        $file = $fileInfo['file'];
+        $reason = $this->reason ?: self::PHRASES[$this->status];
+        $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
+        $headers = $this->headers;
+
+        foreach ($headers as $name => $value) {
+            if (strtolower($name) == 'server') {
+                continue;
+            }
+            if (is_array($value)) {
+                foreach ($value as $item) {
+                    $head .= "$name: $item\r\n";
                 }
+                continue;
+            }
+            $head .= "$name: $value\r\n";
+        }
+
+        if (!isset($headers['Connection'])) {
+            $head .= "Connection: keep-alive\r\n";
+        }
+
+        $fileInfo = pathinfo($file);
+        $extension = $fileInfo['extension'] ?? '';
+        $baseName = $fileInfo['basename'] ?: 'unknown';
+        if (!isset($headers['Content-Type'])) {
+            if (isset(self::$mimeTypeMap[$extension])) {
+                $head .= "Content-Type: " . self::$mimeTypeMap[$extension] . "\r\n";
+            } else {
+                $head .= "Content-Type: application/octet-stream\r\n";
             }
         }
+
+        if (!isset($headers['Content-Disposition']) && !isset(self::$mimeTypeMap[$extension])) {
+            $head .= "Content-Disposition: attachment; filename=\"$baseName\"\r\n";
+        }
+
+        if (!isset($headers['Last-Modified']) && $mtime = filemtime($file)) {
+            $head .= 'Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
+        }
+
+        return "$head\r\n";
     }
 }
 

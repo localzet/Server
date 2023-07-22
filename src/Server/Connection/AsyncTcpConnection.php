@@ -28,6 +28,8 @@ namespace localzet\Server\Connection;
 
 use Exception;
 use localzet\Server;
+use localzet\Server\Events\Windows;
+use localzet\Server\Protocols\Ws;
 use localzet\Timer;
 use RuntimeException;
 use stdClass;
@@ -47,7 +49,6 @@ use function stream_set_read_buffer;
 use function stream_socket_client;
 use function stream_socket_get_name;
 use function ucfirst;
-use const DIRECTORY_SEPARATOR;
 use const PHP_INT_MAX;
 use const SO_KEEPALIVE;
 use const SOL_SOCKET;
@@ -56,7 +57,7 @@ use const STREAM_CLIENT_ASYNC_CONNECT;
 use const TCP_NODELAY;
 
 /**
- * AsyncTcpConnection.
+ * Асинхронное TCP-соединение.
  */
 class AsyncTcpConnection extends TcpConnection
 {
@@ -150,10 +151,10 @@ class AsyncTcpConnection extends TcpConnection
     protected int $reconnectTimer = 0;
 
     /**
-     * Construct.
+     * Конструктор.
      *
-     * @param string $remoteAddress
-     * @param array $contextOption
+     * @param string $remoteAddress Адрес удаленного хоста
+     * @param array $contextOption Опции контекста
      * @throws Exception
      */
     public function __construct(string $remoteAddress, array $contextOption = [])
@@ -165,7 +166,7 @@ class AsyncTcpConnection extends TcpConnection
                 $this->remoteAddress = substr($remoteAddress, strpos($remoteAddress, '/') + 2);
             }
             if (!$this->remoteAddress) {
-                throw new RuntimeException('Bad remoteAddress');
+                throw new RuntimeException('Некорректный remoteAddress');
             }
         } else {
             if (!isset($addressInfo['port'])) {
@@ -192,21 +193,22 @@ class AsyncTcpConnection extends TcpConnection
         if (PHP_INT_MAX === self::$idRecorder) {
             self::$idRecorder = 0;
         }
-        // Check application layer protocol class.
+
+        // Проверяем класс протокола на уровне приложения.
         if (!isset(self::BUILD_IN_TRANSPORTS[$scheme])) {
             $scheme = ucfirst($scheme);
             $this->protocol = '\\Protocols\\' . $scheme;
             if (!class_exists($this->protocol)) {
                 $this->protocol = "\\localzet\\Server\\Protocols\\$scheme";
                 if (!class_exists($this->protocol)) {
-                    throw new Exception("class \\Protocols\\$scheme not exist");
+                    throw new Exception("Класс \\Protocols\\$scheme не существует");
                 }
             }
         } else {
             $this->transport = self::BUILD_IN_TRANSPORTS[$scheme];
         }
 
-        // For statistics.
+        // Для статистики.
         ++self::$statistics['connection_count'];
         $this->maxSendBufferSize = self::$defaultMaxSendBufferSize;
         $this->maxPackageSize = self::$defaultMaxPackageSize;
@@ -216,7 +218,7 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Reconnect.
+     * Переподключение.
      *
      * @param int $after
      * @return void
@@ -237,7 +239,7 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Do connect.
+     * Подключение.
      *
      * @return void
      * @throws Throwable
@@ -262,7 +264,7 @@ class AsyncTcpConnection extends TcpConnection
                 $this->remotePort = $this->transport === 'ssl' ? 443 : 80;
                 $this->remoteAddress = $this->remoteHost . ':' . $this->remotePort;
             }
-            // Open socket connection asynchronously.
+            // Открыть соединение сокета асинхронно.
             if ($this->proxySocks5) {
                 $this->contextOption['ssl']['peer_name'] = $this->remoteHost;
                 $context = stream_context_create($this->contextOption);
@@ -308,7 +310,7 @@ class AsyncTcpConnection extends TcpConnection
                 STREAM_CLIENT_ASYNC_CONNECT
             );
         }
-        // If failed attempt to emit onError callback.
+        // В случае неудачной попытки вызвать колбэк onError.
         if (!$this->socket || !is_resource($this->socket)) {
             $this->emitError(static::CONNECT_FAIL, $err_str);
             if ($this->status === self::STATUS_CLOSING) {
@@ -319,19 +321,20 @@ class AsyncTcpConnection extends TcpConnection
             }
             return;
         }
-        // Add socket to global event loop waiting connection is successfully established or faild.
+        // Добавить сокет в глобальный цикл событий, ожидающий успешного подключения или ошибки.
         $this->eventLoop->onWritable($this->socket, [$this, 'checkConnection']);
-        // For windows.
-        if (DIRECTORY_SEPARATOR === '\\' && method_exists($this->eventLoop, 'onExcept')) {
+
+        // Для Windows.
+        if ($this->eventLoop && $this->eventLoop instanceof Windows) {
             $this->eventLoop->onExcept($this->socket, [$this, 'checkConnection']);
         }
     }
 
     /**
-     * Try to emit onError callback.
+     * Попытка вызова колбэка ошибки.
      *
-     * @param int $code
-     * @param mixed $msg
+     * @param int $code Код ошибки
+     * @param mixed $msg Сообщение об ошибке
      * @return void
      * @throws Throwable
      */
@@ -348,7 +351,8 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * CancelReconnect.
+     * Отмена переподключения.
+     * Если был установлен таймер переподключения.
      */
     public function cancelReconnect(): void
     {
@@ -359,7 +363,7 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Get remote address.
+     * Получение удаленного хоста.
      *
      * @return string
      */
@@ -369,7 +373,7 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Get remote URI.
+     * Получение удаленного URI.
      *
      * @return string
      */
@@ -379,58 +383,62 @@ class AsyncTcpConnection extends TcpConnection
     }
 
     /**
-     * Check connection is successfully established or failed.
+     * Проверка успешности установки соединения или ошибки.
      *
      * @return void
      * @throws Throwable
      */
     public function checkConnection(): void
     {
-        // Remove EV_EXPECT for windows.
-        if (DIRECTORY_SEPARATOR === '\\' && method_exists($this->eventLoop, 'offExcept')) {
+        // Удаляем EV_EXPECT для Windows.
+        if ($this->eventLoop && $this->eventLoop instanceof Windows) {
             $this->eventLoop->offExcept($this->socket);
         }
 
-        // Remove write listener.
+        // Удаляем прослушиватель записи.
         $this->eventLoop->offWritable($this->socket);
 
         if ($this->status !== self::STATUS_CONNECTING) {
             return;
         }
 
-        // Check socket state.
+        // Проверим состояние сокета.
         if ($address = stream_socket_get_name($this->socket, true)) {
-            // Nonblocking.
+
+            // Неблокирующий.
             stream_set_blocking($this->socket, false);
-            // Compatible with hhvm
+
+            // Совместим с hhvm
             if (function_exists('stream_set_read_buffer')) {
                 stream_set_read_buffer($this->socket, 0);
             }
-            // Try to open keepalive for tcp and disable Nagle algorithm.
+
+            // Попробуем открыть keepalive для tcp и отключить алгоритм Nagle.
             if (function_exists('socket_import_stream') && $this->transport === 'tcp') {
                 $rawSocket = socket_import_stream($this->socket);
                 socket_set_option($rawSocket, SOL_SOCKET, SO_KEEPALIVE, 1);
                 socket_set_option($rawSocket, SOL_TCP, TCP_NODELAY, 1);
             }
-            // SSL handshake.
+            // SSL-рукопожатие.
             if ($this->transport === 'ssl') {
                 $this->sslHandshakeCompleted = $this->doSslHandshake($this->socket);
                 if ($this->sslHandshakeCompleted === false) {
                     return;
                 }
             } else {
-                // There are some data waiting to send.
+                // Есть некоторые данные, ожидающие отправки.
                 if ($this->sendBuffer) {
                     $this->eventLoop->onWritable($this->socket, [$this, 'baseWrite']);
                 }
             }
-            // Register a listener waiting read event.
+
+            // Зарегистрируем слушателя чтения.
             $this->eventLoop->onReadable($this->socket, [$this, 'baseRead']);
 
             $this->status = self::STATUS_ESTABLISHED;
             $this->remoteAddress = $address;
 
-            // Try to emit onConnect callback.
+            // Попытка вызвать колбэк подключения.
             if ($this->onConnect) {
                 try {
                     ($this->onConnect)($this);
@@ -438,18 +446,19 @@ class AsyncTcpConnection extends TcpConnection
                     $this->error($e);
                 }
             }
-            // Try to emit protocol::onConnect
-            if ($this->protocol && method_exists($this->protocol, 'onConnect')) {
+
+            // Попытка вызвать protocol::onConnect
+            if ($this->protocol && ($this->protocol instanceof Ws || method_exists($this->protocol, 'onConnect'))) {
                 try {
-                    [$this->protocol, 'onConnect']($this);
+                    $this->protocol::onConnect($this);
                 } catch (Throwable $e) {
                     $this->error($e);
                 }
             }
         } else {
 
-            // Connection failed.
-            $this->emitError(static::CONNECT_FAIL, 'connect ' . $this->remoteAddress . ' fail after ' . round(microtime(true) - $this->connectStartTime, 4) . ' seconds');
+            // Ошибка соединения.
+            $this->emitError(static::CONNECT_FAIL, 'Не удалось подключиться к ' . $this->remoteAddress . ' после ' . round(microtime(true) - $this->connectStartTime, 4) . ' секунд');
             if ($this->status === self::STATUS_CLOSING) {
                 $this->destroy();
             }

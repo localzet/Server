@@ -28,10 +28,11 @@ namespace localzet\Server\Connection;
 
 use JetBrains\PhpStorm\Pure;
 use JsonSerializable;
+use localzet\Server;
 use localzet\Server\Events\EventInterface;
 use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\ProtocolInterface;
-use localzet\Server;
+use localzet\Server\Protocols\Ws;
 use stdClass;
 use Throwable;
 use function ceil;
@@ -44,7 +45,6 @@ use function fwrite;
 use function is_object;
 use function is_resource;
 use function key;
-use function method_exists;
 use function posix_getpid;
 use function restore_error_handler;
 use function set_error_handler;
@@ -58,275 +58,62 @@ use function strrpos;
 use function substr;
 use function var_export;
 use const PHP_INT_MAX;
+use const STREAM_CRYPTO_METHOD_SERVER;
 use const STREAM_CRYPTO_METHOD_SSLv23_CLIENT;
 use const STREAM_CRYPTO_METHOD_SSLv23_SERVER;
 use const STREAM_CRYPTO_METHOD_SSLv2_CLIENT;
 use const STREAM_CRYPTO_METHOD_SSLv2_SERVER;
 
 /**
- * TcpConnection.
+ * TCP-соединение.
  * @property string $websocketType
  */
 class TcpConnection extends ConnectionInterface implements JsonSerializable
 {
     /**
-     * Read buffer size.
+     * Размер буфера чтения.
      *
      * @var int
      */
     public const READ_BUFFER_SIZE = 87380;
 
     /**
-     * Status initial.
+     * Начальный статус.
      *
      * @var int
      */
     public const STATUS_INITIAL = 0;
 
     /**
-     * Status connecting.
+     * Статус соединения в процессе установки.
      *
      * @var int
      */
     public const STATUS_CONNECTING = 1;
 
     /**
-     * Status connection established.
+     * Статус установленного соединения.
      *
      * @var int
      */
     public const STATUS_ESTABLISHED = 2;
 
     /**
-     * Status closing.
+     * Статус закрытия соединения.
      *
      * @var int
      */
     public const STATUS_CLOSING = 4;
 
     /**
-     * Status closed.
+     * Статус закрытого соединения.
      *
      * @var int
      */
     public const STATUS_CLOSED = 8;
 
     /**
-     * Emitted when socket connection is successfully established.
-     *
-     * @var ?callable
-     */
-    public $onConnect = null;
-
-    /**
-     * Emitted when websocket handshake completed (Only work when protocol is ws).
-     *
-     * @var ?callable
-     */
-    public $onWebSocketConnect = null;
-
-    /**
-     * Emitted when data is received.
-     *
-     * @var ?callable
-     */
-    public $onMessage = null;
-
-    /**
-     * Emitted when the other end of the socket sends a FIN packet.
-     *
-     * @var ?callable
-     */
-    public $onClose = null;
-
-    /**
-     * Emitted when an error occurs with connection.
-     *
-     * @var ?callable
-     */
-    public $onError = null;
-
-    /**
-     * Emitted when the send buffer becomes full.
-     *
-     * @var ?callable
-     */
-    public $onBufferFull = null;
-
-    /**
-     * Emitted when send buffer becomes empty.
-     *
-     * @var ?callable
-     */
-    public $onBufferDrain = null;
-
-    /**
-     * Transport (tcp/udp/unix/ssl).
-     *
-     * @var string
-     */
-    public string $transport = 'tcp';
-
-    /**
-     * Which server belong to.
-     *
-     * @var ?Server
-     */
-    public ?Server $server = null;
-
-    /**
-     * Bytes read.
-     *
-     * @var int
-     */
-    public int $bytesRead = 0;
-
-    /**
-     * Bytes written.
-     *
-     * @var int
-     */
-    public int $bytesWritten = 0;
-
-    /**
-     * Connection->id.
-     *
-     * @var int
-     */
-    public int $id = 0;
-
-    /**
-     * A copy of $server->id which used to clean up the connection in server->connections
-     *
-     * @var int
-     */
-    protected int $realId = 0;
-
-    /**
-     * Sets the maximum send buffer size for the current connection.
-     * OnBufferFull callback will be emitted When send buffer is full.
-     *
-     * @var int
-     */
-    public int $maxSendBufferSize = 1048576;
-
-    /**
-     * Context.
-     *
-     * @var ?stdClass
-     */
-    public ?stdClass $context = null;
-
-    /**
-     * @var array
-     */
-    public array $headers = [];
-
-    /**
-     * @var ?Request
-     */
-    public ?Request $request = null;
-
-    /**
-     * Default send buffer size.
-     *
-     * @var int
-     */
-    public static int $defaultMaxSendBufferSize = 1048576;
-
-    /**
-     * Sets the maximum acceptable packet size for the current connection.
-     *
-     * @var int
-     */
-    public int $maxPackageSize = 1048576;
-
-    /**
-     * Default maximum acceptable packet size.
-     *
-     * @var int
-     */
-    public static int $defaultMaxPackageSize = 10485760;
-
-    /**
-     * Id recorder.
-     *
-     * @var int
-     */
-    protected static int $idRecorder = 1;
-
-    /**
-     * Cache.
-     *
-     * @var bool
-     */
-    protected static bool $enableCache = true;
-
-    /**
-     * Socket
-     *
-     * @var resource
-     */
-    protected $socket = null;
-
-    /**
-     * Send buffer.
-     *
-     * @var string
-     */
-    protected string $sendBuffer = '';
-
-    /**
-     * Receive buffer.
-     *
-     * @var string
-     */
-    protected string $recvBuffer = '';
-
-    /**
-     * Current package length.
-     *
-     * @var int
-     */
-    protected int $currentPackageLength = 0;
-
-    /**
-     * Connection status.
-     *
-     * @var int
-     */
-    protected int $status = self::STATUS_ESTABLISHED;
-
-    /**
-     * Remote address.
-     *
-     * @var string
-     */
-    protected string $remoteAddress = '';
-
-    /**
-     * Is paused.
-     *
-     * @var bool
-     */
-    protected bool $isPaused = false;
-
-    /**
-     * SSL handshake completed or not.
-     *
-     * @var bool
-     */
-    protected bool|int $sslHandshakeCompleted = false;
-
-    /**
-     * All connection instances.
-     *
-     * @var array
-     */
-    public static array $connections = [];
-
-    /**
-     * Status to string.
+     * Массив для преобразования статуса в строковое представление.
      *
      * @var array
      */
@@ -339,7 +126,225 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     ];
 
     /**
-     * Construct.
+     * Размер буфера отправки по умолчанию.
+     *
+     * @var int
+     */
+    public static int $defaultMaxSendBufferSize = 1048576;
+
+    /**
+     * Максимальный допустимый размер пакета по умолчанию.
+     *
+     * @var int
+     */
+    public static int $defaultMaxPackageSize = 10485760;
+
+    /**
+     * Массив всех экземпляров соединения.
+     *
+     * @var array
+     */
+    public static array $connections = [];
+
+    /**
+     * Идентификатор записывателя.
+     *
+     * @var int
+     */
+    protected static int $idRecorder = 1;
+
+    /**
+     * Кэш.
+     *
+     * @var bool
+     */
+    protected static bool $enableCache = true;
+
+    /**
+     * Событие, возникающее при успешном установлении сокетного соединения.
+     *
+     * @var ?callable
+     */
+    public $onConnect = null;
+
+    /**
+     * Событие, возникающее после успешного завершения рукопожатия WebSocket (работает только для протокола ws).
+     *
+     * @var ?callable
+     */
+    public $onWebSocketConnect = null;
+
+    /**
+     * Событие, возникающее при получении данных.
+     *
+     * @var ?callable
+     */
+    public $onMessage = null;
+
+    /**
+     * Событие, возникающее при получении пакета FIN от другого конца сокета.
+     *
+     * @var ?callable
+     */
+    public $onClose = null;
+
+    /**
+     * Событие, возникающее при возникновении ошибки в соединении.
+     *
+     * @var ?callable
+     */
+    public $onError = null;
+
+    /**
+     * Событие, возникающее при заполнении отправочного буфера.
+     *
+     * @var ?callable
+     */
+    public $onBufferFull = null;
+
+    /**
+     * Событие, возникающее при опустошении отправочного буфера.
+     *
+     * @var ?callable
+     */
+    public $onBufferDrain = null;
+
+    /**
+     * Транспорт (tcp/udp/unix/ssl).
+     *
+     * @var string
+     */
+    public string $transport = 'tcp';
+
+    /**
+     * К какому серверу принадлежит соединение.
+     *
+     * @var ?Server
+     */
+    public ?Server $server = null;
+
+    /**
+     * Прочитанные байты.
+     *
+     * @var int
+     */
+    public int $bytesRead = 0;
+
+    /**
+     * Записанные байты.
+     *
+     * @var int
+     */
+    public int $bytesWritten = 0;
+
+    /**
+     * Идентификатор соединения.
+     *
+     * @var int
+     */
+    public int $id = 0;
+
+    /**
+     * Задает максимальный размер отправочного буфера для текущего соединения.
+     * Событие onBufferFull будет возникать, когда буфер отправки будет полон.
+     *
+     * @var int
+     */
+    public int $maxSendBufferSize = 1048576;
+
+    /**
+     * Контекст.
+     *
+     * @var ?stdClass
+     */
+    public ?stdClass $context = null;
+
+    /**
+     * Заголовки.
+     *
+     * @var array
+     */
+    public array $headers = [];
+
+    /**
+     * Запрос.
+     *
+     * @var ?Request
+     */
+    public ?Request $request = null;
+
+    /**
+     * Задает максимальный допустимый размер пакета для текущего соединения.
+     *
+     * @var int
+     */
+    public int $maxPackageSize = 1048576;
+
+    /**
+     * Копия $server->id, используется для очистки соединения в $server->connections.
+     *
+     * @var int
+     */
+    protected int $realId = 0;
+
+    /**
+     * Сокет.
+     *
+     * @var resource
+     */
+    protected $socket = null;
+
+    /**
+     * Буфер отправки.
+     *
+     * @var string
+     */
+    protected string $sendBuffer = '';
+
+    /**
+     * Буфер приема.
+     *
+     * @var string
+     */
+    protected string $recvBuffer = '';
+
+    /**
+     * Длина текущего пакета.
+     *
+     * @var int
+     */
+    protected int $currentPackageLength = 0;
+
+    /**
+     * Статус соединения.
+     *
+     * @var int
+     */
+    protected int $status = self::STATUS_ESTABLISHED;
+
+    /**
+     * Удаленный адрес.
+     *
+     * @var string
+     */
+    protected string $remoteAddress = '';
+
+    /**
+     * Соединение приостановлено?
+     *
+     * @var bool
+     */
+    protected bool $isPaused = false;
+
+    /**
+     * SSL-рукопожатие совержено?
+     *
+     * @var bool
+     */
+    protected bool|int $sslHandshakeCompleted = false;
+
+    /**
+     * Конструктор.
      *
      * @param EventInterface $eventLoop
      * @param resource $socket
@@ -354,7 +359,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         }
         $this->socket = $socket;
         stream_set_blocking($this->socket, false);
-        // Compatible with hhvm
+        // Совместимость с hhvm
         if (function_exists('stream_set_read_buffer')) {
             stream_set_read_buffer($this->socket, 0);
         }
@@ -368,26 +373,161 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get status.
+     * Включение или отключение кэша.
      *
-     * @param bool $rawOutput
-     *
-     * @return int|string
+     * @param bool $value
      */
-    public function getStatus(bool $rawOutput = true): int|string
+    public static function enableCache(bool $value = true): void
     {
-        if ($rawOutput) {
-            return $this->status;
-        }
-        return self::STATUS_TO_STRING[$this->status];
+        static::$enableCache = $value;
     }
 
     /**
-     * Sends data on the connection.
+     * Получить размер очереди буфера отправки.
      *
-     * @param mixed $sendBuffer
-     * @param bool $raw
-     * @return bool|void
+     * @return integer
+     */
+    public function getSendBufferQueueSize(): int
+    {
+        return strlen($this->sendBuffer);
+    }
+
+    /**
+     * Получить размер очереди буфера приема.
+     *
+     * @return integer
+     */
+    public function getRecvBufferQueueSize(): int
+    {
+        return strlen($this->recvBuffer);
+    }
+
+    /**
+     * Основной обработчик записи.
+     *
+     * @return void
+     * @throws Throwable
+     */
+    public function baseWrite(): void
+    {
+        $len = 0;
+        try {
+            if ($this->transport === 'ssl') {
+                $len = @fwrite($this->socket, $this->sendBuffer, 8192);
+            } else {
+                $len = @fwrite($this->socket, $this->sendBuffer);
+            }
+        } catch (Throwable) {
+        }
+        if ($len === strlen($this->sendBuffer)) {
+            $this->bytesWritten += $len;
+            $this->eventLoop->offWritable($this->socket);
+            $this->sendBuffer = '';
+            // Попытка вызвать обратный вызов onBufferDrain, когда буфер отправки становится пустым.
+            if ($this->onBufferDrain) {
+                try {
+                    ($this->onBufferDrain)($this);
+                } catch (Throwable $e) {
+                    $this->error($e);
+                }
+            }
+            if ($this->status === self::STATUS_CLOSING) {
+                if (!empty($this->context->streamSending)) {
+                    return;
+                }
+                $this->destroy();
+            }
+            return;
+        }
+        if ($len > 0) {
+            $this->bytesWritten += $len;
+            $this->sendBuffer = substr($this->sendBuffer, $len);
+        } else {
+            ++self::$statistics['send_fail'];
+            $this->destroy();
+        }
+    }
+
+    /**
+     * Уничтожить соединение.
+     *
+     * @return void
+     * @throws Throwable
+     */
+    public function destroy(): void
+    {
+        // Избежать повторных вызовов.
+        if ($this->status === self::STATUS_CLOSED) {
+            return;
+        }
+        // Удалить обработчик событий.
+        $this->eventLoop->offReadable($this->socket);
+        $this->eventLoop->offWritable($this->socket);
+
+        // Закрыть сокет.
+        try {
+            @fclose($this->socket);
+        } catch (Throwable) {
+        }
+
+        $this->status = self::STATUS_CLOSED;
+        // Попытка вызвать обратный вызов onClose.
+        if ($this->onClose) {
+            try {
+                ($this->onClose)($this);
+            } catch (Throwable $e) {
+                $this->error($e);
+            }
+        }
+        // Попытка вызвать protocol::onClose
+        if ($this->protocol && $this->protocol instanceof Ws) {
+            try {
+                $this->protocol::onClose($this);
+            } catch (Throwable $e) {
+                $this->error($e);
+            }
+        }
+        $this->sendBuffer = $this->recvBuffer = '';
+        $this->currentPackageLength = 0;
+        $this->isPaused = $this->sslHandshakeCompleted = false;
+        if ($this->status === self::STATUS_CLOSED) {
+            // Очистка обратного вызова для предотвращения утечек памяти.
+            $this->onMessage = $this->onClose = $this->onError = $this->onBufferFull = $this->onBufferDrain = $this->eventLoop = $this->errorHandler = null;
+            // Удаление из server->connections.
+            if ($this->server) {
+                unset($this->server->connections[$this->realId]);
+            }
+            unset(static::$connections[$this->realId]);
+        }
+    }
+
+    /**
+     * Метод pipe() позволяет установить канал передачи данных между текущим соединением и другим соединением (dest).
+     * Входящие данные из текущего соединения будут отправлены на соединение dest.
+     * Этот метод используется для перенаправления данных между соединениями.
+     *
+     * @param self $dest
+     * @return void
+     */
+    public function pipe(self $dest): void
+    {
+        $source = $this;
+        $this->onMessage = function ($source, $data) use ($dest) {
+            $dest->send($data);
+        };
+        $this->onClose = function () use ($dest) {
+            $dest->close();
+        };
+        $dest->onBufferFull = function () use ($source) {
+            $source->pauseRecv();
+        };
+        $dest->onBufferDrain = function () use ($source) {
+            $source->resumeRecv();
+        };
+    }
+
+    /**
+     * @inheritdoc
      * @throws Throwable
      */
     public function send(mixed $sendBuffer, bool $raw = false)
@@ -396,7 +536,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             return false;
         }
 
-        // Try to call protocol::encode($sendBuffer) before sending.
+        // Попытка вызвать protocol::encode($sendBuffer) перед отправкой.
         if (false === $raw && $this->protocol !== null) {
             /** @var ProtocolInterface $parser */
             $parser = $this->protocol;
@@ -406,6 +546,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             }
         }
 
+        // Если соединение еще не установлено или еще не завершено SSL-рукопожатие.
         if (
             $this->status !== self::STATUS_ESTABLISHED ||
             ($this->transport === 'ssl' && $this->sslHandshakeCompleted !== true)
@@ -419,7 +560,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             return;
         }
 
-        // Attempt to send data directly.
+        // Попытка отправить данные напрямую.
         if ($this->sendBuffer === '') {
             if ($this->transport === 'ssl') {
                 $this->eventLoop->onWritable($this->socket, [$this, 'baseWrite']);
@@ -433,17 +574,17 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             } catch (Throwable $e) {
                 Server::log($e);
             }
-            // send successful.
+            // Отправка успешна.
             if ($len === strlen($sendBuffer)) {
                 $this->bytesWritten += $len;
                 return true;
             }
-            // Send only part of the data.
+            // Отправить только часть данных.
             if ($len > 0) {
                 $this->sendBuffer = substr($sendBuffer, $len);
                 $this->bytesWritten += $len;
             } else {
-                // Connection closed?
+                // Соединение закрыто?
                 if (!is_resource($this->socket) || feof($this->socket)) {
                     ++self::$statistics['send_fail'];
                     if ($this->onError) {
@@ -459,7 +600,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                 $this->sendBuffer = $sendBuffer;
             }
             $this->eventLoop->onWritable($this->socket, [$this, 'baseWrite']);
-            // Check if send buffer will be full.
+            // Проверка, будет ли буфер отправки заполнен.
             $this->checkBufferWillFull();
             return;
         }
@@ -470,112 +611,79 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         }
 
         $this->sendBuffer .= $sendBuffer;
-        // Check if send buffer is full.
+        // Проверка, будет ли буфер отправки заполнен.
         $this->checkBufferWillFull();
     }
 
     /**
-     * Get remote IP.
+     * Метод bufferIsFull() используется для проверки заполненности буфера отправки.
      *
-     * @return string
+     * @return bool
+     * @throws Throwable
      */
-    public function getRemoteIp(): string
+    protected function bufferIsFull(): bool
     {
-        $pos = strrpos($this->remoteAddress, ':');
-        if ($pos) {
-            return substr($this->remoteAddress, 0, $pos);
+        // Если буфер был помечен как заполненный, но еще есть данные для отправки, пакет отбрасывается.
+        if ($this->maxSendBufferSize <= strlen($this->sendBuffer)) {
+            if ($this->onError) {
+                try {
+                    ($this->onError)($this, static::SEND_FAIL, 'send buffer full and drop package');
+                } catch (Throwable $e) {
+                    $this->error($e);
+                }
+            }
+            return true;
         }
-        return '';
+        return false;
     }
 
     /**
-     * Get remote port.
+     * Метод checkBufferWillFull() используется для проверки заполнения буфера отправки.
      *
-     * @return int
+     * @return void
+     * @throws Throwable
      */
-    public function getRemotePort(): int
+    protected function checkBufferWillFull(): void
     {
-        if ($this->remoteAddress) {
-            return (int)substr(strrchr($this->remoteAddress, ':'), 1);
+        if ($this->onBufferFull && $this->maxSendBufferSize <= strlen($this->sendBuffer)) {
+            try {
+                ($this->onBufferFull)($this);
+            } catch (Throwable $e) {
+                $this->error($e);
+            }
         }
-        return 0;
     }
 
     /**
-     * Get remote address.
-     *
-     * @return string
+     * @inheritdoc
+     * @throws Throwable
      */
-    public function getRemoteAddress(): string
+    public function close(mixed $data = null, bool $raw = false): void
     {
-        return $this->remoteAddress;
-    }
-
-    /**
-     * Get local IP.
-     *
-     * @return string
-     */
-    public function getLocalIp(): string
-    {
-        $address = $this->getLocalAddress();
-        $pos = strrpos($address, ':');
-        if (!$pos) {
-            return '';
+        if ($this->status === self::STATUS_CONNECTING) {
+            $this->destroy();
+            return;
         }
-        return substr($address, 0, $pos);
-    }
 
-    /**
-     * Get local port.
-     *
-     * @return int
-     */
-    public function getLocalPort(): int
-    {
-        $address = $this->getLocalAddress();
-        $pos = strrpos($address, ':');
-        if (!$pos) {
-            return 0;
+        if ($this->status === self::STATUS_CLOSING || $this->status === self::STATUS_CLOSED) {
+            return;
         }
-        return (int)substr(strrchr($address, ':'), 1);
-    }
 
-    /**
-     * Get local address.
-     *
-     * @return string
-     */
-    public function getLocalAddress(): string
-    {
-        if (!is_resource($this->socket)) {
-            return '';
+        if ($data !== null) {
+            $this->send($data, $raw);
         }
-        return (string)@stream_socket_get_name($this->socket, false);
+
+        $this->status = self::STATUS_CLOSING;
+
+        if ($this->sendBuffer === '') {
+            $this->destroy();
+        } else {
+            $this->pauseRecv();
+        }
     }
 
     /**
-     * Get send buffer queue size.
-     *
-     * @return integer
-     */
-    public function getSendBufferQueueSize(): int
-    {
-        return strlen($this->sendBuffer);
-    }
-
-    /**
-     * Get receive buffer queue size.
-     *
-     * @return integer
-     */
-    public function getRecvBufferQueueSize(): int
-    {
-        return strlen($this->recvBuffer);
-    }
-
-    /**
-     * Pauses the reading of data. That is onMessage will not be emitted. Useful to throttle back an upload.
+     * Приостанавливает чтение данных. Это означает, что onMessage не будет вызван. Полезно для снижения нагрузки при загрузке данных.
      *
      * @return void
      */
@@ -586,7 +694,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Resumes reading after a call to pauseRecv.
+     * Возобновляет чтение данных после вызова pauseRecv.
      *
      * @return void
      * @throws Throwable
@@ -600,9 +708,8 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         }
     }
 
-
     /**
-     * Base read handler.
+     * Основной обработчик чтения.
      *
      * @param resource $socket
      * @param bool $checkEof
@@ -630,7 +737,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         } catch (Throwable) {
         }
 
-        // Check connection closed.
+        // Проверка закрытия соединения.
         if ($buffer === '' || $buffer === false) {
             if ($checkEof && (feof($socket) || !is_resource($socket) || $buffer === false)) {
                 $this->destroy();
@@ -662,55 +769,55 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             }
         }
 
-        // If the application layer protocol has been set up.
+        // Если протокол прикладного уровня был установлен.
         if ($this->protocol !== null) {
             while ($this->recvBuffer !== '' && !$this->isPaused) {
-                // The current packet length is known.
+                // Длина текущего пакета известна.
                 if ($this->currentPackageLength) {
-                    // Data is not enough for a package.
+                    // Данных недостаточно для пакета.
                     if ($this->currentPackageLength > strlen($this->recvBuffer)) {
                         break;
                     }
                 } else {
-                    // Get current package length.
+                    // Получить текущую длину пакета.
                     try {
                         /** @var ProtocolInterface $parser */
                         $parser = $this->protocol;
                         $this->currentPackageLength = $parser::input($this->recvBuffer, $this);
                     } catch (Throwable) {
                     }
-                    // The packet length is unknown.
+                    // Длина пакета неизвестна.
                     if ($this->currentPackageLength === 0) {
                         break;
                     } elseif ($this->currentPackageLength > 0 && $this->currentPackageLength <= $this->maxPackageSize) {
-                        // Data is not enough for a package.
+                        // Данных недостаточно для пакета.
                         if ($this->currentPackageLength > strlen($this->recvBuffer)) {
                             break;
                         }
-                    } // Wrong package.
+                    } // Неверный пакет.
                     else {
-                        Server::safeEcho('Error package. package_length=' . var_export($this->currentPackageLength, true));
+                        Server::safeEcho('Ошибка пакета. package_length=' . var_export($this->currentPackageLength, true));
                         $this->destroy();
                         return;
                     }
                 }
 
-                // The data is enough for a packet.
+                // Данных достаточно для пакета.
                 ++self::$statistics['total_request'];
-                // The current packet length is equal to the length of the buffer.
+                // Длина текущего пакета равна длине буфера.
                 if ($one = (strlen($this->recvBuffer) === $this->currentPackageLength)) {
                     $oneRequestBuffer = $this->recvBuffer;
                     $this->recvBuffer = '';
                 } else {
-                    // Get a full package from the buffer.
+                    // Получить полный пакет из буфера.
                     $oneRequestBuffer = substr($this->recvBuffer, 0, $this->currentPackageLength);
-                    // Remove the current package from receive buffer.
+                    // Удалить текущий пакет из буфера чтения.
                     $this->recvBuffer = substr($this->recvBuffer, $this->currentPackageLength);
                 }
-                // Reset the current packet length to 0.
+                // Сбросить текущую длину пакета на 0.
                 $this->currentPackageLength = 0;
                 try {
-                    // Decode request buffer before Emitting onMessage callback.
+                    // Декодировать буфер запроса перед вызовом обратного вызова onMessage.
                     /** @var ProtocolInterface $parser */
                     $parser = $this->protocol;
                     $request = $parser::decode($oneRequestBuffer, $this);
@@ -732,61 +839,15 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             return;
         }
 
-        // Applications protocol is not set.
+        // Протокол приложения не установлен.
         ++self::$statistics['total_request'];
         try {
             ($this->onMessage)($this, $this->recvBuffer);
         } catch (Throwable $e) {
             $this->error($e);
         }
-        // Clean receive buffer.
+        // Очистить буфер чтения.
         $this->recvBuffer = '';
-    }
-
-    /**
-     * Base write handler.
-     *
-     * @return void
-     * @throws Throwable
-     */
-    public function baseWrite(): void
-    {
-        $len = 0;
-        try {
-            if ($this->transport === 'ssl') {
-                $len = @fwrite($this->socket, $this->sendBuffer, 8192);
-            } else {
-                $len = @fwrite($this->socket, $this->sendBuffer);
-            }
-        } catch (Throwable) {
-        }
-        if ($len === strlen($this->sendBuffer)) {
-            $this->bytesWritten += $len;
-            $this->eventLoop->offWritable($this->socket);
-            $this->sendBuffer = '';
-            // Try to emit onBufferDrain callback when send buffer becomes empty.
-            if ($this->onBufferDrain) {
-                try {
-                    ($this->onBufferDrain)($this);
-                } catch (Throwable $e) {
-                    $this->error($e);
-                }
-            }
-            if ($this->status === self::STATUS_CLOSING) {
-                if (!empty($this->context->streamSending)) {
-                    return;
-                }
-                $this->destroy();
-            }
-            return;
-        }
-        if ($len > 0) {
-            $this->bytesWritten += $len;
-            $this->sendBuffer = substr($this->sendBuffer, $len);
-        } else {
-            ++self::$statistics['send_fail'];
-            $this->destroy();
-        }
     }
 
     /**
@@ -805,70 +866,41 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         $async = $this instanceof AsyncTcpConnection;
 
         /**
-         *  We disabled ssl3 because https://blog.qualys.com/ssllabs/2014/10/15/ssl-3-is-dead-killed-by-the-poodle-attack.
-         *  You can enable ssl3 by the codes below.
+         * SSLv3 небезопасен.
+         * @see https://blog.qualys.com/ssllabs/2014/10/15/ssl-3-is-dead-killed-by-the-poodle-attack
          */
-        /*if($async){
-            $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT | STREAM_CRYPTO_METHOD_SSLv3_CLIENT;
-        }else{
-            $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER | STREAM_CRYPTO_METHOD_SSLv3_SERVER;
-        }*/
-
         if ($async) {
-            $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT;
+            $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT | STREAM_CRYPTO_METHOD_SSLv3_CLIENT;
         } else {
-            if (defined('STREAM_CRYPTO_METHOD_SERVER')) {
-                $type = \STREAM_CRYPTO_METHOD_SERVER;
-            } else {
-                $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER;
-            }
+            // if (defined('STREAM_CRYPTO_METHOD_SERVER')) {
+            //     $type = STREAM_CRYPTO_METHOD_SERVER;
+            // } else {
+            $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER | STREAM_CRYPTO_METHOD_SSLv3_SERVER;
+            // }
         }
 
-        // Hidden error.
+        // Скрытая ошибка.
         set_error_handler(function ($errno, $err_str) {
             if (!Server::$daemonize) {
-                Server::safeEcho("SSL handshake error: $err_str \n");
+                Server::safeEcho("Ошибка SSL-соединения: $err_str \n");
             }
         });
         $ret = stream_socket_enable_crypto($socket, true, $type);
         restore_error_handler();
-        // Negotiation has failed.
+        // Переговоры не удалось.
         if (false === $ret) {
             $this->destroy();
             return false;
         }
         if (0 === $ret) {
-            // There isn't enough data and should try again.
+            // Данных недостаточно, нужно повторить попытку.
             return 0;
         }
         return true;
     }
 
     /**
-     * This method pulls all the data out of a readable stream, and writes it to the supplied destination.
-     *
-     * @param self $dest
-     * @return void
-     */
-    public function pipe(self $dest): void
-    {
-        $source = $this;
-        $this->onMessage = function ($source, $data) use ($dest) {
-            $dest->send($data);
-        };
-        $this->onClose = function () use ($dest) {
-            $dest->close();
-        };
-        $dest->onBufferFull = function () use ($source) {
-            $source->pauseRecv();
-        };
-        $dest->onBufferDrain = function () use ($source) {
-            $source->resumeRecv();
-        };
-    }
-
-    /**
-     * Remove $length of data from receive buffer.
+     * Удаляет $length данных из буфера чтения.
      *
      * @param int $length
      * @return void
@@ -879,67 +911,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Close connection.
-     *
-     * @param mixed|null $data
-     * @param bool $raw
-     * @return void
-     * @throws Throwable
-     */
-    public function close(mixed $data = null, bool $raw = false): void
-    {
-        if ($this->status === self::STATUS_CONNECTING) {
-            $this->destroy();
-            return;
-        }
-
-        if ($this->status === self::STATUS_CLOSING || $this->status === self::STATUS_CLOSED) {
-            return;
-        }
-
-        if ($data !== null) {
-            $this->send($data, $raw);
-        }
-
-        $this->status = self::STATUS_CLOSING;
-
-        if ($this->sendBuffer === '') {
-            $this->destroy();
-        } else {
-            $this->pauseRecv();
-        }
-    }
-
-    /**
-     * Is ipv4.
-     *
-     * return bool.
-     */
-    #[Pure]
-    public function isIpV4(): bool
-    {
-        if ($this->transport === 'unix') {
-            return false;
-        }
-        return !str_contains($this->getRemoteIp(), ':');
-    }
-
-    /**
-     * Is ipv6.
-     *
-     * return bool.
-     */
-    #[Pure]
-    public function isIpV6(): bool
-    {
-        if ($this->transport === 'unix') {
-            return false;
-        }
-        return str_contains($this->getRemoteIp(), ':');
-    }
-
-    /**
-     * Get the real socket.
+     * Получает реальный сокет.
      *
      * @return resource
      */
@@ -949,46 +921,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Check whether send buffer will be full.
-     *
-     * @return void
-     * @throws Throwable
-     */
-    protected function checkBufferWillFull(): void
-    {
-        if ($this->onBufferFull && $this->maxSendBufferSize <= strlen($this->sendBuffer)) {
-            try {
-                ($this->onBufferFull)($this);
-            } catch (Throwable $e) {
-                $this->error($e);
-            }
-        }
-    }
-
-    /**
-     * Whether send buffer is full.
-     *
-     * @return bool
-     * @throws Throwable
-     */
-    protected function bufferIsFull(): bool
-    {
-        // Buffer has been marked as full but still has data to send then the packet is discarded.
-        if ($this->maxSendBufferSize <= strlen($this->sendBuffer)) {
-            if ($this->onError) {
-                try {
-                    ($this->onError)($this, static::SEND_FAIL, 'send buffer full and drop package');
-                } catch (Throwable $e) {
-                    $this->error($e);
-                }
-            }
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Whether send buffer is Empty.
+     * Проверяет, пустой ли буфер отправки.
      *
      * @return bool
      */
@@ -998,70 +931,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Destroy connection.
-     *
-     * @return void
-     * @throws Throwable
-     */
-    public function destroy(): void
-    {
-        // Avoid repeated calls.
-        if ($this->status === self::STATUS_CLOSED) {
-            return;
-        }
-        // Remove event listener.
-        $this->eventLoop->offReadable($this->socket);
-        $this->eventLoop->offWritable($this->socket);
-
-        // Close socket.
-        try {
-            @fclose($this->socket);
-        } catch (Throwable) {
-        }
-
-        $this->status = self::STATUS_CLOSED;
-        // Try to emit onClose callback.
-        if ($this->onClose) {
-            try {
-                ($this->onClose)($this);
-            } catch (Throwable $e) {
-                $this->error($e);
-            }
-        }
-        // Try to emit protocol::onClose
-        if ($this->protocol && method_exists($this->protocol, 'onClose')) {
-            try {
-                ([$this->protocol, 'onClose'])($this);
-            } catch (Throwable $e) {
-                $this->error($e);
-            }
-        }
-        $this->sendBuffer = $this->recvBuffer = '';
-        $this->currentPackageLength = 0;
-        $this->isPaused = $this->sslHandshakeCompleted = false;
-        if ($this->status === self::STATUS_CLOSED) {
-            // Cleaning up the callback to avoid memory leaks.
-            $this->onMessage = $this->onClose = $this->onError = $this->onBufferFull = $this->onBufferDrain = $this->eventLoop = $this->errorHandler = null;
-            // Remove from server->connections.
-            if ($this->server) {
-                unset($this->server->connections[$this->realId]);
-            }
-            unset(static::$connections[$this->realId]);
-        }
-    }
-
-    /**
-     * Enable or disable Cache.
-     *
-     * @param bool $value
-     */
-    public static function enableCache(bool $value = true): void
-    {
-        static::$enableCache = $value;
-    }
-
-    /**
-     * Get the json_encode information.
+     * Получает информацию для json_encode.
      *
      * @return array
      */
@@ -1083,7 +953,114 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Destruct.
+     * Получает статус.
+     *
+     * @param bool $rawOutput
+     *
+     * @return int|string
+     */
+    public function getStatus(bool $rawOutput = true): int|string
+    {
+        if ($rawOutput) {
+            return $this->status;
+        }
+        return self::STATUS_TO_STRING[$this->status];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getRemoteIp(): string
+    {
+        $pos = strrpos($this->remoteAddress, ':');
+        if ($pos) {
+            return substr($this->remoteAddress, 0, $pos);
+        }
+        return '';
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getRemotePort(): int
+    {
+        if ($this->remoteAddress) {
+            return (int)substr(strrchr($this->remoteAddress, ':'), 1);
+        }
+        return 0;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getRemoteAddress(): string
+    {
+        return $this->remoteAddress;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getLocalIp(): string
+    {
+        $address = $this->getLocalAddress();
+        $pos = strrpos($address, ':');
+        if (!$pos) {
+            return '';
+        }
+        return substr($address, 0, $pos);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getLocalAddress(): string
+    {
+        if (!is_resource($this->socket)) {
+            return '';
+        }
+        return (string)@stream_socket_get_name($this->socket, false);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getLocalPort(): int
+    {
+        $address = $this->getLocalAddress();
+        $pos = strrpos($address, ':');
+        if (!$pos) {
+            return 0;
+        }
+        return (int)substr(strrchr($address, ':'), 1);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    #[Pure]
+    public function isIpV4(): bool
+    {
+        if ($this->transport === 'unix') {
+            return false;
+        }
+        return !str_contains($this->getRemoteIp(), ':');
+    }
+
+    /**
+     * @inheritdoc
+     */
+    #[Pure]
+    public function isIpV6(): bool
+    {
+        if ($this->transport === 'unix') {
+            return false;
+        }
+        return str_contains($this->getRemoteIp(), ':');
+    }
+
+    /**
+     * Деструктор.
      *
      * @return void
      */
@@ -1098,7 +1075,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
             if (0 === self::$statistics['connection_count'] % $mod) {
                 $pid = function_exists('posix_getpid') ? posix_getpid() : 0;
-                Server::log('server[' . $pid . '] remains ' . self::$statistics['connection_count'] . ' connection(s)');
+                Server::log('server[' . $pid . '] осталось ' . self::$statistics['connection_count'] . ' соединений(я)');
             }
 
             if (0 === self::$statistics['connection_count']) {

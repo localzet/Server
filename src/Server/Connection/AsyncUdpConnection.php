@@ -25,8 +25,8 @@
 namespace localzet\Server\Connection;
 
 use Exception;
-use localzet\Server\Protocols\ProtocolInterface;
 use localzet\Server;
+use localzet\Server\Protocols\ProtocolInterface;
 use Throwable;
 use function class_exists;
 use function explode;
@@ -42,56 +42,56 @@ use function ucfirst;
 use const STREAM_CLIENT_CONNECT;
 
 /**
- * AsyncUdpConnection.
+ * Асинхронное UDP-соединение.
  */
 class AsyncUdpConnection extends UdpConnection
 {
     /**
-     * Emitted when socket connection is successfully established.
+     * Событие вызывается, когда соединение с сокетом успешно установлено.
      *
      * @var ?callable
      */
     public $onConnect = null;
 
     /**
-     * Emitted when socket connection closed.
+     * Событие вызывается при закрытии сокета и разрыве соединения.
      *
      * @var ?callable
      */
     public $onClose = null;
 
     /**
-     * Connected or not.
+     * Признак установленного соединения.
      *
      * @var bool
      */
     protected bool $connected = false;
 
     /**
-     * Context option.
+     * Опции контекста.
      *
      * @var array
      */
     protected array $contextOption = [];
 
     /**
-     * Construct.
+     * Конструктор.
      *
      * @param string $remoteAddress
      * @throws Exception
      */
     public function __construct($remoteAddress, $contextOption = [])
     {
-        // Get the application layer communication protocol and listening address.
+        // Получаем протокол связи уровня приложения и адрес прослушивания.
         [$scheme, $address] = explode(':', $remoteAddress, 2);
-        // Check application layer protocol class.
+        // Проверяем класс протокола связи уровня приложения.
         if ($scheme !== 'udp') {
             $scheme = ucfirst($scheme);
             $this->protocol = '\\Protocols\\' . $scheme;
             if (!class_exists($this->protocol)) {
                 $this->protocol = "\\localzet\\Server\\Protocols\\$scheme";
                 if (!class_exists($this->protocol)) {
-                    throw new Exception("class \\Protocols\\$scheme not exist");
+                    throw new Exception("Класс \\Protocols\\$scheme не существует");
                 }
             }
         }
@@ -101,7 +101,7 @@ class AsyncUdpConnection extends UdpConnection
     }
 
     /**
-     * For udp package.
+     * Для пакетов UDP.
      *
      * @param resource $socket
      * @return void
@@ -130,7 +130,7 @@ class AsyncUdpConnection extends UdpConnection
     }
 
     /**
-     * Close connection.
+     * Закрыть соединение.
      *
      * @param mixed|null $data
      * @param bool $raw
@@ -145,7 +145,7 @@ class AsyncUdpConnection extends UdpConnection
         $this->eventLoop->offReadable($this->socket);
         fclose($this->socket);
         $this->connected = false;
-        // Try to emit onClose callback.
+        // Попытка вызова обработчика события onClose.
         if ($this->onClose) {
             try {
                 ($this->onClose)($this);
@@ -157,7 +157,7 @@ class AsyncUdpConnection extends UdpConnection
     }
 
     /**
-     * Sends data on the connection.
+     * Отправить данные по соединению.
      *
      * @param mixed $sendBuffer
      * @param bool $raw
@@ -181,7 +181,7 @@ class AsyncUdpConnection extends UdpConnection
     }
 
     /**
-     * Connect.
+     * Установить соединение.
      *
      * @return void
      * @throws Throwable
@@ -219,7 +219,7 @@ class AsyncUdpConnection extends UdpConnection
             $this->eventLoop->onReadable($this->socket, [$this, 'baseRead']);
         }
         $this->connected = true;
-        // Try to emit onConnect callback.
+        // Попытка вызова обработчика события onConnect.
         if ($this->onConnect) {
             try {
                 ($this->onConnect)($this);

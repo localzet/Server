@@ -27,10 +27,10 @@ declare(strict_types=1);
 namespace localzet\Server\Protocols;
 
 use Exception;
+use localzet\Server;
 use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\Request;
-use localzet\Server;
 use Throwable;
 use function base64_encode;
 use function chr;
@@ -119,7 +119,7 @@ class Websocket
                     // Понг-пакет
                 case 0xa:
                     break;
-                    // Закрытие
+                // Закрытие
                 case 0x8:
                     // Попытка вызвать onWebSocketClose
                     $closeCb = $connection->onWebSocketClose ?? $connection->server->onWebSocketClose ?? false;
@@ -134,7 +134,7 @@ class Websocket
                         $connection->close("\x88\x02\x03\xe8", true);
                     }
                     return 0;
-                    // Неверный опкод
+                // Неверный опкод
                 default:
                     Server::safeEcho("Ошибка опкода $opcode и закрытие WebSocket соединения. Буфер:" . $buffer . "\n");
                     $connection->close();
@@ -245,107 +245,6 @@ class Websocket
     }
 
     /**
-     * Websocket encode.
-     *
-     * @param mixed $buffer
-     * @param TcpConnection $connection
-     * @return string
-     * @throws Throwable
-     */
-    public static function encode(mixed $buffer, TcpConnection $connection): string
-    {
-        if (!is_scalar($buffer)) {
-            throw new Exception("Вы не можете отправить (" . gettype($buffer) . ") клиенту, конвертируйте это в строку.");
-        }
-
-        $len = strlen($buffer);
-        if (empty($connection->websocketType)) {
-            $connection->websocketType = static::BINARY_TYPE_BLOB;
-        }
-
-        $firstByte = $connection->websocketType;
-
-        if ($len <= 125) {
-            $encodeBuffer = $firstByte . chr($len) . $buffer;
-        } else {
-            if ($len <= 65535) {
-                $encodeBuffer = $firstByte . chr(126) . pack("n", $len) . $buffer;
-            } else {
-                $encodeBuffer = $firstByte . chr(127) . pack("xxxxN", $len) . $buffer;
-            }
-        }
-
-        // Рукопожатие не завершено, поэтому данные веб-сокета временного буфера ожидают отправки.
-        if (empty($connection->context->websocketHandshake)) {
-            if (empty($connection->context->tmpWebsocketData)) {
-                $connection->context->tmpWebsocketData = '';
-            }
-            // Если буфер уже заполнен, отбросить текущий пакет.
-            if (strlen($connection->context->tmpWebsocketData) > $connection->maxSendBufferSize) {
-                if ($connection->onError) {
-                    try {
-                        ($connection->onError)($connection, ConnectionInterface::SEND_FAIL, 'отправить полный буфер и удалить пакет');
-                    } catch (Throwable $e) {
-                        Server::stopAll(250, $e);
-                    }
-                }
-                return '';
-            }
-            $connection->context->tmpWebsocketData .= $encodeBuffer;
-            // Проверка наполненности буфера
-            if ($connection->onBufferFull && $connection->maxSendBufferSize <= strlen($connection->context->tmpWebsocketData)) {
-                try {
-                    ($connection->onBufferFull)($connection);
-                } catch (Throwable $e) {
-                    Server::stopAll(250, $e);
-                }
-            }
-            return '';
-        }
-
-        return $encodeBuffer;
-    }
-
-    /**
-     * Websocket decode.
-     *
-     * @param string $buffer
-     * @param TcpConnection $connection
-     * @return string
-     */
-    public static function decode(string $buffer, TcpConnection $connection): string
-    {
-        $firstByte = ord($buffer[1]);
-        $len = $firstByte & 127;
-
-        if ($len === 126) {
-            $masks = substr($buffer, 4, 4);
-            $data = substr($buffer, 8);
-        } else {
-            if ($len === 127) {
-                $masks = substr($buffer, 10, 4);
-                $data = substr($buffer, 14);
-            } else {
-                $masks = substr($buffer, 2, 4);
-                $data = substr($buffer, 6);
-            }
-        }
-        $dataLength = strlen($data);
-        $masks = str_repeat($masks, (int)floor($dataLength / 4)) . substr($masks, 0, $dataLength % 4);
-        $decoded = $data ^ $masks;
-        if ($connection->context->websocketCurrentFrameLength) {
-            $connection->context->websocketDataBuffer .= $decoded;
-            return $connection->context->websocketDataBuffer;
-        }
-
-        if ($connection->context->websocketDataBuffer !== '') {
-            $decoded = $connection->context->websocketDataBuffer . $decoded;
-            $connection->context->websocketDataBuffer = '';
-        }
-        return $decoded;
-    }
-
-    /**
      * Websocket handshake.
      *
      * @param string $buffer
@@ -440,5 +339,106 @@ class Websocket
             true
         );
         return 0;
+    }
+
+    /**
+     * Websocket decode.
+     *
+     * @param string $buffer
+     * @param TcpConnection $connection
+     * @return string
+     */
+    public static function decode(string $buffer, TcpConnection $connection): string
+    {
+        $firstByte = ord($buffer[1]);
+        $len = $firstByte & 127;
+
+        if ($len === 126) {
+            $masks = substr($buffer, 4, 4);
+            $data = substr($buffer, 8);
+        } else {
+            if ($len === 127) {
+                $masks = substr($buffer, 10, 4);
+                $data = substr($buffer, 14);
+            } else {
+                $masks = substr($buffer, 2, 4);
+                $data = substr($buffer, 6);
+            }
+        }
+        $dataLength = strlen($data);
+        $masks = str_repeat($masks, (int)floor($dataLength / 4)) . substr($masks, 0, $dataLength % 4);
+        $decoded = $data ^ $masks;
+        if ($connection->context->websocketCurrentFrameLength) {
+            $connection->context->websocketDataBuffer .= $decoded;
+            return $connection->context->websocketDataBuffer;
+        }
+
+        if ($connection->context->websocketDataBuffer !== '') {
+            $decoded = $connection->context->websocketDataBuffer . $decoded;
+            $connection->context->websocketDataBuffer = '';
+        }
+        return $decoded;
+    }
+
+    /**
+     * Websocket encode.
+     *
+     * @param mixed $buffer
+     * @param TcpConnection $connection
+     * @return string
+     * @throws Throwable
+     */
+    public static function encode(mixed $buffer, TcpConnection $connection): string
+    {
+        if (!is_scalar($buffer)) {
+            throw new Exception("Вы не можете отправить (" . gettype($buffer) . ") клиенту, конвертируйте это в строку.");
+        }
+
+        $len = strlen($buffer);
+        if (empty($connection->websocketType)) {
+            $connection->websocketType = static::BINARY_TYPE_BLOB;
+        }
+
+        $firstByte = $connection->websocketType;
+
+        if ($len <= 125) {
+            $encodeBuffer = $firstByte . chr($len) . $buffer;
+        } else {
+            if ($len <= 65535) {
+                $encodeBuffer = $firstByte . chr(126) . pack("n", $len) . $buffer;
+            } else {
+                $encodeBuffer = $firstByte . chr(127) . pack("xxxxN", $len) . $buffer;
+            }
+        }
+
+        // Рукопожатие не завершено, поэтому данные веб-сокета временного буфера ожидают отправки.
+        if (empty($connection->context->websocketHandshake)) {
+            if (empty($connection->context->tmpWebsocketData)) {
+                $connection->context->tmpWebsocketData = '';
+            }
+            // Если буфер уже заполнен, отбросить текущий пакет.
+            if (strlen($connection->context->tmpWebsocketData) > $connection->maxSendBufferSize) {
+                if ($connection->onError) {
+                    try {
+                        ($connection->onError)($connection, ConnectionInterface::SEND_FAIL, 'отправить полный буфер и удалить пакет');
+                    } catch (Throwable $e) {
+                        Server::stopAll(250, $e);
+                    }
+                }
+                return '';
+            }
+            $connection->context->tmpWebsocketData .= $encodeBuffer;
+            // Проверка наполненности буфера
+            if ($connection->onBufferFull && $connection->maxSendBufferSize <= strlen($connection->context->tmpWebsocketData)) {
+                try {
+                    ($connection->onBufferFull)($connection);
+                } catch (Throwable $e) {
+                    Server::stopAll(250, $e);
+                }
+            }
+            return '';
+        }
+
+        return $encodeBuffer;
     }
 }

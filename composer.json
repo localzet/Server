@@ -27,17 +27,16 @@
     }
   ],
   "require": {
-    "php": ">=8.1",
-    "ext-json": "*",
-    "revolt/event-loop": "^1.0"
+    "php": ">=8.2",
+    "ext-json": "*"
   },
   "suggest": {
-    "ext-ev": "For better performance",
     "ext-uv": "For better performance",
-    "ext-posix": "For better performance",
-    "ext-pcntl": "For better performance",
-    "ext-sockets": "For better performance",
+    "ext-ev": "For better performance",
     "ext-event": "For better performance",
+    "ext-posix": "For Linux",
+    "ext-pcntl": "For Linux",
+    "ext-sockets": "For better performance",
     "ext-redis": "For Redis Session Handler",
     "mongodb/mongodb": "For Mongo Session Handler"
   },
@@ -45,22 +44,5 @@
     "psr-4": {
       "localzet\\": "src"
     }
-  },
-  "conflict": {
-    "ext-swow": "<v1.0.0"
-  },
-  "require-dev": {
-    "pestphp/pest": "2.x-dev",
-    "mockery/mockery": "2.0.x-dev",
-    "guzzlehttp/guzzle": "^7.0",
-    "phpstan/phpstan": "1.11.x-dev"
-  },
-  "config": {
-    "allow-plugins": {
-      "pestphp/pest-plugin": true
-    }
-  },
-  "scripts": {
-    "analyze": "phpstan"
   }
 }
