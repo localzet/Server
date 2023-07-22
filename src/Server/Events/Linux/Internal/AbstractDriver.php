@@ -43,7 +43,7 @@ abstract class AbstractDriver implements Driver
     /** @var null|\Closure(\Throwable):void */
     private ?\Closure $errorHandler = null;
 
-    /** @var null|\Closure():mixed  */
+    /** @var null|\Closure():mixed */
     private ?\Closure $interrupt = null;
 
     private readonly \Closure $interruptCallback;
@@ -315,7 +315,7 @@ abstract class AbstractDriver implements Driver
     public function __debugInfo(): array
     {
         // @codeCoverageIgnoreStart
-        return \array_map(fn (DriverCallback $callback) => [
+        return \array_map(fn(DriverCallback $callback) => [
             'type' => $this->getType($callback->id),
             'enabled' => $callback->enabled,
             'referenced' => $callback->referenced,
@@ -385,7 +385,7 @@ abstract class AbstractDriver implements Driver
     {
         if ($this->errorHandler === null) {
             // Explicitly override the previous interrupt if it exists in this case, hiding the exception is worse
-            $this->interrupt = static fn () => $exception instanceof UncaughtThrowable
+            $this->interrupt = static fn() => $exception instanceof UncaughtThrowable
                 ? throw $exception
                 : throw UncaughtThrowable::throwingCallback($closure, $exception);
             return;
@@ -618,7 +618,7 @@ abstract class AbstractDriver implements Driver
                 $errorHandler($exception);
             } catch (\Throwable $exception) {
                 $this->setInterrupt(
-                    static fn () => $exception instanceof UncaughtThrowable
+                    static fn() => $exception instanceof UncaughtThrowable
                         ? throw $exception
                         : throw UncaughtThrowable::throwingErrorHandler($errorHandler, $exception)
                 );

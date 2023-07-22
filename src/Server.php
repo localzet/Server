@@ -41,12 +41,29 @@ use localzet\Server\Protocols\ProtocolInterface;
 use RuntimeException;
 use Throwable;
 use function array_intersect;
+use function current;
+use function fflush;
+use function floor;
+use function fwrite;
+use function get_resource_type;
+use function lcfirst;
+use function method_exists;
+use function register_shutdown_function;
+use function stream_socket_accept;
+use function stream_socket_recvfrom;
 use const DIRECTORY_SEPARATOR;
+use const E_COMPILE_ERROR;
+use const E_CORE_ERROR;
+use const E_ERROR;
+use const E_PARSE;
+use const E_RECOVERABLE_ERROR;
+use const FILE_APPEND;
 use const FILE_IGNORE_NEW_LINES;
 use const LOCK_EX;
 use const LOCK_UN;
 use const PHP_EOL;
 use const PHP_SAPI;
+use const PHP_VERSION;
 use const SIG_IGN;
 use const SIGHUP;
 use const SIGINT;
@@ -59,9 +76,15 @@ use const SIGTERM;
 use const SIGTSTP;
 use const SIGUSR1;
 use const SIGUSR2;
+use const SO_KEEPALIVE;
+use const SOL_SOCKET;
+use const SOL_TCP;
 use const STDERR;
 use const STDOUT;
 use const STR_PAD_LEFT;
+use const STREAM_SERVER_BIND;
+use const STREAM_SERVER_LISTEN;
+use const TCP_NODELAY;
 use const WUNTRACED;
 
 /**
@@ -346,7 +369,7 @@ class Server
     /**
      * Версия
      *
-     * @var string
+     * @var string|null
      */
     protected static ?string $version = null;
 
@@ -370,13 +393,6 @@ class Server
      * @var string
      */
     protected string $socketName = '';
-
-    /**
-     * parse from socketName avoid parse again in master or server
-     * LocalSocket The format is like tcp://0.0.0.0:8080
-     * @var ?string
-     */
-    protected ?string $localSocket = null;
 
     /**
      * Context of socket.
@@ -436,34 +452,6 @@ class Server
      * @var int
      */
     protected static int $maxSocketNameLength = 12;
-
-    /**
-     * Maximum length of the process user names.
-     *
-     * @var int
-     */
-    protected static int $maxUserNameLength = 12;
-
-    /**
-     * Maximum length of the Proto names.
-     *
-     * @var int
-     */
-    protected static int $maxProtoNameLength = 4;
-
-    /**
-     * Maximum length of the Processes names.
-     *
-     * @var int
-     */
-    protected static int $maxProcessesNameLength = 9;
-
-    /**
-     * Maximum length of the state names.
-     *
-     * @var int
-     */
-    protected static int $maxStateNameLength = 1;
 
     /**
      * The file to store status info of current server process.
@@ -582,7 +570,7 @@ class Server
         static::monitorServers();
     }
 
-    public static function getVersion()
+    public static function getVersion(): ?string
     {
         if (!self::$version) {
             if (InstalledVersions::isInstalled('localzet/server')) {
@@ -1119,7 +1107,7 @@ class Server
         $currentTotalRequest = [];
         try {
             $serverInfo = unserialize($info[0], ['allowed_classes' => false]);
-        } catch (Throwable $exception) {
+        } catch (Throwable) {
         }
         ksort($serverInfo, SORT_NUMERIC);
         unset($info[0]);
@@ -1231,7 +1219,7 @@ class Server
     public static function signalHandler(int $signal): void
     {
         switch ($signal) {
-                // Stop.
+            // Stop.
             case SIGINT:
             case SIGTERM:
             case SIGHUP:
@@ -1239,12 +1227,12 @@ class Server
                 static::$gracefulStop = false;
                 static::stopAll();
                 break;
-                // Graceful stop.
+            // Graceful stop.
             case SIGQUIT:
                 static::$gracefulStop = true;
                 static::stopAll();
                 break;
-                // Reload.
+            // Reload.
             case SIGUSR2:
             case SIGUSR1:
                 if (static::$status === static::STATUS_RELOADING || static::$status === static::STATUS_SHUTDOWN) {
@@ -1254,11 +1242,11 @@ class Server
                 static::$pidsToRestart = static::getAllServerPids();
                 static::reload();
                 break;
-                // Show status.
+            // Show status.
             case SIGIOT:
                 static::writeStatisticsToStatusFile();
                 break;
-                // Show connection status.
+            // Show connection status.
             case SIGIO:
                 static::writeConnectionsStatisticsToStatusFile();
                 break;
@@ -1832,7 +1820,7 @@ class Server
                 return;
             }
             // Continue reload.
-            $oneServerPid = \current(static::$pidsToRestart);
+            $oneServerPid = current(static::$pidsToRestart);
             // Send reload signal to a server process.
             set_error_handler(function () {
             });
@@ -1846,7 +1834,7 @@ class Server
         } // For child processes.
         else {
             reset(static::$servers);
-            $server = \current(static::$servers);
+            $server = current(static::$servers);
             // Try to emit onServerReload callback.
             if ($server->onServerReload) {
                 try {
@@ -1971,17 +1959,17 @@ class Server
                 }
             }
 
-            file_put_contents(static::$statisticsFile, serialize($allServerInfo) . "\n", \FILE_APPEND);
+            file_put_contents(static::$statisticsFile, serialize($allServerInfo) . "\n", FILE_APPEND);
             $loadavg = function_exists('sys_getloadavg') ? array_map('round', sys_getloadavg(), [2, 2, 2]) : ['-', '-', '-'];
             file_put_contents(
                 static::$statisticsFile,
                 "----------------------------------------------GLOBAL STATUS----------------------------------------------------\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
-                'Server version:' . static::getVersion() . "          PHP version:" . \PHP_VERSION . "\n",
-                \FILE_APPEND
+                'Server version:' . static::getVersion() . "          PHP version:" . PHP_VERSION . "\n",
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
@@ -1989,37 +1977,37 @@ class Server
                     'Y-m-d H:i:s',
                     static::$globalStatistics['start_timestamp']
                 ) .
-                    '   запущен ' .
-                    \floor(
-                        (time() -
-                            static::$globalStatistics['start_timestamp']) /
-                            (24 * 60 * 60)
-                    ) .
-                    ' дней ' .
-                    \floor(
-                        ((time() -
+                '   запущен ' .
+                floor(
+                    (time() -
+                        static::$globalStatistics['start_timestamp']) /
+                    (24 * 60 * 60)
+                ) .
+                ' дней ' .
+                floor(
+                    ((time() -
                             static::$globalStatistics['start_timestamp']) %
-                            (24 * 60 * 60)) /
-                            (60 * 60)
-                    ) .
-                    " часов   \n",
+                        (24 * 60 * 60)) /
+                    (60 * 60)
+                ) .
+                " часов   \n",
                 FILE_APPEND
             );
             $loadStr = 'load average: ' . implode(", ", $loadavg);
             file_put_contents(
                 static::$statisticsFile,
                 str_pad($loadStr, 33) . 'event-loop:' . Linux::class . "\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
                 count(static::$pidMap) . ' servers       ' . count(static::getAllServerPids()) . " processes\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
                 str_pad('server_name', static::$maxServerNameLength) . " exit_status      exit_count\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             foreach (static::$pidMap as $serverId => $serverPidArray) {
                 $server = static::$servers[$serverId];
@@ -2031,21 +2019,21 @@ class Server
                                 (string)$serverExitStatus,
                                 16
                             ) . " $serverExitCount\n",
-                            \FILE_APPEND
+                            FILE_APPEND
                         );
                     }
                 } else {
                     file_put_contents(
                         static::$statisticsFile,
                         str_pad($server->name, static::$maxServerNameLength) . " " . str_pad("0", 16) . " 0\n",
-                        \FILE_APPEND
+                        FILE_APPEND
                     );
                 }
             }
             file_put_contents(
                 static::$statisticsFile,
                 "----------------------------------------------PROCESS STATUS---------------------------------------------------\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
@@ -2053,8 +2041,8 @@ class Server
                     'server_name',
                     static::$maxServerNameLength
                 ) . " connections " . str_pad('send_fail', 9) . " "
-                    . str_pad('timers', 8) . str_pad('total_request', 13) . " qps    status\n",
-                \FILE_APPEND
+                . str_pad('timers', 8) . str_pad('total_request', 13) . " qps    status\n",
+                FILE_APPEND
             );
 
             chmod(static::$statisticsFile, 0722);
@@ -2084,7 +2072,7 @@ class Server
             . " " . str_pad((string)ConnectionInterface::$statistics['send_fail'], 9)
             . " " . str_pad((string)static::$globalEvent->getTimerCount(), 7)
             . " " . str_pad((string)ConnectionInterface::$statistics['total_request'], 13) . "\n";
-        file_put_contents(static::$statisticsFile, $serverStatusStr, \FILE_APPEND);
+        file_put_contents(static::$statisticsFile, $serverStatusStr, FILE_APPEND);
     }
 
     /**
@@ -2099,12 +2087,12 @@ class Server
             file_put_contents(
                 static::$statisticsFile,
                 "--------------------------------------------------------------------- SERVER CONNECTION STATUS --------------------------------------------------------------------------------\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
                 "PID      Server          CID       Trans   Protocol        ipv4   ipv6   Recv-Q       Send-Q       Bytes-R      Bytes-W       Status         Local Address          Foreign Address\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             chmod(static::$statisticsFile, 0722);
             foreach (static::getAllServerPids() as $serverPid) {
@@ -2170,7 +2158,7 @@ class Server
                 . str_pad((string)$state, 14) . ' ' . str_pad((string)$localAddress, 22) . ' ' . str_pad($remoteAddress, 22) . "\n";
         }
         if ($str) {
-            file_put_contents(static::$statisticsFile, $str, \FILE_APPEND);
+            file_put_contents(static::$statisticsFile, $str, FILE_APPEND);
         }
     }
 
@@ -2185,11 +2173,11 @@ class Server
             $errorMsg = DIRECTORY_SEPARATOR === '/' ? 'Localzet Server [' . posix_getpid() . '] процесс завершен' : 'Серверный процесс завершен';
             $errors = error_get_last();
             if (
-                $errors && ($errors['type'] === \E_ERROR ||
-                    $errors['type'] === \E_PARSE ||
-                    $errors['type'] === \E_CORE_ERROR ||
-                    $errors['type'] === \E_COMPILE_ERROR ||
-                    $errors['type'] === \E_RECOVERABLE_ERROR)
+                $errors && ($errors['type'] === E_ERROR ||
+                    $errors['type'] === E_PARSE ||
+                    $errors['type'] === E_CORE_ERROR ||
+                    $errors['type'] === E_COMPILE_ERROR ||
+                    $errors['type'] === E_RECOVERABLE_ERROR)
             ) {
                 $errorMsg .= ' с ошибкой: ' . static::getErrorType($errors['type']) . " \"{$errors['message']} в файле {$errors['file']} на {$errors['line']} строке\"";
             }
@@ -2221,7 +2209,7 @@ class Server
             static::safeEcho($msg);
         }
         file_put_contents(static::$logFile, date('Y-m-d H:i:s') . ' ' . 'pid:'
-            . (DIRECTORY_SEPARATOR === '/' ? posix_getpid() : 1) . ' ' . $msg, \FILE_APPEND | LOCK_EX);
+            . (DIRECTORY_SEPARATOR === '/' ? posix_getpid() : 1) . ' ' . $msg, FILE_APPEND | LOCK_EX);
     }
 
     /**
@@ -2249,8 +2237,8 @@ class Server
         } elseif (!static::$outputDecorated) {
             return false;
         }
-        \fwrite($stream, $msg);
-        \fflush($stream);
+        fwrite($stream, $msg);
+        fflush($stream);
         return true;
     }
 
@@ -2264,7 +2252,7 @@ class Server
             $stream = static::$outputStream ?: STDOUT;
         }
         // @phpstan-ignore-next-line Negated boolean expression is always false.
-        if (!$stream || !is_resource($stream) || 'stream' !== \get_resource_type($stream)) {
+        if (!$stream || !is_resource($stream) || 'stream' !== get_resource_type($stream)) {
             return false;
         }
         $stat = fstat($stream);
@@ -2345,7 +2333,7 @@ class Server
             $localSocket = $this->parseSocketAddress();
 
             // Flag.
-            $flags = $this->transport === 'udp' ? \STREAM_SERVER_BIND : \STREAM_SERVER_BIND | \STREAM_SERVER_LISTEN;
+            $flags = $this->transport === 'udp' ? STREAM_SERVER_BIND : STREAM_SERVER_BIND | STREAM_SERVER_LISTEN;
             $errno = 0;
             $errmsg = '';
             // SO_REUSEPORT.
@@ -2376,8 +2364,8 @@ class Server
                 set_error_handler(function () {
                 });
                 $socket = socket_import_stream($this->mainSocket);
-                socket_set_option($socket, \SOL_SOCKET, \SO_KEEPALIVE, 1);
-                socket_set_option($socket, \SOL_TCP, \TCP_NODELAY, 1);
+                socket_set_option($socket, SOL_SOCKET, SO_KEEPALIVE, 1);
+                socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
                 restore_error_handler();
             }
 
@@ -2476,7 +2464,7 @@ class Server
      */
     public function getSocketName(): string
     {
-        return $this->socketName ? \lcfirst($this->socketName) : 'none';
+        return $this->socketName ? lcfirst($this->socketName) : 'none';
     }
 
     /**
@@ -2491,7 +2479,7 @@ class Server
         static::$status = static::STATUS_RUNNING;
 
         // Register shutdown function for checking errors.
-        \register_shutdown_function(["\\localzet\\Server\\Server", 'checkErrors']);
+        register_shutdown_function(["\\localzet\\Server\\Server", 'checkErrors']);
 
         // Create a global event loop.
         if (!static::$globalEvent) {
@@ -2569,7 +2557,7 @@ class Server
         // Accept a connection on server socket.
         set_error_handler(function () {
         });
-        $newSocket = \stream_socket_accept($socket, 0, $remoteAddress);
+        $newSocket = stream_socket_accept($socket, 0, $remoteAddress);
         restore_error_handler();
 
         // Thundering herd.
@@ -2609,7 +2597,7 @@ class Server
     {
         set_error_handler(function () {
         });
-        $recvBuffer = \stream_socket_recvfrom($socket, UdpConnection::MAX_UDP_PACKAGE_SIZE, 0, $remoteAddress);
+        $recvBuffer = stream_socket_recvfrom($socket, UdpConnection::MAX_UDP_PACKAGE_SIZE, 0, $remoteAddress);
         restore_error_handler();
         if (false === $recvBuffer || empty($remoteAddress)) {
             return false;
@@ -2624,7 +2612,7 @@ class Server
                     /** @var ProtocolInterface $parser */
                     $parser = $this->protocol;
                     // @phpstan-ignore-next-line Left side of && is always true.
-                    if ($parser && \method_exists($parser, 'input')) {
+                    if ($parser && method_exists($parser, 'input')) {
                         while ($recvBuffer !== '') {
                             $len = $parser::input($recvBuffer, $connection);
                             if ($len === 0) {

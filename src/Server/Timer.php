@@ -27,10 +27,8 @@ declare(strict_types=1);
 namespace localzet\Server;
 
 /**
- * Таймер
- *
- * Например:
- * localzet\Timer::add($time_interval, callback, array($arg1, $arg2..));
+ * @inheritdoc
+ * @deprecated
  */
 class Timer extends \localzet\Timer
 {

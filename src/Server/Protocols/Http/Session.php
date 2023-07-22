@@ -30,7 +30,6 @@ use Exception;
 use InvalidArgumentException;
 use localzet\Server\Protocols\Http\Session\FileSessionHandler;
 use localzet\Server\Protocols\Http\Session\SessionHandlerInterface;
-use RuntimeException;
 use function array_key_exists;
 use function ini_get;
 use function is_array;

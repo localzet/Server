@@ -28,7 +28,6 @@ namespace localzet\Server\Protocols\Http;
 
 use localzet\Server;
 use Stringable;
-
 use function array_merge_recursive;
 use function explode;
 use function file;
@@ -196,7 +195,8 @@ class Response implements Stringable
         int    $status = 200,
         ?array $headers = [],
         string $body = ''
-    ) {
+    )
+    {
         $this->status = $status;
         $this->headers = $headers;
         $this->body = $body;

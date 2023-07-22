@@ -28,7 +28,8 @@ declare(strict_types=1);
 namespace localzet\Server;
 
 /**
- * Localzet Server
+ * @inheritdoc
+ * @deprecated
  */
 class Server extends \localzet\Server
 {

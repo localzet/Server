@@ -16,9 +16,10 @@ abstract class DriverCallback
     public bool $referenced = true;
 
     public function __construct(
-        public readonly string $id,
+        public readonly string   $id,
         public readonly \Closure $closure
-    ) {
+    )
+    {
     }
 
     /**
@@ -31,7 +32,7 @@ abstract class DriverCallback
 
     /**
      * @param string $property
-     * @param mixed  $value
+     * @param mixed $value
      */
     public function __set(string $property, mixed $value): never
     {

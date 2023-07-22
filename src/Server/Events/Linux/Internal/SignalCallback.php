@@ -8,10 +8,11 @@ namespace localzet\Server\Events\Linux\Internal;
 final class SignalCallback extends DriverCallback
 {
     public function __construct(
-        string $id,
-        \Closure $closure,
+        string              $id,
+        \Closure            $closure,
         public readonly int $signal
-    ) {
+    )
+    {
         parent::__construct($id, $closure);
     }
 }

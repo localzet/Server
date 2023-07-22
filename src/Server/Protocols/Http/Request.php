@@ -26,11 +26,11 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols\Http;
 
-use Stringable;
 use Exception;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http;
 use RuntimeException;
+use Stringable;
 use function array_walk_recursive;
 use function bin2hex;
 use function clearstatcache;
@@ -756,6 +756,7 @@ class Request implements Stringable
     {
         $this->isSafe = false;
     }
+
     /**
      * __destruct.
      *

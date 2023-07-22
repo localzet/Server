@@ -28,7 +28,8 @@ final class DriverSuspension implements Suspension
         private readonly \Closure $queue,
         private readonly \Closure $interrupt,
         private readonly \WeakMap $suspensions,
-    ) {
+    )
+    {
         $fiber = \Fiber::getCurrent();
 
         $this->fiberRef = $fiber ? \WeakReference::create($fiber) : null;
@@ -49,7 +50,7 @@ final class DriverSuspension implements Suspension
             ($this->queue)($fiber->resume(...), $value);
         } else {
             // Suspend event loop fiber to {main}.
-            ($this->interrupt)(static fn () => $value);
+            ($this->interrupt)(static fn() => $value);
         }
     }
 
@@ -128,7 +129,7 @@ final class DriverSuspension implements Suspension
             ($this->queue)($fiber->throw(...), $throwable);
         } else {
             // Suspend event loop fiber to {main}.
-            ($this->interrupt)(static fn () => throw $throwable);
+            ($this->interrupt)(static fn() => throw $throwable);
         }
     }
 

@@ -38,7 +38,7 @@ final class UvDriver extends AbstractDriver
         $this->handle = \uv_loop_new();
 
         $this->ioCallback = function ($event, $status, $events, $resource): void {
-            $callbacks = $this->callbacks[(int) $event];
+            $callbacks = $this->callbacks[(int)$event];
 
             // Invoke the callback on errors, as this matches behavior with other loop back-ends.
             // Re-enable callback as libuv disables the callback on non-zero status.
@@ -66,7 +66,7 @@ final class UvDriver extends AbstractDriver
         };
 
         $this->timerCallback = function ($event): void {
-            $callback = $this->callbacks[(int) $event][0];
+            $callback = $this->callbacks[(int)$event][0];
 
             \assert($callback instanceof TimerCallback);
 
@@ -74,7 +74,7 @@ final class UvDriver extends AbstractDriver
         };
 
         $this->signalCallback = function ($event): void {
-            $callback = $this->callbacks[(int) $event][0];
+            $callback = $this->callbacks[(int)$event][0];
 
             $this->enqueueCallback($callback);
         };
@@ -92,7 +92,7 @@ final class UvDriver extends AbstractDriver
         }
 
         $event = $this->events[$callbackId];
-        $eventId = (int) $event;
+        $eventId = (int)$event;
 
         if (isset($this->callbacks[$eventId][0])) { // All except IO callbacks.
             unset($this->callbacks[$eventId]);
@@ -103,7 +103,7 @@ final class UvDriver extends AbstractDriver
             \assert($callback instanceof StreamCallback);
 
             if (empty($this->callbacks[$eventId])) {
-                unset($this->callbacks[$eventId], $this->streams[(int) $callback->stream]);
+                unset($this->callbacks[$eventId], $this->streams[(int)$callback->stream]);
             }
         }
 
@@ -148,7 +148,7 @@ final class UvDriver extends AbstractDriver
             if ($callback instanceof StreamCallback) {
                 \assert(\is_resource($callback->stream));
 
-                $streamId = (int) $callback->stream;
+                $streamId = (int)$callback->stream;
 
                 if (isset($this->streams[$streamId])) {
                     $event = $this->streams[$streamId];
@@ -159,7 +159,7 @@ final class UvDriver extends AbstractDriver
                     $event = $this->streams[$streamId] = \uv_poll_init_socket($this->handle, $callback->stream);
                 }
 
-                $eventId = (int) $event;
+                $eventId = (int)$event;
                 $this->events[$id] = $event;
                 $this->callbacks[$eventId][$id] = $callback;
 
@@ -177,12 +177,12 @@ final class UvDriver extends AbstractDriver
                     $event = $this->events[$id] = \uv_timer_init($this->handle);
                 }
 
-                $this->callbacks[(int) $event] = [$callback];
+                $this->callbacks[(int)$event] = [$callback];
 
                 \uv_timer_start(
                     $event,
-                    (int) \min(\max(0, \ceil(($callback->expiration - $now) * 1000)), \PHP_INT_MAX),
-                    $callback->repeat ? (int) \min(\max(0, \ceil($callback->interval * 1000)), \PHP_INT_MAX) : 0,
+                    (int)\min(\max(0, \ceil(($callback->expiration - $now) * 1000)), \PHP_INT_MAX),
+                    $callback->repeat ? (int)\min(\max(0, \ceil($callback->interval * 1000)), \PHP_INT_MAX) : 0,
                     $this->timerCallback
                 );
             } elseif ($callback instanceof SignalCallback) {
@@ -193,7 +193,7 @@ final class UvDriver extends AbstractDriver
                     $event = $this->events[$id] = \uv_signal_init($this->handle);
                 }
 
-                $this->callbacks[(int) $event] = [$callback];
+                $this->callbacks[(int)$event] = [$callback];
 
                 /** @psalm-suppress TooManyArguments */
                 \uv_signal_start($event, $this->signalCallback, $callback->signal);
@@ -224,7 +224,7 @@ final class UvDriver extends AbstractDriver
 
         if ($callback instanceof StreamCallback) {
             $flags = 0;
-            foreach ($this->callbacks[(int) $event] as $w) {
+            foreach ($this->callbacks[(int)$event] as $w) {
                 \assert($w instanceof StreamCallback);
 
                 $flags |= $w->invokable ? ($this->getStreamCallbackFlags($w)) : 0;

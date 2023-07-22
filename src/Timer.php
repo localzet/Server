@@ -43,6 +43,8 @@ use const SIGALRM;
  *
  * Например:
  * localzet\Timer::add($time_interval, callback, array($arg1, $arg2..));
+ *
+ * @method sleep(float $delay)
  */
 class Timer
 {

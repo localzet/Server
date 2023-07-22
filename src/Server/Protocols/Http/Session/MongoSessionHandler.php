@@ -26,9 +26,9 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols\Http\Session;
 
+use MongoDB\BSON\UTCDateTime;
 use MongoDB\Client;
 use MongoDB\Collection;
-use MongoDB\BSON\UTCDateTime;
 
 /**
  * Class MongoSessionHandler
@@ -48,7 +48,7 @@ class MongoSessionHandler implements SessionHandlerInterface
 
     /**
      * Конструктор MongoSessionHandler.
-     * 
+     *
      * @param array $config Конфигурация Redis-сервера и сессий.
      */
     public function __construct(array $config)
@@ -83,7 +83,7 @@ class MongoSessionHandler implements SessionHandlerInterface
     {
         $session = $this->collection->findOne(['_id' => $sessionId]);
         if ($session !== null) {
-            return serialize((array) $session);
+            return serialize((array)$session);
         }
         return '';
     }

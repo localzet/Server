@@ -150,7 +150,7 @@ final class EventDriver extends AbstractDriver
 
     protected function now(): float
     {
-        return (float) \hrtime(true) / 1_000_000_000;
+        return (float)\hrtime(true) / 1_000_000_000;
     }
 
     /**

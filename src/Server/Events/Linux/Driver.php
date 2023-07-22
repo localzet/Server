@@ -4,11 +4,6 @@ declare(strict_types=1);
 
 namespace localzet\Server\Events\Linux;
 
-use localzet\Server\Events\Linux\Suspension;
-use localzet\Server\Events\Linux\UnsupportedFeatureException;
-use localzet\Server\Events\Linux\InvalidCallbackError;
-use localzet\Server\Events\Linux\CallbackType;
-
 /**
  * The driver MUST run in its own fiber and execute callbacks in a separate fiber. If fibers are reused, the driver
  * needs to call {@see FiberLocal::clear()} after running the callback.

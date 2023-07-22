@@ -40,7 +40,7 @@ final class Windows implements EventInterface
 {
     /**
      * Флаг, указывающий, работает ли событийный цикл.
-     * 
+     *
      * @var bool
      */
     protected bool $running = true;

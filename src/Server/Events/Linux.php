@@ -34,14 +34,13 @@ use localzet\Server\Events\Linux\Internal\DriverCallback;
 use localzet\Server\Events\Linux\InvalidCallbackError;
 use localzet\Server\Events\Linux\Suspension;
 use localzet\Server\Events\Linux\UnsupportedFeatureException;
-
 use function count;
 use function function_exists;
 use function pcntl_signal;
 
 /**
  * Linux eventloop
- * 
+ *
  * Класс Linux представляет собой реализацию интерфейса EventInterface.
  * Он предоставляет функциональность для управления обработчиками событий чтения, записи, таймеров и сигналов.
  */
@@ -276,7 +275,7 @@ final class Linux implements EventInterface
         return count($this->eventTimer);
     }
 
-        /**
+    /**
      * Устанавливает обработчик ошибок.
      * @param callable $errorHandler Функция-обработчик ошибок.
      */
@@ -348,7 +347,7 @@ final class Linux implements EventInterface
 
                 protected function now(): float
                 {
-                    return (float) \hrtime(true) / 1_000_000_000;
+                    return (float)\hrtime(true) / 1_000_000_000;
                 }
             };
 

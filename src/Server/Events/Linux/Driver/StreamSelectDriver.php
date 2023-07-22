@@ -108,7 +108,7 @@ final class StreamSelectDriver extends AbstractDriver
 
     protected function now(): float
     {
-        return (float) \hrtime(true) / 1_000_000_000;
+        return (float)\hrtime(true) / 1_000_000_000;
     }
 
     /**
@@ -149,13 +149,13 @@ final class StreamSelectDriver extends AbstractDriver
             if ($callback instanceof StreamReadableCallback) {
                 \assert(\is_resource($callback->stream));
 
-                $streamId = (int) $callback->stream;
+                $streamId = (int)$callback->stream;
                 $this->readCallbacks[$streamId][$callback->id] = $callback;
                 $this->readStreams[$streamId] = $callback->stream;
             } elseif ($callback instanceof StreamWritableCallback) {
                 \assert(\is_resource($callback->stream));
 
-                $streamId = (int) $callback->stream;
+                $streamId = (int)$callback->stream;
                 $this->writeCallbacks[$streamId][$callback->id] = $callback;
                 $this->writeStreams[$streamId] = $callback->stream;
             } elseif ($callback instanceof TimerCallback) {
@@ -190,13 +190,13 @@ final class StreamSelectDriver extends AbstractDriver
     protected function deactivate(DriverCallback $callback): void
     {
         if ($callback instanceof StreamReadableCallback) {
-            $streamId = (int) $callback->stream;
+            $streamId = (int)$callback->stream;
             unset($this->readCallbacks[$streamId][$callback->id]);
             if (empty($this->readCallbacks[$streamId])) {
                 unset($this->readCallbacks[$streamId], $this->readStreams[$streamId]);
             }
         } elseif ($callback instanceof StreamWritableCallback) {
-            $streamId = (int) $callback->stream;
+            $streamId = (int)$callback->stream;
             unset($this->writeCallbacks[$streamId][$callback->id]);
             if (empty($this->writeCallbacks[$streamId])) {
                 unset($this->writeCallbacks[$streamId], $this->writeStreams[$streamId]);
@@ -209,7 +209,7 @@ final class StreamSelectDriver extends AbstractDriver
 
                 if (empty($this->signalCallbacks[$callback->signal])) {
                     unset($this->signalCallbacks[$callback->signal]);
-                    \set_error_handler(static fn () => true);
+                    \set_error_handler(static fn() => true);
                     try {
                         \pcntl_signal($callback->signal, \SIG_DFL);
                     } finally {
@@ -232,8 +232,8 @@ final class StreamSelectDriver extends AbstractDriver
     {
         if (!empty($read) || !empty($write)) { // Use stream_select() if there are any streams in the loop.
             if ($timeout >= 0) {
-                $seconds = (int) $timeout;
-                $microseconds = (int) (($timeout - $seconds) * 1_000_000);
+                $seconds = (int)$timeout;
+                $microseconds = (int)(($timeout - $seconds) * 1_000_000);
             } else {
                 $seconds = null;
                 $microseconds = null;
@@ -266,7 +266,7 @@ final class StreamSelectDriver extends AbstractDriver
             }
 
             foreach ($read as $stream) {
-                $streamId = (int) $stream;
+                $streamId = (int)$stream;
                 if (!isset($this->readCallbacks[$streamId])) {
                     continue; // All read callbacks disabled.
                 }
@@ -284,7 +284,7 @@ final class StreamSelectDriver extends AbstractDriver
             }
 
             foreach ($write as $stream) {
-                $streamId = (int) $stream;
+                $streamId = (int)$stream;
                 if (!isset($this->writeCallbacks[$streamId])) {
                     continue; // All write callbacks disabled.
                 }
@@ -305,7 +305,7 @@ final class StreamSelectDriver extends AbstractDriver
 
         if ($timeout > 0) { // Sleep until next timer expires.
             /** @psalm-var positive-int $timeout */
-            \usleep((int) ($timeout * 1_000_000));
+            \usleep((int)($timeout * 1_000_000));
         }
     }
 

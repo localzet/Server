@@ -25,8 +25,8 @@
 namespace localzet\Server\Connection;
 
 use Exception;
-use localzet\Server\Protocols\ProtocolInterface;
 use localzet\Server;
+use localzet\Server\Protocols\ProtocolInterface;
 use Throwable;
 use function class_exists;
 use function explode;

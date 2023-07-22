@@ -28,10 +28,10 @@ namespace localzet\Server\Connection;
 
 use JetBrains\PhpStorm\Pure;
 use JsonSerializable;
+use localzet\Server;
 use localzet\Server\Events\EventInterface;
 use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\ProtocolInterface;
-use localzet\Server;
 use stdClass;
 use Throwable;
 use function ceil;

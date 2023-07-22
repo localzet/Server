@@ -26,19 +26,15 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols;
 
-use Exception;
+use localzet\Server;
 use localzet\Server\Connection\AsyncTcpConnection;
 use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Protocols\Http\Response;
-use localzet\Server;
 use localzet\Timer;
 use Throwable;
 use function base64_encode;
 use function bin2hex;
 use function floor;
-use function gettype;
-use function is_array;
-use function is_scalar;
 use function ord;
 use function pack;
 use function preg_match;
@@ -127,7 +123,7 @@ class Ws
                     // Понг-пакет
                 case 0xa:
                     break;
-                    // Закрытие
+                // Закрытие
                 case 0x8:
                     // Попытка вызвать onWebSocketClose
                     if (isset($connection->onWebSocketClose)) {
@@ -141,7 +137,7 @@ class Ws
                         $connection->close();
                     }
                     return 0;
-                    // Неверный опкод
+                // Неверный опкод
                 default:
                     Server::safeEcho("Ошибка опкода $opcode и закрытие WebSocket соединения. Буфер:" . $buffer . "\n");
                     $connection->close();
