@@ -65,54 +65,55 @@ use const STREAM_CRYPTO_METHOD_SSLv2_CLIENT;
 use const STREAM_CRYPTO_METHOD_SSLv2_SERVER;
 
 /**
- * TcpConnection.
+ * TCP-соединение.
  * @property string $websocketType
  */
 class TcpConnection extends ConnectionInterface implements JsonSerializable
 {
     /**
-     * Read buffer size.
+     * Размер буфера чтения.
      *
      * @var int
      */
     public const READ_BUFFER_SIZE = 87380;
 
     /**
-     * Status initial.
+     * Начальный статус.
      *
      * @var int
      */
     public const STATUS_INITIAL = 0;
 
     /**
-     * Status connecting.
+     * Статус соединения в процессе установки.
      *
      * @var int
      */
     public const STATUS_CONNECTING = 1;
 
     /**
-     * Status connection established.
+     * Статус установленного соединения.
      *
      * @var int
      */
     public const STATUS_ESTABLISHED = 2;
 
     /**
-     * Status closing.
+     * Статус закрытия соединения.
      *
      * @var int
      */
     public const STATUS_CLOSING = 4;
 
     /**
-     * Status closed.
+     * Статус закрытого соединения.
      *
      * @var int
      */
     public const STATUS_CLOSED = 8;
+
     /**
-     * Status to string.
+     * Массив для преобразования статуса в строковое представление.
      *
      * @var array
      */
@@ -123,192 +124,227 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         self::STATUS_CLOSING => 'CLOSING',
         self::STATUS_CLOSED => 'CLOSED',
     ];
+
     /**
-     * Default send buffer size.
+     * Размер буфера отправки по умолчанию.
      *
      * @var int
      */
     public static int $defaultMaxSendBufferSize = 1048576;
+
     /**
-     * Default maximum acceptable packet size.
+     * Максимальный допустимый размер пакета по умолчанию.
      *
      * @var int
      */
     public static int $defaultMaxPackageSize = 10485760;
+
     /**
-     * All connection instances.
+     * Массив всех экземпляров соединения.
      *
      * @var array
      */
     public static array $connections = [];
+
     /**
-     * Id recorder.
+     * Идентификатор записывателя.
      *
      * @var int
      */
     protected static int $idRecorder = 1;
+
     /**
-     * Cache.
+     * Кэш.
      *
      * @var bool
      */
     protected static bool $enableCache = true;
+
     /**
-     * Emitted when socket connection is successfully established.
+     * Событие, возникающее при успешном установлении сокетного соединения.
      *
      * @var ?callable
      */
     public $onConnect = null;
+
     /**
-     * Emitted when websocket handshake completed (Only work when protocol is ws).
+     * Событие, возникающее после успешного завершения рукопожатия WebSocket (работает только для протокола ws).
      *
      * @var ?callable
      */
     public $onWebSocketConnect = null;
+
     /**
-     * Emitted when data is received.
+     * Событие, возникающее при получении данных.
      *
      * @var ?callable
      */
     public $onMessage = null;
+
     /**
-     * Emitted when the other end of the socket sends a FIN packet.
+     * Событие, возникающее при получении пакета FIN от другого конца сокета.
      *
      * @var ?callable
      */
     public $onClose = null;
+
     /**
-     * Emitted when an error occurs with connection.
+     * Событие, возникающее при возникновении ошибки в соединении.
      *
      * @var ?callable
      */
     public $onError = null;
+
     /**
-     * Emitted when the send buffer becomes full.
+     * Событие, возникающее при заполнении отправочного буфера.
      *
      * @var ?callable
      */
     public $onBufferFull = null;
+
     /**
-     * Emitted when send buffer becomes empty.
+     * Событие, возникающее при опустошении отправочного буфера.
      *
      * @var ?callable
      */
     public $onBufferDrain = null;
+
     /**
-     * Transport (tcp/udp/unix/ssl).
+     * Транспорт (tcp/udp/unix/ssl).
      *
      * @var string
      */
     public string $transport = 'tcp';
+
     /**
-     * Which server belong to.
+     * К какому серверу принадлежит соединение.
      *
      * @var ?Server
      */
     public ?Server $server = null;
+
     /**
-     * Bytes read.
+     * Прочитанные байты.
      *
      * @var int
      */
     public int $bytesRead = 0;
+
     /**
-     * Bytes written.
+     * Записанные байты.
      *
      * @var int
      */
     public int $bytesWritten = 0;
+
     /**
-     * Connection->id.
+     * Идентификатор соединения.
      *
      * @var int
      */
     public int $id = 0;
+
     /**
-     * Sets the maximum send buffer size for the current connection.
-     * OnBufferFull callback will be emitted When send buffer is full.
+     * Задает максимальный размер отправочного буфера для текущего соединения.
+     * Событие onBufferFull будет возникать, когда буфер отправки будет полон.
      *
      * @var int
      */
     public int $maxSendBufferSize = 1048576;
+
     /**
-     * Context.
+     * Контекст.
      *
      * @var ?stdClass
      */
     public ?stdClass $context = null;
+
     /**
+     * Заголовки.
+     *
      * @var array
      */
     public array $headers = [];
+
     /**
+     * Запрос.
+     *
      * @var ?Request
      */
     public ?Request $request = null;
+
     /**
-     * Sets the maximum acceptable packet size for the current connection.
+     * Задает максимальный допустимый размер пакета для текущего соединения.
      *
      * @var int
      */
     public int $maxPackageSize = 1048576;
+
     /**
-     * A copy of $server->id which used to clean up the connection in server->connections
+     * Копия $server->id, используется для очистки соединения в $server->connections.
      *
      * @var int
      */
     protected int $realId = 0;
+
     /**
-     * Socket
+     * Сокет.
      *
      * @var resource
      */
     protected $socket = null;
+
     /**
-     * Send buffer.
+     * Буфер отправки.
      *
      * @var string
      */
     protected string $sendBuffer = '';
+
     /**
-     * Receive buffer.
+     * Буфер приема.
      *
      * @var string
      */
     protected string $recvBuffer = '';
+
     /**
-     * Current package length.
+     * Длина текущего пакета.
      *
      * @var int
      */
     protected int $currentPackageLength = 0;
+
     /**
-     * Connection status.
+     * Статус соединения.
      *
      * @var int
      */
     protected int $status = self::STATUS_ESTABLISHED;
+
     /**
-     * Remote address.
+     * Удаленный адрес.
      *
      * @var string
      */
     protected string $remoteAddress = '';
+
     /**
-     * Is paused.
+     * Соединение приостановлено?
      *
      * @var bool
      */
     protected bool $isPaused = false;
+
     /**
-     * SSL handshake completed or not.
+     * SSL-рукопожатие совержено?
      *
      * @var bool
      */
     protected bool|int $sslHandshakeCompleted = false;
 
     /**
-     * Construct.
+     * Конструктор.
      *
      * @param EventInterface $eventLoop
      * @param resource $socket
@@ -323,7 +359,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         }
         $this->socket = $socket;
         stream_set_blocking($this->socket, false);
-        // Compatible with hhvm
+        // Совместимость с hhvm
         if (function_exists('stream_set_read_buffer')) {
             stream_set_read_buffer($this->socket, 0);
         }
@@ -337,7 +373,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Enable or disable Cache.
+     * Включение или отключение кэша.
      *
      * @param bool $value
      */
@@ -347,7 +383,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get send buffer queue size.
+     * Получить размер очереди буфера отправки.
      *
      * @return integer
      */
@@ -357,7 +393,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get receive buffer queue size.
+     * Получить размер очереди буфера приема.
      *
      * @return integer
      */
@@ -367,7 +403,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Base write handler.
+     * Основной обработчик записи.
      *
      * @return void
      * @throws Throwable
@@ -387,7 +423,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             $this->bytesWritten += $len;
             $this->eventLoop->offWritable($this->socket);
             $this->sendBuffer = '';
-            // Try to emit onBufferDrain callback when send buffer becomes empty.
+            // Попытка вызвать обратный вызов onBufferDrain, когда буфер отправки становится пустым.
             if ($this->onBufferDrain) {
                 try {
                     ($this->onBufferDrain)($this);
@@ -413,29 +449,29 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Destroy connection.
+     * Уничтожить соединение.
      *
      * @return void
      * @throws Throwable
      */
     public function destroy(): void
     {
-        // Avoid repeated calls.
+        // Избежать повторных вызовов.
         if ($this->status === self::STATUS_CLOSED) {
             return;
         }
-        // Remove event listener.
+        // Удалить обработчик событий.
         $this->eventLoop->offReadable($this->socket);
         $this->eventLoop->offWritable($this->socket);
 
-        // Close socket.
+        // Закрыть сокет.
         try {
             @fclose($this->socket);
         } catch (Throwable) {
         }
 
         $this->status = self::STATUS_CLOSED;
-        // Try to emit onClose callback.
+        // Попытка вызвать обратный вызов onClose.
         if ($this->onClose) {
             try {
                 ($this->onClose)($this);
@@ -443,7 +479,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                 $this->error($e);
             }
         }
-        // Try to emit protocol::onClose
+        // Попытка вызвать protocol::onClose
         if ($this->protocol && $this->protocol instanceof Ws) {
             try {
                 $this->protocol::onClose($this);
@@ -455,9 +491,9 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         $this->currentPackageLength = 0;
         $this->isPaused = $this->sslHandshakeCompleted = false;
         if ($this->status === self::STATUS_CLOSED) {
-            // Cleaning up the callback to avoid memory leaks.
+            // Очистка обратного вызова для предотвращения утечек памяти.
             $this->onMessage = $this->onClose = $this->onError = $this->onBufferFull = $this->onBufferDrain = $this->eventLoop = $this->errorHandler = null;
-            // Remove from server->connections.
+            // Удаление из server->connections.
             if ($this->server) {
                 unset($this->server->connections[$this->realId]);
             }
@@ -466,7 +502,9 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * This method pulls all the data out of a readable stream, and writes it to the supplied destination.
+     * Метод pipe() позволяет установить канал передачи данных между текущим соединением и другим соединением (dest).
+     * Входящие данные из текущего соединения будут отправлены на соединение dest.
+     * Этот метод используется для перенаправления данных между соединениями.
      *
      * @param self $dest
      * @return void
@@ -489,11 +527,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Sends data on the connection.
-     *
-     * @param mixed $sendBuffer
-     * @param bool $raw
-     * @return bool|void
+     * @inheritdoc
      * @throws Throwable
      */
     public function send(mixed $sendBuffer, bool $raw = false)
@@ -502,7 +536,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             return false;
         }
 
-        // Try to call protocol::encode($sendBuffer) before sending.
+        // Попытка вызвать protocol::encode($sendBuffer) перед отправкой.
         if (false === $raw && $this->protocol !== null) {
             /** @var ProtocolInterface $parser */
             $parser = $this->protocol;
@@ -512,6 +546,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             }
         }
 
+        // Если соединение еще не установлено или еще не завершено SSL-рукопожатие.
         if (
             $this->status !== self::STATUS_ESTABLISHED ||
             ($this->transport === 'ssl' && $this->sslHandshakeCompleted !== true)
@@ -525,7 +560,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             return;
         }
 
-        // Attempt to send data directly.
+        // Попытка отправить данные напрямую.
         if ($this->sendBuffer === '') {
             if ($this->transport === 'ssl') {
                 $this->eventLoop->onWritable($this->socket, [$this, 'baseWrite']);
@@ -539,17 +574,17 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             } catch (Throwable $e) {
                 Server::log($e);
             }
-            // send successful.
+            // Отправка успешна.
             if ($len === strlen($sendBuffer)) {
                 $this->bytesWritten += $len;
                 return true;
             }
-            // Send only part of the data.
+            // Отправить только часть данных.
             if ($len > 0) {
                 $this->sendBuffer = substr($sendBuffer, $len);
                 $this->bytesWritten += $len;
             } else {
-                // Connection closed?
+                // Соединение закрыто?
                 if (!is_resource($this->socket) || feof($this->socket)) {
                     ++self::$statistics['send_fail'];
                     if ($this->onError) {
@@ -565,7 +600,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                 $this->sendBuffer = $sendBuffer;
             }
             $this->eventLoop->onWritable($this->socket, [$this, 'baseWrite']);
-            // Check if send buffer will be full.
+            // Проверка, будет ли буфер отправки заполнен.
             $this->checkBufferWillFull();
             return;
         }
@@ -576,19 +611,19 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         }
 
         $this->sendBuffer .= $sendBuffer;
-        // Check if send buffer is full.
+        // Проверка, будет ли буфер отправки заполнен.
         $this->checkBufferWillFull();
     }
 
     /**
-     * Whether send buffer is full.
+     * Метод bufferIsFull() используется для проверки заполненности буфера отправки.
      *
      * @return bool
      * @throws Throwable
      */
     protected function bufferIsFull(): bool
     {
-        // Buffer has been marked as full but still has data to send then the packet is discarded.
+        // Если буфер был помечен как заполненный, но еще есть данные для отправки, пакет отбрасывается.
         if ($this->maxSendBufferSize <= strlen($this->sendBuffer)) {
             if ($this->onError) {
                 try {
@@ -603,7 +638,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Check whether send buffer will be full.
+     * Метод checkBufferWillFull() используется для проверки заполнения буфера отправки.
      *
      * @return void
      * @throws Throwable
@@ -620,11 +655,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Close connection.
-     *
-     * @param mixed|null $data
-     * @param bool $raw
-     * @return void
+     * @inheritdoc
      * @throws Throwable
      */
     public function close(mixed $data = null, bool $raw = false): void
@@ -652,7 +683,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Pauses the reading of data. That is onMessage will not be emitted. Useful to throttle back an upload.
+     * Приостанавливает чтение данных. Это означает, что onMessage не будет вызван. Полезно для снижения нагрузки при загрузке данных.
      *
      * @return void
      */
@@ -663,7 +694,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Resumes reading after a call to pauseRecv.
+     * Возобновляет чтение данных после вызова pauseRecv.
      *
      * @return void
      * @throws Throwable
@@ -677,9 +708,8 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         }
     }
 
-
     /**
-     * Base read handler.
+     * Основной обработчик чтения.
      *
      * @param resource $socket
      * @param bool $checkEof
@@ -707,7 +737,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         } catch (Throwable) {
         }
 
-        // Check connection closed.
+        // Проверка закрытия соединения.
         if ($buffer === '' || $buffer === false) {
             if ($checkEof && (feof($socket) || !is_resource($socket) || $buffer === false)) {
                 $this->destroy();
@@ -739,55 +769,55 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             }
         }
 
-        // If the application layer protocol has been set up.
+        // Если протокол прикладного уровня был установлен.
         if ($this->protocol !== null) {
             while ($this->recvBuffer !== '' && !$this->isPaused) {
-                // The current packet length is known.
+                // Длина текущего пакета известна.
                 if ($this->currentPackageLength) {
-                    // Data is not enough for a package.
+                    // Данных недостаточно для пакета.
                     if ($this->currentPackageLength > strlen($this->recvBuffer)) {
                         break;
                     }
                 } else {
-                    // Get current package length.
+                    // Получить текущую длину пакета.
                     try {
                         /** @var ProtocolInterface $parser */
                         $parser = $this->protocol;
                         $this->currentPackageLength = $parser::input($this->recvBuffer, $this);
                     } catch (Throwable) {
                     }
-                    // The packet length is unknown.
+                    // Длина пакета неизвестна.
                     if ($this->currentPackageLength === 0) {
                         break;
                     } elseif ($this->currentPackageLength > 0 && $this->currentPackageLength <= $this->maxPackageSize) {
-                        // Data is not enough for a package.
+                        // Данных недостаточно для пакета.
                         if ($this->currentPackageLength > strlen($this->recvBuffer)) {
                             break;
                         }
-                    } // Wrong package.
+                    } // Неверный пакет.
                     else {
-                        Server::safeEcho('Error package. package_length=' . var_export($this->currentPackageLength, true));
+                        Server::safeEcho('Ошибка пакета. package_length=' . var_export($this->currentPackageLength, true));
                         $this->destroy();
                         return;
                     }
                 }
 
-                // The data is enough for a packet.
+                // Данных достаточно для пакета.
                 ++self::$statistics['total_request'];
-                // The current packet length is equal to the length of the buffer.
+                // Длина текущего пакета равна длине буфера.
                 if ($one = (strlen($this->recvBuffer) === $this->currentPackageLength)) {
                     $oneRequestBuffer = $this->recvBuffer;
                     $this->recvBuffer = '';
                 } else {
-                    // Get a full package from the buffer.
+                    // Получить полный пакет из буфера.
                     $oneRequestBuffer = substr($this->recvBuffer, 0, $this->currentPackageLength);
-                    // Remove the current package from receive buffer.
+                    // Удалить текущий пакет из буфера чтения.
                     $this->recvBuffer = substr($this->recvBuffer, $this->currentPackageLength);
                 }
-                // Reset the current packet length to 0.
+                // Сбросить текущую длину пакета на 0.
                 $this->currentPackageLength = 0;
                 try {
-                    // Decode request buffer before Emitting onMessage callback.
+                    // Декодировать буфер запроса перед вызовом обратного вызова onMessage.
                     /** @var ProtocolInterface $parser */
                     $parser = $this->protocol;
                     $request = $parser::decode($oneRequestBuffer, $this);
@@ -809,14 +839,14 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             return;
         }
 
-        // Applications protocol is not set.
+        // Протокол приложения не установлен.
         ++self::$statistics['total_request'];
         try {
             ($this->onMessage)($this, $this->recvBuffer);
         } catch (Throwable $e) {
             $this->error($e);
         }
-        // Clean receive buffer.
+        // Очистить буфер чтения.
         $this->recvBuffer = '';
     }
 
@@ -836,47 +866,41 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         $async = $this instanceof AsyncTcpConnection;
 
         /**
-         *  We disabled ssl3 because https://blog.qualys.com/ssllabs/2014/10/15/ssl-3-is-dead-killed-by-the-poodle-attack.
-         *  You can enable ssl3 by the codes below.
+         * SSLv3 небезопасен.
+         * @see https://blog.qualys.com/ssllabs/2014/10/15/ssl-3-is-dead-killed-by-the-poodle-attack
          */
-        /*if($async){
-            $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT | STREAM_CRYPTO_METHOD_SSLv3_CLIENT;
-        }else{
-            $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER | STREAM_CRYPTO_METHOD_SSLv3_SERVER;
-        }*/
-
         if ($async) {
-            $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT;
+            $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT | STREAM_CRYPTO_METHOD_SSLv3_CLIENT;
         } else {
-            if (defined('STREAM_CRYPTO_METHOD_SERVER')) {
-                $type = STREAM_CRYPTO_METHOD_SERVER;
-            } else {
-                $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER;
-            }
+            // if (defined('STREAM_CRYPTO_METHOD_SERVER')) {
+            //     $type = STREAM_CRYPTO_METHOD_SERVER;
+            // } else {
+            $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER | STREAM_CRYPTO_METHOD_SSLv3_SERVER;
+            // }
         }
 
-        // Hidden error.
+        // Скрытая ошибка.
         set_error_handler(function ($errno, $err_str) {
             if (!Server::$daemonize) {
-                Server::safeEcho("SSL handshake error: $err_str \n");
+                Server::safeEcho("Ошибка SSL-соединения: $err_str \n");
             }
         });
         $ret = stream_socket_enable_crypto($socket, true, $type);
         restore_error_handler();
-        // Negotiation has failed.
+        // Переговоры не удалось.
         if (false === $ret) {
             $this->destroy();
             return false;
         }
         if (0 === $ret) {
-            // There isn't enough data and should try again.
+            // Данных недостаточно, нужно повторить попытку.
             return 0;
         }
         return true;
     }
 
     /**
-     * Remove $length of data from receive buffer.
+     * Удаляет $length данных из буфера чтения.
      *
      * @param int $length
      * @return void
@@ -887,7 +911,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get the real socket.
+     * Получает реальный сокет.
      *
      * @return resource
      */
@@ -897,7 +921,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Whether send buffer is Empty.
+     * Проверяет, пустой ли буфер отправки.
      *
      * @return bool
      */
@@ -907,7 +931,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get the json_encode information.
+     * Получает информацию для json_encode.
      *
      * @return array
      */
@@ -929,7 +953,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get status.
+     * Получает статус.
      *
      * @param bool $rawOutput
      *
@@ -944,9 +968,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get remote IP.
-     *
-     * @return string
+     * @inheritdoc
      */
     public function getRemoteIp(): string
     {
@@ -958,9 +980,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get remote port.
-     *
-     * @return int
+     * @inheritdoc
      */
     public function getRemotePort(): int
     {
@@ -971,9 +991,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get remote address.
-     *
-     * @return string
+     * @inheritdoc
      */
     public function getRemoteAddress(): string
     {
@@ -981,9 +999,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get local IP.
-     *
-     * @return string
+     * @inheritdoc
      */
     public function getLocalIp(): string
     {
@@ -996,9 +1012,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get local address.
-     *
-     * @return string
+     * @inheritdoc
      */
     public function getLocalAddress(): string
     {
@@ -1009,9 +1023,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get local port.
-     *
-     * @return int
+     * @inheritdoc
      */
     public function getLocalPort(): int
     {
@@ -1024,9 +1036,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Is ipv4.
-     *
-     * return bool.
+     * @inheritdoc
      */
     #[Pure]
     public function isIpV4(): bool
@@ -1038,9 +1048,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Is ipv6.
-     *
-     * return bool.
+     * @inheritdoc
      */
     #[Pure]
     public function isIpV6(): bool
@@ -1052,7 +1060,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Destruct.
+     * Деструктор.
      *
      * @return void
      */
@@ -1067,7 +1075,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
             if (0 === self::$statistics['connection_count'] % $mod) {
                 $pid = function_exists('posix_getpid') ? posix_getpid() : 0;
-                Server::log('server[' . $pid . '] remains ' . self::$statistics['connection_count'] . ' connection(s)');
+                Server::log('server[' . $pid . '] осталось ' . self::$statistics['connection_count'] . ' соединений(я)');
             }
 
             if (0 === self::$statistics['connection_count']) {

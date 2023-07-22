@@ -38,21 +38,21 @@ use Throwable;
 abstract class ConnectionInterface
 {
     /**
-     * Connect failed.
+     * Соединение не удалось.
      *
      * @var int
      */
     public const CONNECT_FAIL = 1;
 
     /**
-     * Send failed.
+     * Ошибка отправки данных.
      *
      * @var int
      */
     public const SEND_FAIL = 2;
 
     /**
-     * Statistics for status command.
+     * Статистика для команды status.
      *
      * @var array
      */
@@ -64,29 +64,29 @@ abstract class ConnectionInterface
     ];
 
     /**
-     * Application layer protocol.
-     * The format is like this localzet\\Server\\Protocols\\Http.
+     * Протокол прикладного уровня.
+     * Формат аналогичен localzet\\Server\\Protocols\\Http.
      *
      * @var ?string
      */
     public ?string $protocol = null;
 
     /**
-     * Emitted when data is received.
+     * Вызывается при получении данных.
      *
      * @var ?callable
      */
     public $onMessage = null;
 
     /**
-     * Emitted when the other end of the socket sends a FIN packet.
+     * Вызывается, когда другой конец сокета отправляет пакет FIN.
      *
      * @var ?callable
      */
     public $onClose = null;
 
     /**
-     * Emitted when an error occurs with connection.
+     * Вызывается, когда возникает ошибка соединения.
      *
      * @var ?callable
      */
@@ -103,7 +103,7 @@ abstract class ConnectionInterface
     public $errorHandler = null;
 
     /**
-     * Sends data on the connection.
+     * Отправляет данные по соединению.
      *
      * @param mixed $sendBuffer
      * @param bool $raw
@@ -112,49 +112,49 @@ abstract class ConnectionInterface
     abstract public function send(mixed $sendBuffer, bool $raw = false);
 
     /**
-     * Get remote IP.
+     * Получить удаленный IP-адрес.
      *
      * @return string
      */
     abstract public function getRemoteIp(): string;
 
     /**
-     * Get remote port.
+     * Получить удаленный порт.
      *
      * @return int
      */
     abstract public function getRemotePort(): int;
 
     /**
-     * Get remote address.
+     * Получить удаленный адрес.
      *
      * @return string
      */
     abstract public function getRemoteAddress(): string;
 
     /**
-     * Get local IP.
+     * Получить локальный IP-адрес.
      *
      * @return string
      */
     abstract public function getLocalIp(): string;
 
     /**
-     * Get local port.
+     * Получить локальный порт.
      *
      * @return int
      */
     abstract public function getLocalPort(): int;
 
     /**
-     * Get local address.
+     * Получить локальный адрес.
      *
      * @return string
      */
     abstract public function getLocalAddress(): string;
 
     /**
-     * Close connection.
+     * Закрыть соединение.
      *
      * @param mixed|null $data
      * @param bool $raw
@@ -163,14 +163,14 @@ abstract class ConnectionInterface
     abstract public function close(mixed $data = null, bool $raw = false): void;
 
     /**
-     * Is ipv4.
+     * Является ли адрес IPv4.
      *
      * @return bool
      */
     abstract public function isIpV4(): bool;
 
     /**
-     * Is ipv6.
+     * Является ли адрес IPv6.
      *
      * @return bool
      */

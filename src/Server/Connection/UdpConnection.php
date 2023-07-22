@@ -39,40 +39,40 @@ use function substr;
 use function trim;
 
 /**
- * UdpConnection.
+ * UDP-соединение.
  */
 class UdpConnection extends ConnectionInterface implements JsonSerializable
 {
     /**
-     * Max udp package size.
+     * Максимальный размер пакета UDP.
      *
      * @var int
      */
     public const MAX_UDP_PACKAGE_SIZE = 65535;
 
     /**
-     * Transport layer protocol.
+     * Протокол транспортного уровня.
      *
      * @var string
      */
     public string $transport = 'udp';
 
     /**
-     * Udp socket.
+     * UDP-сокет.
      *
      * @var resource
      */
     protected $socket;
 
     /**
-     * Remote address.
+     * Удаленный адрес.
      *
      * @var string
      */
     protected string $remoteAddress = '';
 
     /**
-     * Construct.
+     * Конструктор.
      *
      * @param resource $socket
      * @param string $remoteAddress
@@ -84,11 +84,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Close connection.
-     *
-     * @param mixed|null $data
-     * @param bool $raw
-     * @return void
+     * @inheritdoc
      */
     public function close(mixed $data = null, bool $raw = false): void
     {
@@ -99,11 +95,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Sends data on the connection.
-     *
-     * @param mixed $sendBuffer
-     * @param bool $raw
-     * @return void|boolean
+     * @inheritdoc
      */
     public function send(mixed $sendBuffer, bool $raw = false)
     {
@@ -119,9 +111,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Is ipv6.
-     *
-     * @return bool.
+     * @inheritdoc
      */
     #[Pure]
     public function isIpV6(): bool
@@ -133,9 +123,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get remote IP.
-     *
-     * @return string
+     * @inheritdoc
      */
     public function getRemoteIp(): string
     {
@@ -147,9 +135,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get remote port.
-     *
-     * @return int
+     * @inheritdoc
      */
     public function getRemotePort(): int
     {
@@ -160,7 +146,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get the real socket.
+     * Получает реальный сокет.
      *
      * @return resource
      */
@@ -170,7 +156,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get the json_encode information.
+     * Получает информацию для json_encode.
      *
      * @return array
      */
@@ -203,9 +189,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get remote address.
-     *
-     * @return string
+     * @inheritdoc
      */
     public function getRemoteAddress(): string
     {
@@ -213,9 +197,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get local IP.
-     *
-     * @return string
+     * @inheritdoc
      */
     public function getLocalIp(): string
     {
@@ -228,9 +210,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get local address.
-     *
-     * @return string
+     * @inheritdoc
      */
     public function getLocalAddress(): string
     {
@@ -238,9 +218,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Get local port.
-     *
-     * @return int
+     * @inheritdoc
      */
     public function getLocalPort(): int
     {
@@ -253,9 +231,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
-     * Is ipv4.
-     *
-     * @return bool.
+     * @inheritdoc
      */
     #[Pure]
     public function isIpV4(): bool
