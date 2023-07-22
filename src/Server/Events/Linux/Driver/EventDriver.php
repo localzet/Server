@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
-/** @noinspection PhpComposerExtensionStubsInspection */
-
 namespace localzet\Server\Events\Linux\Driver;
 
+use Closure;
+use Error;
+use Event;
+use EventBase;
 use localzet\Server\Events\Linux\Internal\AbstractDriver;
 use localzet\Server\Events\Linux\Internal\DriverCallback;
 use localzet\Server\Events\Linux\Internal\SignalCallback;
@@ -13,33 +15,51 @@ use localzet\Server\Events\Linux\Internal\StreamCallback;
 use localzet\Server\Events\Linux\Internal\StreamReadableCallback;
 use localzet\Server\Events\Linux\Internal\StreamWritableCallback;
 use localzet\Server\Events\Linux\Internal\TimerCallback;
+use function assert;
+use function extension_loaded;
+use function hrtime;
+use function is_resource;
+use function max;
+use function min;
+use const PHP_INT_MAX;
 
+/**
+ *
+ */
 final class EventDriver extends AbstractDriver
 {
-    /** @var array<string, \Event>|null */
+    /** @var array<string, Event>|null */
     private static ?array $activeSignals = null;
-
-    public static function isSupported(): bool
-    {
-        return \extension_loaded("event");
-    }
-
-    private \EventBase $handle;
-    /** @var array<string, \Event> */
+    /**
+     * @var EventBase
+     */
+    private EventBase $handle;
+    /** @var array<string, Event> */
     private array $events = [];
-    private readonly \Closure $ioCallback;
-    private readonly \Closure $timerCallback;
-    private readonly \Closure $signalCallback;
-
-    /** @var array<string, \Event> */
+    /**
+     * @var Closure
+     */
+    private readonly Closure $ioCallback;
+    /**
+     * @var Closure
+     */
+    private readonly Closure $timerCallback;
+    /**
+     * @var Closure
+     */
+    private readonly Closure $signalCallback;
+    /** @var array<string, Event> */
     private array $signals = [];
 
+    /**
+     *
+     */
     public function __construct()
     {
         parent::__construct();
 
         /** @psalm-suppress TooFewArguments https://github.com/JetBrains/phpstorm-stubs/pull/763 */
-        $this->handle = new \EventBase();
+        $this->handle = new EventBase();
 
         if (self::$activeSignals === null) {
             self::$activeSignals = &$this->signals;
@@ -56,6 +76,14 @@ final class EventDriver extends AbstractDriver
         $this->signalCallback = function ($signo, $what, SignalCallback $callback): void {
             $this->enqueueCallback($callback);
         };
+    }
+
+    /**
+     * @return bool
+     */
+    public static function isSupported(): bool
+    {
+        return extension_loaded("event");
     }
 
     /**
@@ -102,7 +130,7 @@ final class EventDriver extends AbstractDriver
     {
         $active = self::$activeSignals;
 
-        \assert($active !== null);
+        assert($active !== null);
 
         foreach ($active as $event) {
             $event->del();
@@ -143,14 +171,9 @@ final class EventDriver extends AbstractDriver
     /**
      * {@inheritdoc}
      */
-    public function getHandle(): \EventBase
+    public function getHandle(): EventBase
     {
         return $this->handle;
-    }
-
-    protected function now(): float
-    {
-        return (float)\hrtime(true) / 1_000_000_000;
     }
 
     /**
@@ -158,7 +181,7 @@ final class EventDriver extends AbstractDriver
      */
     protected function dispatch(bool $blocking): void
     {
-        $this->handle->loop($blocking ? \EventBase::LOOP_ONCE : \EventBase::LOOP_ONCE | \EventBase::LOOP_NONBLOCK);
+        $this->handle->loop($blocking ? EventBase::LOOP_ONCE : EventBase::LOOP_ONCE | EventBase::LOOP_NONBLOCK);
     }
 
     /**
@@ -171,50 +194,50 @@ final class EventDriver extends AbstractDriver
         foreach ($callbacks as $callback) {
             if (!isset($this->events[$id = $callback->id])) {
                 if ($callback instanceof StreamReadableCallback) {
-                    \assert(\is_resource($callback->stream));
+                    assert(is_resource($callback->stream));
 
-                    $this->events[$id] = new \Event(
+                    $this->events[$id] = new Event(
                         $this->handle,
                         $callback->stream,
-                        \Event::READ | \Event::PERSIST,
+                        Event::READ | Event::PERSIST,
                         $this->ioCallback,
                         $callback
                     );
                 } elseif ($callback instanceof StreamWritableCallback) {
-                    \assert(\is_resource($callback->stream));
+                    assert(is_resource($callback->stream));
 
-                    $this->events[$id] = new \Event(
+                    $this->events[$id] = new Event(
                         $this->handle,
                         $callback->stream,
-                        \Event::WRITE | \Event::PERSIST,
+                        Event::WRITE | Event::PERSIST,
                         $this->ioCallback,
                         $callback
                     );
                 } elseif ($callback instanceof TimerCallback) {
-                    $this->events[$id] = new \Event(
+                    $this->events[$id] = new Event(
                         $this->handle,
                         -1,
-                        \Event::TIMEOUT,
+                        Event::TIMEOUT,
                         $this->timerCallback,
                         $callback
                     );
                 } elseif ($callback instanceof SignalCallback) {
-                    $this->events[$id] = new \Event(
+                    $this->events[$id] = new Event(
                         $this->handle,
                         $callback->signal,
-                        \Event::SIGNAL | \Event::PERSIST,
+                        Event::SIGNAL | Event::PERSIST,
                         $this->signalCallback,
                         $callback
                     );
                 } else {
                     // @codeCoverageIgnoreStart
-                    throw new \Error("Unknown callback type");
+                    throw new Error("Unknown callback type");
                     // @codeCoverageIgnoreEnd
                 }
             }
 
             if ($callback instanceof TimerCallback) {
-                $interval = \min(\max(0, $callback->expiration - $now), \PHP_INT_MAX / 2);
+                $interval = min(max(0, $callback->expiration - $now), PHP_INT_MAX / 2);
                 $this->events[$id]->add($interval > 0 ? $interval : 0);
             } elseif ($callback instanceof SignalCallback) {
                 $this->signals[$id] = $this->events[$id];
@@ -225,6 +248,14 @@ final class EventDriver extends AbstractDriver
                 $this->events[$id]->add();
             }
         }
+    }
+
+    /**
+     * @return float
+     */
+    protected function now(): float
+    {
+        return (float)hrtime(true) / 1_000_000_000;
     }
 
     /**

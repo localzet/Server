@@ -4,13 +4,21 @@ declare(strict_types=1);
 
 namespace localzet\Server\Events\Linux\Internal;
 
+use Closure;
+use ReflectionException;
+use ReflectionFunction;
+
 /** @internal */
 final class ClosureHelper
 {
-    public static function getDescription(\Closure $closure): string
+    /**
+     * @param Closure $closure
+     * @return string
+     */
+    public static function getDescription(Closure $closure): string
     {
         try {
-            $reflection = new \ReflectionFunction($closure);
+            $reflection = new ReflectionFunction($closure);
 
             $description = $reflection->name;
 
@@ -23,7 +31,7 @@ final class ClosureHelper
             }
 
             return $description;
-        } catch (\ReflectionException) {
+        } catch (ReflectionException) {
             return '???';
         }
     }

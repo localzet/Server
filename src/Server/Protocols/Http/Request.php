@@ -64,59 +64,51 @@ use function urlencode;
 class Request implements Stringable
 {
     /**
-     * Connection.
-     *
-     * @var ?TcpConnection
-     */
-    public ?TcpConnection $connection = null;
-
-    /**
-     * Session instance.
-     *
-     * @var ?Session
-     */
-    public ?Session $session = null;
-
-    /**
      * @var int
      */
     public static int $maxFileUploads = 1024;
-
-    /**
-     * Properties.
-     *
-     * @var array
-     */
-    public array $properties = [];
-
-    /**
-     * Http buffer.
-     *
-     * @var string
-     */
-    protected string $buffer;
-
-    /**
-     * Request data.
-     *
-     * @var array
-     */
-    protected array $data = [];
-
-    /**
-     * Is safe.
-     *
-     * @var bool
-     */
-    protected $isSafe = true;
-
     /**
      * Enable cache.
      *
      * @var bool
      */
     protected static bool $enableCache = true;
-
+    /**
+     * Connection.
+     *
+     * @var ?TcpConnection
+     */
+    public ?TcpConnection $connection = null;
+    /**
+     * Session instance.
+     *
+     * @var ?Session
+     */
+    public ?Session $session = null;
+    /**
+     * Properties.
+     *
+     * @var array
+     */
+    public array $properties = [];
+    /**
+     * Http buffer.
+     *
+     * @var string
+     */
+    protected string $buffer;
+    /**
+     * Request data.
+     *
+     * @var array
+     */
+    protected array $data = [];
+    /**
+     * Is safe.
+     *
+     * @var bool
+     */
+    protected $isSafe = true;
     /**
      * Session id.
      *
@@ -132,6 +124,16 @@ class Request implements Stringable
     public function __construct(string $buffer)
     {
         $this->buffer = $buffer;
+    }
+
+    /**
+     * Enable or disable cache.
+     *
+     * @param bool $value
+     */
+    public static function enableCache(bool $value): void
+    {
+        static::$enableCache = $value;
     }
 
     /**
@@ -153,6 +155,72 @@ class Request implements Stringable
     }
 
     /**
+     * Parse head.
+     *
+     * @return void
+     */
+    protected function parseGet(): void
+    {
+        static $cache = [];
+        $queryString = $this->queryString();
+        $this->data['get'] = [];
+        if ($queryString === '') {
+            return;
+        }
+        $cacheable = static::$enableCache && !isset($queryString[1024]);
+        if ($cacheable && isset($cache[$queryString])) {
+            $this->data['get'] = $cache[$queryString];
+            return;
+        }
+        parse_str($queryString, $this->data['get']);
+        if ($cacheable) {
+            $cache[$queryString] = $this->data['get'];
+            if (count($cache) > 256) {
+                unset($cache[key($cache)]);
+            }
+        }
+    }
+
+    /**
+     * Get query string.
+     *
+     * @return string
+     */
+    public function queryString(): string
+    {
+        if (!isset($this->data['query_string'])) {
+            $this->data['query_string'] = (string)parse_url($this->uri(), PHP_URL_QUERY);
+        }
+        return $this->data['query_string'];
+    }
+
+    /**
+     * Get uri.
+     *
+     * @return string
+     */
+    public function uri(): string
+    {
+        if (!isset($this->data['uri'])) {
+            $this->parseHeadFirstLine();
+        }
+        return $this->data['uri'];
+    }
+
+    /**
+     * Parse first line of http header buffer.
+     *
+     * @return void
+     */
+    protected function parseHeadFirstLine(): void
+    {
+        $firstLine = strstr($this->buffer, "\r\n", true);
+        $tmp = explode(' ', $firstLine, 3);
+        $this->data['method'] = $tmp[0];
+        $this->data['uri'] = $tmp[1] ?? '/';
+    }
+
+    /**
      * Get post.
      *
      * @param string|null $name
@@ -168,6 +236,43 @@ class Request implements Stringable
             return $this->data['post'];
         }
         return $this->data['post'][$name] ?? $default;
+    }
+
+    /**
+     * Parse post.
+     *
+     * @return void
+     */
+    protected function parsePost(): void
+    {
+        static $cache = [];
+        $this->data['post'] = $this->data['files'] = [];
+        $contentType = $this->header('content-type', '');
+        if (preg_match('/boundary="?(\S+)"?/', $contentType, $match)) {
+            $httpPostBoundary = '--' . $match[1];
+            $this->parseUploadFiles($httpPostBoundary);
+            return;
+        }
+        $bodyBuffer = $this->rawBody();
+        if ($bodyBuffer === '') {
+            return;
+        }
+        $cacheable = static::$enableCache && !isset($bodyBuffer[1024]);
+        if ($cacheable && isset($cache[$bodyBuffer])) {
+            $this->data['post'] = $cache[$bodyBuffer];
+            return;
+        }
+        if (preg_match('/\bjson\b/i', $contentType)) {
+            $this->data['post'] = (array)json_decode($bodyBuffer, true);
+        } else {
+            parse_str($bodyBuffer, $this->data['post']);
+        }
+        if ($cacheable) {
+            $cache[$bodyBuffer] = $this->data['post'];
+            if (count($cache) > 256) {
+                unset($cache[key($cache)]);
+            }
+        }
     }
 
     /**
@@ -187,255 +292,6 @@ class Request implements Stringable
         }
         $name = strtolower($name);
         return $this->data['headers'][$name] ?? $default;
-    }
-
-    /**
-     * Get cookie item by name.
-     *
-     * @param string|null $name
-     * @param mixed|null $default
-     * @return mixed
-     */
-    public function cookie(string $name = null, mixed $default = null): mixed
-    {
-        if (!isset($this->data['cookie'])) {
-            $this->data['cookie'] = [];
-            parse_str(preg_replace('/; ?/', '&', $this->header('cookie', '')), $this->data['cookie']);
-        }
-        if ($name === null) {
-            return $this->data['cookie'];
-        }
-        return $this->data['cookie'][$name] ?? $default;
-    }
-
-    /**
-     * Get upload files.
-     *
-     * @param string|null $name
-     * @return array|null
-     */
-    public function file(string $name = null)
-    {
-        if (!isset($this->data['files'])) {
-            $this->parsePost();
-        }
-        if (null === $name) {
-            return $this->data['files'];
-        }
-        return $this->data['files'][$name] ?? null;
-    }
-
-    /**
-     * Get method.
-     *
-     * @return string
-     */
-    public function method(): string
-    {
-        if (!isset($this->data['method'])) {
-            $this->parseHeadFirstLine();
-        }
-        return $this->data['method'];
-    }
-
-    /**
-     * Get http protocol version.
-     *
-     * @return string
-     */
-    public function protocolVersion(): string
-    {
-        if (!isset($this->data['protocolVersion'])) {
-            $this->parseProtocolVersion();
-        }
-        return $this->data['protocolVersion'];
-    }
-
-    /**
-     * Get host.
-     *
-     * @param bool $withoutPort
-     * @return string|null
-     */
-    public function host(bool $withoutPort = false): ?string
-    {
-        $host = $this->header('host');
-        if ($host && $withoutPort) {
-            return preg_replace('/:\d{1,5}$/', '', $host);
-        }
-        return $host;
-    }
-
-    /**
-     * Get uri.
-     *
-     * @return string
-     */
-    public function uri(): string
-    {
-        if (!isset($this->data['uri'])) {
-            $this->parseHeadFirstLine();
-        }
-        return $this->data['uri'];
-    }
-
-    /**
-     * Get path.
-     *
-     * @return string
-     */
-    public function path(): string
-    {
-        if (!isset($this->data['path'])) {
-            $this->data['path'] = (string)parse_url($this->uri(), PHP_URL_PATH);
-        }
-        return $this->data['path'];
-    }
-
-    /**
-     * Get query string.
-     *
-     * @return string
-     */
-    public function queryString(): string
-    {
-        if (!isset($this->data['query_string'])) {
-            $this->data['query_string'] = (string)parse_url($this->uri(), PHP_URL_QUERY);
-        }
-        return $this->data['query_string'];
-    }
-
-    /**
-     * Get session.
-     *
-     * @return Session
-     * @throws Exception
-     */
-    public function session(): Session
-    {
-        if ($this->session === null) {
-            $this->session = new Session($this->sessionId());
-        }
-        return $this->session;
-    }
-
-    /**
-     * Get/Set session id.
-     *
-     * @param string|null $sessionId
-     * @return string
-     * @throws Exception
-     */
-    public function sessionId(string $sessionId = null): string
-    {
-        if ($sessionId) {
-            unset($this->sid);
-        }
-        if (!isset($this->sid)) {
-            $sessionName = Session::$name;
-            $sid = $sessionId ? '' : $this->cookie($sessionName);
-            if ($sid === '' || $sid === null) {
-                if (!$this->connection) {
-                    throw new RuntimeException('Request->session() fail, header already send');
-                }
-                $sid = $sessionId ?: static::createSessionId();
-                $cookieParams = Session::getCookieParams();
-                $this->setSidCookie($sessionName, $sid, $cookieParams);
-            }
-            $this->sid = $sid;
-        }
-        return $this->sid;
-    }
-
-    /**
-     * Session regenerate id.
-     *
-     * @param bool $deleteOldSession
-     * @return string
-     * @throws Exception
-     */
-    public function sessionRegenerateId(bool $deleteOldSession = false): string
-    {
-        $session = $this->session();
-        $sessionData = $session->all();
-        if ($deleteOldSession) {
-            $session->flush();
-        }
-        $newSid = static::createSessionId();
-        $session = new Session($newSid);
-        $session->put($sessionData);
-        $cookieParams = Session::getCookieParams();
-        $sessionName = Session::$name;
-        $this->setSidCookie($sessionName, $newSid, $cookieParams);
-        return $newSid;
-    }
-
-    /**
-     * Get http raw head.
-     *
-     * @return string
-     */
-    public function rawHead(): string
-    {
-        if (!isset($this->data['head'])) {
-            $this->data['head'] = strstr($this->buffer, "\r\n\r\n", true);
-        }
-        return $this->data['head'];
-    }
-
-    /**
-     * Get http raw body.
-     *
-     * @return string
-     */
-    public function rawBody(): string
-    {
-        return substr($this->buffer, strpos($this->buffer, "\r\n\r\n") + 4);
-    }
-
-    /**
-     * Get raw buffer.
-     *
-     * @return string
-     */
-    public function rawBuffer(): string
-    {
-        return $this->buffer;
-    }
-
-    /**
-     * Enable or disable cache.
-     *
-     * @param bool $value
-     */
-    public static function enableCache(bool $value): void
-    {
-        static::$enableCache = $value;
-    }
-
-    /**
-     * Parse first line of http header buffer.
-     *
-     * @return void
-     */
-    protected function parseHeadFirstLine(): void
-    {
-        $firstLine = strstr($this->buffer, "\r\n", true);
-        $tmp = explode(' ', $firstLine, 3);
-        $this->data['method'] = $tmp[0];
-        $this->data['uri'] = $tmp[1] ?? '/';
-    }
-
-    /**
-     * Parse protocol version.
-     *
-     * @return void
-     */
-    protected function parseProtocolVersion(): void
-    {
-        $firstLine = strstr($this->buffer, "\r\n", true);
-        $protocolVersion = substr(strstr($firstLine, 'HTTP/'), 5);
-        $this->data['protocolVersion'] = $protocolVersion ?: '1.0';
     }
 
     /**
@@ -483,67 +339,16 @@ class Request implements Stringable
     }
 
     /**
-     * Parse head.
+     * Get http raw head.
      *
-     * @return void
+     * @return string
      */
-    protected function parseGet(): void
+    public function rawHead(): string
     {
-        static $cache = [];
-        $queryString = $this->queryString();
-        $this->data['get'] = [];
-        if ($queryString === '') {
-            return;
+        if (!isset($this->data['head'])) {
+            $this->data['head'] = strstr($this->buffer, "\r\n\r\n", true);
         }
-        $cacheable = static::$enableCache && !isset($queryString[1024]);
-        if ($cacheable && isset($cache[$queryString])) {
-            $this->data['get'] = $cache[$queryString];
-            return;
-        }
-        parse_str($queryString, $this->data['get']);
-        if ($cacheable) {
-            $cache[$queryString] = $this->data['get'];
-            if (count($cache) > 256) {
-                unset($cache[key($cache)]);
-            }
-        }
-    }
-
-    /**
-     * Parse post.
-     *
-     * @return void
-     */
-    protected function parsePost(): void
-    {
-        static $cache = [];
-        $this->data['post'] = $this->data['files'] = [];
-        $contentType = $this->header('content-type', '');
-        if (preg_match('/boundary="?(\S+)"?/', $contentType, $match)) {
-            $httpPostBoundary = '--' . $match[1];
-            $this->parseUploadFiles($httpPostBoundary);
-            return;
-        }
-        $bodyBuffer = $this->rawBody();
-        if ($bodyBuffer === '') {
-            return;
-        }
-        $cacheable = static::$enableCache && !isset($bodyBuffer[1024]);
-        if ($cacheable && isset($cache[$bodyBuffer])) {
-            $this->data['post'] = $cache[$bodyBuffer];
-            return;
-        }
-        if (preg_match('/\bjson\b/i', $contentType)) {
-            $this->data['post'] = (array)json_decode($bodyBuffer, true);
-        } else {
-            parse_str($bodyBuffer, $this->data['post']);
-        }
-        if ($cacheable) {
-            $cache[$bodyBuffer] = $this->data['post'];
-            if (count($cache) > 256) {
-                unset($cache[key($cache)]);
-            }
-        }
+        return $this->data['head'];
     }
 
     /**
@@ -650,7 +455,7 @@ class Request implements Stringable
                     $file['type'] = trim($value);
                     break;
                 case "webkitrelativepath":
-                    $file['full_path'] = \trim($value);
+                    $file['full_path'] = trim($value);
                     break;
             }
         }
@@ -661,6 +466,183 @@ class Request implements Stringable
         $files[] = $file;
 
         return $sectionEndOffset + strlen($boundary) + 2;
+    }
+
+    /**
+     * Get http raw body.
+     *
+     * @return string
+     */
+    public function rawBody(): string
+    {
+        return substr($this->buffer, strpos($this->buffer, "\r\n\r\n") + 4);
+    }
+
+    /**
+     * Get upload files.
+     *
+     * @param string|null $name
+     * @return array|null
+     */
+    public function file(string $name = null)
+    {
+        if (!isset($this->data['files'])) {
+            $this->parsePost();
+        }
+        if (null === $name) {
+            return $this->data['files'];
+        }
+        return $this->data['files'][$name] ?? null;
+    }
+
+    /**
+     * Get method.
+     *
+     * @return string
+     */
+    public function method(): string
+    {
+        if (!isset($this->data['method'])) {
+            $this->parseHeadFirstLine();
+        }
+        return $this->data['method'];
+    }
+
+    /**
+     * Get http protocol version.
+     *
+     * @return string
+     */
+    public function protocolVersion(): string
+    {
+        if (!isset($this->data['protocolVersion'])) {
+            $this->parseProtocolVersion();
+        }
+        return $this->data['protocolVersion'];
+    }
+
+    /**
+     * Parse protocol version.
+     *
+     * @return void
+     */
+    protected function parseProtocolVersion(): void
+    {
+        $firstLine = strstr($this->buffer, "\r\n", true);
+        $protocolVersion = substr(strstr($firstLine, 'HTTP/'), 5);
+        $this->data['protocolVersion'] = $protocolVersion ?: '1.0';
+    }
+
+    /**
+     * Get host.
+     *
+     * @param bool $withoutPort
+     * @return string|null
+     */
+    public function host(bool $withoutPort = false): ?string
+    {
+        $host = $this->header('host');
+        if ($host && $withoutPort) {
+            return preg_replace('/:\d{1,5}$/', '', $host);
+        }
+        return $host;
+    }
+
+    /**
+     * Get path.
+     *
+     * @return string
+     */
+    public function path(): string
+    {
+        if (!isset($this->data['path'])) {
+            $this->data['path'] = (string)parse_url($this->uri(), PHP_URL_PATH);
+        }
+        return $this->data['path'];
+    }
+
+    /**
+     * Session regenerate id.
+     *
+     * @param bool $deleteOldSession
+     * @return string
+     * @throws Exception
+     */
+    public function sessionRegenerateId(bool $deleteOldSession = false): string
+    {
+        $session = $this->session();
+        $sessionData = $session->all();
+        if ($deleteOldSession) {
+            $session->flush();
+        }
+        $newSid = static::createSessionId();
+        $session = new Session($newSid);
+        $session->put($sessionData);
+        $cookieParams = Session::getCookieParams();
+        $sessionName = Session::$name;
+        $this->setSidCookie($sessionName, $newSid, $cookieParams);
+        return $newSid;
+    }
+
+    /**
+     * Get session.
+     *
+     * @return Session
+     * @throws Exception
+     */
+    public function session(): Session
+    {
+        if ($this->session === null) {
+            $this->session = new Session($this->sessionId());
+        }
+        return $this->session;
+    }
+
+    /**
+     * Get/Set session id.
+     *
+     * @param string|null $sessionId
+     * @return string
+     * @throws Exception
+     */
+    public function sessionId(string $sessionId = null): string
+    {
+        if ($sessionId) {
+            unset($this->sid);
+        }
+        if (!isset($this->sid)) {
+            $sessionName = Session::$name;
+            $sid = $sessionId ? '' : $this->cookie($sessionName);
+            if ($sid === '' || $sid === null) {
+                if (!$this->connection) {
+                    throw new RuntimeException('Request->session() fail, header already send');
+                }
+                $sid = $sessionId ?: static::createSessionId();
+                $cookieParams = Session::getCookieParams();
+                $this->setSidCookie($sessionName, $sid, $cookieParams);
+            }
+            $this->sid = $sid;
+        }
+        return $this->sid;
+    }
+
+    /**
+     * Get cookie item by name.
+     *
+     * @param string|null $name
+     * @param mixed|null $default
+     * @return mixed
+     */
+    public function cookie(string $name = null, mixed $default = null): mixed
+    {
+        if (!isset($this->data['cookie'])) {
+            $this->data['cookie'] = [];
+            parse_str(preg_replace('/; ?/', '&', $this->header('cookie', '')), $this->data['cookie']);
+        }
+        if ($name === null) {
+            return $this->data['cookie'];
+        }
+        return $this->data['cookie'][$name] ?? $default;
     }
 
     /**
@@ -695,11 +677,32 @@ class Request implements Stringable
     }
 
     /**
+     * Get raw buffer.
+     *
+     * @return string
+     */
+    public function rawBuffer(): string
+    {
+        return $this->buffer;
+    }
+
+    /**
      * __toString.
      */
     public function __toString(): string
     {
         return $this->buffer;
+    }
+
+    /**
+     * Getter.
+     *
+     * @param string $name
+     * @return mixed|null
+     */
+    public function __get(string $name)
+    {
+        return $this->properties[$name] ?? null;
     }
 
     /**
@@ -712,17 +715,6 @@ class Request implements Stringable
     public function __set(string $name, mixed $value)
     {
         $this->properties[$name] = $value;
-    }
-
-    /**
-     * Getter.
-     *
-     * @param string $name
-     * @return mixed|null
-     */
-    public function __get(string $name)
-    {
-        return $this->properties[$name] ?? null;
     }
 
     /**

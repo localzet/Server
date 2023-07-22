@@ -175,6 +175,14 @@ final class Windows implements EventInterface
     /**
      * {@inheritdoc}
      */
+    public function offRepeat(int $timerId): bool
+    {
+        return $this->offDelay($timerId);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function offDelay(int $timerId): bool
     {
         if (isset($this->eventTimer[$timerId])) {
@@ -182,14 +190,6 @@ final class Windows implements EventInterface
             return true;
         }
         return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offRepeat(int $timerId): bool
-    {
-        return $this->offDelay($timerId);
     }
 
     /**
@@ -290,22 +290,6 @@ final class Windows implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
-     */
-    public function offSignal(int $signal): bool
-    {
-        if (!function_exists('pcntl_signal')) {
-            return false;
-        }
-        pcntl_signal($signal, SIG_IGN);
-        if (isset($this->signalEvents[$signal])) {
-            unset($this->signalEvents[$signal]);
-            return true;
-        }
-        return false;
-    }
-
-    /**
      * Signal handler.
      *
      * @param int $signal
@@ -313,6 +297,55 @@ final class Windows implements EventInterface
     public function signalHandler(int $signal): void
     {
         $this->signalEvents[$signal]($signal);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function run(): void
+    {
+        while ($this->running) {
+            $read = $this->readFds;
+            $write = $this->writeFds;
+            $except = $this->exceptFds;
+            if ($read || $write || $except) {
+                try {
+                    @stream_select($read, $write, $except, 0, $this->selectTimeout);
+                } catch (Throwable) {
+                }
+            } else {
+                $this->selectTimeout >= 1 && usleep($this->selectTimeout);
+            }
+
+            if (!$this->scheduler->isEmpty()) {
+                $this->tick();
+            }
+
+            foreach ($read as $fd) {
+                $fdKey = (int)$fd;
+                if (isset($this->readEvents[$fdKey])) {
+                    $this->readEvents[$fdKey]($fd);
+                }
+            }
+
+            foreach ($write as $fd) {
+                $fdKey = (int)$fd;
+                if (isset($this->writeEvents[$fdKey])) {
+                    $this->writeEvents[$fdKey]($fd);
+                }
+            }
+
+            foreach ($except as $fd) {
+                $fdKey = (int)$fd;
+                if (isset($this->exceptEvents[$fdKey])) {
+                    $this->exceptEvents[$fdKey]($fd);
+                }
+            }
+
+            if (!empty($this->signalEvents)) {
+                pcntl_signal_dispatch();
+            }
+        }
     }
 
     /**
@@ -369,62 +402,16 @@ final class Windows implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * @param Throwable $e
+     * @return void
+     * @throws Throwable
      */
-    public function deleteAllTimer(): void
+    public function error(Throwable $e): void
     {
-        $this->scheduler = new SplPriorityQueue();
-        $this->scheduler->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
-        $this->eventTimer = [];
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function run(): void
-    {
-        while ($this->running) {
-            $read = $this->readFds;
-            $write = $this->writeFds;
-            $except = $this->exceptFds;
-            if ($read || $write || $except) {
-                try {
-                    @stream_select($read, $write, $except, 0, $this->selectTimeout);
-                } catch (Throwable) {
-                }
-            } else {
-                $this->selectTimeout >= 1 && usleep($this->selectTimeout);
-            }
-
-            if (!$this->scheduler->isEmpty()) {
-                $this->tick();
-            }
-
-            foreach ($read as $fd) {
-                $fdKey = (int)$fd;
-                if (isset($this->readEvents[$fdKey])) {
-                    $this->readEvents[$fdKey]($fd);
-                }
-            }
-
-            foreach ($write as $fd) {
-                $fdKey = (int)$fd;
-                if (isset($this->writeEvents[$fdKey])) {
-                    $this->writeEvents[$fdKey]($fd);
-                }
-            }
-
-            foreach ($except as $fd) {
-                $fdKey = (int)$fd;
-                if (isset($this->exceptEvents[$fdKey])) {
-                    $this->exceptEvents[$fdKey]($fd);
-                }
-            }
-
-            if (!empty($this->signalEvents)) {
-                pcntl_signal_dispatch();
-            }
+        if (!$this->errorHandler) {
+            throw new $e;
         }
+        ($this->errorHandler)($e);
     }
 
     /**
@@ -444,17 +431,35 @@ final class Windows implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function getTimerCount(): int
+    public function deleteAllTimer(): void
     {
-        return count($this->eventTimer);
+        $this->scheduler = new SplPriorityQueue();
+        $this->scheduler->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
+        $this->eventTimer = [];
     }
 
     /**
      * {@inheritdoc}
      */
-    public function setErrorHandler(callable $errorHandler): void
+    public function offSignal(int $signal): bool
     {
-        $this->errorHandler = $errorHandler;
+        if (!function_exists('pcntl_signal')) {
+            return false;
+        }
+        pcntl_signal($signal, SIG_IGN);
+        if (isset($this->signalEvents[$signal])) {
+            unset($this->signalEvents[$signal]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getTimerCount(): int
+    {
+        return count($this->eventTimer);
     }
 
     /**
@@ -466,15 +471,10 @@ final class Windows implements EventInterface
     }
 
     /**
-     * @param Throwable $e
-     * @return void
-     * @throws Throwable
+     * {@inheritdoc}
      */
-    public function error(Throwable $e): void
+    public function setErrorHandler(callable $errorHandler): void
     {
-        if (!$this->errorHandler) {
-            throw new $e;
-        }
-        ($this->errorHandler)($e);
+        $this->errorHandler = $errorHandler;
     }
 }

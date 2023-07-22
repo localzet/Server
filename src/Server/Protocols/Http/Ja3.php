@@ -26,8 +26,14 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols\Http;
 
+/**
+ *
+ */
 class Ja3
 {
+    /**
+     * @var array|int[]
+     */
     static array $GREASE_TABELE = [
         2570, //(0x0A0A)
         6682, //(0x1A1A)
@@ -47,6 +53,10 @@ class Ja3
         64250, //(0xFAFA)
     ];
 
+    /**
+     * @param $tcp_data
+     * @return false|array
+     */
     public static function get($tcp_data): false|array
     {
 

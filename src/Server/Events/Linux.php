@@ -26,6 +26,8 @@ declare(strict_types=1);
 
 namespace localzet\Server\Events;
 
+use Closure;
+use Error;
 use localzet\Server\Events\Linux\CallbackType;
 use localzet\Server\Events\Linux\Driver;
 use localzet\Server\Events\Linux\DriverFactory;
@@ -36,6 +38,8 @@ use localzet\Server\Events\Linux\Suspension;
 use localzet\Server\Events\Linux\UnsupportedFeatureException;
 use function count;
 use function function_exists;
+use function gc_collect_cycles;
+use function hrtime;
 use function pcntl_signal;
 
 /**
@@ -92,6 +96,96 @@ final class Linux implements EventInterface
     }
 
     /**
+     * Retrieve the event loop driver that is in scope.
+     *
+     * @return Driver
+     */
+    public function getDriver(): Driver
+    {
+        /** @psalm-suppress RedundantPropertyInitializationCheck, RedundantCondition */
+        if (!isset($this->driver)) {
+            $this->setDriver((new DriverFactory())->create());
+        }
+
+        return $this->driver;
+    }
+
+    /**
+     * Sets the driver to be used as the event loop.
+     */
+    public function setDriver(Driver $driver): void
+    {
+        /** @psalm-suppress RedundantPropertyInitializationCheck, RedundantCondition */
+        if (isset($this->driver) && $this->driver->isRunning()) {
+            throw new Error("Can't swap the event loop driver while the driver is running");
+        }
+
+        try {
+            /** @psalm-suppress InternalClass */
+            $this->driver = new class () extends AbstractDriver {
+                /**
+                 * @param array $callbacks
+                 * @return void
+                 */
+                protected function activate(array $callbacks): void
+                {
+                    throw new Error("Can't activate callback during garbage collection.");
+                }
+
+                /**
+                 * @param bool $blocking
+                 * @return void
+                 */
+                protected function dispatch(bool $blocking): void
+                {
+                    throw new Error("Can't dispatch during garbage collection.");
+                }
+
+                /**
+                 * @param DriverCallback $callback
+                 * @return void
+                 */
+                protected function deactivate(DriverCallback $callback): void
+                {
+                    // do nothing
+                }
+
+                /**
+                 * @return mixed
+                 */
+                public function getHandle(): mixed
+                {
+                    return null;
+                }
+
+                /**
+                 * @return float
+                 */
+                protected function now(): float
+                {
+                    return (float)hrtime(true) / 1_000_000_000;
+                }
+            };
+
+            gc_collect_cycles();
+        } finally {
+            $this->driver = $driver;
+        }
+    }
+
+    /**
+     * Returns an object used to suspend and resume execution of the current fiber or {main}.
+     *
+     * Calls from the same fiber will return the same suspension object.
+     *
+     * @return Suspension
+     */
+    public function getSuspension(): Suspension
+    {
+        return $this->getDriver()->getSuspension();
+    }
+
+    /**
      * Получить драйвер.
      * @return Driver Драйвер.
      */
@@ -126,6 +220,19 @@ final class Linux implements EventInterface
         if (function_exists('pcntl_signal')) {
             pcntl_signal(SIGINT, SIG_IGN);
         }
+    }
+
+    /**
+     * Cancel a callback.
+     *
+     * This will detach the event loop from all resources that are associated to the callback. After this operation the
+     * callback is permanently invalid. Calling this function MUST NOT fail, even if passed an invalid identifier.
+     *
+     * @param string $callbackId The callback identifier.
+     */
+    public function cancel(string $callbackId): void
+    {
+        $this->getDriver()->cancel($callbackId);
     }
 
     /**
@@ -176,6 +283,23 @@ final class Linux implements EventInterface
         $this->readEvents[(int)$stream] = $this->getDriver()->onReadable($stream, function () use ($stream, $func) {
             $func($stream);
         });
+    }
+
+    /**
+     * Отменить регистрацию и удалить обработчик события.
+     * @param mixed $key Ключ обработчика.
+     * @param array $events
+     * @return bool Возвращает true, если обработчик был успешно отменен и удален, иначе false.
+     */
+    protected function cancelAndUnset($key, array &$events): bool
+    {
+        $fdKey = (int)$key;
+        if (isset($events[$fdKey])) {
+            $this->getDriver()->cancel($events[$fdKey]);
+            unset($events[$fdKey]);
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -236,6 +360,16 @@ final class Linux implements EventInterface
     }
 
     /**
+     * Удаляет повторяющееся событие по идентификатору таймера.
+     * @param int $timerId Идентификатор таймера.
+     * @return bool Возвращает true, если таймер был успешно удален, иначе false.
+     */
+    public function offRepeat(int $timerId): bool
+    {
+        return $this->offDelay($timerId);
+    }
+
+    /**
      * Удаляет отложенное событие по идентификатору таймера.
      * @param int $timerId Идентификатор таймера.
      * @return bool Возвращает true, если таймер был успешно удален, иначе false.
@@ -245,15 +379,7 @@ final class Linux implements EventInterface
         return $this->cancelAndUnset($timerId, $this->eventTimer);
     }
 
-    /**
-     * Удаляет повторяющееся событие по идентификатору таймера.
-     * @param int $timerId Идентификатор таймера.
-     * @return bool Возвращает true, если таймер был успешно удален, иначе false.
-     */
-    public function offRepeat(int $timerId): bool
-    {
-        return $this->offDelay($timerId);
-    }
+    /*********************************************NEW********************************************************/
 
     /**
      * Удаляет все таймеры.
@@ -294,70 +420,6 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Отменить регистрацию и удалить обработчик события.
-     * @param mixed $key Ключ обработчика.
-     * @param array $eventArray Массив событий.
-     * @return bool Возвращает true, если обработчик был успешно отменен и удален, иначе false.
-     */
-    protected function cancelAndUnset($key, array &$events): bool
-    {
-        $fdKey = (int)$key;
-        if (isset($events[$fdKey])) {
-            $this->getDriver()->cancel($events[$fdKey]);
-            unset($events[$fdKey]);
-            return true;
-        }
-        return false;
-    }
-
-    /*********************************************NEW********************************************************/
-
-    /**
-     * Sets the driver to be used as the event loop.
-     */
-    public function setDriver(Driver $driver): void
-    {
-        /** @psalm-suppress RedundantPropertyInitializationCheck, RedundantCondition */
-        if (isset($this->driver) && $this->driver->isRunning()) {
-            throw new \Error("Can't swap the event loop driver while the driver is running");
-        }
-
-        try {
-            /** @psalm-suppress InternalClass */
-            $this->driver = new class () extends AbstractDriver {
-                protected function activate(array $callbacks): void
-                {
-                    throw new \Error("Can't activate callback during garbage collection.");
-                }
-
-                protected function dispatch(bool $blocking): void
-                {
-                    throw new \Error("Can't dispatch during garbage collection.");
-                }
-
-                protected function deactivate(DriverCallback $callback): void
-                {
-                    // do nothing
-                }
-
-                public function getHandle(): mixed
-                {
-                    return null;
-                }
-
-                protected function now(): float
-                {
-                    return (float)\hrtime(true) / 1_000_000_000;
-                }
-            };
-
-            \gc_collect_cycles();
-        } finally {
-            $this->driver = $driver;
-        }
-    }
-
-    /**
      * Queue a microtask.
      *
      * The queued callback MUST be executed immediately once the event loop gains control. Order of queueing MUST be
@@ -366,10 +428,10 @@ final class Linux implements EventInterface
      * Does NOT create an event callback, thus CAN NOT be marked as disabled or unreferenced.
      * Use {@see EventLoop::defer()} if you need these features.
      *
-     * @param \Closure(...):void $closure The callback to queue.
+     * @param Closure $closure (...):void $closure The callback to queue.
      * @param mixed ...$args The callback arguments.
      */
-    public function queue(\Closure $closure, mixed ...$args): void
+    public function queue(Closure $closure, mixed ...$args): void
     {
         $this->getDriver()->queue($closure, ...$args);
     }
@@ -383,12 +445,12 @@ final class Linux implements EventInterface
      * The created callback MUST immediately be marked as enabled, but only be activated (i.e. callback can be called)
      * right before the next tick. Deferred callbacks MUST NOT be called in the tick they were enabled.
      *
-     * @param \Closure(string):void $closure The callback to defer. The `$callbackId` will be
+     * @param Closure(string):void $closure The callback to defer. The `$callbackId` will be
      *     invalidated before the callback invocation.
      *
      * @return string A unique identifier that can be used to cancel, enable or disable the callback.
      */
-    public function defer(\Closure $closure): string
+    public function defer(Closure $closure): string
     {
         return $this->getDriver()->defer($closure);
     }
@@ -426,19 +488,6 @@ final class Linux implements EventInterface
     public function disable(string $callbackId): string
     {
         return $this->getDriver()->disable($callbackId);
-    }
-
-    /**
-     * Cancel a callback.
-     *
-     * This will detach the event loop from all resources that are associated to the callback. After this operation the
-     * callback is permanently invalid. Calling this function MUST NOT fail, even if passed an invalid identifier.
-     *
-     * @param string $callbackId The callback identifier.
-     */
-    public function cancel(string $callbackId): void
-    {
-        $this->getDriver()->cancel($callbackId);
     }
 
     /**
@@ -517,32 +566,5 @@ final class Linux implements EventInterface
     public function isReferenced(string $callbackId): bool
     {
         return $this->getDriver()->isReferenced($callbackId);
-    }
-
-    /**
-     * Retrieve the event loop driver that is in scope.
-     *
-     * @return Driver
-     */
-    public function getDriver(): Driver
-    {
-        /** @psalm-suppress RedundantPropertyInitializationCheck, RedundantCondition */
-        if (!isset($this->driver)) {
-            $this->setDriver((new DriverFactory())->create());
-        }
-
-        return $this->driver;
-    }
-
-    /**
-     * Returns an object used to suspend and resume execution of the current fiber or {main}.
-     *
-     * Calls from the same fiber will return the same suspension object.
-     *
-     * @return Suspension
-     */
-    public static function getSuspension(): Suspension
-    {
-        return $this->getDriver()->getSuspension();
     }
 }

@@ -103,6 +103,15 @@ class MongoSessionHandler implements SessionHandlerInterface
     /**
      * {@inheritdoc}
      */
+    public function updateTimestamp(string $sessionId, string $data = ""): bool
+    {
+        $this->collection->updateOne(['_id' => $sessionId], ['$set' => ['updated_at' => new UTCDateTime()]]);
+        return true;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function destroy(string $sessionId): bool
     {
         $this->collection->deleteOne(['_id' => $sessionId]);
@@ -116,15 +125,6 @@ class MongoSessionHandler implements SessionHandlerInterface
     {
         $expirationDate = new UTCDateTime(time() - $maxLifetime * 1000);
         $this->collection->deleteMany(['updated_at' => ['$lt' => $expirationDate]]);
-        return true;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function updateTimestamp(string $sessionId, string $data = ""): bool
-    {
-        $this->collection->updateOne(['_id' => $sessionId], ['$set' => ['updated_at' => new UTCDateTime()]]);
         return true;
     }
 }

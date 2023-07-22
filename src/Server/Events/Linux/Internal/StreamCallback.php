@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace localzet\Server\Events\Linux\Internal;
 
+use Closure;
+
 /** @internal */
 abstract class StreamCallback extends DriverCallback
 {
@@ -12,7 +14,7 @@ abstract class StreamCallback extends DriverCallback
      */
     public function __construct(
         string                $id,
-        \Closure              $closure,
+        Closure               $closure,
         public readonly mixed $stream
     )
     {

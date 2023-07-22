@@ -6,6 +6,14 @@ declare(strict_types=1);
 
 namespace localzet\Server\Events\Linux\Driver;
 
+use Closure;
+use Error;
+use Ev;
+use EvIo;
+use EvLoop;
+use EvSignal;
+use EvTimer;
+use EvWatcher;
 use localzet\Server\Events\Linux\Internal\AbstractDriver;
 use localzet\Server\Events\Linux\Internal\DriverCallback;
 use localzet\Server\Events\Linux\Internal\SignalCallback;
@@ -13,61 +21,82 @@ use localzet\Server\Events\Linux\Internal\StreamCallback;
 use localzet\Server\Events\Linux\Internal\StreamReadableCallback;
 use localzet\Server\Events\Linux\Internal\StreamWritableCallback;
 use localzet\Server\Events\Linux\Internal\TimerCallback;
+use function assert;
+use function extension_loaded;
+use function get_class;
+use function hrtime;
+use function is_resource;
+use function max;
 
+/**
+ *
+ */
 final class EvDriver extends AbstractDriver
 {
-    /** @var array<string, \EvSignal>|null */
+    /** @var array<string, EvSignal>|null */
     private static ?array $activeSignals = null;
-
-    public static function isSupported(): bool
-    {
-        return \extension_loaded("ev");
-    }
-
-    private \EvLoop $handle;
-
-    /** @var array<string, \EvWatcher> */
+    /**
+     * @var EvLoop
+     */
+    private EvLoop $handle;
+    /** @var array<string, EvWatcher> */
     private array $events = [];
-
-    private readonly \Closure $ioCallback;
-
-    private readonly \Closure $timerCallback;
-
-    private readonly \Closure $signalCallback;
-
-    /** @var array<string, \EvSignal> */
+    /**
+     * @var Closure
+     */
+    private readonly Closure $ioCallback;
+    /**
+     * @var Closure
+     */
+    private readonly Closure $timerCallback;
+    /**
+     * @var Closure
+     */
+    private readonly Closure $signalCallback;
+    /** @var array<string, EvSignal> */
     private array $signals = [];
 
+    /**
+     *
+     */
     public function __construct()
     {
         parent::__construct();
 
-        $this->handle = new \EvLoop();
+        $this->handle = new EvLoop();
 
         if (self::$activeSignals === null) {
             self::$activeSignals = &$this->signals;
         }
 
-        $this->ioCallback = function (\EvIo $event): void {
+        $this->ioCallback = function (EvIo $event): void {
             /** @var StreamCallback $callback */
             $callback = $event->data;
 
             $this->enqueueCallback($callback);
         };
 
-        $this->timerCallback = function (\EvTimer $event): void {
+        $this->timerCallback = function (EvTimer $event): void {
             /** @var TimerCallback $callback */
             $callback = $event->data;
 
             $this->enqueueCallback($callback);
         };
 
-        $this->signalCallback = function (\EvSignal $event): void {
+        $this->signalCallback = function (EvSignal $event): void {
             /** @var SignalCallback $callback */
             $callback = $event->data;
 
             $this->enqueueCallback($callback);
         };
+    }
+
+    /**
+     * @return bool
+     */
+    public static function isSupported(): bool
+    {
+        return extension_loaded("ev");
     }
 
     /**
@@ -79,6 +108,9 @@ final class EvDriver extends AbstractDriver
         unset($this->events[$callbackId]);
     }
 
+    /**
+     *
+     */
     public function __destruct()
     {
         foreach ($this->events as $event) {
@@ -96,11 +128,36 @@ final class EvDriver extends AbstractDriver
     /**
      * {@inheritdoc}
      */
+    public function stop(): void
+    {
+        $this->handle->stop();
+        parent::stop();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getHandle(): EvLoop
+    {
+        return $this->handle;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function dispatch(bool $blocking): void
+    {
+        $this->handle->run($blocking ? Ev::RUN_ONCE : Ev::RUN_ONCE | Ev::RUN_NOWAIT);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function run(): void
     {
         $active = self::$activeSignals;
 
-        \assert($active !== null);
+        assert($active !== null);
 
         foreach ($active as $event) {
             $event->stop();
@@ -130,36 +187,6 @@ final class EvDriver extends AbstractDriver
     /**
      * {@inheritdoc}
      */
-    public function stop(): void
-    {
-        $this->handle->stop();
-        parent::stop();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getHandle(): \EvLoop
-    {
-        return $this->handle;
-    }
-
-    protected function now(): float
-    {
-        return (float)\hrtime(true) / 1_000_000_000;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    protected function dispatch(bool $blocking): void
-    {
-        $this->handle->run($blocking ? \Ev::RUN_ONCE : \Ev::RUN_ONCE | \Ev::RUN_NOWAIT);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     protected function activate(array $callbacks): void
     {
         $this->handle->nowUpdate();
@@ -168,22 +195,22 @@ final class EvDriver extends AbstractDriver
         foreach ($callbacks as $callback) {
             if (!isset($this->events[$id = $callback->id])) {
                 if ($callback instanceof StreamReadableCallback) {
-                    \assert(\is_resource($callback->stream));
+                    assert(is_resource($callback->stream));
 
-                    $this->events[$id] = $this->handle->io($callback->stream, \Ev::READ, $this->ioCallback, $callback);
+                    $this->events[$id] = $this->handle->io($callback->stream, Ev::READ, $this->ioCallback, $callback);
                 } elseif ($callback instanceof StreamWritableCallback) {
-                    \assert(\is_resource($callback->stream));
+                    assert(is_resource($callback->stream));
 
                     $this->events[$id] = $this->handle->io(
                         $callback->stream,
-                        \Ev::WRITE,
+                        Ev::WRITE,
                         $this->ioCallback,
                         $callback
                     );
                 } elseif ($callback instanceof TimerCallback) {
                     $interval = $callback->interval;
                     $this->events[$id] = $this->handle->timer(
-                        \max(0, ($callback->expiration - $now)),
+                        max(0, ($callback->expiration - $now)),
                         $callback->repeat ? $interval : 0,
                         $this->timerCallback,
                         $callback
@@ -192,7 +219,7 @@ final class EvDriver extends AbstractDriver
                     $this->events[$id] = $this->handle->signal($callback->signal, $this->signalCallback, $callback);
                 } else {
                     // @codeCoverageIgnoreStart
-                    throw new \Error("Unknown callback type: " . \get_class($callback));
+                    throw new Error("Unknown callback type: " . get_class($callback));
                     // @codeCoverageIgnoreEnd
                 }
             } else {
@@ -206,6 +233,18 @@ final class EvDriver extends AbstractDriver
         }
     }
 
+    /**
+     * @return float
+     */
+    protected function now(): float
+    {
+        return (float)hrtime(true) / 1_000_000_000;
+    }
+
+    /**
+     * @param DriverCallback $callback
+     * @return void
+     */
     protected function deactivate(DriverCallback $callback): void
     {
         if (isset($this->events[$id = $callback->id])) {

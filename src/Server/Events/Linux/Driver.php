@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace localzet\Server\Events\Linux;
 
+use Closure;
+use Error;
+use Throwable;
+
 /**
  * The driver MUST run in its own fiber and execute callbacks in a separate fiber. If fibers are reused, the driver
  * needs to call {@see FiberLocal::clear()} after running the callback.
@@ -23,7 +27,7 @@ interface Driver
      * exception is thrown that cannot be handled. Exceptions that cannot be handled are exceptions thrown from an
      * error handler or exceptions that would be passed to an error handler but none exists to handle them.
      *
-     * @throws \Error Thrown if the event loop is already running.
+     * @throws Error Thrown if the event loop is already running.
      */
     public function run(): void;
 
@@ -58,10 +62,10 @@ interface Driver
      * Does NOT create an event callback, thus CAN NOT be marked as disabled or unreferenced.
      * Use {@see EventLoop::defer()} if you need these features.
      *
-     * @param \Closure(...):void $closure The callback to queue.
+     * @param Closure $closure (...):void $closure The callback to queue.
      * @param mixed ...$args The callback arguments.
      */
-    public function queue(\Closure $closure, mixed ...$args): void;
+    public function queue(Closure $closure, mixed ...$args): void;
 
     /**
      * Defer the execution of a callback.
@@ -72,12 +76,12 @@ interface Driver
      * The created callback MUST immediately be marked as enabled, but only be activated (i.e. callback can be called)
      * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
      *
-     * @param \Closure(string):void $closure The callback to defer. The `$callbackId` will be invalidated before the
+     * @param Closure(string):void $closure The callback to defer. The `$callbackId` will be invalidated before the
      *     callback invocation.
      *
      * @return string A unique identifier that can be used to cancel, enable or disable the callback.
      */
-    public function defer(\Closure $closure): string;
+    public function defer(Closure $closure): string;
 
     /**
      * Delay the execution of a callback.
@@ -89,12 +93,12 @@ interface Driver
      * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
      *
      * @param float $delay The amount of time, in seconds, to delay the execution for.
-     * @param \Closure(string):void $closure The callback to delay. The `$callbackId` will be invalidated before the
+     * @param Closure(string):void $closure The callback to delay. The `$callbackId` will be invalidated before the
      *     callback invocation.
      *
      * @return string A unique identifier that can be used to cancel, enable or disable the callback.
      */
-    public function delay(float $delay, \Closure $closure): string;
+    public function delay(float $delay, Closure $closure): string;
 
     /**
      * Repeatedly execute a callback.
@@ -107,11 +111,11 @@ interface Driver
      * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
      *
      * @param float $interval The time interval, in seconds, to wait between executions.
-     * @param \Closure(string):void $closure The callback to repeat.
+     * @param Closure(string):void $closure The callback to repeat.
      *
      * @return string A unique identifier that can be used to cancel, enable or disable the callback.
      */
-    public function repeat(float $interval, \Closure $closure): string;
+    public function repeat(float $interval, Closure $closure): string;
 
     /**
      * Execute a callback when a stream resource becomes readable or is closed for reading.
@@ -127,11 +131,11 @@ interface Driver
      * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
      *
      * @param resource $stream The stream to monitor.
-     * @param \Closure(string, resource):void $closure The callback to execute.
+     * @param Closure(string, resource):void $closure The callback to execute.
      *
      * @return string A unique identifier that can be used to cancel, enable or disable the callback.
      */
-    public function onReadable(mixed $stream, \Closure $closure): string;
+    public function onReadable(mixed $stream, Closure $closure): string;
 
     /**
      * Execute a callback when a stream resource becomes writable or is closed for writing.
@@ -147,11 +151,11 @@ interface Driver
      * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
      *
      * @param resource $stream The stream to monitor.
-     * @param \Closure(string, resource):void $closure The callback to execute.
+     * @param Closure(string, resource):void $closure The callback to execute.
      *
      * @return string A unique identifier that can be used to cancel, enable or disable the callback.
      */
-    public function onWritable(mixed $stream, \Closure $closure): string;
+    public function onWritable(mixed $stream, Closure $closure): string;
 
     /**
      * Execute a callback when a signal is received.
@@ -166,13 +170,13 @@ interface Driver
      * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
      *
      * @param int $signal The signal number to monitor.
-     * @param \Closure(string, int):void $closure The callback to execute.
+     * @param Closure(string, int):void $closure The callback to execute.
      *
      * @return string A unique identifier that can be used to cancel, enable or disable the callback.
      *
      * @throws UnsupportedFeatureException If signal handling is not supported.
      */
-    public function onSignal(int $signal, \Closure $closure): string;
+    public function onSignal(int $signal, Closure $closure): string;
 
     /**
      * Enable a callback to be active starting in the next tick.
@@ -248,17 +252,17 @@ interface Driver
      *
      * Subsequent calls to this method will overwrite the previous handler.
      *
-     * @param null|\Closure(\Throwable):void $errorHandler The callback to execute. `null` will clear the current
+     * @param null|Closure(Throwable):void $errorHandler The callback to execute. `null` will clear the current
      *     handler.
      */
-    public function setErrorHandler(?\Closure $errorHandler): void;
+    public function setErrorHandler(?Closure $errorHandler): void;
 
     /**
      * Gets the error handler closure or {@code null} if none is set.
      *
-     * @return null|\Closure(\Throwable):void The previous handler, `null` if there was none.
+     * @return null|Closure(Throwable):void The previous handler, `null` if there was none.
      */
-    public function getErrorHandler(): ?\Closure;
+    public function getErrorHandler(): ?Closure;
 
     /**
      * Get the underlying loop handle.

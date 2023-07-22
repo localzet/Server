@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace localzet\Server\Events\Linux;
 
+use Throwable;
+
 /**
  * Should be used to run and suspend the event loop instead of directly interacting with fibers.
  *
@@ -39,5 +41,5 @@ interface Suspension
     /**
      * Throws the given exception from the call to {@see suspend()}.
      */
-    public function throw(\Throwable $throwable): void;
+    public function throw(Throwable $throwable): void;
 }

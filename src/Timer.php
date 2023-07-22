@@ -43,8 +43,6 @@ use const SIGALRM;
  *
  * Например:
  * localzet\Timer::add($time_interval, callback, array($arg1, $arg2..));
- *
- * @method sleep(float $delay)
  */
 class Timer
 {
@@ -115,6 +113,60 @@ class Timer
     }
 
     /**
+     * Тик
+     *
+     * @return void
+     */
+    public static function tick(): void
+    {
+        if (empty(self::$tasks)) {
+            pcntl_alarm(0);
+            return;
+        }
+        $timeNow = time();
+        foreach (self::$tasks as $runTime => $taskData) {
+            if ($timeNow >= $runTime) {
+                foreach ($taskData as $index => $oneTask) {
+                    $taskFunc = $oneTask[0];
+                    $taskArgs = $oneTask[1];
+                    $persistent = $oneTask[2];
+                    $timeInterval = $oneTask[3];
+                    try {
+                        $taskFunc(...$taskArgs);
+                    } catch (Throwable $e) {
+                        Server::safeEcho((string)$e);
+                    }
+                    if ($persistent && !empty(self::$status[$index])) {
+                        $newRunTime = time() + $timeInterval;
+                        if (!isset(self::$tasks[$newRunTime])) {
+                            self::$tasks[$newRunTime] = [];
+                        }
+                        self::$tasks[$newRunTime][$index] = [$taskFunc, (array)$taskArgs, $persistent, $timeInterval];
+                    }
+                }
+                unset(self::$tasks[$runTime]);
+            }
+        }
+    }
+
+    /**
+     * Coroutine sleep.
+     *
+     * @param float $delay
+     * @return void
+     */
+    public static function sleep(float $delay): void
+    {
+        if (Server::$globalEvent && Server::$globalEvent instanceof Linux) {
+            $suspension = Server::$globalEvent->getSuspension();
+            static::add($delay, function () use ($suspension) {
+                $suspension->resume();
+            }, null, false);
+            $suspension->suspend();
+        }
+    }
+
+    /**
      * Добавить таймер
      *
      * @param float $timeInterval
@@ -160,60 +212,6 @@ class Timer
         self::$tasks[$runTime][self::$timerId] = [$func, (array)$args, $persistent, $timeInterval];
 
         return self::$timerId;
-    }
-
-    /**
-     * Coroutine sleep.
-     *
-     * @param float $delay
-     * @return void
-     */
-    public static function sleep(float $delay): void
-    {
-        if (Server::$globalEvent && Server::$globalEvent instanceof Linux) {
-            $suspension = Server::$globalEvent->getSuspension();
-            static::add($delay, function () use ($suspension) {
-                $suspension->resume();
-            }, null, false);
-            $suspension->suspend();
-        }
-    }
-
-    /**
-     * Тик
-     *
-     * @return void
-     */
-    public static function tick(): void
-    {
-        if (empty(self::$tasks)) {
-            pcntl_alarm(0);
-            return;
-        }
-        $timeNow = time();
-        foreach (self::$tasks as $runTime => $taskData) {
-            if ($timeNow >= $runTime) {
-                foreach ($taskData as $index => $oneTask) {
-                    $taskFunc = $oneTask[0];
-                    $taskArgs = $oneTask[1];
-                    $persistent = $oneTask[2];
-                    $timeInterval = $oneTask[3];
-                    try {
-                        $taskFunc(...$taskArgs);
-                    } catch (Throwable $e) {
-                        Server::safeEcho((string)$e);
-                    }
-                    if ($persistent && !empty(self::$status[$index])) {
-                        $newRunTime = time() + $timeInterval;
-                        if (!isset(self::$tasks[$newRunTime])) {
-                            self::$tasks[$newRunTime] = [];
-                        }
-                        self::$tasks[$newRunTime][$index] = [$taskFunc, (array)$taskArgs, $persistent, $timeInterval];
-                    }
-                }
-                unset(self::$tasks[$runTime]);
-            }
-        }
     }
 
     /**

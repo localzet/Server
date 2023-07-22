@@ -26,94 +26,96 @@ declare(strict_types=1);
 
 namespace localzet\Server\Protocols\Http;
 
+use Exception;
+
+/**
+ *
+ */
 class BinaryStream
 {
+    /**
+     *
+     */
+    const uint8 = 1;
+    /**
+     *
+     */
+    const  int8 = 2;
+    /**
+     *
+     */
+    const uint16 = 3;
+    /**
+     *
+     */
+    const  int16 = 4;
+    /**
+     *
+     */
+    const uint32 = 5;
+    /**
+     *
+     */
+    const  int32 = 6;
+    /**
+     *
+     */
+    const shortFrac = 7;
+    /**
+     *
+     */
+    const Fixed = 8;
+    /**
+     *
+     */
+    const  FWord = 9;
+    /**
+     *
+     */
+    const uFWord = 10;
+    /**
+     *
+     */
+    const F2Dot14 = 11;
+    /**
+     *
+     */
+    const longDateTime = 12;
+    /**
+     *
+     */
+    const char = 13;
+    /**
+     *
+     */
+    const modeRead = "rb";
+    /**
+     *
+     */
+    const modeWrite = "wb";
+    /**
+     *
+     */
+    const modeReadWrite = "rb+";
     /**
      * @var resource The file pointer
      */
     protected $f;
+    /**
+     * @var
+     */
     protected $content;
+    /**
+     * @var int
+     */
     protected $offset = 0;
 
-
-    const uint8 = 1;
-    const  int8 = 2;
-    const uint16 = 3;
-    const  int16 = 4;
-    const uint32 = 5;
-    const  int32 = 6;
-    const shortFrac = 7;
-    const Fixed = 8;
-    const  FWord = 9;
-    const uFWord = 10;
-    const F2Dot14 = 11;
-    const longDateTime = 12;
-    const char = 13;
-
-    const modeRead = "rb";
-    const modeWrite = "wb";
-    const modeReadWrite = "rb+";
-
+    /**
+     * @return void
+     */
     static function backtrace(): void
     {
         var_dump(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS));
-    }
-
-    /**
-     * Open a font file in read mode
-     *
-     * @param string $filename The file name of the font to open
-     *
-     * @return bool
-     * @throws \Exception
-     */
-    public function load($filename)
-    {
-        return $this->open($filename, self::modeRead);
-    }
-
-    /**
-     * Open a font file in a chosen mode
-     *
-     * @param string $filename The file name of the font to open
-     * @param string $mode The opening mode
-     *
-     * @return bool
-     * @throws \Exception
-     */
-    public function open($filename, $mode = self::modeRead)
-    {
-        if (!in_array($mode, array(self::modeRead, self::modeWrite, self::modeReadWrite))) {
-            throw new \Exception("Unknown file open mode");
-        }
-
-        $this->f = fopen($filename, $mode);
-
-        return $this->f != false;
-    }
-
-    /**
-     * Close the internal file pointer
-     */
-    public function close()
-    {
-        return fclose($this->f) != false;
-    }
-
-    /**
-     * Change the internal file pointer
-     *
-     * @param resource $fp
-     *
-     * @throws \Exception
-     */
-    public function setFile($fp)
-    {
-        if (!is_resource($fp)) {
-            throw new \Exception('$fp is not a valid resource');
-        }
-
-        $this->f = $fp;
     }
 
     /**
@@ -134,6 +136,63 @@ class BinaryStream
         }
 
         return $f;
+    }
+
+    /**
+     * Open a font file in read mode
+     *
+     * @param string $filename The file name of the font to open
+     *
+     * @return bool
+     * @throws Exception
+     */
+    public function load($filename)
+    {
+        return $this->open($filename, self::modeRead);
+    }
+
+    /**
+     * Open a font file in a chosen mode
+     *
+     * @param string $filename The file name of the font to open
+     * @param string $mode The opening mode
+     *
+     * @return bool
+     * @throws Exception
+     */
+    public function open($filename, $mode = self::modeRead)
+    {
+        if (!in_array($mode, array(self::modeRead, self::modeWrite, self::modeReadWrite))) {
+            throw new Exception("Unknown file open mode");
+        }
+
+        $this->f = fopen($filename, $mode);
+
+        return $this->f != false;
+    }
+
+    /**
+     * Close the internal file pointer
+     */
+    public function close()
+    {
+        return fclose($this->f) != false;
+    }
+
+    /**
+     * Change the internal file pointer
+     *
+     * @param resource $fp
+     *
+     * @throws Exception
+     */
+    public function setFile($fp)
+    {
+        if (!is_resource($fp)) {
+            throw new Exception('$fp is not a valid resource');
+        }
+
+        $this->f = $fp;
     }
 
     /**
@@ -158,77 +217,26 @@ class BinaryStream
         return ftell($this->f);
     }
 
+    /**
+     * @param $n
+     * @return void
+     */
     public function skip($n)
     {
         fseek($this->f, $n, SEEK_CUR);
     }
 
     /**
-     * @param int $n The number of bytes to read
-     *
-     * @return string
+     * @return mixed
      */
-    public function read($n)
+    public function readUFWord()
     {
-        if ($n < 1) {
-            return "";
-        }
-
-        //        return (string) fread($this->f, $n);
-        $offset = $this->offset;
-        $this->offset += $n;
-        return (string)substr($this->content, $offset, $n);
+        return $this->readUInt16();
     }
 
-    public function write($data, $length = null)
-    {
-        if ($data === null || $data === "" || $data === false) {
-            return 0;
-        }
-
-        return fwrite($this->f, $data, $length);
-    }
-
-    public function readUInt8()
-    {
-        return ord($this->read(1));
-    }
-
-    public function readUInt8Many($count)
-    {
-        return array_values(unpack("C*", $this->read($count)));
-    }
-
-    public function writeUInt8($data)
-    {
-        return $this->write(chr($data), 1);
-    }
-
-    public function readInt8()
-    {
-        $v = $this->readUInt8();
-
-        if ($v >= 0x80) {
-            $v -= 0x100;
-        }
-
-        return $v;
-    }
-
-    public function readInt8Many($count)
-    {
-        return array_values(unpack("c*", $this->read($count)));
-    }
-
-    public function writeInt8($data)
-    {
-        if ($data < 0) {
-            $data += 0x100;
-        }
-
-        return $this->writeUInt8($data);
-    }
-
+    /**
+     * @return mixed
+     */
     public function readUInt16()
     {
         $a = unpack("nn", $this->read(2));
@@ -236,26 +244,35 @@ class BinaryStream
         return $a["n"];
     }
 
-    public function readUInt16Many($count)
-    {
-        return array_values(unpack("n*", $this->read($count * 2)));
-    }
-
-    public function readUFWord()
-    {
-        return $this->readUInt16();
-    }
-
-    public function writeUInt16($data)
-    {
-        return $this->write(pack("n", $data), 2);
-    }
-
+    /**
+     * @param $data
+     * @return false|int
+     */
     public function writeUFWord($data)
     {
         return $this->writeUInt16($data);
     }
 
+    /**
+     * @param $data
+     * @return false|int
+     */
+    public function writeUInt16($data)
+    {
+        return $this->write(pack("n", $data), 2);
+    }
+
+    /**
+     * @return int|mixed
+     */
+    public function readFWord()
+    {
+        return $this->readInt16();
+    }
+
+    /**
+     * @return int|mixed
+     */
     public function readInt16()
     {
         $a = unpack("nn", $this->read(2));
@@ -268,23 +285,19 @@ class BinaryStream
         return $v;
     }
 
-    public function readInt16Many($count)
+    /**
+     * @param $data
+     * @return false|int
+     */
+    public function writeFWord($data)
     {
-        $vals = array_values(unpack("n*", $this->read($count * 2)));
-        foreach ($vals as &$v) {
-            if ($v >= 0x8000) {
-                $v -= 0x10000;
-            }
-        }
-
-        return $vals;
+        return $this->writeInt16($data);
     }
 
-    public function readFWord()
-    {
-        return $this->readInt16();
-    }
-
+    /**
+     * @param $data
+     * @return false|int
+     */
     public function writeInt16($data)
     {
         if ($data < 0) {
@@ -294,62 +307,10 @@ class BinaryStream
         return $this->writeUInt16($data);
     }
 
-    public function writeFWord($data)
-    {
-        return $this->writeInt16($data);
-    }
-
-    public function readUInt32()
-    {
-        $a = unpack("NN", $this->read(4));
-
-        return $a["N"];
-    }
-
-    public function writeUInt32($data)
-    {
-        return $this->write(pack("N", $data), 4);
-    }
-
-    public function readFixed()
-    {
-        $d = $this->readInt16();
-        $d2 = $this->readUInt16();
-
-        return round($d + $d2 / 0x10000, 4);
-    }
-
-    public function writeFixed($data)
-    {
-        $left = floor($data);
-        $right = ($data - $left) * 0x10000;
-
-        return $this->writeInt16($left) + $this->writeUInt16($right);
-    }
-
-    public function readLongDateTime()
-    {
-        $this->readUInt32(); // ignored
-        $date = $this->readUInt32() - 2082844800;
-
-        # PHP_INT_MIN isn't defined in PHP < 7.0
-        $php_int_min = defined("PHP_INT_MIN") ? PHP_INT_MIN : ~PHP_INT_MAX;
-
-        if (is_string($date) || $date > PHP_INT_MAX || $date < $php_int_min) {
-            $date = 0;
-        }
-
-        return date("Y-m-d H:i:s", $date);
-    }
-
-    public function writeLongDateTime($data)
-    {
-        $date = strtotime($data);
-        $date += 2082844800;
-
-        return $this->writeUInt32(0) + $this->writeUInt32($date);
-    }
-
+    /**
+     * @param $def
+     * @return array
+     */
     public function unpack($def)
     {
         $d = array();
@@ -358,16 +319,6 @@ class BinaryStream
         }
 
         return $d;
-    }
-
-    public function pack($def, $data)
-    {
-        $bytes = 0;
-        foreach ($def as $name => $type) {
-            $bytes += $this->w($type, $data[$name]);
-        }
-
-        return $bytes;
     }
 
     /**
@@ -437,6 +388,142 @@ class BinaryStream
     }
 
     /**
+     * @return int
+     */
+    public function readInt8()
+    {
+        $v = $this->readUInt8();
+
+        if ($v >= 0x80) {
+            $v -= 0x100;
+        }
+
+        return $v;
+    }
+
+    /**
+     * @return int
+     */
+    public function readUInt8()
+    {
+        return ord($this->read(1));
+    }
+
+    /**
+     * @return float
+     */
+    public function readFixed()
+    {
+        $d = $this->readInt16();
+        $d2 = $this->readUInt16();
+
+        return round($d + $d2 / 0x10000, 4);
+    }
+
+    /**
+     * @return string
+     */
+    public function readLongDateTime()
+    {
+        $this->readUInt32(); // ignored
+        $date = $this->readUInt32() - 2082844800;
+
+        # PHP_INT_MIN isn't defined in PHP < 7.0
+        $php_int_min = defined("PHP_INT_MIN") ? PHP_INT_MIN : ~PHP_INT_MAX;
+
+        if (is_string($date) || $date > PHP_INT_MAX || $date < $php_int_min) {
+            $date = 0;
+        }
+
+        return date("Y-m-d H:i:s", $date);
+    }
+
+    /**
+     * @return mixed
+     */
+    public function readUInt32()
+    {
+        $a = unpack("NN", $this->read(4));
+
+        return $a["N"];
+    }
+
+    /**
+     * @param $count
+     * @return array|false
+     */
+    public function readUInt16Many($count)
+    {
+        return array_values(unpack("n*", $this->read($count * 2)));
+    }
+
+    /**
+     * @param $count
+     * @return array|false
+     */
+    public function readInt16Many($count)
+    {
+        $vals = array_values(unpack("n*", $this->read($count * 2)));
+        foreach ($vals as &$v) {
+            if ($v >= 0x8000) {
+                $v -= 0x10000;
+            }
+        }
+
+        return $vals;
+    }
+
+    /**
+     * @param $count
+     * @return array|false
+     */
+    public function readUInt8Many($count)
+    {
+        return array_values(unpack("C*", $this->read($count)));
+    }
+
+    /**
+     * @param int $n The number of bytes to read
+     *
+     * @return string
+     */
+    public function read($n)
+    {
+        if ($n < 1) {
+            return "";
+        }
+
+        //        return (string) fread($this->f, $n);
+        $offset = $this->offset;
+        $this->offset += $n;
+        return (string)substr($this->content, $offset, $n);
+    }
+
+    /**
+     * @param $count
+     * @return array|false
+     */
+    public function readInt8Many($count)
+    {
+        return array_values(unpack("c*", $this->read($count)));
+    }
+
+    /**
+     * @param $def
+     * @param $data
+     * @return int|null
+     */
+    public function pack($def, $data)
+    {
+        $bytes = 0;
+        foreach ($def as $name => $type) {
+            $bytes += $this->w($type, $data[$name]);
+        }
+
+        return $bytes;
+    }
+
+    /**
      * Write $data of type $type in the file from the current position
      *
      * @param mixed $type The data type to write
@@ -494,6 +581,75 @@ class BinaryStream
     }
 
     /**
+     * @param $data
+     * @return false|int
+     */
+    public function writeInt8($data)
+    {
+        if ($data < 0) {
+            $data += 0x100;
+        }
+
+        return $this->writeUInt8($data);
+    }
+
+    /**
+     * @param $data
+     * @return false|int
+     */
+    public function writeUInt8($data)
+    {
+        return $this->write(chr($data), 1);
+    }
+
+    /**
+     * @param $data
+     * @param $length
+     * @return false|int
+     */
+    public function write($data, $length = null)
+    {
+        if ($data === null || $data === "" || $data === false) {
+            return 0;
+        }
+
+        return fwrite($this->f, $data, $length);
+    }
+
+    /**
+     * @param $data
+     * @return int
+     */
+    public function writeFixed($data)
+    {
+        $left = floor($data);
+        $right = ($data - $left) * 0x10000;
+
+        return $this->writeInt16($left) + $this->writeUInt16($right);
+    }
+
+    /**
+     * @param $data
+     * @return int
+     */
+    public function writeLongDateTime($data)
+    {
+        $date = strtotime($data);
+        $date += 2082844800;
+
+        return $this->writeUInt32(0) + $this->writeUInt32($date);
+    }
+
+    /**
+     * @param $data
+     * @return false|int
+     */
+    public function writeUInt32($data)
+    {
+        return $this->write(pack("N", $data), 4);
+    }
+
+    /**
      * Converts a Uint32 value to string
      *
      * @param int $uint32
@@ -517,6 +673,14 @@ class BinaryStream
     }
 
     /**
+     * @return int
+     */
+    public function getOffset(): int
+    {
+        return $this->offset;
+    }
+
+    /**
      * @param mixed $offset
      * @return BinaryStream
      */
@@ -525,13 +689,5 @@ class BinaryStream
         $this->offset = $offset;
 
         return $this;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getOffset()
-    {
-        return $this->offset;
     }
 }

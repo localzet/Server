@@ -28,6 +28,8 @@ namespace localzet\Server\Connection;
 
 use Exception;
 use localzet\Server;
+use localzet\Server\Events\Windows;
+use localzet\Server\Protocols\Ws;
 use localzet\Timer;
 use RuntimeException;
 use stdClass;
@@ -47,7 +49,6 @@ use function stream_set_read_buffer;
 use function stream_socket_client;
 use function stream_socket_get_name;
 use function ucfirst;
-use const DIRECTORY_SEPARATOR;
 use const PHP_INT_MAX;
 use const SO_KEEPALIVE;
 use const SOL_SOCKET;
@@ -322,7 +323,7 @@ class AsyncTcpConnection extends TcpConnection
         // Add socket to global event loop waiting connection is successfully established or faild.
         $this->eventLoop->onWritable($this->socket, [$this, 'checkConnection']);
         // For windows.
-        if (DIRECTORY_SEPARATOR === '\\' && method_exists($this->eventLoop, 'onExcept')) {
+        if ($this->eventLoop && $this->eventLoop instanceof Windows) {
             $this->eventLoop->onExcept($this->socket, [$this, 'checkConnection']);
         }
     }
@@ -387,7 +388,7 @@ class AsyncTcpConnection extends TcpConnection
     public function checkConnection(): void
     {
         // Remove EV_EXPECT for windows.
-        if (DIRECTORY_SEPARATOR === '\\' && method_exists($this->eventLoop, 'offExcept')) {
+        if ($this->eventLoop && $this->eventLoop instanceof Windows) {
             $this->eventLoop->offExcept($this->socket);
         }
 
@@ -439,9 +440,9 @@ class AsyncTcpConnection extends TcpConnection
                 }
             }
             // Try to emit protocol::onConnect
-            if ($this->protocol && method_exists($this->protocol, 'onConnect')) {
+            if ($this->protocol && ($this->protocol instanceof Ws || method_exists($this->protocol, 'onConnect'))) {
                 try {
-                    [$this->protocol, 'onConnect']($this);
+                    $this->protocol::onConnect($this);
                 } catch (Throwable $e) {
                     $this->error($e);
                 }

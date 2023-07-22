@@ -48,89 +48,77 @@ use function unserialize;
 class Session
 {
     /**
-     * Класс обработчика сессий, реализующий интерфейс SessionHandlerInterface.
-     *
-     * @var string
-     */
-    protected static string $handlerClass = FileSessionHandler::class;
-
-    /**
-     * Параметры конструктора для класса обработчика сессий.
-     *
-     * @var mixed
-     */
-    protected static mixed $handlerConfig = null;
-
-    /**
      * Имя сессии.
      *
      * @var string
      */
     public static string $name = 'PHPSID';
-
     /**
      * Автоматическое обновление метки времени.
      *
      * @var bool
      */
     public static bool $autoUpdateTimestamp = false;
-
     /**
      * Время жизни сессии.
      *
      * @var int
      */
     public static int $lifetime = 1440;
-
     /**
      * Время жизни cookie.
      *
      * @var int
      */
     public static int $cookieLifetime = 1440;
-
     /**
      * Путь к cookie сессии.
      *
      * @var string
      */
     public static string $cookiePath = '/';
-
     /**
      * Домен cookie сессии.
      *
      * @var string
      */
     public static string $domain = '';
-
     /**
      * Только HTTPS cookie.
      *
      * @var bool
      */
     public static bool $secure = false;
-
     /**
      * Только HTTP доступ.
      *
      * @var bool
      */
     public static bool $httpOnly = true;
-
     /**
      * Same-site cookies.
      *
      * @var string
      */
     public static string $sameSite = '';
-
     /**
      * Вероятность выполнения сборки мусора.
      *
      * @var int[]
      */
     public static array $gcProbability = [1, 20000];
-
+    /**
+     * Класс обработчика сессий, реализующий интерфейс SessionHandlerInterface.
+     *
+     * @var string
+     */
+    protected static string $handlerClass = FileSessionHandler::class;
+    /**
+     * Параметры конструктора для класса обработчика сессий.
+     *
+     * @var mixed
+     */
+    protected static mixed $handlerConfig = null;
     /**
      * Экземпляр обработчика сессий.
      *
@@ -184,13 +172,104 @@ class Session
     }
 
     /**
-     * Получить идентификатор сессии.
+     * Проверка идентификатора сессии.
      *
+     * @param string $sessionId
+     */
+    protected static function checkSessionId(string $sessionId): void
+    {
+        if ($sessionId === '') {
+            throw new InvalidArgumentException('Session ID cannot be empty.');
+        }
+        if (!preg_match('/^[0-9a-zA-Z,-]{22,40}$/', $sessionId)) {
+            throw new InvalidArgumentException('Invalid session ID format.');
+        }
+    }
+
+    /**
+     * Инициализация обработчика.
+     *
+     * @return void
+     */
+    protected static function initHandler(): void
+    {
+        if (static::$handlerConfig === null) {
+            static::$handler = new static::$handlerClass();
+        } else {
+            static::$handler = new static::$handlerClass(static::$handlerConfig);
+        }
+    }
+
+    /**
+     * Инициализация.
+     *
+     * @return void
+     */
+    public static function init(): void
+    {
+        if (($gcProbability = (int)ini_get('session.gc_probability')) && ($gcDivisor = (int)ini_get('session.gc_divisor'))) {
+            static::$gcProbability = [$gcProbability, $gcDivisor];
+        }
+
+        if ($gcMaxLifeTime = ini_get('session.gc_maxlifetime')) {
+            self::$lifetime = (int)$gcMaxLifeTime;
+        }
+
+        $sessionCookieParams = session_get_cookie_params();
+        static::$cookieLifetime = $sessionCookieParams['lifetime'];
+        static::$cookiePath = $sessionCookieParams['path'];
+        static::$domain = $sessionCookieParams['domain'];
+        static::$secure = $sessionCookieParams['secure'];
+        static::$httpOnly = $sessionCookieParams['httponly'];
+    }
+
+    /**
+     * Установить класс обработчика сессии.
+     *
+     * @param mixed|null $className
+     * @param mixed|null $config
      * @return string
      */
-    public function getId(): string
+    public static function handlerClass(mixed $className = null, mixed $config = null): string
     {
-        return $this->sessionId;
+        if ($className) {
+            static::$handlerClass = $className;
+        }
+        if ($config) {
+            static::$handlerConfig = $config;
+        }
+        return static::$handlerClass;
+    }
+
+    /**
+     * Получить параметры cookie.
+     *
+     * @return array
+     */
+    public static function getCookieParams(): array
+    {
+        return [
+            'lifetime' => static::$cookieLifetime,
+            'path' => static::$cookiePath,
+            'domain' => static::$domain,
+            'secure' => static::$secure,
+            'httponly' => static::$httpOnly,
+            'samesite' => static::$sameSite,
+        ];
+    }
+
+    /**
+     * Получить и удалить элемент из сессии.
+     *
+     * @param string $name
+     * @param mixed|null $default
+     * @return mixed
+     */
+    public function pull(string $name, mixed $default = null): mixed
+    {
+        $value = $this->get($name, $default);
+        $this->delete($name);
+        return $value;
     }
 
     /**
@@ -206,18 +285,6 @@ class Session
     }
 
     /**
-     * Сохранить данные в сессии.
-     *
-     * @param string $name
-     * @param mixed $value
-     */
-    public function set(string $name, mixed $value): void
-    {
-        $this->data[$name] = $value;
-        $this->needSave = true;
-    }
-
-    /**
      * Удалить элемент из сессии.
      *
      * @param string $name
@@ -226,20 +293,6 @@ class Session
     {
         unset($this->data[$name]);
         $this->needSave = true;
-    }
-
-    /**
-     * Получить и удалить элемент из сессии.
-     *
-     * @param string $name
-     * @param mixed|null $default
-     * @return mixed
-     */
-    public function pull(string $name, mixed $default = null): mixed
-    {
-        $value = $this->get($name, $default);
-        $this->delete($name);
-        return $value;
     }
 
     /**
@@ -258,6 +311,18 @@ class Session
         foreach ($key as $k => $v) {
             $this->data[$k] = $v;
         }
+        $this->needSave = true;
+    }
+
+    /**
+     * Сохранить данные в сессии.
+     *
+     * @param string $name
+     * @param mixed $value
+     */
+    public function set(string $name, mixed $value): void
+    {
+        $this->data[$name] = $value;
         $this->needSave = true;
     }
 
@@ -324,6 +389,34 @@ class Session
     }
 
     /**
+     * __wakeup.
+     *
+     * @return void
+     */
+    public function __wakeup()
+    {
+        $this->isSafe = false;
+    }
+
+    /**
+     * Деструктор.
+     *
+     * @return void
+     * @throws Exception
+     */
+    public function __destruct()
+    {
+        if (!$this->isSafe) {
+            return;
+        }
+
+        $this->save();
+        if (random_int(1, static::$gcProbability[1]) <= static::$gcProbability[0]) {
+            $this->gc();
+        }
+    }
+
+    /**
      * Сохранить сессию в хранилище.
      *
      * @return void
@@ -353,75 +446,13 @@ class Session
     }
 
     /**
-     * Инициализация.
+     * Получить идентификатор сессии.
      *
-     * @return void
-     */
-    public static function init(): void
-    {
-        if (($gcProbability = (int)ini_get('session.gc_probability')) && ($gcDivisor = (int)ini_get('session.gc_divisor'))) {
-            static::$gcProbability = [$gcProbability, $gcDivisor];
-        }
-
-        if ($gcMaxLifeTime = ini_get('session.gc_maxlifetime')) {
-            self::$lifetime = (int)$gcMaxLifeTime;
-        }
-
-        $sessionCookieParams = session_get_cookie_params();
-        static::$cookieLifetime = $sessionCookieParams['lifetime'];
-        static::$cookiePath = $sessionCookieParams['path'];
-        static::$domain = $sessionCookieParams['domain'];
-        static::$secure = $sessionCookieParams['secure'];
-        static::$httpOnly = $sessionCookieParams['httponly'];
-    }
-
-    /**
-     * Установить класс обработчика сессии.
-     *
-     * @param mixed|null $className
-     * @param mixed|null $config
      * @return string
      */
-    public static function handlerClass(mixed $className = null, mixed $config = null): string
+    public function getId(): string
     {
-        if ($className) {
-            static::$handlerClass = $className;
-        }
-        if ($config) {
-            static::$handlerConfig = $config;
-        }
-        return static::$handlerClass;
-    }
-
-    /**
-     * Получить параметры cookie.
-     *
-     * @return array
-     */
-    public static function getCookieParams(): array
-    {
-        return [
-            'lifetime' => static::$cookieLifetime,
-            'path' => static::$cookiePath,
-            'domain' => static::$domain,
-            'secure' => static::$secure,
-            'httponly' => static::$httpOnly,
-            'samesite' => static::$sameSite,
-        ];
-    }
-
-    /**
-     * Инициализация обработчика.
-     *
-     * @return void
-     */
-    protected static function initHandler(): void
-    {
-        if (static::$handlerConfig === null) {
-            static::$handler = new static::$handlerClass();
-        } else {
-            static::$handler = new static::$handlerClass(static::$handlerConfig);
-        }
+        return $this->sessionId;
     }
 
     /**
@@ -432,49 +463,6 @@ class Session
     public function gc(): void
     {
         static::$handler->gc(static::$lifetime);
-    }
-
-    /**
-     * __wakeup.
-     *
-     * @return void
-     */
-    public function __wakeup()
-    {
-        $this->isSafe = false;
-    }
-
-    /**
-     * Деструктор.
-     *
-     * @return void
-     * @throws Exception
-     */
-    public function __destruct()
-    {
-        if (!$this->isSafe) {
-            return;
-        }
-
-        $this->save();
-        if (random_int(1, static::$gcProbability[1]) <= static::$gcProbability[0]) {
-            $this->gc();
-        }
-    }
-
-    /**
-     * Проверка идентификатора сессии.
-     *
-     * @param string $sessionId
-     */
-    protected static function checkSessionId(string $sessionId): void
-    {
-        if ($sessionId === '') {
-            throw new InvalidArgumentException('Session ID cannot be empty.');
-        }
-        if (!preg_match('/^[0-9a-zA-Z,-]{22,40}$/', $sessionId)) {
-            throw new InvalidArgumentException('Invalid session ID format.');
-        }
     }
 }
 

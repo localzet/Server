@@ -5,12 +5,20 @@ declare(strict_types=1);
 namespace localzet\Server\Events\Linux;
 
 // @codeCoverageIgnoreStart
+use Error;
 use localzet\Server\Events\Linux\Driver\EvDriver;
 use localzet\Server\Events\Linux\Driver\EventDriver;
 use localzet\Server\Events\Linux\Driver\StreamSelectDriver;
 use localzet\Server\Events\Linux\Driver\TracingDriver;
 use localzet\Server\Events\Linux\Driver\UvDriver;
+use function class_exists;
+use function getenv;
+use function is_subclass_of;
+use function sprintf;
 
+/**
+ *
+ */
 final class DriverFactory
 {
     /**
@@ -18,7 +26,7 @@ final class DriverFactory
      *
      * @return Driver
      *
-     * @throws \Error If an invalid class has been specified via REVOLT_LOOP_DRIVER
+     * @throws Error If an invalid class has been specified via REVOLT_LOOP_DRIVER
      */
     public function create(): Driver
     {
@@ -42,7 +50,7 @@ final class DriverFactory
             return new StreamSelectDriver();
         })();
 
-        if (\getenv("REVOLT_DRIVER_DEBUG_TRACE")) {
+        if (getenv("REVOLT_DRIVER_DEBUG_TRACE")) {
             return new TracingDriver($driver);
         }
 
@@ -54,21 +62,21 @@ final class DriverFactory
      */
     private function createDriverFromEnv(): ?Driver
     {
-        $driver = \getenv("REVOLT_DRIVER");
+        $driver = getenv("REVOLT_DRIVER");
 
         if (!$driver) {
             return null;
         }
 
-        if (!\class_exists($driver)) {
-            throw new \Error(\sprintf(
+        if (!class_exists($driver)) {
+            throw new Error(sprintf(
                 "Driver '%s' does not exist.",
                 $driver
             ));
         }
 
-        if (!\is_subclass_of($driver, Driver::class)) {
-            throw new \Error(\sprintf(
+        if (!is_subclass_of($driver, Driver::class)) {
+            throw new Error(sprintf(
                 "Driver '%s' is not a subclass of '%s'.",
                 $driver,
                 Driver::class

@@ -4,17 +4,46 @@ declare(strict_types=1);
 
 namespace localzet\Server\Events\Linux;
 
+use Closure;
+use Error;
 use localzet\Server\Events\Linux\Internal\ClosureHelper;
 
-final class InvalidCallbackError extends \Error
+/**
+ *
+ */
+final class InvalidCallbackError extends Error
 {
+    /**
+     *
+     */
     public const E_NONNULL_RETURN = 1;
+    /**
+     *
+     */
     public const E_INVALID_IDENTIFIER = 2;
+    /** @var string */
+    private readonly string $rawMessage;
+    /** @var string */
+    private readonly string $callbackId;
+    /** @var array<string, string> */
+    private array $info = [];
+
+    /**
+     * @param string $callbackId The callback identifier.
+     * @param string $message The exception message.
+     */
+    private function __construct(string $callbackId, int $code, string $message)
+    {
+        parent::__construct($message, $code);
+
+        $this->callbackId = $callbackId;
+        $this->rawMessage = $message;
+    }
 
     /**
      * MUST be thrown if any callback returns a non-null value.
      */
-    public static function nonNullReturn(string $callbackId, \Closure $closure): self
+    public static function nonNullReturn(string $callbackId, Closure $closure): self
     {
         return new self(
             $callbackId,
@@ -33,27 +62,6 @@ final class InvalidCallbackError extends \Error
         return new self($callbackId, self::E_INVALID_IDENTIFIER, 'Invalid callback identifier ' . $callbackId);
     }
 
-    /** @var string */
-    private readonly string $rawMessage;
-
-    /** @var string */
-    private readonly string $callbackId;
-
-    /** @var array<string, string> */
-    private array $info = [];
-
-    /**
-     * @param string $callbackId The callback identifier.
-     * @param string $message The exception message.
-     */
-    private function __construct(string $callbackId, int $code, string $message)
-    {
-        parent::__construct($message, $code);
-
-        $this->callbackId = $callbackId;
-        $this->rawMessage = $message;
-    }
-
     /**
      * @return string The callback identifier.
      */
@@ -62,6 +70,11 @@ final class InvalidCallbackError extends \Error
         return $this->callbackId;
     }
 
+    /**
+     * @param string $key
+     * @param string $message
+     * @return void
+     */
     public function addInfo(string $key, string $message): void
     {
         $this->info[$key] = $message;
