@@ -75,21 +75,6 @@ class FileSessionHandler implements SessionHandlerInterface
     }
 
     /**
-     * Инициализация.
-     */
-    public static function init(): void
-    {
-        // Получаем путь для сохранения сессий
-        $savePath = @session_save_path();
-        // Если путь не указан или начинается с "tcp://", используем временную директорию
-        if (!$savePath || str_starts_with($savePath, 'tcp://')) {
-            $savePath = sys_get_temp_dir();
-        }
-        // Устанавливаем путь для сохранения сессий
-        static::sessionSavePath($savePath);
-    }
-
-    /**
      * Получение или установка пути для сохранения сессий.
      *
      * @param string $path Путь для сохранения сессий.
@@ -111,6 +96,21 @@ class FileSessionHandler implements SessionHandlerInterface
             }
         }
         return $path;
+    }
+
+    /**
+     * Инициализация.
+     */
+    public static function init(): void
+    {
+        // Получаем путь для сохранения сессий
+        $savePath = @session_save_path();
+        // Если путь не указан или начинается с "tcp://", используем временную директорию
+        if (!$savePath || str_starts_with($savePath, 'tcp://')) {
+            $savePath = sys_get_temp_dir();
+        }
+        // Устанавливаем путь для сохранения сессий
+        static::sessionSavePath($savePath);
     }
 
     /**
