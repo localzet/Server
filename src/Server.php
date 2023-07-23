@@ -1568,7 +1568,7 @@ class Server
             static::$status = static::STATUS_RUNNING;
 
             // Зарегистрировать функцию завершения для проверки ошибок.
-            register_shutdown_function(["\\localzet\\Server\\Server", 'checkErrors']);
+            register_shutdown_function(["\\localzet\\Server", 'checkErrors']);
 
             // Создать глобальный цикл событий.
             if (!static::$globalEvent) {
@@ -1727,7 +1727,7 @@ class Server
                     Timer::add(ceil(static::$stopTimeout), 'posix_kill', [$serverPid, SIGKILL], false);
                 }
             }
-            Timer::add(1, "\\localzet\\Server\\Server::checkIfChildRunning");
+            Timer::add(1, "\\localzet\\Server::checkIfChildRunning");
             // Удалить файл статистики.
             if (is_file(static::$statisticsFile)) {
                 @unlink(static::$statisticsFile);
@@ -1857,7 +1857,7 @@ class Server
         static::$status = static::STATUS_RUNNING;
 
         // Зарегистрировать функцию завершения для проверки ошибок.
-        register_shutdown_function(["\\localzet\\Server\\Server", 'checkErrors']);
+        register_shutdown_function(["\\localzet\\Server", 'checkErrors']);
 
         // Создать глобальное событийное окружение.
         if (!static::$globalEvent) {
@@ -2201,7 +2201,7 @@ class Server
      */
     protected static function monitorServersForWindows(): void
     {
-        Timer::add(1, "\\localzet\\Server\\Server::checkServerStatusForWindows");
+        Timer::add(1, "\\localzet\\Server::checkServerStatusForWindows");
 
         static::$globalEvent->run();
     }
