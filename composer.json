@@ -29,7 +29,7 @@
   "require": {
     "php": ">=8.2",
     "ext-json": "*",
-    "revolt/event-loop": "dev-main"
+    "revolt/event-loop": "^1.0"
   },
   "suggest": {
     "ext-uv": "For better performance",
