@@ -294,6 +294,34 @@ class Server
     protected static int $maxSocketNameLength = 12;
 
     /**
+     * Максимальная длина имени пользователя.
+     *
+     * @var int
+     */
+    protected static int $maxUserNameLength = 12;
+
+    /**
+     * Максимальная длина имени протокола.
+     *
+     * @var int
+     */
+    protected static int $maxProtoNameLength = 4;
+
+    /**
+     * Максимальная длина имени процесса.
+     *
+     * @var int
+     */
+    protected static int $maxProcessesNameLength = 9;
+
+    /**
+     * Максимальная длина имени состояния.
+     *
+     * @var int
+     */
+    protected static int $maxStateNameLength = 1;
+
+    /**
      * Файл для хранения информации о статусе текущего процесса сервера.
      *
      * @var string
