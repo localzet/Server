@@ -28,7 +28,8 @@
   ],
   "require": {
     "php": ">=8.2",
-    "ext-json": "*"
+    "ext-json": "*",
+    "revolt/event-loop": "dev-main"
   },
   "suggest": {
     "ext-uv": "For better performance",
