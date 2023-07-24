@@ -37,7 +37,7 @@ interface EventInterface
      * Задержать выполнение колбэка на указанное время.
      * @param float $delay Задержка в секундах.
      * @param callable $func Колбэк, который нужно выполнить.
-     * @param mixed[] $args Аргументы, передаваемые в колбэк.
+     * @param array $args Аргументы, передаваемые в колбэк.
      * @return int Идентификатор таймера.
      */
     public function delay(float $delay, callable $func, array $args = []): int;
@@ -53,7 +53,7 @@ interface EventInterface
      * Повторно выполнять колбэк через указанный интервал времени.
      * @param float $interval Интервал в секундах.
      * @param callable $func Колбэк, который нужно выполнить.
-     * @param mixed[] $args Аргументы, передаваемые в колбэк.
+     * @param array $args Аргументы, передаваемые в колбэк.
      * @return int Идентификатор таймера.
      */
     public function repeat(float $interval, callable $func, array $args = []): int;

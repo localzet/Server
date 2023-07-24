@@ -108,7 +108,7 @@ class Request implements Stringable
      *
      * @var bool
      */
-    protected $isSafe = true;
+    protected bool $isSafe = true;
     /**
      * Session id.
      *
@@ -484,7 +484,7 @@ class Request implements Stringable
      * @param string|null $name
      * @return array|null
      */
-    public function file(string $name = null)
+    public function file(string $name = null): ?array
     {
         if (!isset($this->data['files'])) {
             $this->parsePost();

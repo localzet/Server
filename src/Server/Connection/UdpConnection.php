@@ -26,8 +26,7 @@ declare(strict_types=1);
 
 namespace localzet\Server\Connection;
 
-use JetBrains\PhpStorm\ArrayShape;
-use JetBrains\PhpStorm\Pure;
+use JetBrains\PhpStorm\{ArrayShape, Pure};
 use JsonSerializable;
 use localzet\Server\Protocols\ProtocolInterface;
 use function stream_socket_get_name;

@@ -28,9 +28,7 @@ namespace localzet\Server\Protocols;
 
 use localzet\Server;
 use localzet\Server\Connection\TcpConnection;
-use localzet\Server\Protocols\Http\Ja3;
-use localzet\Server\Protocols\Http\Request;
-use localzet\Server\Protocols\Http\Response;
+use localzet\Server\Protocols\Http\{Ja3, Request, Response};
 use Throwable;
 use function clearstatcache;
 use function count;

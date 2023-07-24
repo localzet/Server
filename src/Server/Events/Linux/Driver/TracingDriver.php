@@ -5,11 +5,7 @@ declare(strict_types=1);
 namespace localzet\Server\Events\Linux\Driver;
 
 use Closure;
-use localzet\Server\Events\Linux\CallbackType;
-use localzet\Server\Events\Linux\Driver;
-use localzet\Server\Events\Linux\InvalidCallbackError;
-use localzet\Server\Events\Linux\Suspension;
-use localzet\Server\Events\Linux\UnsupportedFeatureException;
+use localzet\Server\Events\Linux\{CallbackType, Driver, InvalidCallbackError, Suspension, UnsupportedFeatureException};
 use function array_keys;
 use function array_map;
 use function debug_backtrace;
@@ -121,8 +117,8 @@ final class TracingDriver implements Driver
      */
     private function formatStacktrace(array $trace): string
     {
-        return implode("\n", array_map(static function ($e, $i) {
-            $line = "#{$i} ";
+        return implode("\n", array_map(static function (array $e, int|string $i) {
+            $line = "#$i ";
 
             if (isset($e["file"])) {
                 $line .= "{$e['file']}:{$e['line']} ";

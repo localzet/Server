@@ -14,13 +14,13 @@ use EvLoop;
 use EvSignal;
 use EvTimer;
 use EvWatcher;
-use localzet\Server\Events\Linux\Internal\AbstractDriver;
-use localzet\Server\Events\Linux\Internal\DriverCallback;
-use localzet\Server\Events\Linux\Internal\SignalCallback;
-use localzet\Server\Events\Linux\Internal\StreamCallback;
-use localzet\Server\Events\Linux\Internal\StreamReadableCallback;
-use localzet\Server\Events\Linux\Internal\StreamWritableCallback;
-use localzet\Server\Events\Linux\Internal\TimerCallback;
+use localzet\Server\Events\Linux\Internal\{AbstractDriver,
+    DriverCallback,
+    SignalCallback,
+    StreamCallback,
+    StreamReadableCallback,
+    StreamWritableCallback,
+    TimerCallback};
 use function assert;
 use function extension_loaded;
 use function get_class;
@@ -115,9 +115,7 @@ final class EvDriver extends AbstractDriver
     {
         foreach ($this->events as $event) {
             /** @psalm-suppress all */
-            if ($event !== null) { // Events may have been nulled in extension depending on destruct order.
-                $event->stop();
-            }
+            $event?->stop();
         }
 
         // We need to clear all references to events manually, see

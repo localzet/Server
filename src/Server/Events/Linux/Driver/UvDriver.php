@@ -6,13 +6,13 @@ namespace localzet\Server\Events\Linux\Driver;
 
 use Closure;
 use Error;
-use localzet\Server\Events\Linux\Internal\AbstractDriver;
-use localzet\Server\Events\Linux\Internal\DriverCallback;
-use localzet\Server\Events\Linux\Internal\SignalCallback;
-use localzet\Server\Events\Linux\Internal\StreamCallback;
-use localzet\Server\Events\Linux\Internal\StreamReadableCallback;
-use localzet\Server\Events\Linux\Internal\StreamWritableCallback;
-use localzet\Server\Events\Linux\Internal\TimerCallback;
+use localzet\Server\Events\Linux\Internal\{AbstractDriver,
+    DriverCallback,
+    SignalCallback,
+    StreamCallback,
+    StreamReadableCallback,
+    StreamWritableCallback,
+    TimerCallback};
 use UV;
 use UVLoop;
 use function assert;
@@ -223,11 +223,7 @@ final class UvDriver extends AbstractDriver
                 }
                 uv_poll_start($event, $flags, $this->ioCallback);
             } elseif ($callback instanceof TimerCallback) {
-                if (isset($this->events[$id])) {
-                    $event = $this->events[$id];
-                } else {
-                    $event = $this->events[$id] = uv_timer_init($this->handle);
-                }
+                $event = $this->events[$id] ?? ($this->events[$id] = uv_timer_init($this->handle));
 
                 $this->callbacks[(int)$event] = [$callback];
 

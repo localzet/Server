@@ -30,12 +30,9 @@ namespace localzet;
 use AllowDynamicProperties;
 use Composer\InstalledVersions;
 use Exception;
-use localzet\Server\Connection\ConnectionInterface;
-use localzet\Server\Connection\TcpConnection;
-use localzet\Server\Connection\UdpConnection;
-use localzet\Server\Events\EventInterface;
-use localzet\Server\Events\Linux;
-use localzet\Server\Events\Windows;
+use JetBrains\PhpStorm\NoReturn;
+use localzet\Server\Connection\{ConnectionInterface, TcpConnection, UdpConnection};
+use localzet\Server\Events\{EventInterface, Linux, Windows};
 use localzet\Server\Protocols\ProtocolInterface;
 use RuntimeException;
 use stdClass;
@@ -1802,7 +1799,7 @@ class Server
     /**
      * Выход из текущего процесса.
      */
-    protected static function exitAndClearAll(): void
+    #[NoReturn] protected static function exitAndClearAll(): void
     {
         foreach (static::$servers as $server) {
             $socketName = $server->getSocketName();
@@ -1916,6 +1913,7 @@ class Server
      *
      * @param int $code
      * @param mixed $log
+     * @throws Throwable
      */
     public static function stopAll(int $code = 0, mixed $log = ''): void
     {

@@ -108,7 +108,7 @@ class BinaryStream
     /**
      * @var int
      */
-    protected $offset = 0;
+    protected int $offset = 0;
 
     /**
      * @return void
@@ -125,7 +125,7 @@ class BinaryStream
      *
      * @return resource the temporary file pointer resource
      */
-    public static function getTempFile($allow_memory = true)
+    public static function getTempFile(bool $allow_memory = true)
     {
         $f = null;
 
@@ -146,7 +146,7 @@ class BinaryStream
      * @return bool
      * @throws Exception
      */
-    public function load($filename)
+    public function load(string $filename): bool
     {
         return $this->open($filename, self::modeRead);
     }
@@ -160,7 +160,7 @@ class BinaryStream
      * @return bool
      * @throws Exception
      */
-    public function open($filename, $mode = self::modeRead)
+    public function open(string $filename, string $mode = self::modeRead): bool
     {
         if (!in_array($mode, array(self::modeRead, self::modeWrite, self::modeReadWrite))) {
             throw new Exception("Unknown file open mode");
@@ -174,7 +174,7 @@ class BinaryStream
     /**
      * Close the internal file pointer
      */
-    public function close()
+    public function close(): bool
     {
         return fclose($this->f) != false;
     }
@@ -186,7 +186,7 @@ class BinaryStream
      *
      * @throws Exception
      */
-    public function setFile($fp)
+    public function setFile($fp): void
     {
         if (!is_resource($fp)) {
             throw new Exception('$fp is not a valid resource');
@@ -202,7 +202,7 @@ class BinaryStream
      *
      * @return bool True if the $offset position exists in the file
      */
-    public function seek($offset)
+    public function seek(int $offset): bool
     {
         return fseek($this->f, $offset, SEEK_SET) == 0;
     }
@@ -212,7 +212,7 @@ class BinaryStream
      *
      * @return int The current position
      */
-    public function pos()
+    public function pos(): int
     {
         return ftell($this->f);
     }
@@ -221,7 +221,7 @@ class BinaryStream
      * @param $n
      * @return void
      */
-    public function skip($n)
+    public function skip($n): void
     {
         fseek($this->f, $n, SEEK_CUR);
     }
@@ -229,7 +229,7 @@ class BinaryStream
     /**
      * @return mixed
      */
-    public function readUFWord()
+    public function readUFWord(): mixed
     {
         return $this->readUInt16();
     }
@@ -237,7 +237,7 @@ class BinaryStream
     /**
      * @return mixed
      */
-    public function readUInt16()
+    public function readUInt16(): mixed
     {
         $a = unpack("nn", $this->read(2));
 
@@ -249,7 +249,7 @@ class BinaryStream
      *
      * @return string
      */
-    public function read($n)
+    public function read(int $n): string
     {
         if ($n < 1) {
             return "";
@@ -258,14 +258,14 @@ class BinaryStream
         //        return (string) fread($this->f, $n);
         $offset = $this->offset;
         $this->offset += $n;
-        return (string)substr($this->content, $offset, $n);
+        return substr($this->content, $offset, $n);
     }
 
     /**
      * @param $data
      * @return false|int
      */
-    public function writeUFWord($data)
+    public function writeUFWord($data): false|int
     {
         return $this->writeUInt16($data);
     }
@@ -274,7 +274,7 @@ class BinaryStream
      * @param $data
      * @return false|int
      */
-    public function writeUInt16($data)
+    public function writeUInt16($data): false|int
     {
         return $this->write(pack("n", $data), 2);
     }
@@ -284,7 +284,7 @@ class BinaryStream
      * @param $length
      * @return false|int
      */
-    public function write($data, $length = null)
+    public function write($data, $length = null): false|int
     {
         if ($data === null || $data === "" || $data === false) {
             return 0;
@@ -296,7 +296,7 @@ class BinaryStream
     /**
      * @return int|mixed
      */
-    public function readFWord()
+    public function readFWord(): mixed
     {
         return $this->readInt16();
     }
@@ -304,7 +304,7 @@ class BinaryStream
     /**
      * @return int|mixed
      */
-    public function readInt16()
+    public function readInt16(): mixed
     {
         $a = unpack("nn", $this->read(2));
         $v = $a["n"];
@@ -320,7 +320,7 @@ class BinaryStream
      * @param $data
      * @return false|int
      */
-    public function writeFWord($data)
+    public function writeFWord($data): false|int
     {
         return $this->writeInt16($data);
     }
@@ -329,7 +329,7 @@ class BinaryStream
      * @param $data
      * @return false|int
      */
-    public function writeInt16($data)
+    public function writeInt16($data): false|int
     {
         if ($data < 0) {
             $data += 0x10000;
@@ -342,7 +342,7 @@ class BinaryStream
      * @param $def
      * @return array
      */
-    public function unpack($def)
+    public function unpack($def): array
     {
         $d = array();
         foreach ($def as $name => $type) {
@@ -359,31 +359,26 @@ class BinaryStream
      *
      * @return mixed The data that was read
      */
-    public function r($type)
+    public function r(mixed $type): mixed
     {
         switch ($type) {
             case self::uint8:
                 return $this->readUInt8();
             case self::int8:
                 return $this->readInt8();
+            case self::uFWord:
             case self::uint16:
                 return $this->readUInt16();
+            case self::FWord:
+            case self::F2Dot14:
             case self::int16:
                 return $this->readInt16();
+            case self::int32:
             case self::uint32:
                 return $this->readUInt32();
-            case self::int32:
-                return $this->readUInt32();
+            case self::Fixed:
             case self::shortFrac:
                 return $this->readFixed();
-            case self::Fixed:
-                return $this->readFixed();
-            case self::FWord:
-                return $this->readInt16();
-            case self::uFWord:
-                return $this->readUInt16();
-            case self::F2Dot14:
-                return $this->readInt16();
             case self::longDateTime:
                 return $this->readLongDateTime();
             case self::char:
@@ -421,7 +416,7 @@ class BinaryStream
     /**
      * @return int
      */
-    public function readUInt8()
+    public function readUInt8(): int
     {
         return ord($this->read(1));
     }
@@ -429,7 +424,7 @@ class BinaryStream
     /**
      * @return int
      */
-    public function readInt8()
+    public function readInt8(): int
     {
         $v = $this->readUInt8();
 
@@ -443,7 +438,7 @@ class BinaryStream
     /**
      * @return mixed
      */
-    public function readUInt32()
+    public function readUInt32(): mixed
     {
         $a = unpack("NN", $this->read(4));
 
@@ -453,7 +448,7 @@ class BinaryStream
     /**
      * @return float
      */
-    public function readFixed()
+    public function readFixed(): float
     {
         $d = $this->readInt16();
         $d2 = $this->readUInt16();
@@ -464,7 +459,7 @@ class BinaryStream
     /**
      * @return string
      */
-    public function readLongDateTime()
+    public function readLongDateTime(): string
     {
         $this->readUInt32(); // ignored
         $date = $this->readUInt32() - 2082844800;
@@ -483,7 +478,7 @@ class BinaryStream
      * @param $count
      * @return array|false
      */
-    public function readUInt16Many($count)
+    public function readUInt16Many($count): false|array
     {
         return array_values(unpack("n*", $this->read($count * 2)));
     }
@@ -492,7 +487,7 @@ class BinaryStream
      * @param $count
      * @return array|false
      */
-    public function readInt16Many($count)
+    public function readInt16Many($count): false|array
     {
         $vals = array_values(unpack("n*", $this->read($count * 2)));
         foreach ($vals as &$v) {
@@ -508,7 +503,7 @@ class BinaryStream
      * @param $count
      * @return array|false
      */
-    public function readUInt8Many($count)
+    public function readUInt8Many($count): false|array
     {
         return array_values(unpack("C*", $this->read($count)));
     }
@@ -517,7 +512,7 @@ class BinaryStream
      * @param $count
      * @return array|false
      */
-    public function readInt8Many($count)
+    public function readInt8Many($count): false|array
     {
         return array_values(unpack("c*", $this->read($count)));
     }
@@ -527,7 +522,7 @@ class BinaryStream
      * @param $data
      * @return int|null
      */
-    public function pack($def, $data)
+    public function pack($def, $data): ?int
     {
         $bytes = 0;
         foreach ($def as $name => $type) {
@@ -543,33 +538,28 @@ class BinaryStream
      * @param mixed $type The data type to write
      * @param mixed $data The data to write
      *
-     * @return int The number of bytes read
+     * @return false|int|null The number of bytes read
      */
-    public function w($type, $data)
+    public function w(mixed $type, mixed $data): false|int|null
     {
         switch ($type) {
             case self::uint8:
                 return $this->writeUInt8($data);
             case self::int8:
                 return $this->writeInt8($data);
+            case self::uFWord:
             case self::uint16:
                 return $this->writeUInt16($data);
+            case self::F2Dot14:
+            case self::FWord:
             case self::int16:
                 return $this->writeInt16($data);
+            case self::int32:
             case self::uint32:
                 return $this->writeUInt32($data);
-            case self::int32:
-                return $this->writeUInt32($data);
+            case self::Fixed:
             case self::shortFrac:
                 return $this->writeFixed($data);
-            case self::Fixed:
-                return $this->writeFixed($data);
-            case self::FWord:
-                return $this->writeInt16($data);
-            case self::uFWord:
-                return $this->writeUInt16($data);
-            case self::F2Dot14:
-                return $this->writeInt16($data);
             case self::longDateTime:
                 return $this->writeLongDateTime($data);
             case self::char:
@@ -598,7 +588,7 @@ class BinaryStream
      * @param $data
      * @return false|int
      */
-    public function writeUInt8($data)
+    public function writeUInt8($data): false|int
     {
         return $this->write(chr($data), 1);
     }
@@ -607,7 +597,7 @@ class BinaryStream
      * @param $data
      * @return false|int
      */
-    public function writeInt8($data)
+    public function writeInt8($data): false|int
     {
         if ($data < 0) {
             $data += 0x100;
@@ -620,7 +610,7 @@ class BinaryStream
      * @param $data
      * @return false|int
      */
-    public function writeUInt32($data)
+    public function writeUInt32($data): false|int
     {
         return $this->write(pack("N", $data), 4);
     }
@@ -629,7 +619,7 @@ class BinaryStream
      * @param $data
      * @return int
      */
-    public function writeFixed($data)
+    public function writeFixed($data): int
     {
         $left = floor($data);
         $right = ($data - $left) * 0x10000;
@@ -641,7 +631,7 @@ class BinaryStream
      * @param $data
      * @return int
      */
-    public function writeLongDateTime($data)
+    public function writeLongDateTime($data): int
     {
         $date = strtotime($data);
         $date += 2082844800;
@@ -656,7 +646,7 @@ class BinaryStream
      *
      * @return string The string
      */
-    public function convertUInt32ToStr($uint32)
+    public function convertUInt32ToStr(int $uint32): string
     {
         return chr(($uint32 >> 24) & 0xFF) . chr(($uint32 >> 16) & 0xFF) . chr(($uint32 >> 8) & 0xFF) . chr($uint32 & 0xFF);
     }
@@ -665,7 +655,7 @@ class BinaryStream
      * @param mixed $content
      * @return BinaryStream
      */
-    public function setContent($content)
+    public function setContent(mixed $content): static
     {
         $this->content = $content;
 
@@ -684,7 +674,7 @@ class BinaryStream
      * @param mixed $offset
      * @return BinaryStream
      */
-    public function setOffset($offset)
+    public function setOffset(mixed $offset): static
     {
         $this->offset = $offset;
 

@@ -6,11 +6,7 @@ namespace localzet\Server\Events\Linux;
 
 // @codeCoverageIgnoreStart
 use Error;
-use localzet\Server\Events\Linux\Driver\EvDriver;
-use localzet\Server\Events\Linux\Driver\EventDriver;
-use localzet\Server\Events\Linux\Driver\StreamSelectDriver;
-use localzet\Server\Events\Linux\Driver\TracingDriver;
-use localzet\Server\Events\Linux\Driver\UvDriver;
+use localzet\Server\Events\Linux\Driver\{EvDriver, EventDriver, StreamSelectDriver, TracingDriver, UvDriver};
 use function class_exists;
 use function getenv;
 use function is_subclass_of;

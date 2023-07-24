@@ -27,8 +27,7 @@ declare(strict_types=1);
 namespace localzet;
 
 use Exception;
-use localzet\Server\Events\EventInterface;
-use localzet\Server\Events\Linux;
+use localzet\Server\Events\{EventInterface, Linux};
 use RuntimeException;
 use Throwable;
 use function function_exists;
