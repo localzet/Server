@@ -28,7 +28,7 @@ namespace localzet\Server\Protocols;
 
 use localzet\Server;
 use localzet\Server\Connection\TcpConnection;
-use localzet\Server\Protocols\Http\{Ja3, Request, Response};
+use localzet\Server\Protocols\Http\{Request, Response};
 use Throwable;
 use function clearstatcache;
 use function count;
@@ -195,12 +195,6 @@ class Http
             if (count($requests) > 512) {
                 unset($requests[key($requests)]);
             }
-        }
-
-        // Experimental :)
-        try {
-            $request->ja3 = Ja3::get($buffer);
-        } catch (Throwable) {
         }
 
         return $request;
