@@ -1,44 +1,39 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
- * 
+ *
  * @author      Ivan Zorin <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2023 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl AGPL-3.0 license
- * 
+ *
  *              This program is free software: you can redistribute it and/or modify
  *              it under the terms of the GNU Affero General Public License as
  *              published by the Free Software Foundation, either version 3 of the
  *              License, or (at your option) any later version.
- *              
+ *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
  *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *              GNU Affero General Public License for more details.
- *              
+ *
  *              You should have received a copy of the GNU Affero General Public License
  *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-namespace localzet\Server;
+namespace localzet;
 
-use Throwable;
 use Exception;
+use localzet\Server\Events\{EventInterface, Linux};
 use RuntimeException;
-
-use Revolt\EventLoop;
-
-use localzet\Server\Events\EventInterface;
-use localzet\Server\Events\Revolt;
-
+use Throwable;
 use function function_exists;
-use function is_callable;
 use function pcntl_alarm;
 use function pcntl_signal;
 use function time;
-
 use const PHP_INT_MAX;
 use const SIGALRM;
 
@@ -46,7 +41,7 @@ use const SIGALRM;
  * Таймер
  *
  * Например:
- * localzet\Server\Timer::add($time_interval, callback, array($arg1, $arg2..));
+ * localzet\Timer::add($time_interval, callback, array($arg1, $arg2..));
  */
 class Timer
 {
@@ -99,7 +94,7 @@ class Timer
             return;
         }
         if (function_exists('pcntl_signal')) {
-            pcntl_signal(SIGALRM, ['\localzet\Server\Timer', 'signalHandle'], false);
+            pcntl_signal(SIGALRM, ['\localzet\Timer', 'signalHandle'], false);
         }
     }
 
@@ -114,73 +109,6 @@ class Timer
             pcntl_alarm(1);
             self::tick();
         }
-    }
-
-    /**
-     * Добавить таймер
-     *
-     * @param float $timeInterval
-     * @param callable $func
-     * @param mixed|array $args
-     * @param bool $persistent
-     * @return int
-     */
-    public static function add(float $timeInterval, callable $func, null|array $args = [], bool $persistent = true): int
-    {
-        if ($timeInterval < 0) {
-            throw new RuntimeException('$timeInterval не может быть меньше 0');
-        }
-
-        if ($args === null) {
-            $args = [];
-        }
-
-        if (self::$event) {
-            return $persistent ? self::$event->repeat($timeInterval, $func, $args) : self::$event->delay($timeInterval, $func, $args);
-        }
-
-        if (!Server::getAllServers()) {
-            return false;
-        }
-
-        if (!is_callable($func)) {
-            Server::safeEcho(new Exception("Невозможно вызвать функцию"));
-            return false;
-        }
-
-        if (empty(self::$tasks)) {
-            pcntl_alarm(1);
-        }
-
-        $runTime = time() + $timeInterval;
-        if (!isset(self::$tasks[$runTime])) {
-            self::$tasks[$runTime] = [];
-        }
-
-        self::$timerId = self::$timerId == PHP_INT_MAX ? 1 : ++self::$timerId;
-        self::$status[self::$timerId] = true;
-        self::$tasks[$runTime][self::$timerId] = [$func, (array)$args, $persistent, $timeInterval];
-
-        return self::$timerId;
-    }
-
-    /**
-     * Coroutine sleep.
-     *
-     * @param float $delay
-     * @return void
-     */
-    public static function sleep(float $delay): void
-    {
-        if (Server::$eventLoopClass == Revolt::class) {
-            $suspension = \Revolt\EventLoop::getSuspension();
-            static::add($delay, function () use ($suspension) {
-                $suspension->resume();
-            }, null, false);
-            $suspension->suspend();
-            return;
-        }
-        throw new RuntimeException('Timer::sleep() требует revolt/event-loop. Запусти команду "composer require revolt/event-loop" и перезагрузи WebCore');
     }
 
     /**
@@ -205,17 +133,84 @@ class Timer
                     try {
                         $taskFunc(...$taskArgs);
                     } catch (Throwable $e) {
-                        Server::safeEcho($e);
+                        Server::safeEcho((string)$e);
                     }
                     if ($persistent && !empty(self::$status[$index])) {
                         $newRunTime = time() + $timeInterval;
-                        if (!isset(self::$tasks[$newRunTime])) self::$tasks[$newRunTime] = [];
+                        if (!isset(self::$tasks[$newRunTime])) {
+                            self::$tasks[$newRunTime] = [];
+                        }
                         self::$tasks[$newRunTime][$index] = [$taskFunc, (array)$taskArgs, $persistent, $timeInterval];
                     }
                 }
                 unset(self::$tasks[$runTime]);
             }
         }
+    }
+
+    /**
+     * Coroutine sleep.
+     *
+     * @param float $delay
+     * @return void
+     */
+    public static function sleep(float $delay): void
+    {
+        if (Server::$globalEvent && Server::$globalEvent instanceof Linux) {
+            $suspension = Server::$globalEvent->getSuspension();
+            static::add($delay, function () use ($suspension) {
+                $suspension->resume();
+            }, null, false);
+            $suspension->suspend();
+        }
+    }
+
+    /**
+     * Добавить таймер
+     *
+     * @param float $timeInterval
+     * @param callable $func
+     * @param null|array $args
+     * @param bool $persistent
+     * @return int|bool
+     */
+    public static function add(float $timeInterval, callable $func, null|array $args = [], bool $persistent = true): int|bool
+    {
+        if ($timeInterval < 0) {
+            throw new RuntimeException('$timeInterval не может быть меньше 0');
+        }
+
+        if ($args === null) {
+            $args = [];
+        }
+
+        if (self::$event) {
+            return $persistent ? self::$event->repeat($timeInterval, $func, $args) : self::$event->delay($timeInterval, $func, $args);
+        }
+
+        if (!Server::getAllServers()) {
+            return false;
+        }
+
+        if (!is_callable($func)) {
+            Server::safeEcho((string)new Exception("Невозможно вызвать функцию"));
+            return false;
+        }
+
+        if (empty(self::$tasks)) {
+            pcntl_alarm(1);
+        }
+
+        $runTime = time() + $timeInterval;
+        if (!isset(self::$tasks[$runTime])) {
+            self::$tasks[$runTime] = [];
+        }
+
+        self::$timerId = self::$timerId == PHP_INT_MAX ? 1 : ++self::$timerId;
+        self::$status[self::$timerId] = true;
+        self::$tasks[$runTime][self::$timerId] = [$func, (array)$args, $persistent, $timeInterval];
+
+        return self::$timerId;
     }
 
     /**
@@ -251,8 +246,6 @@ class Timer
         if (function_exists('pcntl_alarm')) {
             pcntl_alarm(0);
         }
-        if (self::$event) {
-            self::$event->deleteAllTimer();
-        }
+        self::$event?->deleteAllTimer();
     }
 }

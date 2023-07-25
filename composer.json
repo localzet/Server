@@ -1,44 +1,49 @@
 {
-    "name": "localzet/server",
-    "description": "Localzet Server - Асинхронный event-based сервер на PHP.",
-    "type": "library",
-    "keywords": [
-        "localzet"
-    ],
-    "license": "AGPL-3.0-or-later",
-    "authors": [
-        {
-            "name": "Ivan Zorin",
-            "email": "creator@localzet.com",
-            "homepage": "https://www.localzet.com",
-            "role": "Developer"
-        }
-    ],
-    "support": {
-        "email": "support@localzet.com",
-        "source": "https://github.com/localzet/server"
-    },
-    "funding": [
-        {
-            "type": "other",
-            "url": "https://www.tinkoff.ru/cf/Ad5MBNhodod"
-        }
-    ],
-    "require": {
-        "php": ">=8.1",
-        "ext-json": "*",
-        "revolt/event-loop": "^1.0"
-    },
-    "suggest": {
-        "ext-pcntl": "For Linux",
-        "ext-posix": "For Linux",
-        "ext-ev": "For better performance",
-        "ext-uv": "For better performance",
-        "ext-event": "For better performance"
-    },
-    "autoload": {
-        "psr-4": {
-            "localzet\\Server\\": "src/"
-        }
+  "name": "localzet/server",
+  "description": "Localzet Server - Асинхронный event-based сервер на PHP.",
+  "type": "library",
+  "keywords": [
+    "localzet"
+  ],
+  "homepage": "https://www.localzet.com/webcore",
+  "license": "AGPL-3.0-or-later",
+  "authors": [
+    {
+      "name": "Ivan Zorin",
+      "email": "creator@localzet.com",
+      "homepage": "https://www.localzet.com",
+      "role": "Developer"
     }
+  ],
+  "support": {
+    "email": "support@localzet.com",
+    "issues": "https://github.com/localzet/server/issues",
+    "source": "https://github.com/localzet/server"
+  },
+  "funding": [
+    {
+      "type": "other",
+      "url": "https://www.tinkoff.ru/cf/Ad5MBNhodod"
+    }
+  ],
+  "require": {
+    "php": ">=8.2",
+    "ext-json": "*",
+    "localzet/psr": ">=1.0"
+  },
+  "suggest": {
+    "ext-uv": "For better performance",
+    "ext-ev": "For better performance",
+    "ext-event": "For better performance",
+    "ext-posix": "For Linux",
+    "ext-pcntl": "For Linux",
+    "ext-sockets": "For better performance",
+    "ext-redis": "For Redis Session Handler",
+    "mongodb/mongodb": "For Mongo Session Handler"
+  },
+  "autoload": {
+    "psr-4": {
+      "localzet\\": "src"
+    }
+  }
 }

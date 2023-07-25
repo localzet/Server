@@ -5,45 +5,84 @@ declare(strict_types=1);
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
- * 
+ *
  * @author      Ivan Zorin <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2023 Localzet Group
- * @license     https://www.gnu.org/licenses/agpl AGPL-3.0 license
- * 
+ * @license     GNU Affero General Public License, version 3
+ *
  *              This program is free software: you can redistribute it and/or modify
  *              it under the terms of the GNU Affero General Public License as
  *              published by the Free Software Foundation, either version 3 of the
  *              License, or (at your option) any later version.
- *              
+ *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
- *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *              GNU Affero General Public License for more details.
- *              
+ *
  *              You should have received a copy of the GNU Affero General Public License
- *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *              along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-namespace localzet\Server;
 
-use Throwable;
-use Exception;
-use RuntimeException;
+namespace localzet;
 
 use AllowDynamicProperties;
-
-use Revolt\EventLoop;
-
-use localzet\Server\Events\EventInterface;
-use localzet\Server\Events\Event;
-use localzet\Server\Events\Revolt;
-use localzet\Server\Events\Select;
-
-use localzet\Server\Connection\ConnectionInterface;
-use localzet\Server\Connection\TcpConnection;
-use localzet\Server\Connection\UdpConnection;
-
+use Composer\InstalledVersions;
+use Exception;
+use JetBrains\PhpStorm\NoReturn;
+use localzet\Server\Connection\{ConnectionInterface, TcpConnection, UdpConnection};
+use localzet\Server\Events\{EventInterface, Linux, Windows};
 use localzet\Server\Protocols\ProtocolInterface;
+use RuntimeException;
+use stdClass;
+use Throwable;
+use function array_intersect;
+use function current;
+use function fflush;
+use function floor;
+use function fwrite;
+use function get_resource_type;
+use function lcfirst;
+use function method_exists;
+use function register_shutdown_function;
+use function stream_socket_accept;
+use function stream_socket_recvfrom;
+use const DIRECTORY_SEPARATOR;
+use const E_COMPILE_ERROR;
+use const E_CORE_ERROR;
+use const E_ERROR;
+use const E_PARSE;
+use const E_RECOVERABLE_ERROR;
+use const FILE_APPEND;
+use const FILE_IGNORE_NEW_LINES;
+use const LOCK_EX;
+use const LOCK_UN;
+use const PHP_EOL;
+use const PHP_SAPI;
+use const PHP_VERSION;
+use const SIG_IGN;
+use const SIGHUP;
+use const SIGINT;
+use const SIGIO;
+use const SIGIOT;
+use const SIGKILL;
+use const SIGPIPE;
+use const SIGQUIT;
+use const SIGTERM;
+use const SIGTSTP;
+use const SIGUSR1;
+use const SIGUSR2;
+use const SO_KEEPALIVE;
+use const SOL_SOCKET;
+use const SOL_TCP;
+use const STDERR;
+use const STDOUT;
+use const STR_PAD_LEFT;
+use const STREAM_SERVER_BIND;
+use const STREAM_SERVER_LISTEN;
+use const TCP_NODELAY;
+use const WUNTRACED;
 
 /**
  * Localzet Server
@@ -51,13 +90,6 @@ use localzet\Server\Protocols\ProtocolInterface;
 #[AllowDynamicProperties]
 class Server
 {
-    /**
-     * Версия
-     *
-     * @var string
-     */
-    public const VERSION = '2.2.4';
-
     /**
      * Статус: запуск
      *
@@ -99,408 +131,8 @@ class Server
      * @var int
      */
     public const UI_SAFE_LENGTH = 4;
-
     /**
-     * ID Сервера
-     *
-     * @var int
-     */
-    public int $id = 0;
-
-    /**
-     * Название для серверных процессов
-     *
-     * @var string
-     */
-    public string $name = 'none';
-
-    /**
-     * Количество серверных процессов
-     *
-     * @var int
-     */
-    public int $count = 1;
-
-    /**
-     * Unix пользователь (нужен root)
-     *
-     * @var string
-     */
-    public string $user = '';
-
-    /**
-     * Unix группа (нужен root)
-     *
-     * @var string
-     */
-    public string $group = '';
-
-    /**
-     * Перезагружаемый экземпляр?
-     *
-     * @var bool
-     */
-    public bool $reloadable = true;
-
-    /**
-     * Повторно использовать порт?
-     *
-     * @var bool
-     */
-    public bool $reusePort = false;
-
-    /**
-     * Выполняется при запуске серверных процессов
-     *
-     * @var ?callable
-     */
-    public $onServerStart = null;
-
-    /**
-     * Выполняется, когда подключение к сокету успешно установлено
-     *
-     * @var ?callable
-     */
-    public $onConnect = null;
-
-    /**
-     * Выполняется, когда завершено рукопожатие веб-сокета (работает только в протоколе ws)
-     *
-     * @var ?callable
-     */
-    public $onWebSocketConnect = null;
-
-    /**
-     * Выполняется при получении данных
-     *
-     * @var callable
-     */
-    public $onMessage = null;
-
-    /**
-     * Выполняется, когда другой конец сокета отправляет пакет FIN
-     *
-     * @var ?callable
-     */
-    public $onClose = null;
-
-    /**
-     * Выполняется, когда возникает ошибка с подключением
-     *
-     * @var ?callable
-     */
-    public $onError = null;
-
-    /**
-     * Выполняется, когда буфер отправки заполняется
-     *
-     * @var ?callable
-     */
-    public $onBufferFull = null;
-
-    /**
-     * Выполняется, когда буфер отправки становится пустым
-     *
-     * @var ?callable
-     */
-    public $onBufferDrain = null;
-
-    /**
-     * Выполняется при остановке сервера
-     *
-     * @var ?callable
-     */
-    public $onServerStop = null;
-
-    /**
-     * Выполняется при перезагрузке
-     *
-     * @var ?callable
-     */
-    public $onServerReload = null;
-
-    /**
-     * Выполняется при выходе
-     *
-     * @var ?callable
-     */
-    public $onServerExit = null;
-
-    /**
-     * Протокол транспортного уровня
-     *
-     * @var string
-     */
-    public string $transport = 'tcp';
-
-    /**
-     * Хранитель всех клиентских соединений
-     *
-     * @var array
-     */
-    public array $connections = [];
-
-    /**
-     * Протокол уровня приложения
-     *
-     * @var ?string
-     */
-    public ?string $protocol = null;
-
-    /**
-     * Пауза принятия новых соединений
-     *
-     * @var bool
-     */
-    protected bool $pauseAccept = true;
-
-    /**
-     * Сервер останавливается?
-     * @var bool
-     */
-    public bool $stopping = false;
-
-    /**
-     * В режиме демона?
-     *
-     * @var bool
-     */
-    public static bool $daemonize = false;
-
-    /**
-     * Файл Stdout
-     *
-     * @var string
-     */
-    public static string $stdoutFile = '/dev/null';
-
-    /**
-     * Файл для хранения PID мастер-процесса
-     *
-     * @var string
-     */
-    public static string $pidFile = '';
-
-    /**
-     * Файл, используемый для хранения файла состояния мастер-процесса
-     *
-     * @var string
-     */
-    public static string $statusFile = '';
-
-    /**
-     * Файл лога
-     *
-     * @var mixed
-     */
-    public static mixed $logFile = '';
-
-    /**
-     * Глобальная петля событий
-     *
-     * @var ?EventInterface
-     */
-    public static ?EventInterface $globalEvent = null;
-
-    /**
-     * Выполняется при перезагруззке мастер-процесса
-     *
-     * @var ?callable
-     */
-    public static $onMasterReload = null;
-
-    /**
-     * Выполняется при остановке мастер-процесса
-     *
-     * @var ?callable
-     */
-    public static $onMasterStop = null;
-
-    /**
-     * Класс петли событий
-     *
-     * @var class-string
-     */
-    public static string $eventLoopClass = '';
-
-    /**
-     * Название процесса
-     *
-     * @var string
-     */
-    public static string $processTitle = 'Localzet Server';
-
-    /**
-     * Таймаут после команды остановки для дочерних процессов
-     * Если в течение него они не остановятся - звони киллеру
-     *
-     * @var int
-     */
-    public static int $stopTimeout = 2;
-
-    /**
-     * Команда
-     * @var string
-     */
-    public static string $command = '';
-
-    /**
-     * The PID of master process.
-     *
-     * @var int
-     */
-    protected static int $masterPid = 0;
-
-    /**
-     * Listening socket.
-     *
-     * @var resource
-     */
-    protected $mainSocket = null;
-
-    /**
-     * Socket name. The format is like this http://0.0.0.0:80 .
-     *
-     * @var string
-     */
-    protected string $socketName = '';
-
-    /** 
-     * parse from socketName avoid parse again in master or server
-     * LocalSocket The format is like tcp://0.0.0.0:8080
-     * @var ?string
-     */
-    protected ?string $localSocket = null;
-
-    /**
-     * Context of socket.
-     *
-     * @var resource
-     */
-    protected $context = null;
-
-    /**
-     * All server instances.
-     *
-     * @var Server[]
-     */
-    protected static array $servers = [];
-
-    /**
-     * All server processes pid.
-     * The format is like this [serverId=>[pid=>pid, pid=>pid, ..], ..]
-     *
-     * @var array
-     */
-    protected static array $pidMap = [];
-
-    /**
-     * All server processes waiting for restart.
-     * The format is like this [pid=>pid, pid=>pid].
-     *
-     * @var array
-     */
-    protected static array $pidsToRestart = [];
-
-    /**
-     * Mapping from PID to server process ID.
-     * The format is like this [serverId=>[0=>$pid, 1=>$pid, ..], ..].
-     *
-     * @var array
-     */
-    protected static array $idMap = [];
-
-    /**
-     * Current status.
-     *
-     * @var int
-     */
-    protected static int $status = self::STATUS_STARTING;
-
-    /**
-     * Maximum length of the server names.
-     *
-     * @var int
-     */
-    protected static int $maxServerNameLength = 12;
-
-    /**
-     * Maximum length of the socket names.
-     *
-     * @var int
-     */
-    protected static int $maxSocketNameLength = 12;
-
-    /**
-     * Maximum length of the process user names.
-     *
-     * @var int
-     */
-    protected static int $maxUserNameLength = 12;
-
-    /**
-     * Maximum length of the Proto names.
-     *
-     * @var int
-     */
-    protected static int $maxProtoNameLength = 4;
-
-    /**
-     * Maximum length of the Processes names.
-     *
-     * @var int
-     */
-    protected static int $maxProcessesNameLength = 9;
-
-    /**
-     * Maximum length of the state names.
-     *
-     * @var int
-     */
-    protected static int $maxStateNameLength = 1;
-
-    /**
-     * The file to store status info of current server process.
-     *
-     * @var string
-     */
-    protected static string $statisticsFile = '';
-
-    /**
-     * Start file.
-     *
-     * @var string
-     */
-    protected static string $startFile = '';
-
-    /**
-     * Processes for windows.
-     *
-     * @var array
-     */
-    protected static array $processForWindows = [];
-
-    /**
-     * Status info of current server process.
-     *
-     * @var array
-     */
-    protected static array $globalStatistics = [
-        'start_timestamp' => 0,
-        'server_exit_info' => []
-    ];
-
-    /**
-     * Available event loops.
-     *
-     * @var array<string, string>
-     */
-    protected static array $availableEventLoops = [
-        'event' => Event::class,
-    ];
-
-    /**
-     * PHP built-in protocols.
+     * Встроенные протоколы
      *
      * @var array<string,string>
      */
@@ -508,11 +140,10 @@ class Server
         'tcp' => 'tcp',
         'udp' => 'udp',
         'unix' => 'unix',
-        'ssl' => 'tcp'
+        'ssl' => 'tcp',
     ];
-
     /**
-     * PHP built-in error types.
+     * Встроенные типы ошибок
      *
      * @var array<int,string>
      */
@@ -531,27 +162,389 @@ class Server
         E_STRICT => 'E_STRICT', // 2048
         E_RECOVERABLE_ERROR => 'E_RECOVERABLE_ERROR', // 4096
         E_DEPRECATED => 'E_DEPRECATED', // 8192
-        E_USER_DEPRECATED => 'E_USER_DEPRECATED' // 16384
+        E_USER_DEPRECATED => 'E_USER_DEPRECATED', // 16384
+        // E_ALL => 'E_ALL', // 32767 (не включая E_STRICT)
     ];
 
     /**
-     * Graceful stop or not.
+     * ID Сервера
+     *
+     * @var int
+     */
+    public int $id = 0;
+    /**
+     * Название для серверных процессов
+     *
+     * @var string
+     */
+    public string $name = 'none';
+    /**
+     * Количество серверных процессов
+     *
+     * @var int
+     */
+    public int $count = 1;
+    /**
+     * Unix пользователь (нужен root)
+     *
+     * @var string
+     */
+    public string $user = '';
+    /**
+     * Unix группа (нужен root)
+     *
+     * @var string
+     */
+    public string $group = '';
+    /**
+     * Перезагружаемый экземпляр?
+     *
+     * @var bool
+     */
+    public bool $reloadable = true;
+    /**
+     * Повторно использовать порт?
+     *
+     * @var bool
+     */
+    public bool $reusePort = false;
+    /**
+     * Выполняется при запуске серверных процессов
+     *
+     * @var ?callable
+     */
+    public $onServerStart = null;
+    /**
+     * Выполняется, когда подключение к сокету успешно установлено
+     *
+     * @var ?callable
+     */
+    public $onConnect = null;
+    /**
+     * Выполняется, когда завершено рукопожатие веб-сокета (работает только в протоколе ws)
+     *
+     * @var ?callable
+     */
+    public $onWebSocketConnect = null;
+    /**
+     * Выполняется при получении данных
+     *
+     * @var ?callable
+     */
+    public $onMessage = null;
+    /**
+     * Выполняется, когда другой конец сокета отправляет пакет FIN
+     *
+     * @var ?callable
+     */
+    public $onClose = null;
+    /**
+     * Выполняется, когда возникает ошибка с подключением
+     *
+     * @var ?callable
+     */
+    public $onError = null;
+    /**
+     * Выполняется, когда буфер отправки заполняется
+     *
+     * @var ?callable
+     */
+    public $onBufferFull = null;
+    /**
+     * Выполняется, когда буфер отправки становится пустым
+     *
+     * @var ?callable
+     */
+    public $onBufferDrain = null;
+
+    /**
+     * Выполняется при остановке сервера
+     *
+     * @var ?callable
+     */
+    public $onServerStop = null;
+    /**
+     * Выполняется при перезагрузке
+     *
+     * @var ?callable
+     */
+    public $onServerReload = null;
+
+    /**
+     * Протокол транспортного уровня
+     *
+     * @var string
+     */
+    public string $transport = 'tcp';
+    /**
+     * Хранитель всех клиентских соединений
+     *
+     * @var TcpConnection[]
+     */
+    public array $connections = [];
+    /**
+     * Протокол уровня приложения
+     *
+     * @var ?string
+     */
+    public ?string $protocol = null;
+
+    /**
+     * Пауза принятия новых соединений
+     *
+     * @var bool
+     */
+    protected bool $pauseAccept = true;
+
+    /**
+     * Сервер останавливается?
+     *
+     * @var bool
+     */
+    public bool $stopping = false;
+
+    /**
+     * В режиме демона?
+     *
+     * @var bool
+     */
+    public static bool $daemonize = false;
+    /**
+     * Файл Stdout
+     *
+     * @var string
+     */
+    public static string $stdoutFile = '/dev/null';
+    /**
+     * Файл для хранения PID мастер-процесса
+     *
+     * @var string
+     */
+    public static string $pidFile = '';
+    /**
+     * Файл, используемый для хранения файла состояния мастер-процесса
+     *
+     * @var string
+     */
+    public static string $statusFile = '';
+    /**
+     * Файл лога
+     *
+     * @var mixed
+     */
+    public static mixed $logFile = '';
+    /**
+     * Глобальная петля событий
+     *
+     * @var ?EventInterface
+     */
+    public static ?EventInterface $globalEvent = null;
+    /**
+     * Выполняется при перезагруззке мастер-процесса
+     *
+     * @var ?callable
+     */
+    public static $onMasterReload = null;
+
+    /**
+     * Выполняется при остановке мастер-процесса
+     *
+     * @var ?callable
+     */
+    public static $onMasterStop = null;
+
+
+    /**
+     * Выполняется при выходе
+     *
+     * @var ?callable
+     */
+    public static $onServerExit = null;
+
+    /**
+     * Таймаут после команды остановки для дочерних процессов
+     * Если в течение него они не остановятся - звони киллеру
+     *
+     * @var int
+     */
+    public static int $stopTimeout = 2;
+
+    /**
+     * Команда
+     * @var string
+     */
+    public static string $command = '';
+
+    /**
+     * Версия
+     *
+     * @var string|null
+     */
+    protected static ?string $version = null;
+
+    /**
+     * PID мастер-процесса.
+     *
+     * @var int
+     */
+    protected static int $masterPid = 0;
+
+    /**
+     * Слушающий сокет.
+     *
+     * @var ?resource
+     */
+    protected $mainSocket = null;
+
+    /**
+     * Имя сокета. Формат: http://0.0.0.0:80 .
+     *
+     * @var string
+     */
+    protected string $socketName = '';
+
+    /**
+     * Context of socket.
+     *
+     * @var resource
+     */
+    protected $socketContext = null;
+
+    /**
+     * @var stdClass
+     */
+    protected stdClass $context;
+
+
+    /**
+     * Все экземпляры сервера.
+     *
+     * @var Server[]
+     */
+    protected static array $servers = [];
+
+    /**
+     * Все PID процессов серверов.
+     * Формат: [идентификатор_сервера => [pid => pid, pid => pid, ...], ...]
+     *
+     * @var array
+     */
+    protected static array $pidMap = [];
+
+    /**
+     * Все процессы серверов, ожидающие перезапуска.
+     * Формат: [pid => pid, pid => pid, ...].
+     *
+     * @var array
+     */
+    protected static array $pidsToRestart = [];
+
+    /**
+     * Отображение PID на идентификатор сервера.
+     * Формат: [serverId => [0 => $pid, 1 => $pid, ...], ...].
+     *
+     * @var array
+     */
+    protected static array $idMap = [];
+
+    /**
+     * Текущий статус.
+     *
+     * @var int
+     */
+    protected static int $status = self::STATUS_STARTING;
+
+    /**
+     * Максимальная длина имени сервера.
+     *
+     * @var int
+     */
+    protected static int $maxServerNameLength = 12;
+
+    /**
+     * Максимальная длина имени сокета.
+     *
+     * @var int
+     */
+    protected static int $maxSocketNameLength = 12;
+
+    /**
+     * Максимальная длина имени пользователя.
+     *
+     * @var int
+     */
+    protected static int $maxUserNameLength = 12;
+
+    /**
+     * Максимальная длина имени протокола.
+     *
+     * @var int
+     */
+    protected static int $maxProtoNameLength = 4;
+
+    /**
+     * Максимальная длина имени процесса.
+     *
+     * @var int
+     */
+    protected static int $maxProcessesNameLength = 9;
+
+    /**
+     * Максимальная длина имени состояния.
+     *
+     * @var int
+     */
+    protected static int $maxStateNameLength = 1;
+
+    /**
+     * Файл для хранения информации о статусе текущего процесса сервера.
+     *
+     * @var string
+     */
+    protected static string $statisticsFile = '';
+
+    /**
+     * Файл запуска.
+     *
+     * @var string
+     */
+    protected static string $startFile = '';
+
+    /**
+     * Процессы для операционных систем Windows.
+     *
+     * @var array
+     */
+    protected static array $processForWindows = [];
+
+    /**
+     * Информация о статусе текущего процесса сервера.
+     *
+     * @var array
+     */
+    protected static array $globalStatistics = [
+        'start_timestamp' => 0,
+        'server_exit_info' => []
+    ];
+
+    /**
+     * Остановка сервера с грациозным завершением или нет.
      *
      * @var bool
      */
     protected static bool $gracefulStop = false;
 
     /**
-     * Standard output stream
-     * @var resource
+     * Поток стандартного вывода.
+     * @var ?resource
      */
     protected static $outputStream = null;
 
     /**
-     * If $outputStream support decorated
+     * Поддерживается ли у потока $outputStream декорация.
      * @var bool
      */
-    protected static ?bool $outputDecorated = null;
+    protected static bool $outputDecorated = false;
 
     /**
      * Хэш-идентификатор объекта сервера (уникальный идентификатор)
@@ -559,6 +552,7 @@ class Server
      * @var ?string
      */
     protected ?string $serverId = null;
+
 
     /**
      * Запуск всех экземпляров сервера
@@ -591,9 +585,25 @@ class Server
     protected static function checkSapiEnv(): void
     {
         // Только для CLI
-        if (\PHP_SAPI !== 'cli') {
-            exit("WebCore запускается только из терминала \n");
+        if (PHP_SAPI !== 'cli') {
+            exit("Localzet Server запускается только из терминала \n");
         }
+    }
+
+    /**
+     * @return string|null
+     */
+    public static function getVersion(): ?string
+    {
+        if (!self::$version) {
+            if (InstalledVersions::isInstalled('localzet/server')) {
+                self::$version = 'v' . InstalledVersions::getVersion('localzet/server');
+            } else {
+                self::$version = 'v3.0';
+            }
+        }
+
+        return self::$version;
     }
 
     /**
@@ -603,70 +613,78 @@ class Server
      */
     protected static function init(): void
     {
+        // Устанавливаем обработчик ошибок, который будет выводить сообщение об ошибке
         set_error_handler(function ($code, $msg, $file, $line) {
-            static::safeEcho("$msg in file $file on line $line\n");
+            static::safeEcho("$msg в файле $file на строке $line\n");
         });
 
-        // Start
+        // Начало
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
         static::$startFile = end($backtrace)['file'];
 
         $uniquePrefix = str_replace('/', '_', static::$startFile);
 
-        // Pid
+        // Пид-файл
         if (empty(static::$pidFile)) {
             static::$pidFile = __DIR__ . "/../$uniquePrefix.pid";
         }
 
-        // Log
+        // Лог-файл
         if (empty(static::$logFile)) {
             static::$logFile = __DIR__ . '/../server.log';
         }
 
         if (!is_file(static::$logFile)) {
-            // if /runtime/logs  default folder not exists
+            // Если папка /runtime/logs по умолчанию не существует
             if (!is_dir(dirname(static::$logFile))) {
                 @mkdir(dirname(static::$logFile), 0777, true);
             }
             touch(static::$logFile);
-            chmod(static::$logFile, 0622);
+            chmod(static::$logFile, 0644);
         }
 
-        // Состояние
+        // Устанавливаем состояние в STATUS_STARTING
         static::$status = static::STATUS_STARTING;
 
         // Для статистики
         static::$globalStatistics['start_timestamp'] = time();
 
-        // Название процесса
-        static::setProcessTitle(static::$processTitle . ': мастер-процесс  start_file=' . static::$startFile);
+        // Устанавливаем название процесса
+        static::setProcessTitle('Localzet Server: мастер-процесс  start_file=' . static::$startFile);
 
-        // Init data for server id.
+        // Инициализируем данные для идентификатора сервера
         static::initId();
 
-        // Timer init.
+        // Инициализируем таймер
         Timer::init();
     }
 
     /**
-     * Lock.
+     * Блокировка.
      *
+     * @param int $flag Флаг блокировки (по умолчанию LOCK_EX)
      * @return void
      */
-    protected static function lock(int $flag = \LOCK_EX): void
+    protected static function lock(int $flag = LOCK_EX): void
     {
         static $fd;
 
-        if (\DIRECTORY_SEPARATOR !== '/') {
+        // Проверяем, что используется UNIX-подобная операционная система
+        if (DIRECTORY_SEPARATOR !== '/') {
             return;
         }
 
         $lockFile = static::$pidFile . '.lock';
+
+        // Открываем или создаем файл блокировки
         $fd = $fd ?: fopen($lockFile, 'a+');
 
         if ($fd) {
+            // Блокируем файл
             flock($fd, $flag);
-            if ($flag === \LOCK_UN) {
+
+            // Если флаг равен LOCK_UN, то разблокируем файл и удаляем файл блокировки
+            if ($flag === LOCK_UN) {
                 fclose($fd);
                 $fd = null;
                 clearstatcache();
@@ -678,49 +696,50 @@ class Server
     }
 
     /**
-     * Init All server instances.
+     * Инициализация всех экземпляров сервера.
      *
      * @return void
      * @throws Exception
      */
     protected static function initServers(): void
     {
-        if (\DIRECTORY_SEPARATOR !== '/') {
+        // Проверяем, что используется UNIX-подобная операционная система
+        if (DIRECTORY_SEPARATOR !== '/') {
             return;
         }
 
         static::$statisticsFile = static::$statusFile ?: __DIR__ . '/../server-' . posix_getpid() . '.status';
 
         foreach (static::$servers as $server) {
-            // Server name.
+            // Имя сервера.
             if (empty($server->name)) {
                 $server->name = 'none';
             }
 
-            // Get unix user of the server process.
+            // Получаем пользовательское имя UNIX-пользователя для процесса сервера.
             if (empty($server->user)) {
                 $server->user = static::getCurrentUser();
             } else {
                 if (posix_getuid() !== 0 && $server->user !== static::getCurrentUser()) {
-                    static::log('Внимание: У вас должен быть root, чтобы изменить UID и GID.');
+                    static::log('Внимание: Для изменения UID и GID вам нужно быть root.');
                 }
             }
 
-            // Socket name.
-            $server->socket = $server->getSocketName();
+            // Имя сокета.
+            $server->context->statusSocket = $server->getSocketName();
 
-            // Status name.
-            $server->state = '<g> [OK] </g>';
+            // Состояние сервера.
+            $server->context->statusState = '<g> [OK] </g>';
 
-            // Get column mapping for UI
+            // Получаем соответствие столбца для интерфейса пользователя.
             foreach (static::getUiColumns() as $columnName => $prop) {
-                !isset($server->$prop) && $server->$prop = 'NNNN';
-                $propLength = strlen((string)$server->$prop);
+                !isset($server->$prop) && !isset($server->context->$prop) && $server->context->$prop = 'NNNN';
+                $propLength = strlen((string)($server->$prop ?? $server->context->$prop));
                 $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
                 static::$$key = max(static::$$key, $propLength);
             }
 
-            // Listen.
+            // Начинаем прослушивание.
             if (!$server->reusePort) {
                 $server->listen();
             }
@@ -728,7 +747,7 @@ class Server
     }
 
     /**
-     * Get all server instances.
+     * Получить все экземпляры сервера.
      *
      * @return Server[]
      */
@@ -738,7 +757,7 @@ class Server
     }
 
     /**
-     * Get global event-loop instance.
+     * Получить глобальный экземпляр цикла событий.
      *
      * @return EventInterface
      */
@@ -748,7 +767,8 @@ class Server
     }
 
     /**
-     * Get main socket resource
+     * Получить основной ресурс сокета.
+     *
      * @return resource
      */
     public function getMainSocket()
@@ -757,7 +777,7 @@ class Server
     }
 
     /**
-     * Init idMap.
+     * Инициализация idMap.
      *
      * @return void
      */
@@ -774,18 +794,18 @@ class Server
     }
 
     /**
-     * Get unix user of current porcess.
+     * Получить имя UNIX-пользователя текущего процесса.
      *
      * @return string
      */
     protected static function getCurrentUser(): string
     {
         $userInfo = posix_getpwuid(posix_getuid());
-        return $userInfo['name'] ?? 'unknown';
+        return $userInfo['name'] ?? 'неизвестно';
     }
 
     /**
-     * Display staring UI.
+     * Отображение начального интерфейса пользователя.
      *
      * @return void
      */
@@ -795,62 +815,63 @@ class Server
         if (in_array('-q', $tmpArgv)) {
             return;
         }
-        if (\DIRECTORY_SEPARATOR !== '/') {
-            static::safeEcho("----------------------- WEBCORE -----------------------------\r\n");
-            static::safeEcho('WebCore version:' . static::VERSION . '          PHP version:' . PHP_VERSION . "\r\n");
-            static::safeEcho("------------------------ SERVERS -------------------------------\r\n");
-            static::safeEcho("server                        listen                              processes status\r\n");
+        if (DIRECTORY_SEPARATOR !== '/') {
+            static::safeEcho("----------------------- Localzet Server -----------------------------\r\n");
+            static::safeEcho('Версия сервера: ' . static::getVersion() . '          Версия PHP: ' . PHP_VERSION . "\r\n");
+            static::safeEcho("------------------------ СЕРВЕРЫ -------------------------------\r\n");
+            static::safeEcho("сервер                        адресс                              статус процессов\r\n");
             return;
         }
 
-        //show version
-        $lineVersion = 'WebCore version:' . static::VERSION . str_pad('PHP version:', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Event-loop:', 22, ' ', \STR_PAD_LEFT) . static::getEventLoopName() . \PHP_EOL;
-        if (!defined('LINE_VERSIOIN_LENGTH')) define('LINE_VERSIOIN_LENGTH', strlen($lineVersion));
+        // Показать версию
+        $lineVersion = 'Версия сервера: ' . static::getVersion() . str_pad(' Версия PHP: ', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad(' Цикл событий: ', 22, ' ', STR_PAD_LEFT) . Linux::class . PHP_EOL;
+        if (!defined('LINE_VERSION_LENGTH')) define('LINE_VERSION_LENGTH', strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
-        $lineOne = '<n>' . str_pad('<w> WEBCORE </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . \PHP_EOL;
-        $lineTwo = str_pad('<w> SERVERS </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
+        $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
+        $lineTwo = str_pad('<w> СЕРВЕРЫ </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
         static::safeEcho($lineOne . $lineVersion . $lineTwo);
 
-        //Show title
+        // Показать заголовок
         $title = '';
         foreach (static::getUiColumns() as $columnName => $prop) {
             $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
-            //just keep compatible with listen name
-            $columnName === 'socket' && $columnName = 'listen';
+            // Совместимость с названием слушателя
+            $columnName === 'socket' && $columnName = 'слушаем';
             $title .= "<w>$columnName</w>" . str_pad('', static::$$key + static::UI_SAFE_LENGTH - strlen($columnName));
         }
-        $title && static::safeEcho($title . \PHP_EOL);
+        $title && static::safeEcho($title . PHP_EOL);
 
-        //Show content
+        // Показать содержимое
         foreach (static::$servers as $server) {
             $content = '';
             foreach (static::getUiColumns() as $columnName => $prop) {
+                $propValue = (string)($server->$prop ?? $server->context->$prop);
                 $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
-                preg_match_all("/(<n>|<\/n>|<w>|<\/w>|<g>|<\/g>)/i", (string)$server->$prop, $matches);
+                preg_match_all("/(<n>|<\/n>|<w>|<\/w>|<g>|<\/g>)/i", $propValue, $matches);
                 $placeHolderLength = !empty($matches) ? strlen(implode('', $matches[0])) : 0;
-                $content .= str_pad((string)$server->$prop, static::$$key + static::UI_SAFE_LENGTH + $placeHolderLength);
+                $content .= str_pad($propValue, static::$$key + static::UI_SAFE_LENGTH + $placeHolderLength);
             }
-            $content && static::safeEcho($content . \PHP_EOL);
+            $content && static::safeEcho($content . PHP_EOL);
         }
 
-        //Show last line
-        $lineLast = str_pad('', static::getSingleLineTotalLength(), '-') . \PHP_EOL;
+        // Показать последнюю строку
+        $lineLast = str_pad('', static::getSingleLineTotalLength(), '-') . PHP_EOL;
         !empty($content) && static::safeEcho($lineLast);
 
         if (static::$daemonize) {
-            global $argv;
-            $startFile = $argv[0];
-            static::safeEcho('Выполните "php ' . $startFile . ' stop" для остановки. WebCore запущен.' . "\n\n");
+            static::safeEcho('Выполните "php ' . basename(static::$startFile) . ' stop" для остановки. Localzet Server запущен.' . "\n\n");
+        } else if (!empty(static::$command)) {
+            static::safeEcho("Localzet Server запущен.\n");
         } else {
-            static::safeEcho("Нажмите Ctrl+C для остановки. WebCore запущен.\n");
+            static::safeEcho("Нажмите Ctrl+C для остановки. Localzet Server запущен.\n");
         }
     }
 
     /**
-     * Get UI columns to be shown in terminal
+     * Получить столбцы для отображения в терминале интерфейса пользователя (UI).
      *
      * 1. $columnMap: ['ui_column_name' => 'clas_property_name']
-     * 2. Consider move into configuration in future
+     * 2. В будущем можно перенести в конфигурацию.
      *
      * @return array
      */
@@ -860,14 +881,14 @@ class Server
             'proto' => 'transport',
             'user' => 'user',
             'server' => 'name',
-            'socket' => 'socket',
+            'socket' => 'statusSocket',
             'processes' => 'count',
-            'state' => 'state',
+            'state' => 'statusState',
         ];
     }
 
     /**
-     * Get single line total length for ui
+     * Получить общую длину строки для интерфейса.
      *
      * @return int
      */
@@ -880,26 +901,25 @@ class Server
             $totalLength += static::$$key + static::UI_SAFE_LENGTH;
         }
 
-        //Keep beauty when show less columns
-        if (!defined('LINE_VERSIOIN_LENGTH')) define('LINE_VERSIOIN_LENGTH', 0);
-        $totalLength <= LINE_VERSIOIN_LENGTH && $totalLength = LINE_VERSIOIN_LENGTH;
+        // Сохранить красоту при отображении меньшего количества столбцов
+        if (!defined('LINE_VERSION_LENGTH')) define('LINE_VERSION_LENGTH', 0);
+        $totalLength <= LINE_VERSION_LENGTH && $totalLength = LINE_VERSION_LENGTH;
 
         return $totalLength;
     }
 
     /**
-     * Parse command.
+     * Разбор команды.
      *
      * @return void
      */
     protected static function parseCommand(): void
     {
-        if (\DIRECTORY_SEPARATOR !== '/') {
+        if (DIRECTORY_SEPARATOR !== '/') {
             return;
         }
-        global $argv;
-        // Check argv;
-        $startFile = $argv[0];
+
+        $startFile = basename(static::$startFile);
         $usage = "Пример: php start.php <команда> [флаг]\nКоманды: \nstart\t\tЗапуск сервера в режиме разработки.\n\t\tИспользуй флаг -d для запуска в фоновом режиме.\nstop\t\tОстановка сервера.\n\t\tИспользуй флаг -g для плавной остановки.\nrestart\t\tПерезагрузка сервера.\n\t\tИспользуй флаг -d для запуска в фоновом режиме.\n\t\tИспользуй флаг -g для плавной остановки.\nreload\t\tОбновить код.\n\t\tИспользуй флаг -g для плавной остановки.\nstatus\t\tСтатус сервера.\n\t\tИспользуй флаг -d для показа в реальном времени.\nconnections\tПоказать текущие соединения.\n";
         $availableCommands = [
             'start',
@@ -915,9 +935,10 @@ class Server
         ];
         $command = $mode = '';
         foreach (static::getArgv() as $value) {
-            if (in_array($value, $availableCommands)) {
+            if (!$command && in_array($value, $availableCommands)) {
                 $command = $value;
-            } elseif (in_array($value, $availableMode)) {
+            }
+            if (!$mode && in_array($value, $availableMode)) {
                 $mode = $value;
             }
         }
@@ -926,7 +947,7 @@ class Server
             exit($usage);
         }
 
-        // Start command.
+        // Команда "start".
         $modeStr = '';
         if ($command === 'start') {
             if ($mode === '-d' || static::$daemonize) {
@@ -935,24 +956,24 @@ class Server
                 $modeStr = 'в режиме разработки';
             }
         }
-        static::log("WebCore [$startFile] $command $modeStr");
+        static::log("Localzet Server [$startFile] $command $modeStr");
 
-        // Get master process PID.
+        // Получение PID мастер-процесса.
         $masterPid = is_file(static::$pidFile) ? (int)file_get_contents(static::$pidFile) : 0;
-        // Master is still alive?
+        // Мастер-процесс всё ещё активен?
         if (static::checkMasterIsAlive($masterPid)) {
             if ($command === 'start') {
-                static::log("WebCore [$startFile] уже запущен");
+                static::log("Localzet Server [$startFile] уже запущен");
                 exit;
             }
         } elseif ($command !== 'start' && $command !== 'restart') {
-            static::log("WebCore [$startFile] не запущен");
+            static::log("Localzet Server [$startFile] не запущен");
             exit;
         }
 
-        $statisticsFile = static::$statusFile ?: __DIR__ . "/../workerman-$masterPid.$command";
+        $statisticsFile = static::$statusFile ?: __DIR__ . "/../localzet-$masterPid.$command";
 
-        // execute command.
+        // Выполнение команды.
         switch ($command) {
             case 'start':
                 if ($mode === '-d') {
@@ -964,31 +985,38 @@ class Server
                     if (is_file($statisticsFile)) {
                         @unlink($statisticsFile);
                     }
-                    // Master process will send SIGIOT signal to all child processes.
-                    posix_kill($masterPid, SIGIOT);
-                    // Sleep 1 second.
+
+                    // Мастер-процесс отправит сигнал SIGIOT всем дочерним процессам.
+                    static::sendSignal($masterPid, SIGIOT);
+
+                    // Пауза на 1 секунду.
                     sleep(1);
-                    // Clear terminal.
+
+                    // Очистка терминала.
                     if ($mode === '-d') {
                         static::safeEcho("\33[H\33[2J\33(B\33[m", true);
                     }
-                    // Echo status data.
+
+                    // Вывод данных о состоянии.
                     static::safeEcho(static::formatStatusData($statisticsFile));
                     if ($mode !== '-d') {
                         @unlink($statisticsFile);
                         exit(0);
                     }
-                    static::safeEcho("\nPress Ctrl+C to quit.\n\n");
+                    static::safeEcho("\Нажмите Ctrl+C для завершения.\n\n");
                 }
             case 'connections':
                 if (is_file($statisticsFile) && is_writable($statisticsFile)) {
                     unlink($statisticsFile);
                 }
-                // Master process will send SIGIO signal to all child processes.
-                posix_kill($masterPid, SIGIO);
-                // Waiting amoment.
+
+                // Мастер-процесс отправит сигнал SIGIO всем дочерним процессам.
+                static::sendSignal($masterPid, SIGIO);
+
+                // Пауза на короткое время.
                 usleep(500000);
-                // Display statisitcs data from a disk file.
+
+                // Вывод данных о соединениях из файла на диске.
                 if (is_readable($statisticsFile)) {
                     readfile($statisticsFile);
                 }
@@ -997,33 +1025,36 @@ class Server
             case 'stop':
                 if ($mode === '-g') {
                     static::$gracefulStop = true;
-                    $sig = \SIGQUIT;
-                    static::log("WebCore [$startFile] плавно останавливается ...");
+                    $sig = SIGQUIT;
+                    static::log("Localzet Server [$startFile] плавно останавливается ...");
                 } else {
                     static::$gracefulStop = false;
-                    $sig = \SIGINT;
-                    static::log("WebCore [$startFile] останавливается ...");
+                    $sig = SIGINT;
+                    static::log("Localzet Server [$startFile] останавливается ...");
                 }
-                // Send stop signal to master process.
-                $masterPid && posix_kill($masterPid, $sig);
-                // Timeout.
+
+                // Отправка сигнала остановки мастер-процессу.
+                $masterPid && static::sendSignal($masterPid, $sig);
+
+                // Тайм-аут.
                 $timeout = static::$stopTimeout + 3;
                 $startTime = time();
-                // Check master process is still alive?
+
+                // Проверка активности мастер-процесса.
                 while (1) {
                     $masterIsAlive = $masterPid && posix_kill($masterPid, 0);
                     if ($masterIsAlive) {
-                        // Timeout?
+                        // Превышение тайм-аута?
                         if (!static::$gracefulStop && time() - $startTime >= $timeout) {
-                            static::log("WebCore [$startFile] не остановлен!");
+                            static::log("Localzet Server [$startFile] не остановлен!");
                             exit;
                         }
-                        // Waiting amoment.
+                        // Пауза.
                         usleep(10000);
                         continue;
                     }
-                    // Stop success.
-                    static::log("WebCore [$startFile] остановлен");
+                    // Остановка успешна.
+                    static::log("Localzet Server [$startFile] остановлен");
                     if ($command === 'stop') {
                         exit(0);
                     }
@@ -1035,11 +1066,13 @@ class Server
                 break;
             case 'reload':
                 if ($mode === '-g') {
-                    $sig = \SIGUSR2;
+                    $sig = SIGUSR2;
                 } else {
-                    $sig = \SIGUSR1;
+                    $sig = SIGUSR1;
                 }
-                posix_kill($masterPid, $sig);
+
+                static::sendSignal($masterPid, $sig);
+
                 exit;
             default:
                 static::safeEcho('Неизвестная команда: ' . $command . "\n");
@@ -1048,14 +1081,14 @@ class Server
     }
 
     /**
-     * Get argv.
+     * Получение массива argv.
      *
      * @return array
      */
     public static function getArgv(): array
     {
         global $argv;
-        return isset($argv[1]) ? $argv : (static::$command ? explode(' ', static::$command) : $argv);
+        return static::$command ? [...$argv, ...explode(' ', static::$command)] : $argv;
     }
 
     /**
@@ -1070,13 +1103,16 @@ class Server
         if (!is_readable($statisticsFile)) {
             return '';
         }
-        $info = file($statisticsFile, \FILE_IGNORE_NEW_LINES);
+        $info = file($statisticsFile, FILE_IGNORE_NEW_LINES);
         if (!$info) {
             return '';
         }
         $statusStr = '';
         $currentTotalRequest = [];
-        $serverInfo = unserialize($info[0]);
+        try {
+            $serverInfo = unserialize($info[0], ['allowed_classes' => false]);
+        } catch (Throwable) {
+        }
         ksort($serverInfo, SORT_NUMERIC);
         unset($info[0]);
         $dataWaitingSort = [];
@@ -1122,7 +1158,7 @@ class Server
                 continue;
             }
             //$qps = isset($totalRequestCache[$pid]) ? $currentTotalRequest[$pid]
-            if (!isset($totalRequestCache[$pid]) || !isset($currentTotalRequest[$pid])) {
+            if (!isset($totalRequestCache[$pid], $currentTotalRequest[$pid])) {
                 $qps = 0;
             } else {
                 $qps = $currentTotalRequest[$pid] - $totalRequestCache[$pid];
@@ -1132,7 +1168,7 @@ class Server
         }
         $totalRequestCache = $currentTotalRequest;
         $statusStr .= "----------------------------------------------PROCESS STATUS---------------------------------------------------\n";
-        $statusStr .= "Итог\t" . str_pad((string)$totalMemory . 'M', 7) . " "
+        $statusStr .= "Итог\t" . str_pad($totalMemory . 'M', 7) . " "
             . str_pad('-', $maxLen1) . " "
             . str_pad('-', $maxLen2) . " "
             . str_pad((string)$totalConnections, 11) . " " . str_pad((string)$totalFails, 9) . " "
@@ -1141,117 +1177,116 @@ class Server
         return $statusStr;
     }
 
-
     /**
-     * Install signal handler.
+     * Установить обработчик сигналов.
      *
      * @return void
      */
     protected static function installSignal(): void
     {
-        if (\DIRECTORY_SEPARATOR !== '/') {
+        if (DIRECTORY_SEPARATOR !== '/') {
             return;
         }
-        $signals = [\SIGINT, \SIGTERM, \SIGHUP, \SIGTSTP, \SIGQUIT, \SIGUSR1, \SIGUSR2, \SIGIOT, \SIGIO];
+        $signals = [SIGINT, SIGTERM, SIGHUP, SIGTSTP, SIGQUIT, SIGUSR1, SIGUSR2, SIGIOT, SIGIO];
         foreach ($signals as $signal) {
             pcntl_signal($signal, [static::class, 'signalHandler'], false);
         }
-        // ignore
-        pcntl_signal(\SIGPIPE, \SIG_IGN, false);
+        // Игнорировать сигнал SIGPIPE.
+        pcntl_signal(SIGPIPE, SIG_IGN, false);
     }
 
     /**
-     * Reinstall signal handler.
+     * Переустановить обработчик сигнала.
      *
      * @return void
      * @throws Throwable
      */
     protected static function reinstallSignal(): void
     {
-        if (\DIRECTORY_SEPARATOR !== '/') {
+        if (DIRECTORY_SEPARATOR !== '/') {
             return;
         }
-        $signals = [\SIGINT, \SIGTERM, \SIGHUP, \SIGTSTP, \SIGQUIT, \SIGUSR1, \SIGUSR2, \SIGIOT, \SIGIO];
+        $signals = [SIGINT, SIGTERM, SIGHUP, SIGTSTP, SIGQUIT, SIGUSR1, SIGUSR2, SIGIOT, SIGIO];
         foreach ($signals as $signal) {
-            pcntl_signal($signal, \SIG_IGN, false);
+            pcntl_signal($signal, SIG_IGN, false);
             static::$globalEvent->onSignal($signal, [static::class, 'signalHandler']);
         }
     }
 
     /**
-     * Signal handler.
+     * Обработчик сигнала.
      *
      * @param int $signal
-     * @throws Exception
+     * @throws Throwable
      */
     public static function signalHandler(int $signal): void
     {
         switch ($signal) {
-                // Stop.
-            case \SIGINT:
-            case \SIGTERM:
-            case \SIGHUP:
-            case \SIGTSTP:
+            // Остановка.
+            case SIGINT:
+            case SIGTERM:
+            case SIGHUP:
+            case SIGTSTP:
                 static::$gracefulStop = false;
                 static::stopAll();
                 break;
-                // Graceful stop.
-            case \SIGQUIT:
+            // Плавная остановка.
+            case SIGQUIT:
                 static::$gracefulStop = true;
                 static::stopAll();
                 break;
-                // Reload.
-            case \SIGUSR2:
-            case \SIGUSR1:
+            // Перезагрузка.
+            case SIGUSR2:
+            case SIGUSR1:
                 if (static::$status === static::STATUS_RELOADING || static::$status === static::STATUS_SHUTDOWN) {
                     return;
                 }
-                static::$gracefulStop = $signal === \SIGUSR2;
+                static::$gracefulStop = $signal === SIGUSR2;
                 static::$pidsToRestart = static::getAllServerPids();
                 static::reload();
                 break;
-                // Show status.
-            case \SIGIOT:
+            // Статус.
+            case SIGIOT:
                 static::writeStatisticsToStatusFile();
                 break;
-                // Show connection status.
-            case \SIGIO:
+            // Текущие соединения.
+            case SIGIO:
                 static::writeConnectionsStatisticsToStatusFile();
                 break;
         }
     }
 
     /**
-     * Run as daemon mode.
+     * Запустить в режиме демона.
      *
      * @throws Exception
      */
     protected static function daemonize(): void
     {
-        if (!static::$daemonize || \DIRECTORY_SEPARATOR !== '/') {
+        if (!static::$daemonize || DIRECTORY_SEPARATOR !== '/') {
             return;
         }
         umask(0);
         $pid = pcntl_fork();
         if (-1 === $pid) {
-            throw new RuntimeException('Ошибка ответвления');
+            throw new RuntimeException('Ошибка форка');
         } elseif ($pid > 0) {
             exit(0);
         }
         if (-1 === posix_setsid()) {
             throw new RuntimeException('Ошибка установки SID');
         }
-        // Fork again avoid SVR4 system regain the control of terminal.
+        // Fork again to avoid SVR4 system regaining control of the terminal.
         $pid = pcntl_fork();
         if (-1 === $pid) {
-            throw new RuntimeException('Ошибка ответвления');
+            throw new RuntimeException('Ошибка форка');
         } elseif (0 !== $pid) {
             exit(0);
         }
     }
 
     /**
-     * Redirect standard input and output.
+     * Перенаправление стандартного ввода и вывода.
      *
      * @param bool $throwException
      * @return void
@@ -1259,7 +1294,7 @@ class Server
      */
     public static function resetStd(bool $throwException = true): void
     {
-        if (!static::$daemonize || \DIRECTORY_SEPARATOR !== '/') {
+        if (!static::$daemonize || DIRECTORY_SEPARATOR !== '/') {
             return;
         }
         global $STDOUT, $STDERR;
@@ -1274,23 +1309,23 @@ class Server
             if ($STDERR) {
                 fclose($STDERR);
             }
-            if (is_resource(\STDOUT)) {
-                fclose(\STDOUT);
+            if (is_resource(STDOUT)) {
+                fclose(STDOUT);
             }
-            if (is_resource(\STDERR)) {
-                fclose(\STDERR);
+            if (is_resource(STDERR)) {
+                fclose(STDERR);
             }
             $STDOUT = fopen(static::$stdoutFile, "a");
             $STDERR = fopen(static::$stdoutFile, "a");
-            // Fix standard output cannot redirect of PHP 8.1.8's bug
+            // Исправление ошибки PHP 8.1.8, связанной с невозможностью перенаправления стандартного вывода
             if (function_exists('posix_isatty') && posix_isatty(2)) {
                 ob_start(function ($string) {
                     file_put_contents(static::$stdoutFile, $string, FILE_APPEND);
                 }, 1);
             }
-            // change output stream
+            // изменение потока вывода
             static::$outputStream = null;
-            static::outputStream($STDOUT);
+            self::outputStream($STDOUT);
             restore_error_handler();
             return;
         }
@@ -1301,56 +1336,24 @@ class Server
     }
 
     /**
-     * Save pid.
+     * Сохранить PID мастер-процесса.
      *
      * @throws Exception
      */
-    protected static function saveMasterPid()
+    protected static function saveMasterPid(): void
     {
-        if (\DIRECTORY_SEPARATOR !== '/') {
+        if (DIRECTORY_SEPARATOR !== '/') {
             return;
         }
 
         static::$masterPid = posix_getpid();
         if (false === file_put_contents(static::$pidFile, static::$masterPid)) {
-            throw new Exception('Не могу сохранить PID в  ' . static::$pidFile);
+            throw new Exception('Не удалось сохранить PID в ' . static::$pidFile);
         }
     }
 
     /**
-     * Get event loop name.
-     *
-     * @return string
-     */
-    protected static function getEventLoopName(): string
-    {
-        if (static::$eventLoopClass) {
-            return static::$eventLoopClass;
-        }
-
-        if (class_exists(EventLoop::class)) {
-            static::$eventLoopClass = Revolt::class;
-            return static::$eventLoopClass;
-        }
-
-        $loopName = '';
-        foreach (static::$availableEventLoops as $name => $class) {
-            if (extension_loaded($name)) {
-                $loopName = $name;
-                break;
-            }
-        }
-
-        if ($loopName) {
-            static::$eventLoopClass = static::$availableEventLoops[$loopName];
-        } else {
-            static::$eventLoopClass = Select::class;
-        }
-        return static::$eventLoopClass;
-    }
-
-    /**
-     * Get all pids of server processes.
+     * Получить все PID процессов сервера.
      *
      * @return array
      */
@@ -1366,14 +1369,14 @@ class Server
     }
 
     /**
-     * Fork some server processes.
+     * Создать процессы для серверов.
      *
      * @return void
      * @throws Throwable
      */
     protected static function forkServers(): void
     {
-        if (\DIRECTORY_SEPARATOR === '/') {
+        if (DIRECTORY_SEPARATOR === '/') {
             static::forkServersForLinux();
         } else {
             static::forkServersForWindows();
@@ -1381,7 +1384,7 @@ class Server
     }
 
     /**
-     * Fork some server processes.
+     * Создать процессы для серверов (Linux).
      *
      * @return void
      * @throws Throwable
@@ -1406,7 +1409,7 @@ class Server
     }
 
     /**
-     * Fork some server processes.
+     * Форкнуть несколько процессов сервера для Windows.
      *
      * @return void
      * @throws Throwable
@@ -1414,7 +1417,7 @@ class Server
     protected static function forkServersForWindows(): void
     {
         $files = static::getStartFilesForWindows();
-        if (in_array('-q', static::getArgv()) || count($files) === 1) {
+        if (count($files) === 1 || in_array('-q', static::getArgv())) {
             if (count(static::$servers) > 1) {
                 static::safeEcho("@@@ Ошибка: инициализация нескольких серверов в одном php-файле не поддерживается @@@\r\n");
             } elseif (count(static::$servers) <= 0) {
@@ -1425,25 +1428,55 @@ class Server
             /** @var Server $server */
             $server = current(static::$servers);
 
-            // Display UI.
-            static::safeEcho(str_pad((string)$server->name, 21) . str_pad((string)$server->getSocketName(), 36) . str_pad("1", 10) . "[ok]\n");
+            Timer::delAll();
+
+            //Update process state.
+            static::$status = static::STATUS_RUNNING;
+
+            // Register shutdown function for checking errors.
+            register_shutdown_function([__CLASS__, 'checkErrors']);
+
+            // Create a global event loop.
+            if (!static::$globalEvent) {
+                static::$globalEvent = new Linux;
+                static::$globalEvent->setErrorHandler(function ($exception) {
+                    static::stopAll(250, $exception);
+                });
+            }
+
+            // Reinstall signal.
+            static::reinstallSignal();
+
+            // Init Timer.
+            Timer::init(static::$globalEvent);
+
+            restore_error_handler();
+
+            // Отобразить пользовательский интерфейс (UI).
+            static::safeEcho(str_pad($server->name, 48) . str_pad($server->getSocketName(), 36) . str_pad("1", 10) . "[ok]\n");
             $server->listen();
             $server->run();
-            exit("@@@ child exit @@@\r\n");
-        } else {
-            static::$globalEvent = new Select();
-            static::$globalEvent->setErrorHandler(function ($exception) {
-                static::stopAll(250, $exception);
-            });
-            Timer::init(static::$globalEvent);
-            foreach ($files as $startFile) {
-                static::forkOneServerForWindows($startFile);
+            static::$globalEvent->run();
+            if (static::$status !== self::STATUS_SHUTDOWN) {
+                $err = new Exception('event-loop exited');
+                static::log($err);
+                exit(250);
             }
+            exit(0);
+        }
+
+        static::$globalEvent = new Windows();
+        static::$globalEvent->setErrorHandler(function ($exception) {
+            static::stopAll(250, $exception);
+        });
+        Timer::init(static::$globalEvent);
+        foreach ($files as $startFile) {
+            static::forkOneServerForWindows($startFile);
         }
     }
 
     /**
-     * Get start files for windows.
+     * Получить файлы запуска для Windows.
      *
      * @return array
      */
@@ -1459,7 +1492,7 @@ class Server
     }
 
     /**
-     * Fork one server process.
+     * Форкнуть один процесс сервера для Windows.
      *
      * @param string $startFile
      */
@@ -1470,22 +1503,22 @@ class Server
         $descriptor_spec = array(STDIN, STDOUT, STDOUT);
 
         $pipes = array();
-        $process = proc_open("php \"$startFile\" -q", $descriptor_spec, $pipes);
+        $process = proc_open('"' . PHP_BINARY . '" ' . " \"$startFile\" -q", $descriptor_spec, $pipes, null, null, ['bypass_shell' => true]);
 
         if (empty(static::$globalEvent)) {
-            static::$globalEvent = new Select();
+            static::$globalEvent = new Windows();
             static::$globalEvent->setErrorHandler(function ($exception) {
                 static::stopAll(250, $exception);
             });
             Timer::init(static::$globalEvent);
         }
 
-        // 保存子进程句柄
+        // Сохранить дескриптор процесса
         static::$processForWindows[$startFile] = array($process, $startFile);
     }
 
     /**
-     * check server status for windows.
+     * Проверка статуса сервера для Windows.
      * @return void
      */
     public static function checkServerStatusForWindows(): void
@@ -1494,47 +1527,39 @@ class Server
             $process = $processData[0];
             $startFile = $processData[1];
             $status = proc_get_status($process);
-            if (isset($status['running'])) {
-                if (!$status['running']) {
-                    static::safeEcho("Процесс $startFile завершен и пытается перезапуститься\n");
-                    proc_close($process);
-                    static::forkOneServerForWindows($startFile);
-                }
-            } else {
-                static::safeEcho("Ошибка proc_get_status\n");
+            if (!$status['running']) {
+                static::safeEcho("Процесс $startFile завершен и пытается перезапуститься\n");
+                proc_close($process);
+                static::forkOneServerForWindows($startFile);
             }
         }
     }
 
     /**
-     * Fork one server process.
+     * Создать один процесс сервера.
      *
      * @param self $server
-     * @throws Exception|RuntimeException
+     * @throws Exception|RuntimeException|Throwable
      */
-    protected static function forkOneServerForLinux(self $server)
+    protected static function forkOneServerForLinux(self $server): void
     {
-        // Get available server id.
+        // Получить доступный идентификатор сервера.
         $id = static::getId($server->serverId, 0);
         $pid = pcntl_fork();
-        // For master process.
+        // Для основного процесса.
         if ($pid > 0) {
             static::$pidMap[$server->serverId][$pid] = $pid;
             static::$idMap[$server->serverId][$id] = $pid;
-        }
-        // For child processes.
+        } // Для дочерних процессов.
         elseif (0 === $pid) {
             srand();
             mt_srand();
             static::$gracefulStop = false;
-            if ($server->reusePort) {
-                $server->listen();
-            }
             if (static::$status === static::STATUS_STARTING) {
                 static::resetStd();
             }
             static::$pidsToRestart = static::$pidMap = [];
-            // Remove other listener.
+            // Удалить других слушателей.
             foreach (static::$servers as $key => $oneServer) {
                 if ($oneServer->serverId !== $server->serverId) {
                     $oneServer->unlisten();
@@ -1542,10 +1567,37 @@ class Server
                 }
             }
             Timer::delAll();
-            static::setProcessTitle(self::$processTitle . ': процесс сервера  ' . $server->name . ' ' . $server->getSocketName());
+
+            // Обновить состояние процесса.
+            static::$status = static::STATUS_RUNNING;
+
+            // Зарегистрировать функцию завершения для проверки ошибок.
+            register_shutdown_function(["\\localzet\\Server", 'checkErrors']);
+
+            // Создать глобальный цикл событий.
+            if (!static::$globalEvent) {
+                static::$globalEvent = new Linux;
+                static::$globalEvent->setErrorHandler(function ($exception) {
+                    static::stopAll(250, $exception);
+                });
+            }
+
+            // Переустановить сигналы.
+            static::reinstallSignal();
+
+            // Инициализировать таймер.
+            Timer::init(static::$globalEvent);
+
+            restore_error_handler();
+
+            static::setProcessTitle('Localzet Server: процесс сервера ' . $server->name . ' ' . $server->getSocketName());
             $server->setUserAndGroup();
             $server->id = $id;
             $server->run();
+
+            // Основная петля.
+            static::$globalEvent->run();
+
             if (static::$status !== self::STATUS_SHUTDOWN) {
                 $err = new Exception('Ошибка event-loop');
                 static::log($err);
@@ -1558,7 +1610,7 @@ class Server
     }
 
     /**
-     * Get server id.
+     * Получить идентификатор сервера.
      *
      * @param string $serverId
      * @param int $pid
@@ -1571,24 +1623,24 @@ class Server
     }
 
     /**
-     * Set unix user and group for current process.
+     * Установить пользовательскую группу и пользователя для текущего процесса.
      *
      * @return void
      */
     public function setUserAndGroup(): void
     {
-        // Get uid.
+        // Получить UID.
         $userInfo = posix_getpwnam($this->user);
         if (!$userInfo) {
-            static::log("Внимание: Пользователь {$this->user} не существует");
+            static::log("Внимание: Пользователь $this->user не существует");
             return;
         }
         $uid = $userInfo['uid'];
-        // Get gid.
+        // Получить GID.
         if ($this->group) {
             $groupInfo = posix_getgrnam($this->group);
             if (!$groupInfo) {
-                static::log("Внимание: Группа {$this->group} не существует");
+                static::log("Внимание: Группа $this->group не существует");
                 return;
             }
             $gid = $groupInfo['gid'];
@@ -1596,7 +1648,7 @@ class Server
             $gid = $userInfo['gid'];
         }
 
-        // Set uid and gid.
+        // Установить UID и GID.
         if ($uid !== posix_getuid() || $gid !== posix_getgid()) {
             if (!posix_setgid($gid) || !posix_initgroups($userInfo['name'], $gid) || !posix_setuid($uid)) {
                 static::log('Внимание: Ошибка изменения GID или UID');
@@ -1605,7 +1657,7 @@ class Server
     }
 
     /**
-     * Set process name.
+     * Установка имени процесса.
      *
      * @param string $title
      * @return void
@@ -1614,20 +1666,34 @@ class Server
     {
         set_error_handler(function () {
         });
-
         cli_set_process_title($title);
         restore_error_handler();
     }
 
     /**
-     * Monitor all child processes.
+     * Отправка сигнала процессу.
+     *
+     * @param int $process_id
+     * @param int $signal
+     * @return void
+     */
+    protected static function sendSignal(int $process_id, int $signal): void
+    {
+        set_error_handler(function () {
+        });
+        posix_kill($process_id, $signal);
+        restore_error_handler();
+    }
+
+    /**
+     * Мониторинг всех дочерних процессов.
      *
      * @return void
      * @throws Throwable
      */
     protected static function monitorServers(): void
     {
-        if (\DIRECTORY_SEPARATOR === '/') {
+        if (DIRECTORY_SEPARATOR === '/') {
             static::monitorServersForLinux();
         } else {
             static::monitorServersForWindows();
@@ -1635,7 +1701,7 @@ class Server
     }
 
     /**
-     * Monitor all child processes.
+     * Мониторинг всех дочерних процессов для Linux.
      *
      * @return void
      * @throws Throwable
@@ -1643,58 +1709,66 @@ class Server
     protected static function monitorServersForLinux(): void
     {
         static::$status = static::STATUS_RUNNING;
+
         while (1) {
-            // Calls signal handlers for pending signals.
+            // Вызываем обработчики сигналов для ожидающих сигналов.
             pcntl_signal_dispatch();
-            // Suspends execution of the current process until a child has exited, or until a signal is delivered
+
+            // Ожидаем завершения дочернего процесса или получения сигнала.
             $status = 0;
-            $pid = pcntl_wait($status, \WUNTRACED);
-            // Calls signal handlers for pending signals again.
+            $pid = pcntl_wait($status, WUNTRACED);
+
+            // Вызываем обработчики сигналов для ожидающих сигналов еще раз.
             pcntl_signal_dispatch();
-            // If a child has already exited.
+
+            // Если дочерний процесс уже завершился.
             if ($pid > 0) {
-                // Find out which server process exited.
+                // Находим серверный процесс, который завершился.
                 foreach (static::$pidMap as $serverId => $serverPidArray) {
                     if (isset($serverPidArray[$pid])) {
                         $server = static::$servers[$serverId];
-                        // Fix exit with status 2 for php8.2
-                        if ($status === \SIGINT && static::$status === static::STATUS_SHUTDOWN) {
+
+                        // Исправляем завершение с кодом 2 для php8.2
+                        if ($status === SIGINT && static::$status === static::STATUS_SHUTDOWN) {
                             $status = 0;
                         }
-                        // Exit status.
+
+                        // Статус завершения процесса.
                         if ($status !== 0) {
-                            static::log("WebCore [{$server->name}:$pid] завершился со статусом $status");
+                            static::log("Localzet Server [$server->name:$pid] завершился со статусом $status");
                         }
 
                         // onServerExit
-                        if ($server->onServerExit) {
+                        if (static::$onServerExit) {
                             try {
-                                ($server->onServerExit)($server, $status, $pid);
+                                (static::$onServerExit)($server, $status, $pid);
                             } catch (Throwable $exception) {
-                                static::log("WebCore [{$server->name}] onServerExit $exception");
+                                static::log("Localzet Server [$server->name] onServerExit $exception");
                             }
                         }
 
-                        // For Statistics.
+                        // Для статистики.
                         if (!isset(static::$globalStatistics['server_exit_info'][$serverId][$status])) {
                             static::$globalStatistics['server_exit_info'][$serverId][$status] = 0;
                         }
                         ++static::$globalStatistics['server_exit_info'][$serverId][$status];
 
-                        // Clear process data.
+                        // Очищаем данные процесса.
                         unset(static::$pidMap[$serverId][$pid]);
 
-                        // Mark id is available.
+                        // Отмечаем идентификатор как доступный.
                         $id = static::getId($serverId, $pid);
                         static::$idMap[$serverId][$id] = 0;
 
                         break;
                     }
                 }
-                // Is still running state then fork a new server process.
+
+                // Если процесс не в состоянии остановки, то форкаем новый серверный процесс.
                 if (static::$status !== static::STATUS_SHUTDOWN) {
                     static::forkServers();
-                    // If reloading continue.
+
+                    // Если перезагрузка, то продолжаем.
                     if (isset(static::$pidsToRestart[$pid])) {
                         unset(static::$pidsToRestart[$pid]);
                         static::reload();
@@ -1702,7 +1776,7 @@ class Server
                 }
             }
 
-            // If shutdown state and all child processes exited then master process exit.
+            // Если в состоянии остановки и все дочерние процессы завершились, то мастер-процесс выходит.
             if (static::$status === static::STATUS_SHUTDOWN && !static::getAllServerPids()) {
                 static::exitAndClearAll();
             }
@@ -1710,33 +1784,33 @@ class Server
     }
 
     /**
-     * Monitor all child processes.
+     * Мониторинг всех дочерних процессов.
      *
      * @return void
      * @throws Throwable
      */
     protected static function monitorServersForWindows(): void
     {
-        Timer::add(1, "\\localzet\\Server\\Server::checkServerStatusForWindows");
+        Timer::add(1, "\\localzet\\Server::checkServerStatusForWindows");
 
         static::$globalEvent->run();
     }
 
     /**
-     * Exit current process.
+     * Выход из текущего процесса.
      */
-    protected static function exitAndClearAll(): void
+    #[NoReturn] protected static function exitAndClearAll(): void
     {
         foreach (static::$servers as $server) {
             $socketName = $server->getSocketName();
             if ($server->transport === 'unix' && $socketName) {
-                list(, $address) = explode(':', $socketName, 2);
+                [, $address] = explode(':', $socketName, 2);
                 $address = substr($address, strpos($address, '/') + 2);
                 @unlink($address);
             }
         }
         @unlink(static::$pidFile);
-        static::log("WebCore [" . basename(static::$startFile) . "] был остановлен");
+        static::log("Localzet Server [" . basename(static::$startFile) . "] был остановлен");
         if (static::$onMasterStop) {
             call_user_func(static::$onMasterStop);
         }
@@ -1744,23 +1818,26 @@ class Server
     }
 
     /**
-     * Execute reload.
+     * Выполнить перезагрузку сервера.
      *
      * @return void
-     * @throws Exception
+     * @throws Throwable
      */
     protected static function reload(): void
     {
-        // For master process.
+        // Для мастер-процесса.
         if (static::$masterPid === posix_getpid()) {
-            $sig = static::$gracefulStop ? \SIGUSR2 : \SIGUSR1;
-            // Set reloading state.
+            $sig = static::$gracefulStop ? SIGUSR2 : SIGUSR1;
+
+            // Устанавливаем состояние перезагрузки.
             if (static::$status !== static::STATUS_RELOADING && static::$status !== static::STATUS_SHUTDOWN) {
-                static::log("WebCore [" . basename(static::$startFile) . "] обновляется");
+                static::log("Localzet Server [" . basename(static::$startFile) . "] обновляется");
                 static::$status = static::STATUS_RELOADING;
 
+                // Сбросить стандартные ввод и вывод.
                 static::resetStd(false);
-                // Try to emit onMasterReload callback.
+
+                // Пробуем вызвать обратный вызов onMasterReload.
                 if (static::$onMasterReload) {
                     try {
                         call_user_func(static::$onMasterReload);
@@ -1770,7 +1847,7 @@ class Server
                     static::initId();
                 }
 
-                // Send reload signal to all child processes.
+                // Отправляем сигнал перезагрузки всем дочерним процессам.
                 $reloadablePidArray = [];
                 foreach (static::$pidMap as $serverId => $serverPidArray) {
                     $server = static::$servers[$serverId];
@@ -1780,36 +1857,40 @@ class Server
                         }
                     } else {
                         foreach ($serverPidArray as $pid) {
-                            // Send reload signal to a server process which reloadable is false.
-                            posix_kill($pid, $sig);
+                            // Отправляем сигнал перезагрузки процессу, для которого reloadable равно false.
+                            static::sendSignal($pid, $sig);
                         }
                     }
                 }
-                // Get all pids that are waiting reload.
-                static::$pidsToRestart = \array_intersect(static::$pidsToRestart, $reloadablePidArray);
+
+                // Получаем все pid, которые ожидают перезагрузки.
+                static::$pidsToRestart = array_intersect(static::$pidsToRestart, $reloadablePidArray);
             }
 
-            // Reload complete.
+            // Перезагрузка завершена.
             if (empty(static::$pidsToRestart)) {
                 if (static::$status !== static::STATUS_SHUTDOWN) {
                     static::$status = static::STATUS_RUNNING;
                 }
                 return;
             }
-            // Continue reload.
-            $oneServerPid = \current(static::$pidsToRestart);
-            // Send reload signal to a server process.
-            posix_kill($oneServerPid, $sig);
-            // If the process does not exit after stopTimeout seconds try to kill it.
+
+            // Продолжаем перезагрузку.
+            $oneServerPid = current(static::$pidsToRestart);
+
+            // Отправляем сигнал перезагрузки процессу.
+            static::sendSignal($oneServerPid, $sig);
+
+            // Если процесс не завершится после stopTimeout секунд, пытаемся убить его.
             if (!static::$gracefulStop) {
-                Timer::add(static::$stopTimeout, 'posix_kill', [$oneServerPid, \SIGKILL], false);
+                Timer::add(static::$stopTimeout, 'posix_kill', [$oneServerPid, SIGKILL], false);
             }
-        }
-        // For child processes.
+        } // Для дочерних процессов.
         else {
             reset(static::$servers);
-            $server = \current(static::$servers);
-            // Try to emit onServerReload callback.
+            $server = current(static::$servers);
+
+            // Пробуем вызвать обратный вызов onServerReload.
             if ($server->onServerReload) {
                 try {
                     call_user_func($server->onServerReload, $server);
@@ -1818,6 +1899,7 @@ class Server
                 }
             }
 
+            // Если процесс reloadable равен true, то останавливаем все процессы.
             if ($server->reloadable) {
                 static::stopAll();
             } else {
@@ -1827,10 +1909,11 @@ class Server
     }
 
     /**
-     * Stop all.
+     * Остановить все.
      *
      * @param int $code
      * @param mixed $log
+     * @throws Throwable
      */
     public static function stopAll(int $code = 0, mixed $log = ''): void
     {
@@ -1839,33 +1922,33 @@ class Server
         }
 
         static::$status = static::STATUS_SHUTDOWN;
-        // For master process.
-        if (\DIRECTORY_SEPARATOR === '/' && static::$masterPid === posix_getpid()) {
-            static::log("WebCore [" . basename(static::$startFile) . "] останавливается ...");
+        // Для процесса-мастера.
+        if (DIRECTORY_SEPARATOR === '/' && static::$masterPid === posix_getpid()) {
+            static::log("Localzet Server [" . basename(static::$startFile) . "] останавливается ...");
             $serverPidArray = static::getAllServerPids();
-            // Send stop signal to all child processes.
-            $sig = static::$gracefulStop ? \SIGQUIT : \SIGINT;
+            // Отправить сигнал остановки всем дочерним процессам.
+            $sig = static::$gracefulStop ? SIGQUIT : SIGINT;
             foreach ($serverPidArray as $serverPid) {
-                // Fix exit with status 2 for php8.2
-                if ($sig === \SIGINT && !static::$daemonize) {
-                    Timer::add(1, 'posix_kill', [$serverPid, \SIGINT], false);
+                // Исправить выход с кодом 2 для PHP 8.2.
+                if ($sig === SIGINT && !static::$daemonize) {
+                    Timer::add(1, 'posix_kill', [$serverPid, SIGINT], false);
                 } else {
-                    posix_kill($serverPid, $sig);
+                    static::sendSignal($serverPid, $sig);
                 }
                 if (!static::$gracefulStop) {
-                    Timer::add(ceil(static::$stopTimeout), 'posix_kill', [$serverPid, \SIGKILL], false);
+                    Timer::add(ceil(static::$stopTimeout), 'posix_kill', [$serverPid, SIGKILL], false);
                 }
             }
-            Timer::add(1, "\\localzet\\Server\\Server::checkIfChildRunning");
-            // Remove statistics file.
+            Timer::add(1, "\\localzet\\Server::checkIfChildRunning");
+            // Удалить файл статистики.
             if (is_file(static::$statisticsFile)) {
                 @unlink(static::$statisticsFile);
             }
-        }
-        // For child processes.
+        } // Для дочерних процессов.
         else {
-            // Execute exit.
-            foreach (static::$servers as $server) {
+            // Выполнить выход.
+            $servers = array_reverse(static::$servers);
+            foreach ($servers as $server) {
                 if (!$server->stopping) {
                     $server->stop();
                     $server->stopping = true;
@@ -1875,16 +1958,13 @@ class Server
                 static::$servers = [];
                 static::$globalEvent?->stop();
 
-                try {
-                    exit($code);
-                } catch (Exception $e) {
-                }
+                exit($code);
             }
         }
     }
 
     /**
-     * check if child processes is really running
+     * Проверка, запущен ли дочерний процесс
      */
     public static function checkIfChildRunning(): void
     {
@@ -1898,7 +1978,7 @@ class Server
     }
 
     /**
-     * Get process status.
+     * Статус процесса.
      *
      * @return int
      */
@@ -1908,7 +1988,7 @@ class Server
     }
 
     /**
-     * If stop gracefully.
+     * Плавная остановка.
      *
      * @return bool
      */
@@ -1918,34 +1998,33 @@ class Server
     }
 
     /**
-     * Write statistics data to disk.
+     * Запись данных статистики на диск.
      *
      * @return void
      */
     protected static function writeStatisticsToStatusFile(): void
     {
-        // For master process.
+        // Для мастер-процесса.
         if (static::$masterPid === posix_getpid()) {
             $allServerInfo = [];
             foreach (static::$pidMap as $serverId => $pidArray) {
-                /** @var Server $server */
                 $server = static::$servers[$serverId];
                 foreach ($pidArray as $pid) {
                     $allServerInfo[$pid] = ['name' => $server->name, 'listen' => $server->getSocketName()];
                 }
             }
 
-            file_put_contents(static::$statisticsFile, serialize($allServerInfo) . "\n", \FILE_APPEND);
+            file_put_contents(static::$statisticsFile, serialize($allServerInfo) . "\n", FILE_APPEND);
             $loadavg = function_exists('sys_getloadavg') ? array_map('round', sys_getloadavg(), [2, 2, 2]) : ['-', '-', '-'];
             file_put_contents(
                 static::$statisticsFile,
                 "----------------------------------------------GLOBAL STATUS----------------------------------------------------\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
-                'WebCore version:' . static::VERSION . "          PHP version:" . \PHP_VERSION . "\n",
-                \FILE_APPEND
+                'Server version:' . static::getVersion() . "          PHP version:" . PHP_VERSION . "\n",
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
@@ -1953,37 +2032,37 @@ class Server
                     'Y-m-d H:i:s',
                     static::$globalStatistics['start_timestamp']
                 ) .
-                    '   запущен ' .
-                    \floor(
-                        (time() -
-                            static::$globalStatistics['start_timestamp']) /
-                            (24 * 60 * 60)
-                    ) .
-                    ' дней ' .
-                    \floor(
-                        ((time() -
+                '   запущен ' .
+                floor(
+                    (time() -
+                        static::$globalStatistics['start_timestamp']) /
+                    (24 * 60 * 60)
+                ) .
+                ' дней ' .
+                floor(
+                    ((time() -
                             static::$globalStatistics['start_timestamp']) %
-                            (24 * 60 * 60)) /
-                            (60 * 60)
-                    ) .
-                    " часов   \n",
+                        (24 * 60 * 60)) /
+                    (60 * 60)
+                ) .
+                " часов   \n",
                 FILE_APPEND
             );
             $loadStr = 'load average: ' . implode(", ", $loadavg);
             file_put_contents(
                 static::$statisticsFile,
-                str_pad((string)$loadStr, 33) . 'event-loop:' . static::getEventLoopName() . "\n",
-                \FILE_APPEND
+                str_pad($loadStr, 33) . 'event-loop:' . Linux::class . "\n",
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
                 count(static::$pidMap) . ' servers       ' . count(static::getAllServerPids()) . " processes\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
                 str_pad('server_name', static::$maxServerNameLength) . " exit_status      exit_count\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             foreach (static::$pidMap as $serverId => $serverPidArray) {
                 $server = static::$servers[$serverId];
@@ -1991,25 +2070,25 @@ class Server
                     foreach (static::$globalStatistics['server_exit_info'][$serverId] as $serverExitStatus => $serverExitCount) {
                         file_put_contents(
                             static::$statisticsFile,
-                            str_pad((string)$server->name, static::$maxServerNameLength) . " " . str_pad(
+                            str_pad($server->name, static::$maxServerNameLength) . " " . str_pad(
                                 (string)$serverExitStatus,
                                 16
                             ) . " $serverExitCount\n",
-                            \FILE_APPEND
+                            FILE_APPEND
                         );
                     }
                 } else {
                     file_put_contents(
                         static::$statisticsFile,
-                        str_pad((string)$server->name, static::$maxServerNameLength) . " " . str_pad("0", 16) . " 0\n",
-                        \FILE_APPEND
+                        str_pad($server->name, static::$maxServerNameLength) . " " . str_pad("0", 16) . " 0\n",
+                        FILE_APPEND
                     );
                 }
             }
             file_put_contents(
                 static::$statisticsFile,
                 "----------------------------------------------PROCESS STATUS---------------------------------------------------\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
@@ -2017,19 +2096,19 @@ class Server
                     'server_name',
                     static::$maxServerNameLength
                 ) . " connections " . str_pad('send_fail', 9) . " "
-                    . str_pad('timers', 8) . str_pad('total_request', 13) . " qps    status\n",
-                \FILE_APPEND
+                . str_pad('timers', 8) . str_pad('total_request', 13) . " qps    status\n",
+                FILE_APPEND
             );
 
             chmod(static::$statisticsFile, 0722);
 
             foreach (static::getAllServerPids() as $serverPid) {
-                posix_kill($serverPid, \SIGIOT);
+                static::sendSignal($serverPid, SIGIOT);
             }
             return;
         }
 
-        // For child processes.
+        // Для дочерних процессов.
         gc_collect_cycles();
         if (function_exists('gc_mem_caches')) {
             gc_mem_caches();
@@ -2038,43 +2117,43 @@ class Server
         /** @var static $server */
         $server = current(static::$servers);
         $serverStatusStr = posix_getpid() . "\t" . str_pad(round(memory_get_usage() / (1024 * 1024), 2) . "M", 7)
-            . " " . str_pad((string)$server->getSocketName(), static::$maxSocketNameLength) . " "
-            . str_pad((string)($server->name === $server->getSocketName() ? 'none' : $server->name), static::$maxServerNameLength)
+            . " " . str_pad($server->getSocketName(), static::$maxSocketNameLength) . " "
+            . str_pad(($server->name === $server->getSocketName() ? 'none' : $server->name), static::$maxServerNameLength)
             . " ";
         $serverStatusStr .= str_pad((string)ConnectionInterface::$statistics['connection_count'], 11)
             . " " . str_pad((string)ConnectionInterface::$statistics['send_fail'], 9)
             . " " . str_pad((string)static::$globalEvent->getTimerCount(), 7)
             . " " . str_pad((string)ConnectionInterface::$statistics['total_request'], 13) . "\n";
-        file_put_contents(static::$statisticsFile, $serverStatusStr, \FILE_APPEND);
+        file_put_contents(static::$statisticsFile, $serverStatusStr, FILE_APPEND);
     }
 
     /**
-     * Write statistics data to disk.
+     * Запись данных статистики соединений на диск.
      *
      * @return void
      */
     protected static function writeConnectionsStatisticsToStatusFile(): void
     {
-        // For master process.
+        // Для мастер-процесса.
         if (static::$masterPid === posix_getpid()) {
             file_put_contents(
                 static::$statisticsFile,
-                "--------------------------------------------------------------------- WEBCORE CONNECTION STATUS --------------------------------------------------------------------------------\n",
-                \FILE_APPEND
+                "--------------------------------------------------------------------- SERVER CONNECTION STATUS --------------------------------------------------------------------------------\n",
+                FILE_APPEND
             );
             file_put_contents(
                 static::$statisticsFile,
                 "PID      Server          CID       Trans   Protocol        ipv4   ipv6   Recv-Q       Send-Q       Bytes-R      Bytes-W       Status         Local Address          Foreign Address\n",
-                \FILE_APPEND
+                FILE_APPEND
             );
             chmod(static::$statisticsFile, 0722);
             foreach (static::getAllServerPids() as $serverPid) {
-                posix_kill($serverPid, \SIGIO);
+                static::sendSignal($serverPid, SIGIO);
             }
             return;
         }
 
-        // For child processes.
+        // Для дочерних процессов.
         $bytesFormat = function ($bytes) {
             if ($bytes > 1024 * 1024 * 1024 * 1024) {
                 return round($bytes / (1024 * 1024 * 1024 * 1024), 1) . 'TB';
@@ -2097,7 +2176,6 @@ class Server
         $currentServer = current(static::$servers);
         $defaultServerName = $currentServer->name;
 
-        /** @var static $server */
         foreach (TcpConnection::$connections as $connection) {
             /** @var TcpConnection $connection */
             $transport = $connection->transport;
@@ -2123,32 +2201,32 @@ class Server
             if (strlen($serverName) > 14) {
                 $serverName = substr($serverName, 0, 12) . '..';
             }
-            $str .= str_pad((string)$pid, 9) . str_pad((string)$serverName, 16) . str_pad((string)$id, 10) . str_pad((string)$transport, 8)
-                . str_pad((string)$protocol, 16) . str_pad((string)$ipv4, 7) . str_pad((string)$ipv6, 7) . str_pad((string)$recvQ, 13)
-                . str_pad((string)$sendQ, 13) . str_pad((string)$bytesRead, 13) . str_pad((string)$bytesWritten, 13) . ' '
-                . str_pad((string)$state, 14) . ' ' . str_pad((string)$localAddress, 22) . ' ' . str_pad((string)$remoteAddress, 22) . "\n";
+            $str .= str_pad((string)$pid, 9) . str_pad($serverName, 16) . str_pad((string)$id, 10) . str_pad($transport, 8)
+                . str_pad($protocol, 16) . str_pad($ipv4, 7) . str_pad($ipv6, 7) . str_pad($recvQ, 13)
+                . str_pad($sendQ, 13) . str_pad($bytesRead, 13) . str_pad($bytesWritten, 13) . ' '
+                . str_pad($state, 14) . ' ' . str_pad($localAddress, 22) . ' ' . str_pad($remoteAddress, 22) . "\n";
         }
         if ($str) {
-            file_put_contents(static::$statisticsFile, $str, \FILE_APPEND);
+            file_put_contents(static::$statisticsFile, $str, FILE_APPEND);
         }
     }
 
     /**
-     * Check errors when current process exited.
+     * Проверка ошибок при завершении дочернего процесса.
      *
      * @return void
      */
     public static function checkErrors(): void
     {
         if (static::STATUS_SHUTDOWN !== static::$status) {
-            $errorMsg = \DIRECTORY_SEPARATOR === '/' ? 'WebCore [' . posix_getpid() . '] процесс завершен' : 'Серверный процесс завершен';
+            $errorMsg = DIRECTORY_SEPARATOR === '/' ? 'Localzet Server [' . posix_getpid() . '] процесс завершен' : 'Серверный процесс завершен';
             $errors = error_get_last();
             if (
-                $errors && ($errors['type'] === \E_ERROR ||
-                    $errors['type'] === \E_PARSE ||
-                    $errors['type'] === \E_CORE_ERROR ||
-                    $errors['type'] === \E_COMPILE_ERROR ||
-                    $errors['type'] === \E_RECOVERABLE_ERROR)
+                $errors && ($errors['type'] === E_ERROR ||
+                    $errors['type'] === E_PARSE ||
+                    $errors['type'] === E_CORE_ERROR ||
+                    $errors['type'] === E_COMPILE_ERROR ||
+                    $errors['type'] === E_RECOVERABLE_ERROR)
             ) {
                 $errorMsg .= ' с ошибкой: ' . static::getErrorType($errors['type']) . " \"{$errors['message']} в файле {$errors['file']} на {$errors['line']} строке\"";
             }
@@ -2157,7 +2235,7 @@ class Server
     }
 
     /**
-     * Get error message by error code.
+     * Сообщение об ошибке по коду ошибки.
      *
      * @param int $type
      * @return string
@@ -2168,30 +2246,32 @@ class Server
     }
 
     /**
-     * Log.
+     * Журналирование.
      *
      * @param mixed $msg
+     * @param bool $decorated
      * @return void
      */
-    public static function log(mixed $msg): void
+    public static function log(mixed $msg, bool $decorated = false): void
     {
-        $msg = $msg . "\n";
+        $msg .= "\n";
         if (!static::$daemonize) {
-            static::safeEcho($msg);
+            static::safeEcho($msg, $decorated);
         }
         file_put_contents(static::$logFile, date('Y-m-d H:i:s') . ' ' . 'pid:'
-            . (\DIRECTORY_SEPARATOR === '/' ? posix_getpid() : 1) . ' ' . $msg, \FILE_APPEND | \LOCK_EX);
+            . (DIRECTORY_SEPARATOR === '/' ? posix_getpid() : 1) . ' ' . $msg, FILE_APPEND | LOCK_EX);
     }
 
     /**
-     * Safe Echo.
+     * Безопасный вывод.
+     *
      * @param string $msg
      * @param bool $decorated
      * @return bool
      */
     public static function safeEcho(string $msg, bool $decorated = false): bool
     {
-        $stream = static::outputStream();
+        $stream = self::outputStream();
         if (!$stream) {
             return false;
         }
@@ -2208,8 +2288,8 @@ class Server
         } elseif (!static::$outputDecorated) {
             return false;
         }
-        \fwrite($stream, $msg);
-        \fflush($stream);
+        fwrite($stream, $msg);
+        fflush($stream);
         return true;
     }
 
@@ -2220,9 +2300,10 @@ class Server
     private static function outputStream($stream = null)
     {
         if (!$stream) {
-            $stream = static::$outputStream ?: \STDOUT;
+            $stream = static::$outputStream ?: STDOUT;
         }
-        if (!$stream || !is_resource($stream) || 'stream' !== \get_resource_type($stream)) {
+        // @phpstan-ignore-next-line Negated boolean expression is always false.
+        if (!$stream || !is_resource($stream) || 'stream' !== get_resource_type($stream)) {
             return false;
         }
         $stat = fstat($stream);
@@ -2234,7 +2315,7 @@ class Server
             static::$outputDecorated = false;
         } else {
             static::$outputDecorated =
-                \DIRECTORY_SEPARATOR === '/' && // linux or unix
+                DIRECTORY_SEPARATOR === '/' && // linux or unix
                 function_exists('posix_isatty') &&
                 posix_isatty($stream); // whether is interactive terminal
         }
@@ -2242,40 +2323,41 @@ class Server
     }
 
     /**
-     * Construct.
+     * Конструктор.
      *
      * @param string|null $socketName
-     * @param array $contextOption
+     * @param array $socketContext
      */
-    public function __construct(string $socketName = null, array $contextOption = [])
+    public function __construct(string $socketName = null, array $socketContext = [])
     {
-        // Save all server instances.
+        // Сохранение всех экземпляров сервера.
         $this->serverId = spl_object_hash($this);
+        $this->context = new stdClass();
         static::$servers[$this->serverId] = $this;
         static::$pidMap[$this->serverId] = [];
 
-        // Context for socket.
+        // Контекст для сокета.
         if ($socketName) {
             $this->socketName = $socketName;
-            if (!isset($contextOption['socket']['backlog'])) {
-                $contextOption['socket']['backlog'] = static::DEFAULT_BACKLOG;
+            if (!isset($socketContext['socket']['backlog'])) {
+                $socketContext['socket']['backlog'] = static::DEFAULT_BACKLOG;
             }
-            $this->context = stream_context_create($contextOption);
+            $this->socketContext = stream_context_create($socketContext);
         }
 
-        // Try to turn reusePort on.
-        /*if (\DIRECTORY_SEPARATOR === '/'  // if linux
+        // Попытка включить опцию reusePort.
+        /*if (DIRECTORY_SEPARATOR === '/'  // если это Linux
             && $socketName
-            && version_compare(php_uname('r'), '3.9', 'ge') // if kernel >=3.9
-            && strtolower(php_uname('s')) !== 'darwin' // if not Mac OS
-            && strpos($socketName,'unix') !== 0 // if not unix socket
-            && strpos($socketName,'udp') !== 0) { // if not udp socket
-            
+            && version_compare(php_uname('r'), '3.9', 'ge') // если версия ядра >= 3.9
+            && strtolower(php_uname('s')) !== 'darwin' // если не Mac OS
+            && strpos($socketName, 'unix') !== 0 // если не unix-сокет
+            && strpos($socketName, 'udp') !== 0) { // если не udp-сокет
+
             $address = parse_url($socketName);
             if (isset($address['host']) && isset($address['port'])) {
                 try {
-                    set_error_handler(function(){});
-                    // If address not in use, turn reusePort on automatically.
+                    set_error_handler(function () {});
+                    // Если адрес не используется, автоматически включаем опцию reusePort.
                     $server = stream_socket_server("tcp://{$address['host']}:{$address['port']}");
                     if ($server) {
                         $this->reusePort = true;
@@ -2288,7 +2370,7 @@ class Server
     }
 
     /**
-     * Listen.
+     * Слушать (начать прослушивание соединений).
      *
      * @throws Exception
      */
@@ -2302,17 +2384,17 @@ class Server
 
             $localSocket = $this->parseSocketAddress();
 
-            // Flag.
-            $flags = $this->transport === 'udp' ? \STREAM_SERVER_BIND : \STREAM_SERVER_BIND | \STREAM_SERVER_LISTEN;
+            // Флаги.
+            $flags = $this->transport === 'udp' ? STREAM_SERVER_BIND : STREAM_SERVER_BIND | STREAM_SERVER_LISTEN;
             $errno = 0;
             $errmsg = '';
             // SO_REUSEPORT.
             if ($this->reusePort) {
-                stream_context_set_option($this->context, 'socket', 'so_reuseport', 1);
+                stream_context_set_option($this->socketContext, 'socket', 'so_reuseport', 1);
             }
 
-            // Create an Internet or Unix domain server socket.
-            $this->mainSocket = stream_socket_server($localSocket, $errno, $errmsg, $flags, $this->context);
+            // Создать сокет сервера для интернета или домена Unix.
+            $this->mainSocket = stream_socket_server($localSocket, $errno, $errmsg, $flags, $this->socketContext);
             if (!$this->mainSocket) {
                 throw new Exception($errmsg);
             }
@@ -2329,17 +2411,17 @@ class Server
                 }
             }
 
-            // Try to open keepalive for tcp and disable Nagle algorithm.
+            // Попытка открыть keepalive для TCP и отключить алгоритм Nagle.
             if (function_exists('socket_import_stream') && self::BUILD_IN_TRANSPORTS[$this->transport] === 'tcp') {
                 set_error_handler(function () {
                 });
                 $socket = socket_import_stream($this->mainSocket);
-                socket_set_option($socket, \SOL_SOCKET, \SO_KEEPALIVE, 1);
-                socket_set_option($socket, \SOL_TCP, \TCP_NODELAY, 1);
+                socket_set_option($socket, SOL_SOCKET, SO_KEEPALIVE, 1);
+                socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
                 restore_error_handler();
             }
 
-            // Non blocking.
+            // Неблокирующий режим.
             stream_set_blocking($this->mainSocket, false);
         }
 
@@ -2347,7 +2429,7 @@ class Server
     }
 
     /**
-     * Unlisten.
+     * Отключить прослушивание.
      *
      * @return void
      */
@@ -2364,7 +2446,7 @@ class Server
     }
 
     /**
-     * Parse local socket address.
+     * Разбор локального адреса сокета.
      *
      * @throws Exception
      */
@@ -2373,31 +2455,31 @@ class Server
         if (!$this->socketName) {
             return null;
         }
-        // Get the application layer communication protocol and listening address.
-        list($scheme, $address) = explode(':', $this->socketName, 2);
-        // Check application layer protocol class.
+        // Получить протокол обмена данными и адрес прослушивания.
+        [$scheme, $address] = explode(':', $this->socketName, 2);
+        // Проверить класс протокола обмена данными.
         if (!isset(self::BUILD_IN_TRANSPORTS[$scheme])) {
             $scheme = ucfirst($scheme);
             $this->protocol = $scheme[0] === '\\' ? $scheme : 'Protocols\\' . $scheme;
             if (!class_exists($this->protocol)) {
                 $this->protocol = "localzet\\Server\\Protocols\\$scheme";
                 if (!class_exists($this->protocol)) {
-                    throw new RuntimeException("Класс \\Protocols\\$scheme Не существует");
+                    throw new RuntimeException("Класс \\Protocols\\$scheme не существует");
                 }
             }
 
             if (!isset(self::BUILD_IN_TRANSPORTS[$this->transport])) {
-                throw new RuntimeException('Некорректный server->transport ' . var_export($this->transport, true));
+                throw new RuntimeException('Некорректное значение server->transport: ' . var_export($this->transport, true));
             }
         } else if ($this->transport === 'tcp') {
             $this->transport = $scheme;
         }
-        //local socket
+        // Локальный сокет
         return self::BUILD_IN_TRANSPORTS[$this->transport] . ":" . $address;
     }
 
     /**
-     * Pause accept new connections.
+     * Приостановить принятие новых соединений.
      *
      * @return void
      */
@@ -2410,13 +2492,13 @@ class Server
     }
 
     /**
-     * Resume accept new connections.
+     * Возобновить прием новых соединений.
      *
      * @return void
      */
     public function resumeAccept(): void
     {
-        // Register a listener to be notified when server socket is ready to read.
+        // Зарегистрировать слушателя для оповещения о готовности серверного сокета к чтению.
         if (static::$globalEvent && true === $this->pauseAccept && $this->mainSocket) {
             if ($this->transport !== 'udp') {
                 static::$globalEvent->onReadable($this->mainSocket, [$this, 'acceptTcpConnection']);
@@ -2434,69 +2516,40 @@ class Server
      */
     public function getSocketName(): string
     {
-        return $this->socketName ? \lcfirst($this->socketName) : 'none';
+        return $this->socketName ? lcfirst($this->socketName) : 'none';
     }
 
     /**
-     * Run server instance.
+     * Запустить экземпляр сервера.
      *
      * @return void
+     * @throws Throwable
      */
     public function run(): void
     {
-        //Update process state.
-        static::$status = static::STATUS_RUNNING;
+        $this->listen();
 
-        // Register shutdown function for checking errors.
-        \register_shutdown_function(["\\localzet\\Server\\Server", 'checkErrors']);
-
-        // Create a global event loop.
-        if (!static::$globalEvent) {
-            $eventLoopClass = static::getEventLoopName();
-            static::$globalEvent = new $eventLoopClass;
-            static::$globalEvent->setErrorHandler(function ($exception) {
-                static::stopAll(250, $exception);
-            });
-            $this->resumeAccept();
-        }
-
-        // Reinstall signal.
-        static::reinstallSignal();
-
-        // Init Timer.
-        Timer::init(static::$globalEvent);
-
-        // Set an empty onMessage callback.
-        if (empty($this->onMessage)) {
-            $this->onMessage = function () {
-            };
-        }
-
-        restore_error_handler();
-
-        // Try to emit onServerStart callback.
+        // Попытаться вызвать обратный вызов onServerStart.
         if ($this->onServerStart) {
             try {
                 ($this->onServerStart)($this);
             } catch (Throwable $e) {
-                // Avoid rapid infinite loop exit.
+                // Избежать быстрого бесконечного выхода из цикла.
                 sleep(1);
                 static::stopAll(250, $e);
             }
         }
-
-        // Main loop.
-        static::$globalEvent->run();
     }
 
     /**
-     * Stop current server instance.
+     * Остановить текущий экземпляр сервера.
      *
      * @return void
+     * @throws Throwable
      */
     public function stop(): void
     {
-        // Try to emit onServerStop callback.
+        // Попробовать вызвать обратный вызов onServerStop.
         if ($this->onServerStop) {
             try {
                 ($this->onServerStop)($this);
@@ -2504,38 +2557,48 @@ class Server
                 static::log($e);
             }
         }
-        // Remove listener for server socket.
+
+        // Удалить слушателя для сокета сервера.
         $this->unlisten();
-        // Close all connections for the server.
-        if (!static::$gracefulStop) {
+
+        // Закрыть все соединения для сервера.
+        if (static::$gracefulStop) {
             foreach ($this->connections as $connection) {
                 $connection->close();
             }
         }
-        // Clear callback.
+
+        // Remove server.
+        foreach (static::$servers as $key => $one_server) {
+            if ($one_server->serverId === $this->serverId) {
+                unset(static::$servers[$key]);
+            }
+        }
+
+        // Очистить обратные вызовы.
         $this->onMessage = $this->onClose = $this->onError = $this->onBufferDrain = $this->onBufferFull = null;
     }
 
     /**
-     * Accept a connection.
+     * Принять TCP-Соединение.
      *
      * @param resource $socket
      * @return void
      */
     public function acceptTcpConnection($socket): void
     {
-        // Accept a connection on server socket.
+        // Принять соединение на сокете сервера.
         set_error_handler(function () {
         });
-        $newSocket = \stream_socket_accept($socket, 0, $remoteAddress);
+        $newSocket = stream_socket_accept($socket, 0, $remoteAddress);
         restore_error_handler();
 
-        // Thundering herd.
+        // "Громовое стадо".
         if (!$newSocket) {
             return;
         }
 
-        // TcpConnection.
+        // TCP-Соединение.
         $connection = new TcpConnection(static::$globalEvent, $newSocket, $remoteAddress);
         $this->connections[$connection->id] = $connection;
         $connection->server = $this;
@@ -2547,7 +2610,7 @@ class Server
         $connection->onBufferDrain = $this->onBufferDrain;
         $connection->onBufferFull = $this->onBufferFull;
 
-        // Try to emit onConnect callback.
+        // Попытка вызвать обратный вызов onConnect.
         if ($this->onConnect) {
             try {
                 ($this->onConnect)($connection);
@@ -2558,30 +2621,34 @@ class Server
     }
 
     /**
-     * For udp package.
+     * Принять UPD-Соединение.
      *
      * @param resource $socket
      * @return bool
+     * @throws Throwable
      */
     public function acceptUdpConnection($socket): bool
     {
+        // Принять соединение на сокете сервера.
         set_error_handler(function () {
         });
-        $recvBuffer = \stream_socket_recvfrom($socket, UdpConnection::MAX_UDP_PACKAGE_SIZE, 0, $remoteAddress);
+        $recvBuffer = stream_socket_recvfrom($socket, UdpConnection::MAX_UDP_PACKAGE_SIZE, 0, $remoteAddress);
         restore_error_handler();
         if (false === $recvBuffer || empty($remoteAddress)) {
             return false;
         }
-        // UdpConnection.
+
+        // UPD-Соединение.
         $connection = new UdpConnection($socket, $remoteAddress);
         $connection->protocol = $this->protocol;
-        $messageCb = $this->onMessage;
-        if ($messageCb) {
+        $messageCallback = $this->onMessage;
+        if ($messageCallback) {
             try {
                 if ($this->protocol !== null) {
                     /** @var ProtocolInterface $parser */
                     $parser = $this->protocol;
-                    if ($parser && \method_exists($parser, 'input')) {
+                    // @phpstan-ignore-next-line Left side of && is always true.
+                    if ($parser && method_exists($parser, 'input')) {
                         while ($recvBuffer !== '') {
                             $len = $parser::input($recvBuffer, $connection);
                             if ($len === 0) {
@@ -2593,18 +2660,18 @@ class Server
                             if ($data === false) {
                                 continue;
                             }
-                            $messageCb($connection, $data);
+                            $messageCallback($connection, $data);
                         }
                     } else {
                         $data = $parser::decode($recvBuffer, $connection);
-                        // Discard bad packets.
+                        // Отбрасывать плохие пакеты.
                         if ($data === false) {
                             return true;
                         }
-                        $messageCb($connection, $data);
+                        $messageCallback($connection, $data);
                     }
                 } else {
-                    $messageCb($connection, $recvBuffer);
+                    $messageCallback($connection, $recvBuffer);
                 }
                 ++ConnectionInterface::$statistics['total_request'];
             } catch (Throwable $e) {
@@ -2615,7 +2682,7 @@ class Server
     }
 
     /**
-     * Check master process is alive
+     * Проверка, жив ли мастер-процесс.
      *
      * @param int $masterPid
      * @return bool
@@ -2632,7 +2699,7 @@ class Server
         }
 
         $cmdline = "/proc/$masterPid/cmdline";
-        if (!is_readable($cmdline) || empty(static::$processTitle)) {
+        if (!is_readable($cmdline)) {
             return true;
         }
 
@@ -2641,6 +2708,6 @@ class Server
             return true;
         }
 
-        return stripos($content, static::$processTitle) !== false || stripos($content, 'php') !== false;
+        return stripos($content, 'Localzet Server') !== false || stripos($content, 'php') !== false;
     }
 }

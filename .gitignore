@@ -26,6 +26,8 @@ $RECYCLE.BIN/
 *.sass.map
 *.scss.map
 
+phpunit.xml
+/phpstan.neon
 composer.phar
 composer.lock
 /vendor/

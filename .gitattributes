@@ -1,4 +1,6 @@
-* text=auto
-/.gitattributes export-ignore
-/.github export-ignore
-/.gitignore export-ignore
+/.gitattributes     export-ignore
+/.github/           export-ignore
+/.gitignore         export-ignore
+/phpunit.xml.dist   export-ignore
+/tests/             export-ignore
+/phpstan.neon.dist  export-ignore
