@@ -28,7 +28,8 @@
   ],
   "require": {
     "php": ">=8.2",
-    "ext-json": "*"
+    "ext-json": "*",
+    "localzet/psr": ">=1.0"
   },
   "suggest": {
     "ext-uv": "For better performance",
