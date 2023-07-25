@@ -27,8 +27,7 @@ declare(strict_types=1);
 namespace localzet\Server\Protocols;
 
 use localzet\Server;
-use localzet\Server\Connection\AsyncTcpConnection;
-use localzet\Server\Connection\ConnectionInterface;
+use localzet\Server\Connection\{AsyncTcpConnection, ConnectionInterface};
 use localzet\Server\Protocols\Http\Response;
 use localzet\Timer;
 use Throwable;

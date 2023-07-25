@@ -8,13 +8,13 @@ use Closure;
 use Error;
 use Event;
 use EventBase;
-use localzet\Server\Events\Linux\Internal\AbstractDriver;
-use localzet\Server\Events\Linux\Internal\DriverCallback;
-use localzet\Server\Events\Linux\Internal\SignalCallback;
-use localzet\Server\Events\Linux\Internal\StreamCallback;
-use localzet\Server\Events\Linux\Internal\StreamReadableCallback;
-use localzet\Server\Events\Linux\Internal\StreamWritableCallback;
-use localzet\Server\Events\Linux\Internal\TimerCallback;
+use localzet\Server\Events\Linux\Internal\{AbstractDriver,
+    DriverCallback,
+    SignalCallback,
+    StreamCallback,
+    StreamReadableCallback,
+    StreamWritableCallback,
+    TimerCallback};
 use function assert;
 use function extension_loaded;
 use function hrtime;
@@ -105,9 +105,7 @@ final class EventDriver extends AbstractDriver
     public function __destruct()
     {
         foreach ($this->events as $event) {
-            if ($event !== null) { // Events may have been nulled in extension depending on destruct order.
-                $event->free();
-            }
+            $event?->free();
         }
 
         // Unset here, otherwise $event->del() fails with a warning, because __destruct order isn't defined.
@@ -238,7 +236,7 @@ final class EventDriver extends AbstractDriver
 
             if ($callback instanceof TimerCallback) {
                 $interval = min(max(0, $callback->expiration - $now), PHP_INT_MAX / 2);
-                $this->events[$id]->add($interval > 0 ? $interval : 0);
+                $this->events[$id]->add(max($interval, 0));
             } elseif ($callback instanceof SignalCallback) {
                 $this->signals[$id] = $this->events[$id];
                 /** @psalm-suppress TooFewArguments https://github.com/JetBrains/phpstorm-stubs/pull/763 */

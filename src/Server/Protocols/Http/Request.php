@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace localzet\Server\Protocols\Http;
 
 use Exception;
+use localzet\PSR\Http\Message\RequestInterface;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http;
 use RuntimeException;
@@ -61,7 +62,7 @@ use function urlencode;
  * @property mixed|string $sid
  * @package localzet\Server\Protocols\Http
  */
-class Request implements Stringable
+class Request implements Stringable, RequestInterface
 {
     /**
      * @var int
@@ -108,7 +109,7 @@ class Request implements Stringable
      *
      * @var bool
      */
-    protected $isSafe = true;
+    protected bool $isSafe = true;
     /**
      * Session id.
      *
@@ -236,6 +237,58 @@ class Request implements Stringable
             return $this->data['post'];
         }
         return $this->data['post'][$name] ?? $default;
+    }
+
+    /**
+     * @param string $name
+     * @param mixed|null $default
+     * @return mixed|null
+     */
+    public function input(string $name, mixed $default = null): mixed
+    {
+        $post = $this->post();
+        if (isset($post[$name])) {
+            return $post[$name];
+        }
+        $get = $this->get();
+        return $get[$name] ?? $default;
+    }
+
+    /**
+     * @param array $keys
+     * @return array
+     */
+    public function only(array $keys): array
+    {
+        $all = $this->all();
+        $result = [];
+        foreach ($keys as $key) {
+            if (isset($all[$key])) {
+                $result[$key] = $all[$key];
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * @return mixed|null
+     */
+    public function all(): mixed
+    {
+        return $this->post() + $this->get();
+    }
+
+    /**
+     * @param array $keys
+     * @return mixed|null
+     */
+    public function except(array $keys): mixed
+    {
+        $all = $this->all();
+        foreach ($keys as $key) {
+            unset($all[$key]);
+        }
+        return $all;
     }
 
     /**
@@ -484,7 +537,7 @@ class Request implements Stringable
      * @param string|null $name
      * @return array|null
      */
-    public function file(string $name = null)
+    public function file(string $name = null): ?array
     {
         if (!isset($this->data['files'])) {
             $this->parsePost();
@@ -493,6 +546,54 @@ class Request implements Stringable
             return $this->data['files'];
         }
         return $this->data['files'][$name] ?? null;
+    }
+
+    /**
+     * @return string
+     */
+    public function url(): string
+    {
+        return '//' . $this->host() . $this->path();
+    }
+
+    /**
+     * @return string
+     */
+    public function fullUrl(): string
+    {
+        return '//' . $this->host() . $this->uri();
+    }
+
+    /**
+     * @return bool
+     */
+    public function expectsJson(): bool
+    {
+        return ($this->isAjax() && !$this->isPjax()) || $this->acceptJson() || strtoupper($this->method()) != 'GET';
+    }
+
+    /**
+     * @return bool
+     */
+    public function isAjax(): bool
+    {
+        return $this->header('X-Requested-With') === 'XMLHttpRequest';
+    }
+
+    /**
+     * @return bool
+     */
+    public function isPjax(): bool
+    {
+        return (bool)$this->header('X-PJAX');
+    }
+
+    /**
+     * @return bool
+     */
+    public function acceptJson(): bool
+    {
+        return str_contains($this->header('accept', ''), 'json');
     }
 
     /**

@@ -158,7 +158,7 @@ final class DriverSuspension implements Suspension
     private function formatStacktrace(array $trace): string
     {
         return implode("\n", array_map(static function ($e, $i) {
-            $line = "#{$i} ";
+            $line = "#$i ";
 
             if (isset($e["file"])) {
                 $line .= "{$e['file']}:{$e['line']} ";

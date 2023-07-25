@@ -28,8 +28,7 @@ namespace localzet\Server\Protocols;
 
 use Exception;
 use localzet\Server;
-use localzet\Server\Connection\ConnectionInterface;
-use localzet\Server\Connection\TcpConnection;
+use localzet\Server\Connection\{ConnectionInterface, TcpConnection};
 use localzet\Server\Protocols\Http\Request;
 use Throwable;
 use function base64_encode;

@@ -31,35 +31,27 @@ namespace localzet\Server\Protocols\Http;
  */
 class Ja3
 {
-    /**
-     * @var array|int[]
-     */
-    static array $GREASE_TABELE = [
-        2570, //(0x0A0A)
-        6682, //(0x1A1A)
-        10794, //(0x2A2A)
-        14906, //(0x3A3A)
-        19018, //(0x4A4A)
-        23130, //(0x5A5A)
-        27242, //(0x6A6A)
-        31354, //(0x7A7A)
-        35466, //(0x8A8A)
-        39578, //(0x9A9A)
-        43690, //(0xAAAA)
-        47802, //(0xBABA)
-        51914, //(0xCACA)
-        56026, //(0xDADA)
-        60138, //(0xEAEA)
-        64250, //(0xFAFA)
+    static $GREASE_TABELE = [
+        2570,//(0x0A0A)
+        6682,//(0x1A1A)
+        10794,//(0x2A2A)
+        14906,//(0x3A3A)
+        19018,//(0x4A4A)
+        23130,//(0x5A5A)
+        27242,//(0x6A6A)
+        31354,//(0x7A7A)
+        35466,//(0x8A8A)
+        39578,//(0x9A9A)
+        43690,//(0xAAAA)
+        47802,//(0xBABA)
+        51914,//(0xCACA)
+        56026,//(0xDADA)
+        60138,//(0xEAEA)
+        64250,//(0xFAFA)
     ];
 
-    /**
-     * @param $tcp_data
-     * @return false|array
-     */
-    public static function get($tcp_data): false|array
+    public static function get($tcp_data)
     {
-
         $BinaryStream = new BinaryStream();
         $BinaryStream->setContent($tcp_data);
         $ret = [];
@@ -67,7 +59,7 @@ class Ja3
         $ret += $BinaryStream->unpack([
             'tls.record.type' => BinaryStream::uint8,
         ]);
-        //    echo $ret['tls.record.type'].PHP_EOL;
+//    echo $ret['tls.record.type'].PHP_EOL;
         if ($ret['tls.record.type'] == 22) {
 
             $ret += $BinaryStream->unpack([
@@ -96,6 +88,7 @@ class Ja3
                     'tls.handshake.compression_methods' => BinaryStream::uint8,
                     'tls.handshake.extensions_length' => BinaryStream::uint16,
                 ]);
+
             } else {
                 if ($ret['tls.handshake.type'] == 2) {
                     // server hello
@@ -161,62 +154,52 @@ class Ja3
                     $EllipticCurvePointFormat = $EllipticCurvePointFormat_data['ec_point_formats_data'];
                 }
             }
-            ////      get $server_name
-            //        $server_name = '';
-            //        if(!empty($extensions_arr_by_type['0'])){
-            //            $length = $extensions_arr_by_type['0']['length'];
-            //            $offset = $extensions_arr_by_type['0']['offset'];
-            //            if($length>=2){
-            //                $cnt = $length -1;
-            //                $BinaryStream->setOffset($offset);
-            //                $server_name_data = $BinaryStream->unpack([
-            //                    'server_name_list'=>BinaryStream::uint16,
-            //                    'server_name_type'=>BinaryStream::uint8,
-            //                    'server_name_length'=>BinaryStream::uint16,
-            //                ]);
-            //                $server_name_data += $BinaryStream->unpack([
-            //                    'server_name'=>[BinaryStream::char,$server_name_data['server_name_length']],
-            //                ]);
-            //
-            //                $server_name = $server_name_data['server_name'];
-            ////                var_dump(__FILE__.' line:'.__LINE__,$server_name_data['server_name_length'],$server_name);
-            //            }
-            //        }
+////      get $server_name
+//        $server_name = '';
+//        if(!empty($extensions_arr_by_type['0'])){
+//            $length = $extensions_arr_by_type['0']['length'];
+//            $offset = $extensions_arr_by_type['0']['offset'];
+//            if($length>=2){
+//                $cnt = $length -1;
+//                $BinaryStream->setOffset($offset);
+//                $server_name_data = $BinaryStream->unpack([
+//                    'server_name_list'=>BinaryStream::uint16,
+//                    'server_name_type'=>BinaryStream::uint8,
+//                    'server_name_length'=>BinaryStream::uint16,
+//                ]);
+//                $server_name_data += $BinaryStream->unpack([
+//                    'server_name'=>[BinaryStream::char,$server_name_data['server_name_length']],
+//                ]);
+//
+//                $server_name = $server_name_data['server_name'];
+////                var_dump(__FILE__.' line:'.__LINE__,$server_name_data['server_name_length'],$server_name);
+//            }
+//        }
 
-            ////         get $session_id
-            //        $session_id = [];
-            //        if(!empty($ret['tls.handshake.session_id'])){
-            //            array_walk($ret['tls.handshake.session_id'],function(&$v){
-            //                $v = sprintf('%02x',$v);
-            //
-            //            });
-            //            $session_id = $ret['tls.handshake.session_id'];
-            //        }
+////         get $session_id
+//        $session_id = [];
+//        if(!empty($ret['tls.handshake.session_id'])){
+//            array_walk($ret['tls.handshake.session_id'],function(&$v){
+//                $v = sprintf('%02x',$v);
+//
+//            });
+//            $session_id = $ret['tls.handshake.session_id'];
+//        }
 
             //$ja3_arr The field order is as follows
             //SSLVersion,Cipher,SSLExtension,EllipticCurve,EllipticCurvePointFormat
             $ja3_arr[] = $ret['tls.handshake.version'];
-            $ja3_arr[] = empty($ret['tls.handshake.ciphersuites']) ? '' : implode(
-                '-',
-                $ret['tls.handshake.ciphersuites'] = array_diff(
-                    $ret['tls.handshake.ciphersuites'],
-                    self::$GREASE_TABELE
-                )
-            );
-            $ja3_arr[] = empty($extensions_type_arr) ? '' : implode(
-                '-',
-                array_diff($extensions_type_arr, self::$GREASE_TABELE)
-            );
+            $ja3_arr[] = empty($ret['tls.handshake.ciphersuites']) ? '' : implode('-',
+                $ret['tls.handshake.ciphersuites'] = array_diff($ret['tls.handshake.ciphersuites'],
+                    self::$GREASE_TABELE));
+            $ja3_arr[] = empty($extensions_type_arr) ? '' : implode('-',
+                array_diff($extensions_type_arr, self::$GREASE_TABELE));
             if ($ret['tls.handshake.type'] == 1) {
 
-                $ja3_arr[] = empty($EllipticCurve) ? '' : implode(
-                    '-',
-                    array_diff($EllipticCurve, self::$GREASE_TABELE)
-                );
-                $ja3_arr[] = empty($EllipticCurvePointFormat) ? '' : implode(
-                    '-',
-                    array_diff($EllipticCurvePointFormat, self::$GREASE_TABELE)
-                );
+                $ja3_arr[] = empty($EllipticCurve) ? '' : implode('-',
+                    array_diff($EllipticCurve, self::$GREASE_TABELE));
+                $ja3_arr[] = empty($EllipticCurvePointFormat) ? '' : implode('-',
+                    array_diff($EllipticCurvePointFormat, self::$GREASE_TABELE));
                 $ja3_str = implode(',', $ja3_arr);
 
                 return [
@@ -224,9 +207,10 @@ class Ja3
                     'tls.handshake.type' => $ret['tls.handshake.type'],
                     'ja3_str' => $ja3_str,
                     'ja3' => md5($ja3_str),
-                    'session_ticket' => !empty($extensions_arr_by_type['35']) && $extensions_arr_by_type['35']['length'] > 0,
-                    // 'session_id'=>trim(implode('',$session_id)),
-                    // 'server_name'=>trim($server_name),
+                    'session_ticket' => empty($extensions_arr_by_type['35']) ? false : ($extensions_arr_by_type['35']['length']
+                        > 0),
+//                'session_id'=>trim(implode('',$session_id)),
+//                'server_name'=>trim($server_name),
                 ];
             } else {
                 $ja3s_str = implode(',', $ja3_arr);
@@ -236,7 +220,7 @@ class Ja3
                     'tls.handshake.type' => $ret['tls.handshake.type'],
                     'ja3s_str' => $ja3s_str,
                     'ja3s' => md5($ja3s_str),
-                    // 'session_id'=>trim(implode('',$session_id)),
+//                'session_id'=>trim(implode('',$session_id)),
                 ];
             }
         } else {
@@ -245,4 +229,5 @@ class Ja3
 
         return false;
     }
+
 }

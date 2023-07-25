@@ -28,14 +28,14 @@ namespace localzet\Server\Events;
 
 use Closure;
 use Error;
-use localzet\Server\Events\Linux\CallbackType;
-use localzet\Server\Events\Linux\Driver;
-use localzet\Server\Events\Linux\DriverFactory;
-use localzet\Server\Events\Linux\Internal\AbstractDriver;
-use localzet\Server\Events\Linux\Internal\DriverCallback;
-use localzet\Server\Events\Linux\InvalidCallbackError;
-use localzet\Server\Events\Linux\Suspension;
-use localzet\Server\Events\Linux\UnsupportedFeatureException;
+use localzet\Server\Events\Linux\{CallbackType,
+    Driver,
+    DriverFactory,
+    Internal\AbstractDriver,
+    Internal\DriverCallback,
+    InvalidCallbackError,
+    Suspension,
+    UnsupportedFeatureException};
 use function count;
 use function function_exists;
 use function gc_collect_cycles;
@@ -151,9 +151,9 @@ final class Linux implements EventInterface
                 }
 
                 /**
-                 * @return mixed
+                 * @return null
                  */
-                public function getHandle(): mixed
+                public function getHandle(): null
                 {
                     return null;
                 }
@@ -291,7 +291,7 @@ final class Linux implements EventInterface
      * @param array $events
      * @return bool Возвращает true, если обработчик был успешно отменен и удален, иначе false.
      */
-    protected function cancelAndUnset($key, array &$events): bool
+    protected function cancelAndUnset(mixed $key, array &$events): bool
     {
         $fdKey = (int)$key;
         if (isset($events[$fdKey])) {

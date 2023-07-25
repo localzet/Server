@@ -9,13 +9,13 @@ namespace localzet\Server\Events\Linux\Driver;
 use Closure;
 use Error;
 use Exception;
-use localzet\Server\Events\Linux\Internal\AbstractDriver;
-use localzet\Server\Events\Linux\Internal\DriverCallback;
-use localzet\Server\Events\Linux\Internal\SignalCallback;
-use localzet\Server\Events\Linux\Internal\StreamReadableCallback;
-use localzet\Server\Events\Linux\Internal\StreamWritableCallback;
-use localzet\Server\Events\Linux\Internal\TimerCallback;
-use localzet\Server\Events\Linux\Internal\TimerQueue;
+use localzet\Server\Events\Linux\Internal\{AbstractDriver,
+    DriverCallback,
+    SignalCallback,
+    StreamReadableCallback,
+    StreamWritableCallback,
+    TimerCallback,
+    TimerQueue};
 use localzet\Server\Events\Linux\UnsupportedFeatureException;
 use SplQueue;
 use Throwable;
@@ -112,7 +112,7 @@ final class StreamSelectDriver extends AbstractDriver
 
                     $message = 'You have reached the limits of stream_select(). It has a FD_SETSIZE of ' . $match[1]
                         . ', but you have file descriptors numbered at least as high as ' . $match[2] . '. '
-                        . "You can install one of the extensions listed on {$helpLink} to support a higher number of "
+                        . "You can install one of the extensions listed on $helpLink to support a higher number of "
                         . "concurrent file descriptors. If a large number of open file descriptors is unexpected, you "
                         . "might be leaking file descriptors that aren't closed correctly.";
                 }
@@ -188,9 +188,9 @@ final class StreamSelectDriver extends AbstractDriver
     }
 
     /**
-     * @return mixed
+     * @return null
      */
-    public function getHandle(): mixed
+    public function getHandle(): null
     {
         return null;
     }
