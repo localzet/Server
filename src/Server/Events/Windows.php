@@ -127,7 +127,7 @@ final class Windows implements EventInterface
      *
      * @var ?callable
      */
-    protected $errorHandler;
+    protected $errorHandler = null;
 
     /**
      * Конструктор.

@@ -1109,6 +1109,7 @@ class Server
         }
         $statusStr = '';
         $currentTotalRequest = [];
+        $serverInfo = [];
         try {
             $serverInfo = unserialize($info[0], ['allowed_classes' => false]);
         } catch (Throwable) {
@@ -1430,13 +1431,13 @@ class Server
 
             Timer::delAll();
 
-            //Update process state.
+            // Обновить состояние процесса.
             static::$status = static::STATUS_RUNNING;
 
-            // Register shutdown function for checking errors.
+            // Зарегистрировать функцию проверки ошибок.
             register_shutdown_function([__CLASS__, 'checkErrors']);
 
-            // Create a global event loop.
+            // Создать глобальный цикл событий.
             if (!static::$globalEvent) {
                 static::$globalEvent = new Linux;
                 static::$globalEvent->setErrorHandler(function ($exception) {
@@ -1444,13 +1445,16 @@ class Server
                 });
             }
 
-            // Reinstall signal.
+            // Переустановить обработчик.
             static::reinstallSignal();
 
-            // Init Timer.
+            // Инициализация.
             Timer::init(static::$globalEvent);
 
             restore_error_handler();
+
+            // Добавить пустой таймер, чтобы предотвратить выход из цикла событий.
+            Timer::add(1000000, function (){});
 
             // Отобразить пользовательский интерфейс (UI).
             static::safeEcho(str_pad($server->name, 48) . str_pad($server->getSocketName(), 36) . str_pad("1", 10) . "[ok]\n");
