@@ -27,7 +27,6 @@ declare(strict_types=1);
 namespace localzet\Server\Protocols\Http;
 
 use Exception;
-use localzet\PSR\Http\Message\RequestInterface;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http;
 use RuntimeException;
@@ -62,7 +61,7 @@ use function urlencode;
  * @property mixed|string $sid
  * @package localzet\Server\Protocols\Http
  */
-class Request implements Stringable, RequestInterface
+class Request implements Stringable
 {
     /**
      * @var int
