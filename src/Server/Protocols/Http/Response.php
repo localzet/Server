@@ -381,10 +381,10 @@ class Response implements Stringable
      * @param string $domain
      * @param bool $secure
      * @param bool $httpOnly
-     * @param bool $sameSite
+     * @param string|null $sameSite
      * @return Response
      */
-    public function cookie(string $name, string $value = '', int $maxAge = null, string $path = '', string $domain = '', bool $secure = false, bool $httpOnly = false, bool $sameSite = false): static
+    public function cookie(string $name, string $value = '', ?int $maxAge = null, string $path = '', string $domain = '', bool $secure = false, bool $httpOnly = false, ?string $sameSite = null): static
     {
         $this->headers['Set-Cookie'][] = $name . '=' . rawurlencode($value)
             . (empty($domain) ? '' : '; Domain=' . $domain)
