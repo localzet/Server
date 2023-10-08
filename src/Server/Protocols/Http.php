@@ -1,6 +1,4 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -8,12 +6,12 @@ declare(strict_types=1);
  *
  * @author      Ivan Zorin <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2023 Localzet Group
- * @license     https://www.gnu.org/licenses/agpl AGPL-3.0 license
+ * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
- *              it under the terms of the GNU Affero General Public License as
- *              published by the Free Software Foundation, either version 3 of the
- *              License, or (at your option) any later version.
+ *              it under the terms of the GNU Affero General Public License as published
+ *              by the Free Software Foundation, either version 3 of the License, or
+ *              (at your option) any later version.
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,6 +20,8 @@ declare(strict_types=1);
  *
  *              You should have received a copy of the GNU Affero General Public License
  *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *              For any questions, please contact <creator@localzet.com>
  */
 
 namespace localzet\Server\Protocols;
@@ -51,34 +51,34 @@ use function substr;
 use function sys_get_temp_dir;
 
 /**
- * Class Http.
+ * Класс Http.
  * @package localzet\Server\Protocols
  */
 class Http
 {
     /**
-     * Request class name.
+     * Имя класса Request.
      *
      * @var string
      */
     protected static string $requestClass = Request::class;
 
     /**
-     * Upload tmp dir.
+     * Временный каталог для загрузки.
      *
      * @var string
      */
     protected static string $uploadTmpDir = '';
 
     /**
-     * Cache.
+     * Кэш.
      *
      * @var bool.
      */
     protected static bool $enableCache = true;
 
     /**
-     * Get or set the request class name.
+     * Получить или установить имя класса запроса.
      *
      * @param string|null $className
      * @return string
@@ -92,7 +92,7 @@ class Http
     }
 
     /**
-     * Enable or disable Cache.
+     * Включить или отключить кэш.
      *
      * @param bool $value
      */
@@ -102,7 +102,7 @@ class Http
     }
 
     /**
-     * Check the integrity of the package.
+     * Проверить целостность пакета.
      *
      * @param string $buffer
      * @param TcpConnection $connection
@@ -117,9 +117,9 @@ class Http
         }
         $crlfPos = strpos($buffer, "\r\n\r\n");
         if (false === $crlfPos) {
-            // Judge whether the package length exceeds the limit.
+            // Проверьте, не превышает ли длина пакета лимит.
             if (strlen($buffer) >= 16384) {
-                $connection->close("HTTP/1.1 413 Payload Too Large\r\n\r\n", true);
+                $connection->close("HTTP/1.1 413 Слишком большой размер полезной нагрузки\r\n\r\n", true);
             }
             return 0;
         }
@@ -128,7 +128,7 @@ class Http
         $firstLine = explode(" ", strstr($buffer, "\r\n", true), 3);
 
         if (!in_array($firstLine[0], ['GET', 'POST', 'OPTIONS', 'HEAD', 'DELETE', 'PUT', 'PATCH'])) {
-            $connection->close("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n", true);
+            $connection->close("HTTP/1.1 400 Неверный запрос\r\nContent-Length: 0\r\n\r\n", true);
             return 0;
         }
 
@@ -136,7 +136,7 @@ class Http
         $hostHeaderPosition = stripos($header, "\r\nHost: ");
 
         if (false === $hostHeaderPosition && $firstLine[2] === "HTTP/1.1") {
-            $connection->close("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n", true);
+            $connection->close("HTTP/1.1 400 Неверный запрос\r\nContent-Length: 0\r\n\r\n", true);
             return 0;
         }
 
@@ -149,13 +149,13 @@ class Http
         } else {
             $hasContentLength = false;
             if (false !== stripos($header, "\r\nTransfer-Encoding:")) {
-                $connection->close("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n", true);
+                $connection->close("HTTP/1.1 400 Неверный запрос\r\nContent-Length: 0\r\n\r\n", true);
                 return 0;
             }
         }
 
         if ($hasContentLength && $length > $connection->maxPackageSize) {
-            $connection->close("HTTP/1.1 413 Payload Too Large\r\n\r\n", true);
+            $connection->close("HTTP/1.1 413 Слишком большой размер полезной нагрузки\r\n\r\n", true);
             return 0;
         }
 
@@ -170,7 +170,7 @@ class Http
     }
 
     /**
-     * Http decode.
+     * Декодирование Http.
      *
      * @param string $buffer
      * @param TcpConnection $connection
@@ -201,7 +201,7 @@ class Http
     }
 
     /**
-     * Http encode.
+     * Кодирование Http.
      *
      * @param string|Response $response
      * @param TcpConnection $connection
@@ -211,34 +211,47 @@ class Http
     public static function encode(mixed $response, TcpConnection $connection): string
     {
         if (isset($connection->request)) {
+            // Удаляем ссылки на запрос и соединение для предотвращения утечки памяти.
             $request = $connection->request;
+            // Очищаем свойства запроса и соединения.
             $request->session = $request->connection = $connection->request = null;
         }
         if (!is_object($response)) {
+            // Дополнительные заголовки.
             $extHeader = '';
             if ($connection->headers) {
                 foreach ($connection->headers as $name => $value) {
                     if (is_array($value)) {
                         foreach ($value as $item) {
+                            // Добавляем каждый элемент массива в заголовок.
                             $extHeader .= "$name: $item\r\n";
                         }
                     } else {
+                        // Добавляем значение в заголовок.
                         $extHeader .= "$name: $value\r\n";
                     }
                 }
+                // Очищаем заголовки после использования.
                 $connection->headers = [];
             }
+            // Преобразуем ответ в строку.
             $response = (string)$response;
+            // Получаем длину тела ответа.
             $bodyLen = strlen($response);
+            // Возвращаем сформированный HTTP-ответ.
             return "HTTP/1.1 200 OK\r\nServer: Localzet Server " . Server::getVersion() . "\r\n{$extHeader}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\n\r\n$response";
         }
 
         if ($connection->headers) {
+            // Добавляем заголовки соединения в ответ.
             $response->withHeaders($connection->headers);
+            // Очищаем заголовки после использования.
             $connection->headers = [];
         }
 
         if (isset($response->file)) {
+            // Обрабатываем файловый ответ.
+
             $file = $response->file['file'];
             $offset = $response->file['offset'];
             $length = $response->file['length'];
@@ -271,7 +284,7 @@ class Http
     }
 
     /**
-     * Send remainder of a stream to client.
+     * Отправить остаток потока клиенту.
      *
      * @param TcpConnection $connection
      * @param resource $handler
@@ -281,13 +294,16 @@ class Http
      */
     protected static function sendStream(TcpConnection $connection, $handler, int $offset = 0, int $length = 0): void
     {
+        // Устанавливаем флаги состояния буфера и потока.
         $connection->context->bufferFull = false;
         $connection->context->streamSending = true;
+        // Если смещение не равно нулю, перемещаемся на это смещение в файле.
         if ($offset !== 0) {
             fseek($handler, $offset);
         }
+        // Конечное смещение.
         $offsetEnd = $offset + $length;
-        // Read file content from disk piece by piece and send to client.
+        // Читаем содержимое файла с диска по частям и отправляем клиенту.
         $doWrite = function () use ($connection, $handler, $length, $offsetEnd) {
             // Send buffer not full.
             while ($connection->context->bufferFull === false) {
@@ -328,16 +344,18 @@ class Http
     }
 
     /**
-     * Set or get uploadTmpDir.
+     * Установить или получить uploadTmpDir.
      *
      * @param string|null $dir
      * @return string
      */
     public static function uploadTmpDir(string|null $dir = null): string
     {
+        // Если указана директория, устанавливаем ее как временную директорию для загрузки.
         if (null !== $dir) {
             static::$uploadTmpDir = $dir;
         }
+        // Если временная директория для загрузки не установлена, пытаемся получить ее из конфигурации PHP или системной временной директории.
         if (static::$uploadTmpDir === '') {
             if ($uploadTmpDir = ini_get('upload_tmp_dir')) {
                 static::$uploadTmpDir = $uploadTmpDir;
@@ -345,6 +363,7 @@ class Http
                 static::$uploadTmpDir = $uploadTmpDir;
             }
         }
+        // Возвращаем временную директорию для загрузки.
         return static::$uploadTmpDir;
     }
 }
