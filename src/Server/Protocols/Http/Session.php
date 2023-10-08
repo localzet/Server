@@ -1,6 +1,4 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -8,12 +6,12 @@ declare(strict_types=1);
  *
  * @author      Ivan Zorin <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2023 Localzet Group
- * @license     https://www.gnu.org/licenses/agpl AGPL-3.0 license
+ * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
- *              it under the terms of the GNU Affero General Public License as
- *              published by the Free Software Foundation, either version 3 of the
- *              License, or (at your option) any later version.
+ *              it under the terms of the GNU Affero General Public License as published
+ *              by the Free Software Foundation, either version 3 of the License, or
+ *              (at your option) any later version.
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,6 +20,8 @@ declare(strict_types=1);
  *
  *              You should have received a copy of the GNU Affero General Public License
  *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *              For any questions, please contact <creator@localzet.com>
  */
 
 namespace localzet\Server\Protocols\Http;
@@ -52,72 +52,84 @@ class Session
      * @var string
      */
     public static string $name = 'PHPSID';
+
     /**
      * Автоматическое обновление метки времени.
      *
      * @var bool
      */
     public static bool $autoUpdateTimestamp = false;
+
     /**
      * Время жизни сессии.
      *
      * @var int
      */
     public static int $lifetime = 1440;
+
     /**
      * Время жизни cookie.
      *
      * @var int
      */
     public static int $cookieLifetime = 1440;
+
     /**
      * Путь к cookie сессии.
      *
      * @var string
      */
     public static string $cookiePath = '/';
+
     /**
      * Домен cookie сессии.
      *
      * @var string
      */
     public static string $domain = '';
+
     /**
      * Только HTTPS cookie.
      *
      * @var bool
      */
     public static bool $secure = false;
+
     /**
      * Только HTTP доступ.
      *
      * @var bool
      */
     public static bool $httpOnly = true;
+
     /**
      * Same-site cookies.
      *
      * @var string
      */
     public static string $sameSite = '';
+
     /**
      * Вероятность выполнения сборки мусора.
      *
      * @var int[]
      */
     public static array $gcProbability = [1, 20000];
+
     /**
      * Класс обработчика сессий, реализующий интерфейс SessionHandlerInterface.
      *
      * @var string
      */
     protected static string $handlerClass = FileSessionHandler::class;
+
     /**
      * Параметры конструктора для класса обработчика сессий.
      *
      * @var mixed
      */
     protected static mixed $handlerConfig = null;
+
     /**
      * Экземпляр обработчика сессий.
      *
@@ -133,7 +145,7 @@ class Session
     protected mixed $data = [];
 
     /**
-     * Is safe.
+     * Безопасность данных.
      *
      * @var bool
      */
@@ -160,11 +172,15 @@ class Session
      */
     public function __construct(string $sessionId)
     {
+        // Проверяем идентификатор сессии.
         static::checkSessionId($sessionId);
+        // Если обработчик еще не инициализирован, инициализируем его.
         if (static::$handler === null) {
             static::initHandler();
         }
+        // Устанавливаем идентификатор сессии.
         $this->sessionId = $sessionId;
+        // Если есть данные, читаем их из обработчика и десериализуем.
         if ($data = static::$handler->read($sessionId)) {
             $this->data = unserialize($data);
         }
@@ -177,11 +193,13 @@ class Session
      */
     protected static function checkSessionId(string $sessionId): void
     {
+        // Если идентификатор сессии пуст, выбрасываем исключение.
         if ($sessionId === '') {
-            throw new InvalidArgumentException('Session ID cannot be empty.');
+            throw new InvalidArgumentException('Идентификатор сессии не может быть пустым.');
         }
+        // Если формат идентификатора сессии неверный, выбрасываем исключение.
         if (!preg_match('/^[0-9a-zA-Z,-]{22,40}$/', $sessionId)) {
-            throw new InvalidArgumentException('Invalid session ID format.');
+            throw new InvalidArgumentException('Неверный формат идентификатора сессии.');
         }
     }
 
@@ -192,9 +210,11 @@ class Session
      */
     protected static function initHandler(): void
     {
+        // Если конфигурация обработчика не установлена, создаем новый экземпляр обработчика.
         if (static::$handlerConfig === null) {
             static::$handler = new static::$handlerClass();
         } else {
+            // В противном случае создаем новый экземпляр обработчика с конфигурацией.
             static::$handler = new static::$handlerClass(static::$handlerConfig);
         }
     }
@@ -206,14 +226,17 @@ class Session
      */
     public static function init(): void
     {
+        // Если в конфигурации PHP установлены вероятность и делитель сборки мусора, используем их.
         if (($gcProbability = (int)ini_get('session.gc_probability')) && ($gcDivisor = (int)ini_get('session.gc_divisor'))) {
             static::$gcProbability = [$gcProbability, $gcDivisor];
         }
 
+        // Если в конфигурации PHP установлено максимальное время жизни сессии, используем его.
         if ($gcMaxLifeTime = ini_get('session.gc_maxlifetime')) {
             self::$lifetime = (int)$gcMaxLifeTime;
         }
 
+        // Получаем параметры cookie сессии из конфигурации PHP.
         $sessionCookieParams = session_get_cookie_params();
         static::$cookieLifetime = $sessionCookieParams['lifetime'];
         static::$cookiePath = $sessionCookieParams['path'];
