@@ -1,6 +1,4 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -8,12 +6,12 @@ declare(strict_types=1);
  *
  * @author      Ivan Zorin <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2023 Localzet Group
- * @license     https://www.gnu.org/licenses/agpl AGPL-3.0 license
+ * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
- *              it under the terms of the GNU Affero General Public License as
- *              published by the Free Software Foundation, either version 3 of the
- *              License, or (at your option) any later version.
+ *              it under the terms of the GNU Affero General Public License as published
+ *              by the Free Software Foundation, either version 3 of the License, or
+ *              (at your option) any later version.
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,19 +20,25 @@ declare(strict_types=1);
  *
  *              You should have received a copy of the GNU Affero General Public License
  *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *              For any questions, please contact <creator@localzet.com>
  */
 
 namespace localzet\Server\Protocols;
 
+use Exception;
+use Throwable;
 use localzet\Server;
-use localzet\Server\Connection\{AsyncTcpConnection, ConnectionInterface};
+use localzet\Server\Connection\{ConnectionInterface, AsyncTcpConnection};
 use localzet\Server\Protocols\Http\Response;
 use localzet\Timer;
-use Throwable;
 use function base64_encode;
 use function bin2hex;
 use function explode;
 use function floor;
+use function gettype;
+use function is_array;
+use function is_scalar;
 use function ord;
 use function pack;
 use function preg_match;
@@ -47,26 +51,26 @@ use function trim;
 use function unpack;
 
 /**
- * Websocket protocol for client.
+ * Протокол WebSocket для клиента.
  */
 class Ws
 {
     /**
-     * Websocket blob type.
+     * Тип BLOB для WebSocket.
      *
      * @var string
      */
     public const BINARY_TYPE_BLOB = "\x81";
 
     /**
-     * Websocket arraybuffer type.
+     * Тип ArrayBuffer для WebSocket.
      *
      * @var string
      */
     public const BINARY_TYPE_ARRAYBUFFER = "\x82";
 
     /**
-     * Check the integrity of the package.
+     * Проверка целостности пакета.
      *
      * @param string $buffer
      * @param AsyncTcpConnection $connection
@@ -75,17 +79,20 @@ class Ws
      */
     public static function input(string $buffer, AsyncTcpConnection $connection): bool|int
     {
+        // Если шаг рукопожатия не установлен, выводим сообщение об ошибке и возвращаем false.
         if (empty($connection->context->handshakeStep)) {
             Server::safeEcho("Получение данных перед рукопожатием. Буфер:" . bin2hex($buffer) . "\n");
             return false;
         }
 
-        // Получение ответа на рукопожатие
+        // Если шаг рукопожатия равен 1, обрабатываем рукопожатие.
         if ($connection->context->handshakeStep === 1) {
-            return self::dealHandshake($buffer, $connection);
+            return static::dealHandshake($buffer, $connection);
         }
 
+        // Получаем длину полученных данных.
         $recvLen = strlen($buffer);
+        // Если длина данных меньше 2, возвращаем 0.
         if ($recvLen < 2) {
             return 0;
         }
@@ -98,37 +105,44 @@ class Ws
                 return 0;
             }
         } else {
-            $firstbyte = ord($buffer[0]);
-            $secondbyte = ord($buffer[1]);
-            $dataLen = $secondbyte & 127;
-            $isFinFrame = $firstbyte >> 7;
-            $masked = $secondbyte >> 7;
+            // Получаем первый и второй байты данных.
+            $firstByte = ord($buffer[0]);
+            $secondByte = ord($buffer[1]);
+            // Извлекаем длину данных.
+            $dataLen = $secondByte & 127;
+            // Проверяем, является ли кадр финальным.
+            $isFinFrame = $firstByte >> 7;
+            // Проверяем, замаскированы ли данные.
+            $masked = $secondByte >> 7;
 
+            // Если данные замаскированы, выводим сообщение об ошибке и закрываем соединение.
             if ($masked) {
                 Server::safeEcho("Кадр замаскирован, закрываю соединение\n");
                 $connection->close();
                 return 0;
             }
 
-            $opcode = $firstbyte & 0xf;
+            // Получаем код операции.
+            $opcode = $firstByte & 0xf;
 
             switch ($opcode) {
                 case 0x0:
-                    // BLOB
+                // BLOB
                 case 0x1:
-                    // Массив
+                // Массив
                 case 0x2:
-                    // Пинг-пакет
+                // Пинг-пакет
                 case 0x9:
-                    // Понг-пакет
+                // Понг-пакет
                 case 0xa:
                     break;
                 // Закрытие
                 case 0x8:
                     // Попытка вызвать onWebSocketClose
-                    if (isset($connection->onWebSocketClose)) {
+                    $closeCb = $connection->onWebSocketClose ?? false;
+                    if ($closeCb) {
                         try {
-                            ($connection->onWebSocketClose)($connection);
+                            $closeCb($connection);
                         } catch (Throwable $e) {
                             Server::stopAll(250, $e);
                         }
@@ -143,6 +157,7 @@ class Ws
                     $connection->close();
                     return 0;
             }
+
             // Рассчитать длину пакета
             if ($dataLen === 126) {
                 if (strlen($buffer) < 4) {
@@ -160,7 +175,10 @@ class Ws
                 $currentFrameLength = $dataLen + 2;
             }
 
+            // Вычисляем общий размер пакета.
             $totalPackageSize = strlen($connection->context->websocketDataBuffer) + $currentFrameLength;
+
+            // Если общий размер пакета превышает максимально допустимый размер пакета, выводим сообщение об ошибке и закрываем соединение.
             if ($totalPackageSize > $connection->maxPackageSize) {
                 Server::safeEcho("Ошибка пакета. package_length=$totalPackageSize\n");
                 $connection->close();
@@ -168,22 +186,32 @@ class Ws
             }
 
             if ($isFinFrame) {
+                // Если код операции равен 0x9 (пинг-пакет).
                 if ($opcode === 0x9) {
                     if ($recvLen >= $currentFrameLength) {
+                        // Декодируем данные пинг-пакета.
                         $pingData = static::decode(substr($buffer, 0, $currentFrameLength), $connection);
+                        // Удаляем данные пинг-пакета из буфера.
                         $connection->consumeRecvBuffer($currentFrameLength);
+                        // Сохраняем текущий тип websocket.
                         $tmpConnectionType = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
+                        // Устанавливаем тип websocket в "\x8a".
                         $connection->websocketType = "\x8a";
-                        if (isset($connection->onWebSocketPing)) {
+                        // Попытка вызвать onWebSocketPing
+                        $pingCb = $connection->onWebSocketPing ?? false;
+                        if ($pingCb) {
                             try {
-                                ($connection->onWebSocketPing)($connection, $pingData);
+                                $pingCb($connection, $pingData);
                             } catch (Throwable $e) {
                                 Server::stopAll(250, $e);
                             }
                         } else {
+                            // Отправляем данные пинг-пакета обратно клиенту.
                             $connection->send($pingData);
                         }
+                        // Восстанавливаем тип websocket.
                         $connection->websocketType = $tmpConnectionType;
+
                         if ($recvLen > $currentFrameLength) {
                             return static::input(substr($buffer, $currentFrameLength), $connection);
                         }
@@ -191,54 +219,73 @@ class Ws
                     return 0;
                 }
 
+                // Если код операции равен 0xa (понг-пакет).
                 if ($opcode === 0xa) {
                     if ($recvLen >= $currentFrameLength) {
+                        // Декодируем данные понг-пакета.
                         $pongData = static::decode(substr($buffer, 0, $currentFrameLength), $connection);
+                        // Удаляем данные понг-пакета из буфера.
                         $connection->consumeRecvBuffer($currentFrameLength);
+                        // Сохраняем текущий тип websocket.
                         $tmpConnectionType = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
+                        // Устанавливаем тип websocket в "\x8a".
                         $connection->websocketType = "\x8a";
                         // Попытка вызвать onWebSocketPong
-                        if (isset($connection->onWebSocketPong)) {
+                        $pongCb = $connection->onWebSocketPong ?? false;
+                        if ($pongCb) {
                             try {
-                                ($connection->onWebSocketPong)($connection, $pongData);
+                                $pongCb($connection, $pongData);
                             } catch (Throwable $e) {
                                 Server::stopAll(250, $e);
                             }
                         }
+
+                        // Восстанавливаем тип websocket.
                         $connection->websocketType = $tmpConnectionType;
+
                         if ($recvLen > $currentFrameLength) {
                             return static::input(substr($buffer, $currentFrameLength), $connection);
                         }
                     }
                     return 0;
                 }
+
                 return $currentFrameLength;
             }
 
+            // Устанавливаем текущую длину кадра websocket.
             $connection->context->websocketCurrentFrameLength = $currentFrameLength;
         }
-        // Получены только данные о длине кадра.
+
+        // Если получены только данные о длине кадра.
         if ($connection->context->websocketCurrentFrameLength === $recvLen) {
-            self::decode($buffer, $connection);
+            // Декодируем данные.
+            static::decode($buffer, $connection);
+            // Удаляем декодированные данные из буфера.
             $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
+            // Устанавливаем текущую длину кадра websocket в 0.
             $connection->context->websocketCurrentFrameLength = 0;
             return 0;
-        } // Длина полученных данных больше длины кадра.
+        } // Если длина полученных данных больше длины кадра.
         elseif ($connection->context->websocketCurrentFrameLength < $recvLen) {
-            self::decode(substr($buffer, 0, $connection->context->websocketCurrentFrameLength), $connection);
+            // Декодируем данные текущего кадра.
+            static::decode(substr($buffer, 0, $connection->context->websocketCurrentFrameLength), $connection);
+            // Удаляем декодированные данные из буфера.
             $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
+            // Сохраняем текущую длину кадра.
             $currentFrameLength = $connection->context->websocketCurrentFrameLength;
+            // Устанавливаем текущую длину кадра websocket в 0.
             $connection->context->websocketCurrentFrameLength = 0;
-            // Продолжаем читать следующий кадр.
-            return self::input(substr($buffer, $currentFrameLength), $connection);
-        } // Длина полученных данных меньше длины кадра.
+            // Продолжаем чтение следующего кадра.
+            return static::input(substr($buffer, $currentFrameLength), $connection);
+        } // Если длина полученных данных меньше длины кадра, возвращаем 0.
         else {
             return 0;
         }
     }
 
     /**
-     * Websocket handshake.
+     * Рукопожатие WebSocket.
      *
      * @param string $buffer
      * @param AsyncTcpConnection $connection
@@ -247,36 +294,46 @@ class Ws
      */
     public static function dealHandshake(string $buffer, AsyncTcpConnection $connection): bool|int
     {
+        // Позиция конца заголовков в буфере.
         $pos = strpos($buffer, "\r\n\r\n");
         if ($pos) {
-            // Проверка Sec-WebSocket-Accept
+            // Проверка Sec-WebSocket-Accept.
             if (preg_match("/Sec-WebSocket-Accept: *(.*?)\r\n/i", $buffer, $match)) {
                 if ($match[1] !== base64_encode(sha1($connection->context->websocketSecKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true))) {
                     Server::safeEcho("Sec-WebSocket-Accept не совпадает. Заголовок:\n" . substr($buffer, 0, $pos) . "\n");
+                    // Закрытие соединения.
                     $connection->close();
                     return 0;
                 }
             } else {
                 Server::safeEcho("Sec-WebSocket-Accept не найден. Заголовок:\n" . substr($buffer, 0, $pos) . "\n");
+                // Закрытие соединения.
                 $connection->close();
                 return 0;
             }
 
-            // Рукопожатие завершено
+            // Рукопожатие завершено.
             $connection->context->handshakeStep = 2;
+            // Длина ответа на рукопожатие.
             $handshakeResponseLength = $pos + 4;
+            // Буфер обрезается до длины ответа на рукопожатие.
             $buffer = substr($buffer, 0, $handshakeResponseLength);
+            // Разбор ответа.
             $response = static::parseResponse($buffer);
-            // Попытка вызвать onWebSocketConnect
-            if (isset($connection->onWebSocketConnect)) {
+
+            // Попытка вызвать обратный вызов onWebSocketConnect.
+            $onWebsocketConnect = $connection->onWebSocketConnect ?? false;
+            if ($onWebsocketConnect) {
                 try {
-                    ($connection->onWebSocketConnect)($connection, $response);
+                    $onWebsocketConnect($connection, $response);
                 } catch (Throwable $e) {
                     Server::stopAll(250, $e);
                 }
             }
+
             // Серцебиение.
             if (!empty($connection->websocketPingInterval)) {
+                // Установка таймера для отправки пинг-пакетов.
                 $connection->context->websocketPingTimer = Timer::add($connection->websocketPingInterval, function () use ($connection) {
                     if (false === $connection->send(pack('H*', '898000000000'), true)) {
                         Timer::del($connection->context->websocketPingTimer);
@@ -285,94 +342,94 @@ class Ws
                 });
             }
 
+            // Удаление данных рукопожатия из буфера.
             $connection->consumeRecvBuffer($handshakeResponseLength);
+
+            // Есть данные, ожидающие отправки.
             if (!empty($connection->context->tmpWebsocketData)) {
+                // Отправка временных данных websocket.
                 $connection->send($connection->context->tmpWebsocketData, true);
+                // Очистка временных данных websocket.
                 $connection->context->tmpWebsocketData = '';
             }
+
             if (strlen($buffer) > $handshakeResponseLength) {
-                return self::input(substr($buffer, $handshakeResponseLength), $connection);
+                return static::input(substr($buffer, $handshakeResponseLength), $connection);
             }
+            return 0;
         }
         return 0;
     }
 
-    /**
-     * Parse response.
-     *
-     * @param string $buffer
-     * @return Response
-     */
-    protected static function parseResponse(string $buffer): Response
-    {
-        [$http_header,] = explode("\r\n\r\n", $buffer, 2);
-        $header_data = explode("\r\n", $http_header);
-        [$protocol, $status, $phrase] = explode(' ', $header_data[0], 3);
-        $protocolVersion = substr($protocol, 5);
-        unset($header_data[0]);
-        $headers = [];
-        foreach ($header_data as $content) {
-            // \r\n\r\n
-            if (empty($content)) {
-                continue;
-            }
-            list($key, $value) = explode(':', $content, 2);
-            $value = trim($value);
-            $headers[$key] = $value;
-        }
-        return (new Response())->withStatus((int)$status, $phrase)->withHeaders($headers)->withProtocolVersion($protocolVersion);
-    }
 
     /**
-     * Websocket decode.
+     * Декодирование WebSocket.
      *
-     * @param string $bytes
+     * @param string $buffer
      * @param AsyncTcpConnection $connection
      * @return string
      */
-    public static function decode(string $bytes, AsyncTcpConnection $connection): string
+    public static function decode(string $buffer, AsyncTcpConnection $connection): string
     {
-        $dataLength = ord($bytes[1]);
+        // Получаем длину данных.
+        $dataLength = ord($buffer[1]);
 
+        // Если длина данных равна 126, данные начинаются с 4-го байта.
         if ($dataLength === 126) {
-            $decodedData = substr($bytes, 4);
+            $decodedData = substr($buffer, 4);
         } else if ($dataLength === 127) {
-            $decodedData = substr($bytes, 10);
+            // Если длина данных равна 127, данные начинаются с 10-го байта.
+            $decodedData = substr($buffer, 10);
         } else {
-            $decodedData = substr($bytes, 2);
+            // В противном случае данные начинаются со 2-го байта.
+            $decodedData = substr($buffer, 2);
         }
+
+        // Если текущая длина кадра websocket не равна нулю,
+        // добавляем декодированные данные в буфер данных websocket и возвращаем его.
         if ($connection->context->websocketCurrentFrameLength) {
             $connection->context->websocketDataBuffer .= $decodedData;
             return $connection->context->websocketDataBuffer;
         }
+
+        // Если в буфере данных websocket есть данные,
+        // добавляем к ним декодированные данные и очищаем буфер.
         if ($connection->context->websocketDataBuffer !== '') {
             $decodedData = $connection->context->websocketDataBuffer . $decodedData;
             $connection->context->websocketDataBuffer = '';
         }
+
+        // Возвращаем декодированные данные.
         return $decodedData;
     }
 
     /**
-     * Websocket encode.
+     * Кодирование WebSocket.
      *
-     * @param string $payload
+     * @param string $buffer
      * @param AsyncTcpConnection $connection
      * @return string
      * @throws Throwable
      */
-    public static function encode(string $payload, AsyncTcpConnection $connection): string
+    public static function encode(string $buffer, AsyncTcpConnection $connection): string
     {
+        // Получаем длину буфера.
+        $length = strlen($buffer);
+
+        // Если тип websocket не установлен, устанавливаем его в BINARY_TYPE_BLOB.
         if (empty($connection->websocketType)) {
-            $connection->websocketType = self::BINARY_TYPE_BLOB;
+            $connection->websocketType = static::BINARY_TYPE_BLOB;
         }
+
         if (empty($connection->context->handshakeStep)) {
             static::sendHandshake($connection);
         }
 
+        // Ключ маскирования.
         $maskKey = "\x00\x00\x00\x00";
-        $length = strlen($payload);
 
-        if (strlen($payload) < 126) {
+        // Кодируем данные в зависимости от их длины.
+        if ($length < 126) {
             $head = chr(0x80 | $length);
         } elseif ($length < 0xFFFF) {
             $head = chr(0x80 | 126) . pack("n", $length);
@@ -380,12 +437,15 @@ class Ws
             $head = chr(0x80 | 127) . pack("N", 0) . pack("N", $length);
         }
 
+        // Формируем кадр данных.
         $frame = $connection->websocketType . $head . $maskKey;
-        // добавить полезную нагрузку в кадр:
-        $maskKey = str_repeat($maskKey, (int)floor($length / 4)) . substr($maskKey, 0, $length % 4);
-        $frame .= $payload ^ $maskKey;
+
+        // Добавляем полезную нагрузку в кадр:
+        $maskKey = str_repeat($maskKey, (int) floor($length / 4)) . substr($maskKey, 0, $length % 4);
+        $frame .= $buffer ^ $maskKey;
+
         if ($connection->context->handshakeStep === 1) {
-            // Если буфер уже заполнен, отбросить текущий пакет.
+            // Если буфер уже заполнен, отбрасываем текущий пакет.
             if (strlen($connection->context->tmpWebsocketData) > $connection->maxSendBufferSize) {
                 if ($connection->onError) {
                     try {
@@ -396,8 +456,11 @@ class Ws
                 }
                 return '';
             }
+
+            // Добавляем закодированный кадр во временные данные websocket.
             $connection->context->tmpWebsocketData .= $frame;
-            // Проверка наполненности буфера
+
+            // Проверяем, заполнен ли буфер.
             if ($connection->onBufferFull && $connection->maxSendBufferSize <= strlen($connection->context->tmpWebsocketData)) {
                 try {
                     ($connection->onBufferFull)($connection);
@@ -405,13 +468,46 @@ class Ws
                     Server::stopAll(250, $e);
                 }
             }
+
             return '';
         }
+
+        // Возвращаем закодированный кадр.
         return $frame;
     }
 
     /**
-     * Send websocket handshake.
+     * Разбор ответа.
+     *
+     * @param string $buffer
+     * @return Response
+     */
+    protected static function parseResponse(string $buffer): Response
+    {
+        [$http_header,] = explode("\r\n\r\n", $buffer, 2);
+        // Разбиваем заголовки на отдельные строки.
+        $header_data = explode("\r\n", $http_header);
+        [$protocol, $status, $phrase] = explode(' ', $header_data[0], 3);
+        // Версия протокола - это все после "HTTP/".
+        $protocolVersion = substr($protocol, 5);
+        unset($header_data[0]);
+
+        // Обработка оставшихся строк заголовка.
+        $headers = [];
+        foreach ($header_data as $content) {
+            if (empty($content))
+                continue; // Пропуск пустых строк.
+            [$key, $value] = explode(':', $content, 2); // Разделение строки на ключ и значение.
+            $headers[$key] = trim($value); // Удаление пробелов в начале и конце значения.
+        }
+
+        // Возвращаем объект Response с установленными значениями статуса, заголовков и версии протокола.
+        return (new Response())->withStatus((int) $status, $phrase)->withHeaders($headers)->withProtocolVersion($protocolVersion);
+    }
+
+
+    /**
+     * Отправка рукопожатия WebSocket.
      *
      * @param AsyncTcpConnection $connection
      * @return void
@@ -419,13 +515,14 @@ class Ws
      */
     public static function sendHandshake(AsyncTcpConnection $connection): void
     {
+        // Если шаг рукопожатия уже установлен, возвращаемся.
         if (!empty($connection->context->handshakeStep)) {
             return;
         }
-        // Получение хоста
+        // Получение хоста.
         $port = $connection->getRemotePort();
         $host = $port === 80 ? $connection->getRemoteHost() : $connection->getRemoteHost() . ':' . $port;
-        // Заголовок рукопожатия
+        // Заголовок рукопожатия.
         $connection->context->websocketSecKey = base64_encode(random_bytes(16));
         $userHeader = $connection->headers ?? null;
         $userHeaderStr = '';
@@ -435,6 +532,7 @@ class Ws
             }
             $userHeaderStr = "\r\n" . trim($userHeaderStr);
         }
+        // Формирование заголовка запроса.
         $header = 'GET ' . $connection->getRemoteURI() . " HTTP/1.1\r\n" .
             (!preg_match("/\nHost:/i", $userHeaderStr) ? "Host: $host\r\n" : '') .
             "Connection: Upgrade\r\n" .
@@ -443,15 +541,20 @@ class Ws
             (isset($connection->websocketClientProtocol) ? "Sec-WebSocket-Protocol: " . $connection->websocketClientProtocol . "\r\n" : '') .
             "Sec-WebSocket-Version: 13\r\n" .
             "Sec-WebSocket-Key: " . $connection->context->websocketSecKey . $userHeaderStr . "\r\n\r\n";
+        // Отправка заголовка запроса.
         $connection->send($header, true);
+        // Установка шага рукопожатия в 1.
         $connection->context->handshakeStep = 1;
+        // Установка текущей длины кадра websocket в 0.
         $connection->context->websocketCurrentFrameLength = 0;
+        // Очистка буфера данных websocket.
         $connection->context->websocketDataBuffer = '';
+        // Очистка временных данных websocket.
         $connection->context->tmpWebsocketData = '';
     }
 
     /**
-     * Send websocket handshake data.
+     * Отправка данных рукопожатия WebSocket.
      *
      * @param AsyncTcpConnection $connection
      * @return void
@@ -459,22 +562,29 @@ class Ws
      */
     public static function onConnect(AsyncTcpConnection $connection): void
     {
+        // Отправка данных рукопожатия.
         static::sendHandshake($connection);
     }
 
     /**
-     * Clean
+     * Очистка соединения при его закрытии.
      *
      * @param AsyncTcpConnection $connection
      */
     public static function onClose(AsyncTcpConnection $connection): void
     {
+        // Сброс шага рукопожатия.
         $connection->context->handshakeStep = null;
+        // Сброс текущей длины кадра websocket.
         $connection->context->websocketCurrentFrameLength = 0;
+        // Очистка временных данных websocket.
         $connection->context->tmpWebsocketData = '';
+        // Очистка буфера данных websocket.
         $connection->context->websocketDataBuffer = '';
+
         if (!empty($connection->context->websocketPingTimer)) {
             Timer::del($connection->context->websocketPingTimer);
+            // Сброс таймера пинга websocket.
             $connection->context->websocketPingTimer = null;
         }
     }
