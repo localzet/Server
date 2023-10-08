@@ -6,12 +6,12 @@
  *
  * @author      Ivan Zorin <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2023 Localzet Group
- * @license     https://www.gnu.org/licenses/agpl AGPL-3.0 license
+ * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
- *              it under the terms of the GNU Affero General Public License as
- *              published by the Free Software Foundation, either version 3 of the
- *              License, or (at your option) any later version.
+ *              it under the terms of the GNU Affero General Public License as published
+ *              by the Free Software Foundation, either version 3 of the License, or
+ *              (at your option) any later version.
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -20,6 +20,8 @@
  *
  *              You should have received a copy of the GNU Affero General Public License
  *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *              For any questions, please contact <creator@localzet.com>
  */
 
 namespace localzet\Server\Protocols;
@@ -27,15 +29,15 @@ namespace localzet\Server\Protocols;
 use localzet\Server\Connection\ConnectionInterface;
 
 /**
- * Protocol interface
+ * Интерфейс протокола
  */
 interface ProtocolInterface
 {
     /**
-     * Check the integrity of the package.
-     * Please return the length of package.
-     * If length is unknown please return 0 that means waiting for more data.
-     * If the package has something wrong please return false the connection will be closed.
+     * Проверьте целостность пакета.
+     * Пожалуйста, верните длину пакета.
+     * Если длина неизвестна, верните 0, что означает ожидание дополнительных данных.
+     * Если в пакете есть какие-то проблемы, верните false, и соединение будет закрыто.
      *
      * @param string $buffer
      * @param ConnectionInterface $connection
@@ -44,7 +46,7 @@ interface ProtocolInterface
     public static function input(string $buffer, ConnectionInterface $connection): bool|int;
 
     /**
-     * Decode package and emit onMessage($message) callback, $message is the result that decode returned.
+     * Расшифруйте пакет и вызовите обратный вызов onMessage($message), где $message - это результат, возвращенный функцией decode.
      *
      * @param string $buffer
      * @param ConnectionInterface $connection
@@ -53,7 +55,7 @@ interface ProtocolInterface
     public static function decode(string $buffer, ConnectionInterface $connection): mixed;
 
     /**
-     * Encode package before sending to client.
+     * Кодируйте пакет перед отправкой клиенту.
      *
      * @param mixed $data
      * @param ConnectionInterface $connection
@@ -61,3 +63,4 @@ interface ProtocolInterface
      */
     public static function encode(mixed $data, ConnectionInterface $connection): string;
 }
+
