@@ -1,6 +1,4 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -8,12 +6,12 @@ declare(strict_types=1);
  *
  * @author      Ivan Zorin <creator@localzet.com>
  * @copyright   Copyright (c) 2018-2023 Localzet Group
- * @license     https://www.gnu.org/licenses/agpl AGPL-3.0 license
+ * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
- *              it under the terms of the GNU Affero General Public License as
- *              published by the Free Software Foundation, either version 3 of the
- *              License, or (at your option) any later version.
+ *              it under the terms of the GNU Affero General Public License as published
+ *              by the Free Software Foundation, either version 3 of the License, or
+ *              (at your option) any later version.
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,6 +20,8 @@ declare(strict_types=1);
  *
  *              You should have received a copy of the GNU Affero General Public License
  *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *              For any questions, please contact <creator@localzet.com>
  */
 
 namespace localzet\Server\Protocols\Http;
@@ -125,50 +125,57 @@ class Response implements Stringable
         510 => 'Not Extended', // RFC 2774
         511 => 'Network Authentication Required', // RFC 6585
     ];
+
     /**
-     * Mine type map.
+     * Карта типов Mine.
      * @var array
      */
     protected static array $mimeTypeMap = [];
+
     /**
-     * Send file info
+     * Информация о файле для отправки
      *
      * @var ?array
      */
     public ?array $file = null;
+
     /**
-     * Header data.
+     * Данные заголовка.
      *
      * @var array
      */
     protected array $headers = [];
+
     /**
-     * Http status.
+     * Http статус.
      *
      * @var int
      */
     protected int $status;
+
     /**
-     * Http reason.
+     * Http причина.
      *
      * @var ?string
      */
     protected ?string $reason = null;
+
     /**
-     * Http version.
+     * Версия Http.
      *
      * @var string
      */
     protected string $version = '1.1';
+
     /**
-     * Http body.
+     * Тело Http.
      *
      * @var string
      */
     protected string $body = '';
 
     /**
-     * Response constructor.
+     * Конструктор ответа.
      *
      * @param int $status
      * @param array|null $headers
@@ -186,7 +193,7 @@ class Response implements Stringable
     }
 
     /**
-     * Init.
+     * Инициализация.
      *
      * @return void
      */
@@ -196,7 +203,7 @@ class Response implements Stringable
     }
 
     /**
-     * Init mime map.
+     * Инициализация карты MIME-типов.
      *
      * @return void
      */
@@ -217,7 +224,7 @@ class Response implements Stringable
     }
 
     /**
-     * Set header.
+     * Установить заголовок.
      *
      * @param string $name
      * @param string $value
@@ -229,7 +236,7 @@ class Response implements Stringable
     }
 
     /**
-     * Set header.
+     * Установить заголовок.
      *
      * @param string $name
      * @param string $value
@@ -242,7 +249,7 @@ class Response implements Stringable
     }
 
     /**
-     * Set headers.
+     * Установить заголовки.
      *
      * @param array $headers
      * @return Response
@@ -254,7 +261,7 @@ class Response implements Stringable
     }
 
     /**
-     * Remove header.
+     * Удалить заголовок.
      *
      * @param string $name
      * @return Response
@@ -266,7 +273,7 @@ class Response implements Stringable
     }
 
     /**
-     * Get header.
+     * Получить заголовок.
      *
      * @param string $name
      * @return null|array|string
@@ -277,7 +284,7 @@ class Response implements Stringable
     }
 
     /**
-     * Get headers.
+     * Получить заголовки.
      *
      * @return array
      */
@@ -287,7 +294,7 @@ class Response implements Stringable
     }
 
     /**
-     * Get status code.
+     * Получить код статуса.
      *
      * @return int
      */
@@ -297,7 +304,7 @@ class Response implements Stringable
     }
 
     /**
-     * Get reason phrase.
+     * Получить причину фразы.
      *
      * @return ?string
      */
@@ -307,7 +314,7 @@ class Response implements Stringable
     }
 
     /**
-     * Set protocol version.
+     * Установить версию протокола.
      *
      * @param string $version
      * @return Response
@@ -319,7 +326,7 @@ class Response implements Stringable
     }
 
     /**
-     * Get http raw body.
+     * Получить HTTP-тело в исходном виде.
      *
      * @return string
      */
@@ -329,7 +336,7 @@ class Response implements Stringable
     }
 
     /**
-     * Send file.
+     * Отправить файл.
      *
      * @param string $file
      * @param int $offset
@@ -339,14 +346,14 @@ class Response implements Stringable
     public function withFile(string $file, int $offset = 0, int $length = 0): static
     {
         if (!is_file($file)) {
-            return $this->withStatus(404)->withBody('<h3>404 Not Found</h3>');
+            return $this->withStatus(404)->withBody('<h3>404 Не найдено</h3>');
         }
         $this->file = ['file' => $file, 'offset' => $offset, 'length' => $length];
         return $this;
     }
 
     /**
-     * Set http body.
+     * Установить HTTP-тело.
      *
      * @param string $body
      * @return Response
@@ -358,7 +365,7 @@ class Response implements Stringable
     }
 
     /**
-     * Set status.
+     * Установить статус.
      *
      * @param int $code
      * @param string|null $reasonPhrase
@@ -372,7 +379,7 @@ class Response implements Stringable
     }
 
     /**
-     * Set cookie.
+     * Установить cookie.
      *
      * @param string $name
      * @param string $value
@@ -407,13 +414,17 @@ class Response implements Stringable
             return $this->createHeadForFile($this->file);
         }
 
+        // Причина фразы.
         $reason = $this->reason ?: self::PHRASES[$this->status] ?? '';
+        // Длина тела.
         $bodyLen = strlen($this->body);
         if (empty($this->headers)) {
             return "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\nConnection: keep-alive\r\n\r\n$this->body";
         }
 
+        // Заголовок.
         $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
+        // Заголовки.
         $headers = $this->headers;
 
         foreach ($headers as $name => $value) {
@@ -422,35 +433,41 @@ class Response implements Stringable
             }
             if (is_array($value)) {
                 foreach ($value as $item) {
+                    // Заголовок.
                     $head .= "$name: $item\r\n";
                 }
                 continue;
             }
+            // Заголовок.
             $head .= "$name: $value\r\n";
         }
 
         if (!isset($headers['Connection'])) {
+            // Соединение.
             $head .= "Connection: keep-alive\r\n";
         }
 
         if (!isset($headers['Content-Type'])) {
+            // Тип контента.
             $head .= "Content-Type: text/html;charset=utf-8\r\n";
         } else if ($headers['Content-Type'] === 'text/event-stream') {
             return $head . $this->body;
         }
 
         if (!isset($headers['Transfer-Encoding'])) {
+            // Длина контента.
             $head .= "Content-Length: $bodyLen\r\n\r\n";
         } else {
             return $bodyLen ? "$head\r\n" . dechex($bodyLen) . "\r\n$this->body\r\n" : "$head\r\n";
         }
 
-        // The whole http package
+        // Весь HTTP-пакет.
         return $head . $this->body;
     }
 
+
     /**
-     * Create header for file.
+     * Создать заголовок для файла.
      *
      * @param array $fileInfo
      * @return string
@@ -458,8 +475,11 @@ class Response implements Stringable
     protected function createHeadForFile(array $fileInfo): string
     {
         $file = $fileInfo['file'];
+        // Причина фразы.
         $reason = $this->reason ?: self::PHRASES[$this->status];
+        // Заголовок.
         $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
+        // Заголовки.
         $headers = $this->headers;
 
         foreach ($headers as $name => $value) {
@@ -468,33 +488,43 @@ class Response implements Stringable
             }
             if (is_array($value)) {
                 foreach ($value as $item) {
+                    // Заголовок.
                     $head .= "$name: $item\r\n";
                 }
                 continue;
             }
+            // Заголовок.
             $head .= "$name: $value\r\n";
         }
 
         if (!isset($headers['Connection'])) {
+            // Соединение.
             $head .= "Connection: keep-alive\r\n";
         }
 
+        // Информация о файле.
         $fileInfo = pathinfo($file);
+        // Расширение файла.
         $extension = $fileInfo['extension'] ?? '';
+        // Базовое имя файла.
         $baseName = $fileInfo['basename'] ?: 'unknown';
         if (!isset($headers['Content-Type'])) {
             if (isset(self::$mimeTypeMap[$extension])) {
+                // Тип контента.
                 $head .= "Content-Type: " . self::$mimeTypeMap[$extension] . "\r\n";
             } else {
+                // Тип контента.
                 $head .= "Content-Type: application/octet-stream\r\n";
             }
         }
 
         if (!isset($headers['Content-Disposition']) && !isset(self::$mimeTypeMap[$extension])) {
+            // Расположение контента.
             $head .= "Content-Disposition: attachment; filename=\"$baseName\"\r\n";
         }
 
         if (!isset($headers['Last-Modified']) && $mtime = filemtime($file)) {
+            // Последнее изменение.
             $head .= 'Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
         }
 
