@@ -37,9 +37,9 @@ final class SignalCallback extends DriverCallback
      * @param int $signal
      */
     public function __construct(
-        string              $id,
-        Closure             $closure,
-        public readonly int $signal
+        string              $id, // Идентификатор обратного вызова
+        Closure             $closure, // Обратный вызов
+        public readonly int $signal // Сигнал
     )
     {
         parent::__construct($id, $closure);
