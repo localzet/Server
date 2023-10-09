@@ -96,87 +96,72 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Retrieve the event loop driver that is in scope.
+     * Получить драйвер цикла событий, который находится в области видимости.
      *
      * @return Driver
      */
     public function getDriver(): Driver
     {
-        /** @psalm-suppress RedundantPropertyInitializationCheck, RedundantCondition */
+        // Если драйвер не установлен, создать новый драйвер
         if (!isset($this->driver)) {
             $this->setDriver((new DriverFactory())->create());
         }
 
+        // Вернуть драйвер
         return $this->driver;
     }
 
     /**
-     * Sets the driver to be used as the event loop.
+     * Установить драйвер для использования в качестве цикла событий.
      */
     public function setDriver(Driver $driver): void
     {
-        /** @psalm-suppress RedundantPropertyInitializationCheck, RedundantCondition */
+        // Если драйвер установлен и работает, выбросить исключение
         if (isset($this->driver) && $this->driver->isRunning()) {
-            throw new Error("Can't swap the event loop driver while the driver is running");
+            throw new Error("Невозможно заменить драйвер цикла событий во время его работы");
         }
 
         try {
-            /** @psalm-suppress InternalClass */
+            // Установить временный драйвер, который выбрасывает исключения при активации обратного вызова или отправке
             $this->driver = new class () extends AbstractDriver {
-                /**
-                 * @param array $callbacks
-                 * @return void
-                 */
                 protected function activate(array $callbacks): void
                 {
-                    throw new Error("Can't activate callback during garbage collection.");
+                    throw new Error("Невозможно активировать обратный вызов во время сборки мусора.");
                 }
 
-                /**
-                 * @param bool $blocking
-                 * @return void
-                 */
                 protected function dispatch(bool $blocking): void
                 {
-                    throw new Error("Can't dispatch during garbage collection.");
+                    throw new Error("Невозможно отправить во время сборки мусора.");
                 }
 
-                /**
-                 * @param DriverCallback $callback
-                 * @return void
-                 */
                 protected function deactivate(DriverCallback $callback): void
                 {
-                    // do nothing
+                    // ничего не делать
                 }
 
-                /**
-                 * @return null
-                 */
                 public function getHandle(): null
                 {
                     return null;
                 }
 
-                /**
-                 * @return float
-                 */
                 protected function now(): float
                 {
                     return (float)hrtime(true) / 1_000_000_000;
                 }
             };
 
+            // Выполнить сборку мусора
             gc_collect_cycles();
         } finally {
+            // Установить переданный драйвер
             $this->driver = $driver;
         }
     }
 
     /**
-     * Returns an object used to suspend and resume execution of the current fiber or {main}.
+     * Возвращает объект, используемый для приостановки и возобновления выполнения текущего волокна или {main}.
      *
-     * Calls from the same fiber will return the same suspension object.
+     * Вызовы из одного и того же волокна вернут один и тот же объект приостановки.
      *
      * @return Suspension
      */
@@ -195,13 +180,13 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Run the event loop.
+     * Запустить цикл обработки событий.
      *
-     * This function may only be called from {main}, that is, not within a fiber.
+     * Эту функцию можно вызывать только из {main}, то есть не внутри Fiber'а.
      *
-     * Libraries should use the {@link Suspension} API instead of calling this method.
+     * Библиотеки должны использовать API {@link Suspension} вместо вызова этого метода.
      *
-     * This method will not return until the event loop does not contain any pending, referenced callbacks anymore.
+     * Этот метод не вернет управление до тех пор, пока цикл обработки событий не будет содержать каких-либо ожидающих, ссылочных обратных вызовов.
      */
     public function run(): void
     {
@@ -223,17 +208,19 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Cancel a callback.
+     * Отменить обратный вызов.
      *
-     * This will detach the event loop from all resources that are associated to the callback. After this operation the
-     * callback is permanently invalid. Calling this function MUST NOT fail, even if passed an invalid identifier.
+     * Это отключит цикл обработки событий от всех ресурсов, которые связаны с обратным вызовом. После этой операции
+     * обратный вызов становится постоянно недействительным. Вызов этой функции НЕ ДОЛЖЕН завершиться неудачей,
+     * даже если передан недействительный идентификатор.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      */
     public function cancel(string $callbackId): void
     {
         $this->getDriver()->cancel($callbackId);
     }
+
 
     /**
      * Устанавливает отложенное событие выполнения функции.
@@ -420,16 +407,16 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Queue a microtask.
+     * Поставить в очередь микрозадачу.
      *
-     * The queued callback MUST be executed immediately once the event loop gains control. Order of queueing MUST be
-     * preserved when executing the callbacks. Recursive scheduling can thus result in infinite loops, use with care.
+     * Поставленный в очередь обратный вызов ДОЛЖЕН быть выполнен сразу, как только цикл событий получит управление. Порядок постановки в очередь ДОЛЖЕН быть
+     * сохранен при выполнении обратных вызовов. Рекурсивное планирование может привести к бесконечным циклам, используйте с осторожностью.
      *
-     * Does NOT create an event callback, thus CAN NOT be marked as disabled or unreferenced.
-     * Use {@see EventLoop::defer()} if you need these features.
+     * НЕ создает обратный вызов события, поэтому НЕ МОЖЕТ быть помечен как отключенный или непривязанный.
+     * Используйте {@see EventLoop::defer()} если вам нужны эти функции.
      *
-     * @param Closure $closure (...):void $closure The callback to queue.
-     * @param mixed ...$args The callback arguments.
+     * @param Closure $closure (...):void $closure Обратный вызов для постановки в очередь.
+     * @param mixed ...$args Аргументы обратного вызова.
      */
     public function queue(Closure $closure, mixed ...$args): void
     {
@@ -437,18 +424,18 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Defer the execution of a callback.
+     * Отложить выполнение обратного вызова.
      *
-     * The deferred callback MUST be executed before any other type of callback in a tick. Order of enabling MUST be
-     * preserved when executing the callbacks.
+     * Отложенный обратный вызов ДОЛЖЕН быть выполнен до любого другого типа обратного вызова в тике. Порядок включения ДОЛЖЕН быть
+     * сохранен при выполнении обратных вызовов.
      *
-     * The created callback MUST immediately be marked as enabled, but only be activated (i.e. callback can be called)
-     * right before the next tick. Deferred callbacks MUST NOT be called in the tick they were enabled.
+     * Созданный обратный вызов ДОЛЖЕН немедленно быть помечен как включенный, но только быть активирован (т.е. обратный вызов может быть вызван)
+     * прямо перед следующим тиком. Отложенные обратные вызовы НЕ ДОЛЖНЫ вызываться в тике, в котором они были включены.
      *
-     * @param Closure(string):void $closure The callback to defer. The `$callbackId` will be
-     *     invalidated before the callback invocation.
+     * @param Closure(string):void $closure Обратный вызов для отложения. `$callbackId` будет
+     *     аннулирован перед вызовом обратного вызова.
      *
-     * @return string A unique identifier that can be used to cancel, enable or disable the callback.
+     * @return string Уникальный идентификатор, который можно использовать для отмены, включения или отключения обратного вызова.
      */
     public function defer(Closure $closure): string
     {
@@ -456,16 +443,16 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Enable a callback to be active starting in the next tick.
+     * Включить обратный вызов для активации, начиная со следующего тика.
      *
-     * Callbacks MUST immediately be marked as enabled, but only be activated (i.e. callbacks can be called) right
-     * before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
+     * Обратные вызовы ДОЛЖНЫ немедленно быть помечены как включенные, но только быть активированы (т.е. обратные вызовы могут быть вызваны) прямо
+     * перед следующим тиком. Обратные вызовы НЕ ДОЛЖНЫ вызываться в тике, в котором они были включены.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return string The callback identifier.
+     * @return string Идентификатор обратного вызова.
      *
-     * @throws InvalidCallbackError If the callback identifier is invalid.
+     * @throws InvalidCallbackError Если идентификатор обратного вызова недействителен.
      */
     public function enable(string $callbackId): string
     {
@@ -473,17 +460,17 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Disable a callback immediately.
+     * Немедленно отключить обратный вызов.
      *
-     * A callback MUST be disabled immediately, e.g. if a deferred callback disables another deferred callback,
-     * the second deferred callback isn't executed in this tick.
+     * Обратный вызов ДОЛЖЕН быть отключен немедленно, например, если отложенный обратный вызов отключает другой отложенный обратный вызов,
+     * второй отложенный обратный вызов не выполняется в этом тике.
      *
-     * Disabling a callback MUST NOT invalidate the callback. Calling this function MUST NOT fail, even if passed an
-     * invalid callback identifier.
+     * Отключение обратного вызова НЕ ДОЛЖНО аннулировать обратный вызов. Вызов этой функции НЕ ДОЛЖЕН завершиться неудачей, даже если передан
+     * недействительный идентификатор обратного вызова.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return string The callback identifier.
+     * @return string Идентификатор обратного вызова.
      */
     public function disable(string $callbackId): string
     {
@@ -491,16 +478,16 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Reference a callback.
+     * Сделать ссылку на обратный вызов.
      *
-     * This will keep the event loop alive whilst the event is still being monitored. Callbacks have this state by
-     * default.
+     * Это будет поддерживать цикл обработки событий в активном состоянии, пока событие все еще контролируется. Обратные вызовы имеют это состояние по
+     * умолчанию.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return string The callback identifier.
+     * @return string Идентификатор обратного вызова.
      *
-     * @throws InvalidCallbackError If the callback identifier is invalid.
+     * @throws InvalidCallbackError Если идентификатор обратного вызова недействителен.
      */
     public function reference(string $callbackId): string
     {
@@ -508,14 +495,14 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Unreference a callback.
+     * Удалить ссылку на обратный вызов.
      *
-     * The event loop should exit the run method when only unreferenced callbacks are still being monitored. Callbacks
-     * are all referenced by default.
+     * Цикл обработки событий должен выйти из метода run, когда только непривязанные обратные вызовы все еще контролируются. Обратные вызовы
+     * все привязаны по умолчанию.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return string The callback identifier.
+     * @return string Идентификатор обратного вызова.
      */
     public function unreference(string $callbackId): string
     {
@@ -523,9 +510,9 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Returns all registered non-cancelled callback identifiers.
+     * Возвращает все зарегистрированные идентификаторы обратных вызовов, которые не были отменены.
      *
-     * @return string[] Callback identifiers.
+     * @return string[] Идентификаторы обратных вызовов.
      */
     public function getIdentifiers(): array
     {
@@ -533,11 +520,11 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Returns the type of the callback identified by the given callback identifier.
+     * Возвращает тип обратного вызова, определенный данным идентификатором обратного вызова.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return CallbackType The callback type.
+     * @return CallbackType Тип обратного вызова.
      */
     public function getType(string $callbackId): CallbackType
     {
@@ -545,11 +532,11 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Returns whether the callback identified by the given callback identifier is currently enabled.
+     * Возвращает, включен ли в настоящее время обратный вызов, определенный данным идентификатором обратного вызова.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return bool {@code true} if the callback is currently enabled, otherwise {@code false}.
+     * @return bool {@code true}, если обратный вызов в настоящее время включен, в противном случае {@code false}.
      */
     public function isEnabled(string $callbackId): bool
     {
@@ -557,11 +544,11 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Returns whether the callback identified by the given callback identifier is currently referenced.
+     * Возвращает, имеет ли в настоящее время обратный вызов, определенный данным идентификатором обратного вызова, ссылку.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return bool {@code true} if the callback is currently referenced, otherwise {@code false}.
+     * @return bool {@code true}, если обратный вызов в настоящее время имеет ссылку, в противном случае {@code false}.
      */
     public function isReferenced(string $callbackId): bool
     {
