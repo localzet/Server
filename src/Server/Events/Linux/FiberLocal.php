@@ -31,16 +31,17 @@ use Fiber;
 use WeakMap;
 
 /**
- * Fiber local storage.
+ * Локальное хранилище Fiber.
  *
- * Each instance stores data separately for each fiber. Usage examples include contextual logging data.
+ * Каждый экземпляр хранит данные отдельно для каждого Fiber'а. Примеры использования включают контекстные данные для ведения журнала.
  *
  * @template T
  */
 final class FiberLocal
 {
-    /** @var Fiber|null Dummy fiber for {main} */
+    /** @var Fiber|null Фиктивный Fiber для {main} */
     private static ?Fiber $mainFiber = null;
+
     /**
      * @var WeakMap|null
      */
@@ -54,6 +55,8 @@ final class FiberLocal
     }
 
     /**
+     * Очистить локальное хранилище.
+     *
      * @return void
      */
     public static function clear(): void
@@ -72,6 +75,8 @@ final class FiberLocal
     }
 
     /**
+     * Установить значение в локальное хранилище.
+     *
      * @param T $value
      */
     public function set(mixed $value): void
@@ -80,6 +85,8 @@ final class FiberLocal
     }
 
     /**
+     * Получить локальное хранилище для текущего Fiber'а.
+     *
      * @return WeakMap
      */
     private static function getFiberStorage(): WeakMap
@@ -88,7 +95,7 @@ final class FiberLocal
 
         if ($fiber === null) {
             $fiber = self::$mainFiber ??= new Fiber(static function (): void {
-                // dummy fiber for main, as we need some object for the WeakMap
+                // фиктивный Fiber для main, так как нам нужен некоторый объект для WeakMap
             });
         }
 
@@ -97,6 +104,8 @@ final class FiberLocal
     }
 
     /**
+     * Удалить значение из локального хранилища.
+     *
      * @return void
      */
     public function unset(): void
@@ -105,6 +114,8 @@ final class FiberLocal
     }
 
     /**
+     * Получить значение из локального хранилища.
+     *
      * @return T
      */
     public function get(): mixed
