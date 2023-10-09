@@ -35,46 +35,52 @@ use function sprintf;
 use function str_replace;
 
 /**
- *
+ * Финальный класс для обработки неотловленных исключений.
  */
 final class UncaughtThrowable extends Error
 {
     /**
-     * @param string $message
-     * @param Closure $closure
-     * @param Throwable $previous
+     * Конструктор класса.
+     *
+     * @param string $message Сообщение об ошибке.
+     * @param Closure $closure Замыкание, в котором произошло исключение.
+     * @param Throwable $previous Предыдущее исключение.
      */
     private function __construct(string $message, Closure $closure, Throwable $previous)
     {
         parent::__construct(sprintf(
             $message,
-            str_replace("\0", '@', get_class($previous)), // replace NUL-byte in anonymous class name
+            str_replace("\0", '@', get_class($previous)), // заменить NUL-байт в имени анонимного класса
             ClosureHelper::getDescription($closure),
             $previous->getMessage() !== '' ? ': ' . $previous->getMessage() : ''
         ), 0, $previous);
     }
 
     /**
-     * @param Closure $closure
-     * @param Throwable $previous
-     * @return self
+     * Создать экземпляр класса для обратного вызова, выбрасывающего исключение.
+     *
+     * @param Closure $closure Замыкание, в котором произошло исключение.
+     * @param Throwable $previous Предыдущее исключение.
+     * @return self Экземпляр класса.
      */
     public static function throwingCallback(Closure $closure, Throwable $previous): self
     {
         return new self(
-            "Uncaught %s thrown in event loop callback %s; use localzet\Server\Events\Linux::setErrorHandler() to gracefully handle such exceptions%s",
+            "Неотловленное %s выброшено в обратном вызове цикла событий %s; используйте localzet\Server\Events\Linux::setErrorHandler() для корректной обработки таких исключений%s",
             $closure,
             $previous
         );
     }
 
     /**
-     * @param Closure $closure
-     * @param Throwable $previous
-     * @return self
+     * Создать экземпляр класса для обработчика ошибок, выбрасывающего исключение.
+     *
+     * @param Closure $closure Замыкание, в котором произошло исключение.
+     * @param Throwable $previous Предыдущее исключение.
+     * @return self Экземпляр класса.
      */
     public static function throwingErrorHandler(Closure $closure, Throwable $previous): self
     {
-        return new self("Uncaught %s thrown in event loop error handler %s%s", $closure, $previous);
+        return new self("Неотловленное %s выброшено в обработчике ошибок цикла событий %s%s", $closure, $previous);
     }
 }
