@@ -29,9 +29,9 @@ namespace localzet\Server\Events\Linux;
 use Throwable;
 
 /**
- * Should be used to run and suspend the event loop instead of directly interacting with fibers.
+ * Должен использоваться для запуска и приостановки цикла обработки событий вместо прямого взаимодействия с волокнами.
  *
- * **Example**
+ * **Пример**
  *
  * ```php
  * $suspension = EventLoop::getSuspension();
@@ -49,19 +49,19 @@ use Throwable;
 interface Suspension
 {
     /**
-     * @param T $value The value to return from the call to {@see suspend()}.
+     * @param T $value Значение, которое следует вернуть из вызова {@see suspend()}.
      */
     public function resume(mixed $value = null): void;
 
     /**
-     * Returns the value provided to {@see resume()} or throws the exception provided to {@see throw()}.
+     * Возвращает значение, предоставленное {@see resume()}, или выбрасывает исключение, предоставленное {@see throw()}.
      *
      * @return T
      */
     public function suspend(): mixed;
 
     /**
-     * Throws the given exception from the call to {@see suspend()}.
+     * Выбрасывает данное исключение из вызова {@see suspend()}.
      */
     public function throw(Throwable $throwable): void;
 }
