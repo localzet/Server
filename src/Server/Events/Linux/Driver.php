@@ -31,312 +31,310 @@ use Error;
 use Throwable;
 
 /**
- * The driver MUST run in its own fiber and execute callbacks in a separate fiber. If fibers are reused, the driver
- * needs to call {@see FiberLocal::clear()} after running the callback.
+ * Драйвер ДОЛЖЕН работать в своем собственном волокне и выполнять обратные вызовы в отдельном волокне. Если волокна повторно используются, драйвер
+ * должен вызвать {@see FiberLocal::clear()} после выполнения обратного вызова.
  */
 interface Driver
 {
     /**
-     * Run the event loop.
+     * Запустить цикл обработки событий.
      *
-     * One iteration of the loop is called one "tick". A tick covers the following steps:
+     * Одна итерация цикла называется "тиком". Тик охватывает следующие шаги:
      *
-     *  1. Activate callbacks created / enabled in the last tick / before `run()`.
-     *  2. Execute all enabled deferred callbacks.
-     *  3. Execute all due timer, pending signal and actionable stream callbacks, each only once per tick.
+     *  1. Активировать обратные вызовы, созданные / включенные в последнем тике / до `run()`.
+     *  2. Выполнить все включенные отложенные обратные вызовы.
+     *  3. Выполнить все обратные вызовы таймера, ожидающие сигнала и действующие потоковые обратные вызовы, каждый только один раз за тик.
      *
-     * The loop MUST continue to run until it is either stopped explicitly, no referenced callbacks exist anymore, or an
-     * exception is thrown that cannot be handled. Exceptions that cannot be handled are exceptions thrown from an
-     * error handler or exceptions that would be passed to an error handler but none exists to handle them.
+     * Цикл ДОЛЖЕН продолжать работу до тех пор, пока он не будет остановлен явно, не останется ссылочных обратных вызовов, или не будет выброшено
+     * исключение, которое невозможно обработать. Исключениями, которые невозможно обработать, являются исключения, выброшенные из
+     * обработчика ошибок или исключения, которые должны быть переданы обработчику ошибок, но нет ни одного, который мог бы их обработать.
      *
-     * @throws Error Thrown if the event loop is already running.
+     * @throws Error Выбрасывается, если цикл обработки событий уже запущен.
      */
     public function run(): void;
 
     /**
-     * Stop the event loop.
+     * Остановить цикл обработки событий.
      *
-     * When an event loop is stopped, it continues with its current tick and exits the loop afterwards. Multiple calls
-     * to stop MUST be ignored and MUST NOT raise an exception.
+     * Когда цикл обработки событий останавливается, он продолжает свой текущий тик и выходит из цикла после этого. Многократные вызовы
+     * остановки ДОЛЖНЫ быть проигнорированы и НЕ ДОЛЖНЫ вызывать исключение.
      */
     public function stop(): void;
 
     /**
-     * Returns an object used to suspend and resume execution of the current fiber or {main}.
+     * Возвращает объект, используемый для приостановки и возобновления выполнения текущего волокна или {main}.
      *
-     * Calls from the same fiber will return the same suspension object.
+     * Вызовы из одного и того же волокна вернут один и тот же объект приостановки.
      *
      * @return Suspension
      */
     public function getSuspension(): Suspension;
 
     /**
-     * @return bool True if the event loop is running, false if it is stopped.
+     * @return bool True если цикл обработки событий работает, false если он остановлен.
      */
     public function isRunning(): bool;
 
     /**
-     * Queue a microtask.
+     * Поставить в очередь микрозадачу.
      *
-     * The queued callback MUST be executed immediately once the event loop gains control. Order of queueing MUST be
-     * preserved when executing the callbacks. Recursive scheduling can thus result in infinite loops, use with care.
+     * Поставленный в очередь обратный вызов ДОЛЖЕН быть выполнен сразу, как только цикл событий получит управление. Порядок постановки в очередь ДОЛЖЕН быть
+     * сохранен при выполнении обратных вызовов. Рекурсивное планирование может привести к бесконечным циклам, используйте с осторожностью.
      *
-     * Does NOT create an event callback, thus CAN NOT be marked as disabled or unreferenced.
-     * Use {@see EventLoop::defer()} if you need these features.
+     * НЕ создает обратный вызов события, поэтому НЕ МОЖЕТ быть помечен как отключенный или непривязанный.
+     * Используйте {@see EventLoop::defer()} если вам нужны эти функции.
      *
-     * @param Closure $closure (...):void $closure The callback to queue.
-     * @param mixed ...$args The callback arguments.
+     * @param Closure $closure (...):void $closure Обратный вызов для постановки в очередь.
+     * @param mixed ...$args Аргументы обратного вызова.
      */
     public function queue(Closure $closure, mixed ...$args): void;
 
     /**
-     * Defer the execution of a callback.
+     * Отложить выполнение обратного вызова.
      *
-     * The deferred callback MUST be executed before any other type of callback in a tick. Order of enabling MUST be
-     * preserved when executing the callbacks.
+     * Отложенный обратный вызов ДОЛЖЕН быть выполнен до любого другого типа обратного вызова в тике. Порядок включения ДОЛЖЕН быть
+     * сохранен при выполнении обратных вызовов.
      *
-     * The created callback MUST immediately be marked as enabled, but only be activated (i.e. callback can be called)
-     * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
+     * Созданный обратный вызов ДОЛЖЕН немедленно быть помечен как включенный, но только быть активирован (т.е. обратный вызов может быть вызван)
+     * прямо перед следующим тиком. Обратные вызовы НЕ ДОЛЖНЫ вызываться в тике, в котором они были включены.
      *
-     * @param Closure(string):void $closure The callback to defer. The `$callbackId` will be invalidated before the
-     *     callback invocation.
+     * @param Closure(string):void $closure Обратный вызов для отложения. `$callbackId` будет аннулирован перед
+     *     вызовом обратного вызова.
      *
-     * @return string A unique identifier that can be used to cancel, enable or disable the callback.
+     * @return string Уникальный идентификатор, который можно использовать для отмены, включения или отключения обратного вызова.
      */
     public function defer(Closure $closure): string;
 
     /**
-     * Delay the execution of a callback.
+     * Задержать выполнение обратного вызова.
      *
-     * The delay is a minimum and approximate, accuracy is not guaranteed. Order of calls MUST be determined by which
-     * timers expire first, but timers with the same expiration time MAY be executed in any order.
+     * Задержка является минимальной и приблизительной, точность не гарантируется. Порядок вызовов ДОЛЖЕН определяться тем,
+     * какие таймеры истекают первыми, но таймеры с одинаковым временем истечения МОГУТ выполняться в любом порядке.
      *
-     * The created callback MUST immediately be marked as enabled, but only be activated (i.e. callback can be called)
-     * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
+     * Созданный обратный вызов ДОЛЖЕН немедленно быть помечен как включенный, но только быть активирован (т.е. обратный вызов может быть вызван)
+     * прямо перед следующим тиком. Обратные вызовы НЕ ДОЛЖНЫ вызываться в тике, в котором они были включены.
      *
-     * @param float $delay The amount of time, in seconds, to delay the execution for.
-     * @param Closure(string):void $closure The callback to delay. The `$callbackId` will be invalidated before the
-     *     callback invocation.
+     * @param float $delay Время, в секундах, на которое следует задержать выполнение.
+     * @param Closure(string):void $closure Обратный вызов для задержки. `$callbackId` будет аннулирован перед
+     *     вызовом обратного вызова.
      *
-     * @return string A unique identifier that can be used to cancel, enable or disable the callback.
+     * @return string Уникальный идентификатор, который можно использовать для отмены, включения или отключения обратного вызова.
      */
     public function delay(float $delay, Closure $closure): string;
 
     /**
-     * Repeatedly execute a callback.
+     * Повторно выполнить обратный вызов.
      *
-     * The interval between executions is a minimum and approximate, accuracy is not guaranteed. Order of calls MUST be
-     * determined by which timers expire first, but timers with the same expiration time MAY be executed in any order.
-     * The first execution is scheduled after the first interval period.
+     * Интервал между выполнениями является минимальным и приблизительным, точность не гарантируется. Порядок вызовов ДОЛЖЕН
+     * определяться тем, какие таймеры истекают первыми, но таймеры с одинаковым временем истечения МОГУТ выполняться в любом порядке.
+     * Первое выполнение запланировано после первого периода интервала.
      *
-     * The created callback MUST immediately be marked as enabled, but only be activated (i.e. callback can be called)
-     * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
+     * Созданный обратный вызов ДОЛЖЕН немедленно быть помечен как включенный, но только быть активирован (т.е. обратный вызов может быть вызван)
+     * прямо перед следующим тиком. Обратные вызовы НЕ ДОЛЖНЫ вызываться в тике, в котором они были включены.
      *
-     * @param float $interval The time interval, in seconds, to wait between executions.
-     * @param Closure(string):void $closure The callback to repeat.
+     * @param float $interval Временной интервал, в секундах, который следует ожидать между выполнениями.
+     * @param Closure(string):void $closure Обратный вызов для повторения.
      *
-     * @return string A unique identifier that can be used to cancel, enable or disable the callback.
+     * @return string Уникальный идентификатор, который можно использовать для отмены, включения или отключения обратного вызова.
      */
     public function repeat(float $interval, Closure $closure): string;
 
     /**
-     * Execute a callback when a stream resource becomes readable or is closed for reading.
+     * Выполнить обратный вызов, когда потоковый ресурс станет доступным для чтения или будет закрыт для чтения.
      *
-     * Warning: Closing resources locally, e.g. with `fclose`, might not invoke the callback. Be sure to `cancel` the
-     * callback when closing the resource locally. Drivers MAY choose to notify the user if there are callbacks on
-     * invalid resources, but are not required to, due to the high performance impact. Callbacks on closed resources are
-     * therefore undefined behavior.
+     * Предупреждение: Локальное закрытие ресурсов, например, с помощью `fclose`, может не вызывать обратный вызов. Обязательно `cancel`
+     * обратный вызов при локальном закрытии ресурса. Драйверы МОГУТ выбрать уведомление пользователя, если есть обратные вызовы на
+     * недействительных ресурсах, но не обязаны это делать из-за высокого влияния на производительность. Обратные вызовы на закрытых ресурсах являются
+     * поэтому неопределенное поведение.
      *
-     * Multiple callbacks on the same stream MAY be executed in any order.
+     * Множественные обратные вызовы на одном и том же потоке МОГУТ выполняться в любом порядке.
      *
-     * The created callback MUST immediately be marked as enabled, but only be activated (i.e. callback can be called)
-     * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
+     * Созданный обратный вызов ДОЛЖЕН немедленно быть помечен как включенный, но только быть активирован (т.е. обратный вызов может быть вызван)
+     * прямо перед следующим тиком. Обратные вызовы НЕ ДОЛЖНЫ вызываться в тике, в котором они были включены.
      *
-     * @param resource $stream The stream to monitor.
-     * @param Closure(string, resource):void $closure The callback to execute.
+     * @param resource $stream Поток для мониторинга.
+     * @param Closure(string, resource):void $closure Обратный вызов для выполнения.
      *
-     * @return string A unique identifier that can be used to cancel, enable or disable the callback.
+     * @return string Уникальный идентификатор, который можно использовать для отмены, включения или отключения обратного вызова.
      */
     public function onReadable(mixed $stream, Closure $closure): string;
 
     /**
-     * Execute a callback when a stream resource becomes writable or is closed for writing.
+     * Выполнить обратный вызов, когда потоковый ресурс станет доступным для записи или будет закрыт для записи.
      *
-     * Warning: Closing resources locally, e.g. with `fclose`, might not invoke the callback. Be sure to `cancel` the
-     * callback when closing the resource locally. Drivers MAY choose to notify the user if there are callbacks on
-     * invalid resources, but are not required to, due to the high performance impact. Callbacks on closed resources are
-     * therefore undefined behavior.
+     * Предупреждение: Локальное закрытие ресурсов, например, с помощью `fclose`, может не вызывать обратный вызов. Обязательно `cancel`
+     * обратный вызов при локальном закрытии ресурса. Драйверы МОГУТ выбрать уведомление пользователя, если есть обратные вызовы на
+     * недействительных ресурсах, но не обязаны это делать из-за высокого влияния на производительность. Обратные вызовы на закрытых ресурсах являются
+     * поэтому неопределенное поведение.
      *
-     * Multiple callbacks on the same stream MAY be executed in any order.
+     * Множественные обратные вызовы на одном и том же потоке МОГУТ выполняться в любом порядке.
      *
-     * The created callback MUST immediately be marked as enabled, but only be activated (i.e. callback can be called)
-     * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
+     * Созданный обратный вызов ДОЛЖЕН немедленно быть помечен как включенный, но только быть активирован (т.е. обратный вызов может быть вызван)
+     * прямо перед следующим тиком. Обратные вызовы НЕ ДОЛЖНЫ вызываться в тике, в котором они были включены.
      *
-     * @param resource $stream The stream to monitor.
-     * @param Closure(string, resource):void $closure The callback to execute.
+     * @param resource $stream Поток для мониторинга.
+     * @param Closure(string, resource):void $closure Обратный вызов для выполнения.
      *
-     * @return string A unique identifier that can be used to cancel, enable or disable the callback.
+     * @return string Уникальный идентификатор, который можно использовать для отмены, включения или отключения обратного вызова.
      */
     public function onWritable(mixed $stream, Closure $closure): string;
 
     /**
-     * Execute a callback when a signal is received.
+     * Выполнить обратный вызов при получении сигнала.
      *
-     * Warning: Installing the same signal on different instances of this interface is deemed undefined behavior.
-     * Implementations MAY try to detect this, if possible, but are not required to. This is due to technical
-     * limitations of the signals being registered globally per process.
+     * Предупреждение: Установка одного и того же сигнала на разных экземплярах этого интерфейса считается неопределенным поведением.
+     * Реализации МОГУТ попытаться обнаружить это, если это возможно, но не обязаны это делать. Это связано с техническими
+     * ограничениями регистрации сигналов глобально на процесс.
      *
-     * Multiple callbacks on the same signal MAY be executed in any order.
+     * Множественные обратные вызовы на одном и том же сигнале МОГУТ выполняться в любом порядке.
      *
-     * The created callback MUST immediately be marked as enabled, but only be activated (i.e. callback can be called)
-     * right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
+     * Созданный обратный вызов ДОЛЖЕН немедленно быть помечен как включенный, но только быть активирован (т.е. обратный вызов может быть вызван)
+     * прямо перед следующим тиком. Обратные вызовы НЕ ДОЛЖНЫ вызываться в тике, в котором они были включены.
      *
-     * @param int $signal The signal number to monitor.
-     * @param Closure(string, int):void $closure The callback to execute.
+     * @param int $signal Номер сигнала для мониторинга.
+     * @param Closure(string, int):void $closure Обратный вызов для выполнения.
      *
-     * @return string A unique identifier that can be used to cancel, enable or disable the callback.
+     * @return string Уникальный идентификатор, который можно использовать для отмены, включения или отключения обратного вызова.
      *
-     * @throws UnsupportedFeatureException If signal handling is not supported.
+     * @throws UnsupportedFeatureException Если обработка сигналов не поддерживается.
      */
     public function onSignal(int $signal, Closure $closure): string;
 
     /**
-     * Enable a callback to be active starting in the next tick.
+     * Включить обратный вызов для активации начиная со следующего тика.
      *
-     * Callbacks MUST immediately be marked as enabled, but only be activated (i.e. callbacks can be called) right
-     * before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
+     * Обратные вызовы ДОЛЖНЫ немедленно быть помечены как включенные, но только быть активированы (т.е. обратные вызовы могут быть вызваны) прямо
+     * перед следующим тиком. Обратные вызовы НЕ ДОЛЖНЫ вызываться в тике, в котором они были включены.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return string The callback identifier.
+     * @return string Идентификатор обратного вызова.
      *
-     * @throws InvalidCallbackError If the callback identifier is invalid.
+     * @throws InvalidCallbackError Если идентификатор обратного вызова недействителен.
      */
     public function enable(string $callbackId): string;
 
     /**
-     * Cancel a callback.
+     * Отменить обратный вызов.
      *
-     * This will detach the event loop from all resources that are associated to the callback. After this operation the
-     * callback is permanently invalid. Calling this function MUST NOT fail, even if passed an invalid identifier.
+     * Это отключит цикл обработки событий от всех ресурсов, которые связаны с обратным вызовом. После этой операции
+     * обратный вызов становится постоянно недействительным. Вызов этой функции НЕ ДОЛЖЕН завершаться неудачей, даже если передан недействительный идентификатор.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      */
     public function cancel(string $callbackId): void;
 
     /**
-     * Disable a callback immediately.
+     * Немедленно отключить обратный вызов.
      *
-     * A callback MUST be disabled immediately, e.g. if a deferred callback disables a later deferred callback,
-     * the second deferred callback isn't executed in this tick.
+     * Обратный вызов ДОЛЖЕН быть отключен немедленно, например, если отложенный обратный вызов отключает последующий отложенный обратный вызов,
+     * второй отложенный обратный вызов не выполняется в этом тике.
      *
-     * Disabling a callback MUST NOT invalidate the callback. Calling this function MUST NOT fail, even if passed an
-     * invalid callback identifier.
+     * Отключение обратного вызова НЕ ДОЛЖНО аннулировать обратный вызов. Вызов этой функции НЕ ДОЛЖЕН завершаться неудачей, даже если передан
+     * недействительный идентификатор обратного вызова.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return string The callback identifier.
+     * @return string Идентификатор обратного вызова.
      */
     public function disable(string $callbackId): string;
 
     /**
-     * Reference a callback.
+     * Сделать обратный вызов ссылочным.
      *
-     * This will keep the event loop alive whilst the callback is still being monitored. Callbacks have this state by
-     * default.
+     * Это будет поддерживать цикл обработки событий в активном состоянии, пока обратный вызов все еще контролируется. Обратные вызовы имеют это состояние по
+     * умолчанию.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return string The callback identifier.
+     * @return string Идентификатор обратного вызова.
      *
-     * @throws InvalidCallbackError If the callback identifier is invalid.
+     * @throws InvalidCallbackError Если идентификатор обратного вызова недействителен.
      */
     public function reference(string $callbackId): string;
 
     /**
-     * Unreference a callback.
+     * Сделать обратный вызов нереферентным.
      *
-     * The event loop should exit the run method when only unreferenced callbacks are still being monitored. Callbacks
-     * are all referenced by default.
+     * Цикл обработки событий должен выйти из метода run, когда только нереферентные обратные вызовы все еще контролируются. Обратные вызовы
+     * все являются ссылочными по умолчанию.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return string The callback identifier.
+     * @return string Идентификатор обратного вызова.
      */
     public function unreference(string $callbackId): string;
 
     /**
-     * Set a callback to be executed when an error occurs.
+     * Установить обратный вызов для выполнения, когда происходит ошибка.
      *
-     * The callback receives the error as the first and only parameter. The return value of the callback gets ignored.
-     * If it can't handle the error, it MUST throw the error. Errors thrown by the callback or during its invocation
-     * MUST be thrown into the `run` loop and stop the driver.
+     * Обратный вызов получает ошибку как первый и единственный параметр. Возвращаемое значение обратного вызова игнорируется.
+     * Если он не может обработать ошибку, он ДОЛЖЕН выбросить ошибку. Ошибки, выброшенные обратным вызовом или во время его вызова
+     * ДОЛЖНЫ быть выброшены в цикл `run` и остановить драйвер.
      *
-     * Subsequent calls to this method will overwrite the previous handler.
+     * Последующие вызовы этого метода перезапишут предыдущий обработчик.
      *
-     * @param null|Closure(Throwable):void $errorHandler The callback to execute. `null` will clear the current
-     *     handler.
+     * @param null|Closure(Throwable):void $errorHandler Обратный вызов для выполнения. `null` очистит текущий
+     *     обработчик.
      */
     public function setErrorHandler(?Closure $errorHandler): void;
 
     /**
-     * Gets the error handler closure or {@code null} if none is set.
+     * Получает замыкание обработчика ошибок или {@code null}, если его нет.
      *
-     * @return null|Closure(Throwable):void The previous handler, `null` if there was none.
+     * @return null|Closure(Throwable):void Предыдущий обработчик, `null`, если его не было.
      */
     public function getErrorHandler(): ?Closure;
 
     /**
-     * Get the underlying loop handle.
+     * Получить базовый дескриптор цикла.
      *
-     * Example: the `uv_loop` resource for `libuv` or the `EvLoop` object for `libev` or `null` for a stream_select
-     * driver.
+     * Пример: ресурс `uv_loop` для `libuv` или объект `EvLoop` для `libev` или `null` для драйвера stream_select.
      *
-     * Note: This function is *not* exposed in the `Loop` class. Users shall access it directly on the respective loop
-     * instance.
+     * Примечание: Эта функция *не* представлена в классе `Loop`. Пользователи должны получить доступ к ней напрямую на соответствующем экземпляре цикла
      *
-     * @return null|object|resource The loop handle the event loop operates on. `null` if there is none.
+     * @return null|object|resource Дескриптор цикла, на котором работает цикл событий. `null`, если его нет.
      */
     public function getHandle(): mixed;
 
     /**
-     * Returns all registered non-cancelled callback identifiers.
+     * Возвращает все зарегистрированные неотмененные идентификаторы обратных вызовов.
      *
-     * @return string[] Callback identifiers.
+     * @return string[] Идентификаторы обратных вызовов.
      */
     public function getIdentifiers(): array;
 
     /**
-     * Returns the type of the callback identified by the given callback identifier.
+     * Возвращает тип обратного вызова, определенный данным идентификатором обратного вызова.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return CallbackType The callback type.
+     * @return CallbackType Тип обратного вызова.
      */
     public function getType(string $callbackId): CallbackType;
 
     /**
-     * Returns whether the callback identified by the given callback identifier is currently enabled.
+     * Возвращает, включен ли в настоящее время обратный вызов, определенный данным идентификатором обратного вызова.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return bool {@code true} if the callback is currently enabled, otherwise {@code false}.
+     * @return bool {@code true}, если обратный вызов в настоящее время включен, в противном случае {@code false}.
      */
     public function isEnabled(string $callbackId): bool;
 
     /**
-     * Returns whether the callback identified by the given callback identifier is currently referenced.
+     * Возвращает, является ли в настоящее время обратный вызов, определенный данным идентификатором обратного вызова, ссылочным.
      *
-     * @param string $callbackId The callback identifier.
+     * @param string $callbackId Идентификатор обратного вызова.
      *
-     * @return bool {@code true} if the callback is currently referenced, otherwise {@code false}.
+     * @return bool {@code true}, если обратный вызов в настоящее время является ссылочным, в противном случае {@code false}.
      */
     public function isReferenced(string $callbackId): bool;
 
     /**
-     * Returns some useful information about the event loop.
+     * Возвращает некоторую полезную информацию о цикле обработки событий.
      *
-     * If this method isn't implemented, dumping the event loop in a busy application, even indirectly, is a pain.
+     * Если этот метод не реализован, то дамп цикла обработки событий в активном приложении, даже косвенно, будет затруднительным.
      *
      * @return array
      */
