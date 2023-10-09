@@ -30,7 +30,7 @@ use function assert;
 use function count;
 
 /**
- * Uses a binary tree stored in an array to implement a heap.
+ * Использует бинарное дерево, сохраненное в массиве, для реализации кучи.
  *
  * @internal
  */
@@ -43,9 +43,9 @@ final class TimerQueue
     private array $pointers = [];
 
     /**
-     * Inserts the callback into the queue.
+     * Вставляет обратный вызов в очередь.
      *
-     * Time complexity: O(log(n)).
+     * Сложность по времени: O(log(n)).
      */
     public function insert(TimerCallback $callback): void
     {
@@ -59,7 +59,7 @@ final class TimerQueue
     }
 
     /**
-     * @param int $node Rebuild the data array from the given node upward.
+     * @param int $node Перестраивает массив данных от заданного узла вверх.
      */
     private function heapifyUp(int $node): void
     {
@@ -77,8 +77,10 @@ final class TimerQueue
      */
     private function swap(int $left, int $right): void
     {
+        // Временное хранение обратного вызова слева
         $temp = $this->callbacks[$left];
 
+        // Меняем местами обратные вызовы и указатели
         $this->callbacks[$left] = $this->callbacks[$right];
         $this->pointers[$this->callbacks[$right]->id] = $left;
 
@@ -87,23 +89,26 @@ final class TimerQueue
     }
 
     /**
-     * Removes the given callback from the queue.
+     * Удаляет данный обратный вызов из очереди.
      *
-     * Time complexity: O(log(n)).
+     * Сложность по времени: O(log(n)).
      */
     public function remove(TimerCallback $callback): void
     {
+        // Получаем id обратного вызова
         $id = $callback->id;
 
+        // Если обратного вызова нет в очереди, то выходим
         if (!isset($this->pointers[$id])) {
             return;
         }
 
+        // Удаляем и перестраиваем очередь
         $this->removeAndRebuild($this->pointers[$id]);
     }
 
     /**
-     * @param int $node Remove the given node and then rebuild the data array.
+     * @param int $node Удаляет заданный узел, а затем перестраивает массив данных.
      */
     private function removeAndRebuild(int $node): void
     {
@@ -113,18 +118,20 @@ final class TimerQueue
         $this->pointers[$left->id] = $node;
         unset($this->callbacks[$length], $this->pointers[$id]);
 
-        if ($node < $length) { // don't need to do anything if we removed the last element
+        if ($node < $length) { // не нужно делать ничего, если мы удалили последний элемент
             $parent = ($node - 1) >> 1;
             if ($parent >= 0 && $this->callbacks[$node]->expiration < $this->callbacks[$parent]->expiration) {
+                // Перестраиваем массив данных от заданного узла вверх.
                 $this->heapifyUp($node);
             } else {
+                // Перестраиваем массив данных от заданного узла вниз.
                 $this->heapifyDown($node);
             }
         }
     }
 
     /**
-     * @param int $node Rebuild the data array from the given node downward.
+     * @param int $node Перестраивает массив данных от заданного узла вниз.
      */
     private function heapifyDown(int $node): void
     {
@@ -133,28 +140,30 @@ final class TimerQueue
             if ($this->callbacks[$child]->expiration < $this->callbacks[$node]->expiration
                 && ($child + 1 >= $length || $this->callbacks[$child]->expiration < $this->callbacks[$child + 1]->expiration)
             ) {
-                // Left child is less than parent and right child.
+                // Левый потомок меньше родителя и правого потомка.
                 $swap = $child;
             } elseif ($child + 1 < $length && $this->callbacks[$child + 1]->expiration < $this->callbacks[$node]->expiration) {
-                // Right child is less than parent and left child.
+                // Правый потомок меньше родителя и левого потомка.
                 $swap = $child + 1;
-            } else { // Left and right child are greater than parent.
+            } else { // Левый и правый потомки больше родителя.
                 break;
             }
 
+            // Меняем местами узлы
             $this->swap($node, $swap);
             $node = $swap;
         }
     }
 
+
     /**
-     * Deletes and returns the callback on top of the heap if it has expired, otherwise null is returned.
+     * Удаляет и возвращает обратный вызов на вершине кучи, если он истек, иначе возвращает null.
      *
-     * Time complexity: O(log(n)).
+     * Сложность по времени: O(log(n)).
      *
-     * @param float $now Current event loop time.
+     * @param float $now Текущее время цикла событий.
      *
-     * @return TimerCallback|null Expired callback at the top of the heap or null if the callback has not expired.
+     * @return TimerCallback|null Истекший обратный вызов на вершине кучи или null, если обратный вызов не истек.
      */
     public function extract(float $now): ?TimerCallback
     {
@@ -173,11 +182,11 @@ final class TimerQueue
     }
 
     /**
-     * Returns the expiration time value at the top of the heap.
+     * Возвращает значение времени истечения на вершине кучи.
      *
-     * Time complexity: O(1).
+     * Сложность по времени: O(1).
      *
-     * @return float|null Expiration time of the callback at the top of the heap or null if the heap is empty.
+     * @return float|null Время истечения обратного вызова на вершине кучи или null, если куча пуста.
      */
     public function peek(): ?float
     {
