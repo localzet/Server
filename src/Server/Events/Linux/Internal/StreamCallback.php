@@ -35,9 +35,9 @@ abstract class StreamCallback extends DriverCallback
      * @param resource $stream
      */
     public function __construct(
-        string                $id,
-        Closure               $closure,
-        public readonly mixed $stream
+        string                $id, // Идентификатор обратного вызова
+        Closure               $closure, // Обратный вызов
+        public readonly mixed $stream // Поток
     )
     {
         parent::__construct($id, $closure);
