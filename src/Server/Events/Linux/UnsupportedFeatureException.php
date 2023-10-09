@@ -29,9 +29,9 @@ namespace localzet\Server\Events\Linux;
 use Exception;
 
 /**
- * MUST be thrown if a feature is not supported by the system.
+ * ДОЛЖЕН быть выброшен, если функция не поддерживается системой.
  *
- * This might happen if ext-pcntl is missing and the loop driver doesn't support another way to dispatch signals.
+ * Это может произойти, если отсутствует ext-pcntl, и драйвер цикла не поддерживает другой способ отправки сигналов.
  */
 final class UnsupportedFeatureException extends Exception
 {
