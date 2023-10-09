@@ -31,28 +31,34 @@ use Error;
 use localzet\Server\Events\Linux\Internal\ClosureHelper;
 
 /**
- *
+ * Финальный класс для обработки недействительных обратных вызовов.
  */
 final class InvalidCallbackError extends Error
 {
     /**
-     *
+     * Константа для обозначения ошибки, когда обратный вызов возвращает ненулевое значение.
      */
     public const E_NONNULL_RETURN = 1;
+
     /**
-     *
+     * Константа для обозначения ошибки, когда используется недействительный идентификатор обратного вызова.
      */
     public const E_INVALID_IDENTIFIER = 2;
+
     /** @var string */
     private readonly string $rawMessage;
+
     /** @var string */
     private readonly string $callbackId;
+
     /** @var array<string, string> */
     private array $info = [];
 
     /**
-     * @param string $callbackId The callback identifier.
-     * @param string $message The exception message.
+     * Конструктор класса.
+     *
+     * @param string $callbackId Идентификатор обратного вызова.
+     * @param string $message Сообщение об ошибке.
      */
     private function __construct(string $callbackId, int $code, string $message)
     {
@@ -63,29 +69,29 @@ final class InvalidCallbackError extends Error
     }
 
     /**
-     * MUST be thrown if any callback returns a non-null value.
+     * Должен быть выброшен, если любой обратный вызов возвращает ненулевое значение.
      */
     public static function nonNullReturn(string $callbackId, Closure $closure): self
     {
         return new self(
             $callbackId,
             self::E_NONNULL_RETURN,
-            'Non-null return value received from callback ' . ClosureHelper::getDescription($closure)
+            'Получено ненулевое значение от обратного вызова ' . ClosureHelper::getDescription($closure)
         );
     }
 
     /**
-     * MUST be thrown if any operation (except disable() and cancel()) is attempted with an invalid callback identifier.
+     * Должен быть выброшен, если любая операция (кроме disable() и cancel()) пытается использовать недействительный идентификатор обратного вызова.
      *
-     * An invalid callback identifier is any identifier that is not yet emitted by the driver or cancelled by the user.
+     * Недействительным идентификатором обратного вызова является любой идентификатор, который еще не выдан драйвером или отменен пользователем.
      */
     public static function invalidIdentifier(string $callbackId): self
     {
-        return new self($callbackId, self::E_INVALID_IDENTIFIER, 'Invalid callback identifier ' . $callbackId);
+        return new self($callbackId, self::E_INVALID_IDENTIFIER, 'Недействительный идентификатор обратного вызова ' . $callbackId);
     }
 
     /**
-     * @return string The callback identifier.
+     * @return string Идентификатор обратного вызова.
      */
     public function getCallbackId(): string
     {
@@ -107,6 +113,7 @@ final class InvalidCallbackError extends Error
             $info .= "\r\n\r\n" . $infoKey . ': ' . $infoMessage;
         }
 
+        // Обновить сообщение об ошибке с добавленной информацией
         $this->message = $this->rawMessage . $info;
     }
 }
