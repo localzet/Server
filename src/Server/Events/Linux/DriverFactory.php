@@ -35,16 +35,16 @@ use function is_subclass_of;
 use function sprintf;
 
 /**
- *
+ * Финальный класс для создания драйвера цикла обработки событий.
  */
 final class DriverFactory
 {
     /**
-     * Creates a new loop instance and chooses the best available driver.
+     * Создает новый экземпляр цикла и выбирает наилучший доступный драйвер.
      *
      * @return Driver
      *
-     * @throws Error If an invalid class has been specified via REVOLT_LOOP_DRIVER
+     * @throws Error Если недействительный класс был указан через LOCALZET_LOOP_DRIVER
      */
     public function create(): Driver
     {
@@ -68,7 +68,7 @@ final class DriverFactory
             return new StreamSelectDriver();
         })();
 
-        if (getenv("REVOLT_DRIVER_DEBUG_TRACE")) {
+        if (getenv("LOCALZET_DRIVER_DEBUG_TRACE")) {
             return new TracingDriver($driver);
         }
 
@@ -76,11 +76,13 @@ final class DriverFactory
     }
 
     /**
+     * Создает драйвер из переменной окружения.
+     *
      * @return Driver|null
      */
     private function createDriverFromEnv(): ?Driver
     {
-        $driver = getenv("REVOLT_DRIVER");
+        $driver = getenv("LOCALZET_DRIVER");
 
         if (!$driver) {
             return null;
@@ -88,14 +90,14 @@ final class DriverFactory
 
         if (!class_exists($driver)) {
             throw new Error(sprintf(
-                "Driver '%s' does not exist.",
+                "Драйвер '%s' не существует.",
                 $driver
             ));
         }
 
         if (!is_subclass_of($driver, Driver::class)) {
             throw new Error(sprintf(
-                "Driver '%s' is not a subclass of '%s'.",
+                "Драйвер '%s' не является подклассом '%s'.",
                 $driver,
                 Driver::class
             ));
