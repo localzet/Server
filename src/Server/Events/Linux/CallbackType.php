@@ -27,14 +27,14 @@
 namespace localzet\Server\Events\Linux;
 
 /**
- *
+ * Перечисление типов обратных вызовов.
  */
 enum CallbackType
 {
-    case Defer;
-    case Delay;
-    case Repeat;
-    case Readable;
-    case Writable;
-    case Signal;
+    case Defer;     // Отложенный обратный вызов
+    case Delay;     // Задержанный обратный вызов
+    case Repeat;    // Повторяющийся обратный вызов
+    case Readable;  // Обратный вызов для чтения
+    case Writable;  // Обратный вызов для записи
+    case Signal;    // Обратный вызов для сигнала
 }
