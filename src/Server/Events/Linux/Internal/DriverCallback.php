@@ -37,25 +37,25 @@ abstract class DriverCallback
     /**
      * @var bool
      */
-    public bool $invokable = false;
+    public bool $invokable = false; // Может ли быть вызван
 
     /**
      * @var bool
      */
-    public bool $enabled = true;
+    public bool $enabled = true; // Включен ли
 
     /**
      * @var bool
      */
-    public bool $referenced = true;
+    public bool $referenced = true; // Является ли ссылочным
 
     /**
      * @param string $id
      * @param Closure $closure
      */
     public function __construct(
-        public readonly string  $id,
-        public readonly Closure $closure
+        public readonly string  $id, // Идентификатор обратного вызова
+        public readonly Closure $closure // Обратный вызов
     )
     {
     }
@@ -65,7 +65,7 @@ abstract class DriverCallback
      */
     public function __get(string $property): never
     {
-        throw new Error("Unknown property '$property'");
+        throw new Error("Неизвестное свойство '$property'");
     }
 
     /**
@@ -74,6 +74,6 @@ abstract class DriverCallback
      */
     public function __set(string $property, mixed $value): never
     {
-        throw new Error("Unknown property '$property'");
+        throw new Error("Неизвестное свойство '$property'");
     }
 }
