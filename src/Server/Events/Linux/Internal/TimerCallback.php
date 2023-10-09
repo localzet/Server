@@ -39,13 +39,14 @@ final class TimerCallback extends DriverCallback
      * @param bool $repeat
      */
     public function __construct(
-        string                $id,
-        public readonly float $interval,
-        Closure               $callback,
-        public float          $expiration,
-        public readonly bool  $repeat = false
+        string                $id, // Идентификатор обратного вызова
+        public readonly float $interval, // Интервал
+        Closure               $callback, // Обратный вызов
+        public float          $expiration, // Время истечения
+        public readonly bool  $repeat = false // Повторять ли обратный вызов
     )
     {
         parent::__construct($id, $callback);
     }
 }
+
