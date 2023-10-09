@@ -958,6 +958,61 @@ class Request implements Stringable
     }
 
     /**
+     * Получить локальный IP-адрес.
+     *
+     * @return string
+     */
+    public function getLocalIp(): string
+    {
+        // Вернуть локальный IP-адрес из соединения
+        return $this->connection->getLocalIp();
+    }
+
+    /**
+     * Получить локальный порт.
+     *
+     * @return int
+     */
+    public function getLocalPort(): int
+    {
+        // Вернуть локальный порт из соединения
+        return $this->connection->getLocalPort();
+    }
+
+    /**
+     * Получить удаленный IP-адрес.
+     *
+     * @return string
+     */
+    public function getRemoteIp(): string
+    {
+        // Вернуть удаленный IP-адрес из соединения
+        return $this->connection->getRemoteIp();
+    }
+
+    /**
+     * Получить удаленный порт.
+     *
+     * @return int
+     */
+    public function getRemotePort(): int
+    {
+        // Вернуть удаленный порт из соединения
+        return $this->connection->getRemotePort();
+    }
+
+    /**
+     * Получить соединение.
+     *
+     * @return TcpConnection
+     */
+    public function getConnection(): TcpConnection
+    {
+        // Вернуть соединение
+        return $this->connection;
+    }
+
+    /**
      * __toString.
      */
     public function __toString(): string
