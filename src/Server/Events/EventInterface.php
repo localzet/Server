@@ -114,13 +114,14 @@ interface EventInterface
     public function offSignal(int $signal): bool;
 
     /**
-     * Удалить все таймеры.
-     * @return void
-     */
-    public function deleteAllTimer(): void;
-
-    /**
-     * Запустить цикл событий.
+     * Запустить цикл обработки событий.
+     *
+     * Эту функцию можно вызывать только из {main}, то есть не внутри Fiber'а.
+     *
+     * Библиотеки должны использовать API {@link Suspension} вместо вызова этого метода.
+     *
+     * Этот метод не вернет управление до тех пор, пока цикл обработки событий не будет содержать каких-либо ожидающих, ссылочных обратных вызовов.
+     *
      * @return void
      * @throws Throwable
      */
@@ -131,6 +132,12 @@ interface EventInterface
      * @return void
      */
     public function stop(): void;
+
+    /**
+     * Удалить все таймеры.
+     * @return void
+     */
+    public function deleteAllTimer(): void;
 
     /**
      * Получить количество таймеров.
@@ -147,7 +154,7 @@ interface EventInterface
 
     /**
      * Получить обработчик ошибок.
-     * @return ?callable Обработчик ошибок.
+     * @return callable|null Обработчик ошибок или null, если обработчик не установлен.
      */
     public function getErrorHandler(): ?callable;
 }
