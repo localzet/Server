@@ -180,13 +180,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Запустить цикл обработки событий.
-     *
-     * Эту функцию можно вызывать только из {main}, то есть не внутри Fiber'а.
-     *
-     * Библиотеки должны использовать API {@link Suspension} вместо вызова этого метода.
-     *
-     * Этот метод не вернет управление до тех пор, пока цикл обработки событий не будет содержать каких-либо ожидающих, ссылочных обратных вызовов.
+     * {@inheritdoc}
      */
     public function run(): void
     {
@@ -194,7 +188,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Останавливает цикл обработки событий.
+     * {@inheritdoc}
      */
     public function stop(): void
     {
@@ -223,11 +217,7 @@ final class Linux implements EventInterface
 
 
     /**
-     * Устанавливает отложенное событие выполнения функции.
-     * @param float $delay Задержка перед выполнением в секундах.
-     * @param callable $func Функция для выполнения.
-     * @param array $args Аргументы функции (по умолчанию пустой массив).
-     * @return int Идентификатор таймера.
+     * {@inheritdoc}
      */
     public function delay(float $delay, callable $func, array $args = []): int
     {
@@ -242,11 +232,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Устанавливает повторяющееся событие выполнения функции.
-     * @param float $interval Интервал между повторениями в секундах.
-     * @param callable $func Функция для выполнения.
-     * @param array $args Аргументы функции (по умолчанию пустой массив).
-     * @return int Идентификатор таймера.
+     * {@inheritdoc}
      */
     public function repeat(float $interval, callable $func, array $args = []): int
     {
@@ -260,9 +246,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Устанавливает обработчик события чтения.
-     * @param mixed $stream Поток для чтения.
-     * @param callable $func Функция-обработчик.
+     * {@inheritdoc}
      */
     public function onReadable($stream, callable $func): void
     {
@@ -290,9 +274,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Удаляет обработчик события чтения.
-     * @param mixed $stream Поток для чтения.
-     * @return bool Возвращает true, если обработчик был успешно удален, иначе false.
+     * {@inheritdoc}
      */
     public function offReadable($stream): bool
     {
@@ -300,9 +282,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Устанавливает обработчик события записи.
-     * @param mixed $stream Поток для записи.
-     * @param callable $func Функция-обработчик.
+     * {@inheritdoc}
      */
     public function onWritable($stream, callable $func): void
     {
@@ -313,9 +293,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Удаляет обработчик события записи.
-     * @param mixed $stream Поток для записи.
-     * @return bool Возвращает true, если обработчик был успешно удален, иначе false.
+     * {@inheritdoc}
      */
     public function offWritable($stream): bool
     {
@@ -323,10 +301,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Устанавливает обработчик события сигнала.
-     * @param int $signal Номер сигнала.
-     * @param callable $func Функция-обработчик.
-     * @throws UnsupportedFeatureException If signal handling is not supported.
+     * {@inheritdoc}
      */
     public function onSignal(int $signal, callable $func): void
     {
@@ -337,9 +312,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Удаляет обработчик события сигнала.
-     * @param int $signal Номер сигнала.
-     * @return bool Возвращает true, если обработчик был успешно удален, иначе false.
+     * {@inheritdoc}
      */
     public function offSignal(int $signal): bool
     {
@@ -347,9 +320,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Удаляет повторяющееся событие по идентификатору таймера.
-     * @param int $timerId Идентификатор таймера.
-     * @return bool Возвращает true, если таймер был успешно удален, иначе false.
+     * {@inheritdoc}
      */
     public function offRepeat(int $timerId): bool
     {
@@ -357,19 +328,16 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Удаляет отложенное событие по идентификатору таймера.
-     * @param int $timerId Идентификатор таймера.
-     * @return bool Возвращает true, если таймер был успешно удален, иначе false.
+     * {@inheritdoc}
      */
     public function offDelay(int $timerId): bool
     {
         return $this->cancelAndUnset($timerId, $this->eventTimer);
     }
 
-    /*********************************************NEW********************************************************/
 
     /**
-     * Удаляет все таймеры.
+     * {@inheritdoc}
      */
     public function deleteAllTimer(): void
     {
@@ -380,8 +348,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Возвращает количество таймеров.
-     * @return int Количество таймеров.
+     * {@inheritdoc}
      */
     public function getTimerCount(): int
     {
@@ -389,8 +356,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Устанавливает обработчик ошибок.
-     * @param callable $errorHandler Функция-обработчик ошибок.
+     * {@inheritdoc}
      */
     public function setErrorHandler(callable $errorHandler): void
     {
@@ -398,13 +364,14 @@ final class Linux implements EventInterface
     }
 
     /**
-     * Возвращает текущий обработчик ошибок.
-     * @return callable|null Обработчик ошибок или null, если обработчик не установлен.
+     * {@inheritdoc}
      */
     public function getErrorHandler(): ?callable
     {
         return $this->getDriver()->getErrorHandler();
     }
+
+    /*********************************************NEW********************************************************/
 
     /**
      * Поставить в очередь микрозадачу.
