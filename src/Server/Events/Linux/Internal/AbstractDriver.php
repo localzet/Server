@@ -46,18 +46,18 @@ use function assert;
 use function sprintf;
 
 /**
- * Event loop driver which implements all basic operations to allow interoperability.
+ * Драйвер цикла событий, который реализует все основные операции для обеспечения взаимодействия.
  *
- * Callbacks (enabled or new callbacks) MUST immediately be marked as enabled, but only be activated (i.e. callbacks can
- * be called) right before the next tick. Callbacks MUST NOT be called in the tick they were enabled.
+ * Обратные вызовы (включенные или новые обратные вызовы) ДОЛЖНЫ немедленно быть помечены как включенные, но активироваться (т.е. обратные вызовы могут
+ * быть вызваны) непосредственно перед следующим тиком. Обратные вызовы НЕ ДОЛЖНЫ вызываться в тике, в котором они были включены.
  *
- * All registered callbacks MUST NOT be called from a file with strict types enabled (`declare(strict_types=1)`).
+ * Все зарегистрированные обратные вызовы НЕ ДОЛЖНЫ вызываться из файла с включенными строгими типами (`declare(strict_types=1)`).
  *
  * @internal
  */
 abstract class AbstractDriver implements Driver
 {
-    /** @var string Next callback identifier. */
+    /** @var string Следующий идентификатор обратного вызова. */
     private string $nextId = "a";
 
     /**
@@ -132,24 +132,42 @@ abstract class AbstractDriver implements Driver
      */
     public function __construct()
     {
+
+        /** @psalm-suppress InvalidArgument */
+        // Создание нового экземпляра WeakMap для приостановок.
         $this->suspensions = new WeakMap();
 
+        // Создание нового экземпляра stdClass для внутреннего маркера приостановки.
         $this->internalSuspensionMarker = new stdClass();
+
+        // Создание новых экземпляров SplQueue для очередей микрозадач и обратных вызовов.
         $this->microtaskQueue = new SplQueue();
         $this->callbackQueue = new SplQueue();
 
+        // Создание нового волокна для цикла событий.
         $this->createLoopFiber();
+
+        // Создание нового волокна для обратных вызовов.
         $this->createCallbackFiber();
+
+        // Создание нового обратного вызова для обработки ошибок.
         $this->createErrorCallback();
 
         /** @psalm-suppress InvalidArgument */
+        // Установка обратного вызова прерывания.
         $this->interruptCallback = $this->setInterrupt(...);
+
+        // Установка обратного вызова очереди.
         $this->queueCallback = $this->queue(...);
+
+        // Установка обратного вызова запуска.
         $this->runCallback = function () {
+            // Если волокно уже завершено, создаем новое волокно цикла событий.
             if ($this->fiber->isTerminated()) {
                 $this->createLoopFiber();
             }
 
+            // Если волокно уже запущено, возобновляем его. В противном случае запускаем его.
             return $this->fiber->isStarted() ? $this->fiber->resume() : $this->fiber->start();
         };
     }
@@ -159,24 +177,30 @@ abstract class AbstractDriver implements Driver
      */
     private function createLoopFiber(): void
     {
+
+        // Создание нового волокна для цикла событий.
         $this->fiber = new Fiber(function (): void {
             $this->stopped = false;
 
-            // Invoke microtasks if we have some
             $this->invokeCallbacks();
 
+            // Если цикл событий остановлен, создаем новое волокно.
             while (!$this->stopped) {
+                // Если есть обратный вызов прерывания, вызываем его.
                 if ($this->interrupt) {
                     $this->invokeInterrupt();
                 }
 
+                // Если все очереди пусты, возвращаемся.
                 if ($this->isEmpty()) {
                     return;
                 }
 
+                // Если цикл событий неактивен, устанавливаем его в активное состояние и вызываем обратные вызовы.
                 $previousIdle = $this->idle;
                 $this->idle = true;
 
+                // Если цикл событий остановлен, завершаем выполнение волокна.
                 $this->tick($previousIdle);
                 $this->invokeCallbacks();
             }
@@ -184,6 +208,7 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Вызывает обратные вызовы
      * @return void
      * @throws Throwable
      */
@@ -206,7 +231,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
-     * @return bool True if no enabled and referenced callbacks remain in the loop.
+     * Проверяет, остались ли в цикле включенные и ссылочные обратные вызовы.
+     * @return bool True, если в цикле не осталось включенных и ссылочных обратных вызовов.
      */
     private function isEmpty(): bool
     {
@@ -220,6 +246,7 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Создает обратный вызов Fiber
      * @return void
      */
     private function createCallbackFiber(): void
@@ -244,8 +271,8 @@ abstract class AbstractDriver implements Driver
                         if (!$callback->repeat) {
                             $this->cancel($callback->id);
                         } else {
-                            // Disable and re-enable, so it's not executed repeatedly in the same tick
-                            // See https://github.com/amphp/amp/issues/131
+                            // Отключаем и снова включаем, чтобы он не выполнялся несколько раз за один тик
+                            // См. https://github.com/amphp/amp/issues/131
                             $this->disable($callback->id);
                             $this->enable($callback->id);
                         }
@@ -290,6 +317,7 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Вызывает микрозадачи
      * @return void
      * @throws Throwable
      */
@@ -299,7 +327,7 @@ abstract class AbstractDriver implements Driver
             [$callback, $args] = $this->microtaskQueue->dequeue();
 
             try {
-                // Clear $args to allow garbage collection
+                // Очистка $args для сборки мусора
                 $callback(...$args, ...($args = []));
             } catch (Throwable $exception) {
                 $this->error($callback, $exception);
@@ -317,16 +345,16 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
-     * Invokes the error handler with the given exception.
+     * Вызывает обработчик ошибок с указанным исключением.
      *
      * @param Closure $closure
-     * @param Throwable $exception The exception thrown from an event callback.
+     * @param Throwable $exception Исключение, выброшенное из обратного вызова события.
      * @throws Throwable
      */
     final protected function error(Closure $closure, Throwable $exception): void
     {
         if ($this->errorHandler === null) {
-            // Explicitly override the previous interrupt if it exists in this case, hiding the exception is worse
+            // Явно переопределяем предыдущее прерывание, если оно существует в этом случае, скрытие исключения хуже
             $this->interrupt = static fn() => $exception instanceof UncaughtThrowable
                 ? throw $exception
                 : throw UncaughtThrowable::throwingCallback($closure, $exception);
@@ -340,6 +368,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Отменяет обратный вызов по указанному идентификатору.
+     *
      * @param string $callbackId
      * @return void
      */
@@ -350,6 +380,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Отключает обратный вызов по указанному идентификатору.
+     *
      * @param string $callbackId
      * @return string
      */
@@ -362,7 +394,7 @@ abstract class AbstractDriver implements Driver
         $callback = $this->callbacks[$callbackId];
 
         if (!$callback->enabled) {
-            return $callbackId; // Callback already disabled.
+            return $callbackId; // Обратный вызов уже отключен.
         }
 
         $callback->enabled = false;
@@ -370,10 +402,10 @@ abstract class AbstractDriver implements Driver
         $id = $callback->id;
 
         if ($callback instanceof DeferCallback) {
-            // Callback was only queued to be enabled.
+            // Обратный вызов был только поставлен в очередь для включения.
             unset($this->enableDeferQueue[$id]);
         } elseif (isset($this->enableQueue[$id])) {
-            // Callback was only queued to be enabled.
+            // Обратный вызов был только поставлен в очередь для включения.
             unset($this->enableQueue[$id]);
         } else {
             $this->deactivate($callback);
@@ -383,11 +415,13 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
-     * Deactivates (disables) the given callback.
+     * Деактивирует (отключает) указанный обратный вызов.
      */
     abstract protected function deactivate(DriverCallback $callback): void;
 
     /**
+     * Включает обратный вызов по указанному идентификатору.
+     *
      * @param string $callbackId
      * @return string
      */
@@ -400,7 +434,7 @@ abstract class AbstractDriver implements Driver
         $callback = $this->callbacks[$callbackId];
 
         if ($callback->enabled) {
-            return $callbackId; // Callback already enabled.
+            return $callbackId; // Обратный вызов уже включен.
         }
 
         $callback->enabled = true;
@@ -418,14 +452,15 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
-     * Returns the current event loop time in second increments.
+     * Возвращает текущее время цикла событий в секундах.
      *
-     * Note this value does not necessarily correlate to wall-clock time, rather the value returned is meant to be used
-     * in relative comparisons to prior values returned by this method (intervals, expiration calculations, etc.).
+     * Обратите внимание, что это значение не обязательно коррелирует со временем по стенному часу, скорее, возвращаемое значение предназначено для использования
+     * в относительных сравнениях с предыдущими значениями, возвращаемыми этим методом (интервалы, расчеты истечения срока и т.д.).
      */
     abstract protected function now(): float;
 
     /**
+     * Вызывает прерывание
      * @return void
      * @throws Throwable
      */
@@ -441,7 +476,7 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
-     * Executes a single tick of the event loop.
+     * Выполняет один тик цикла событий.
      * @throws Throwable
      */
     private function tick(bool $previousIdle): void
@@ -479,11 +514,13 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
-     * Activates (enables) all the given callbacks.
+     * Активирует (включает) все указанные обратные вызовы.
      */
     abstract protected function activate(array $callbacks): void;
 
     /**
+     * Добавляет обратный вызов в очередь.
+     *
      * @param DriverCallback $callback
      * @return void
      */
@@ -494,11 +531,13 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
-     * Dispatches any pending read/write, timer, and signal events.
+     * Отправляет все ожидающие события чтения/записи, таймеры и сигналы.
      */
     abstract protected function dispatch(bool $blocking): void;
 
     /**
+     * Создает обратный вызов для ошибок.
+     *
      * @return void
      */
     private function createErrorCallback(): void
@@ -517,6 +556,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Устанавливает прерывание.
+     *
      * @param Closure():mixed $interrupt
      */
     private function setInterrupt(Closure $interrupt): void
@@ -527,17 +568,19 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Запускает цикл событий.
+     *
      * @return void
      * @throws Throwable
      */
     public function run(): void
     {
         if ($this->fiber->isRunning()) {
-            throw new Error("The event loop is already running");
+            throw new Error("Цикл событий уже запущен");
         }
 
         if (Fiber::getCurrent()) {
-            throw new Error(sprintf("Can't call %s() within a fiber (i.e., outside of {main})", __METHOD__));
+            throw new Error(sprintf("Нельзя вызывать %s() внутри волокна (т.е. вне {main})", __METHOD__));
         }
 
         if ($this->fiber->isTerminated()) {
@@ -550,11 +593,13 @@ abstract class AbstractDriver implements Driver
         if ($lambda) {
             $lambda();
 
-            throw new Error('Interrupt from event loop must throw an exception: ' . ClosureHelper::getDescription($lambda));
+            throw new Error('Прерывание из цикла событий должно вызвать исключение: ' . ClosureHelper::getDescription($lambda));
         }
     }
 
     /**
+     * Проверяет, запущен ли цикл событий.
+     *
      * @return bool
      */
     public function isRunning(): bool
@@ -563,6 +608,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Останавливает цикл событий.
+     *
      * @return void
      */
     public function stop(): void
@@ -571,6 +618,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Добавляет задачу в очередь.
+     *
      * @param Closure $closure
      * @param mixed ...$args
      * @return void
@@ -581,6 +630,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Откладывает выполнение задачи.
+     *
      * @param Closure $closure
      * @return string
      */
@@ -595,6 +646,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Задерживает выполнение задачи.
+     *
      * @param float $delay
      * @param Closure $closure
      * @return string
@@ -602,7 +655,7 @@ abstract class AbstractDriver implements Driver
     public function delay(float $delay, Closure $closure): string
     {
         if ($delay < 0) {
-            throw new Error("Delay must be greater than or equal to zero");
+            throw new Error("Задержка должна быть больше или равна нулю");
         }
 
         $timerCallback = new TimerCallback($this->nextId++, $delay, $closure, $this->now() + $delay);
@@ -614,6 +667,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Повторяет выполнение задачи с указанным интервалом.
+     *
      * @param float $interval
      * @param Closure $closure
      * @return string
@@ -621,7 +676,7 @@ abstract class AbstractDriver implements Driver
     public function repeat(float $interval, Closure $closure): string
     {
         if ($interval < 0) {
-            throw new Error("Interval must be greater than or equal to zero");
+            throw new Error("Интервал должен быть больше или равен нулю");
         }
 
         $timerCallback = new TimerCallback($this->nextId++, $interval, $closure, $this->now() + $interval, true);
@@ -633,6 +688,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Выполняет задачу при возникновении события чтения.
+     *
      * @param mixed $stream
      * @param Closure $closure
      * @return string
@@ -648,8 +705,10 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
-     * @param $stream
-     * @param Closure $closure
+     * Выполняет задачу при возникновении события записи.
+     *
+     * @param mixed   stream
+     * @param Closure closure
      * @return string
      */
     public function onWritable($stream, Closure $closure): string
@@ -663,6 +722,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Выполняет задачу при получении сигнала.
+     *
      * @param int $signal
      * @param Closure $closure
      * @return string
@@ -678,6 +739,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Добавляет ссылку на обратный вызов.
+     *
      * @param string $callbackId
      * @return string
      */
@@ -693,6 +756,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Удаляет ссылку на обратный вызов.
+     *
      * @param string $callbackId
      * @return string
      */
@@ -708,16 +773,18 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Возвращает текущую приостановку.
+     *
      * @return Suspension
      */
     public function getSuspension(): Suspension
     {
         $fiber = Fiber::getCurrent();
 
-        // User callbacks are always executed outside the event loop fiber, so this should always be false.
+        // Пользовательские обратные вызовы всегда выполняются вне волокна цикла событий, поэтому это всегда должно быть false.
         assert($fiber !== $this->fiber);
 
-        // Use current object in case of {main}
+        // Используем текущий объект в случае {main}
         $suspension = ($this->suspensions[$fiber ?? $this] ?? null)?->get();
         if ($suspension) {
             return $suspension;
@@ -736,6 +803,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Возвращает обработчик ошибок.
+     *
      * @return Closure|null
      */
     public function getErrorHandler(): ?Closure
@@ -744,6 +813,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Устанавливает обработчик ошибок.
+     *
      * @param Closure|null $errorHandler
      * @return void
      */
@@ -753,6 +824,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Возвращает информацию для отладки.
+     *
      * @return array
      */
     public function __debugInfo(): array
@@ -767,6 +840,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Возвращает тип обратного вызова.
+     *
      * @param string $callbackId
      * @return CallbackType
      */
@@ -784,6 +859,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Возвращает идентификаторы обратных вызовов.
+     *
      * @return array|string[]
      */
     public function getIdentifiers(): array
@@ -792,6 +869,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Проверяет, включен ли обратный вызов.
+     *
      * @param string $callbackId
      * @return bool
      */
@@ -803,6 +882,8 @@ abstract class AbstractDriver implements Driver
     }
 
     /**
+     * Проверяет, имеет ли обратный вызов ссылку.
+     *
      * @param string $callbackId
      * @return bool
      */
