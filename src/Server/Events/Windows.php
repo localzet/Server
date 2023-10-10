@@ -26,6 +26,7 @@
 
 namespace localzet\Server\Events;
 
+use localzet\Server;
 use SplPriorityQueue;
 use Throwable;
 use function count;
@@ -201,9 +202,9 @@ final class Windows implements EventInterface
     {
         $count = count($this->readFds);
         if ($count >= 1024) {
-            echo "Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений..\n";
+            Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений.\n");
         } else if (DIRECTORY_SEPARATOR !== '/' && $count >= 256) {
-            echo "Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n";
+            Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n");
         }
         $fdKey = (int)$stream;
         $this->readEvents[$fdKey] = $func;
@@ -230,9 +231,9 @@ final class Windows implements EventInterface
     {
         $count = count($this->writeFds);
         if ($count >= 1024) {
-            echo "Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений..\n";
+            Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений.\n");
         } else if (DIRECTORY_SEPARATOR !== '/' && $count >= 256) {
-            echo "Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n";
+            Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n");
         }
         $fdKey = (int)$stream;
         $this->writeEvents[$fdKey] = $func;
