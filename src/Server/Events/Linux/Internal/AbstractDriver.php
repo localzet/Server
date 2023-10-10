@@ -144,10 +144,10 @@ abstract class AbstractDriver implements Driver
         $this->microtaskQueue = new SplQueue();
         $this->callbackQueue = new SplQueue();
 
-        // Создание нового волокна для цикла событий.
+        // Создание нового Fiber'а для цикла событий.
         $this->createLoopFiber();
 
-        // Создание нового волокна для обратных вызовов.
+        // Создание нового Fiber'а для обратных вызовов.
         $this->createCallbackFiber();
 
         // Создание нового обратного вызова для обработки ошибок.
@@ -162,12 +162,12 @@ abstract class AbstractDriver implements Driver
 
         // Установка обратного вызова запуска.
         $this->runCallback = function () {
-            // Если волокно уже завершено, создаем новое волокно цикла событий.
+            // Если Fiber уже завершен, создаем новый Fiber цикла событий.
             if ($this->fiber->isTerminated()) {
                 $this->createLoopFiber();
             }
 
-            // Если волокно уже запущено, возобновляем его. В противном случае запускаем его.
+            // Если Fiber уже запущен, возобновляем его. В противном случае запускаем его.
             return $this->fiber->isStarted() ? $this->fiber->resume() : $this->fiber->start();
         };
     }
@@ -178,13 +178,13 @@ abstract class AbstractDriver implements Driver
     private function createLoopFiber(): void
     {
 
-        // Создание нового волокна для цикла событий.
+        // Создание нового Fiber'а для цикла событий.
         $this->fiber = new Fiber(function (): void {
             $this->stopped = false;
 
             $this->invokeCallbacks();
 
-            // Если цикл событий остановлен, создаем новое волокно.
+            // Если цикл событий остановлен.
             while (!$this->stopped) {
                 // Если есть обратный вызов прерывания, вызываем его.
                 if ($this->interrupt) {
@@ -200,7 +200,7 @@ abstract class AbstractDriver implements Driver
                 $previousIdle = $this->idle;
                 $this->idle = true;
 
-                // Если цикл событий остановлен, завершаем выполнение волокна.
+                // Если цикл событий остановлен, завершаем выполнение Fiber'а.
                 $this->tick($previousIdle);
                 $this->invokeCallbacks();
             }
@@ -580,7 +580,7 @@ abstract class AbstractDriver implements Driver
         }
 
         if (Fiber::getCurrent()) {
-            throw new Error(sprintf("Нельзя вызывать %s() внутри волокна (т.е. вне {main})", __METHOD__));
+            throw new Error(sprintf("Нельзя вызывать %s() внутри Fiber'а (т.е. вне {main})", __METHOD__));
         }
 
         if ($this->fiber->isTerminated()) {
@@ -781,7 +781,7 @@ abstract class AbstractDriver implements Driver
     {
         $fiber = Fiber::getCurrent();
 
-        // Пользовательские обратные вызовы всегда выполняются вне волокна цикла событий, поэтому это всегда должно быть false.
+        // Пользовательские обратные вызовы всегда выполняются вне Fiber'а цикла событий, поэтому это всегда должно быть false.
         assert($fiber !== $this->fiber);
 
         // Используем текущий объект в случае {main}
