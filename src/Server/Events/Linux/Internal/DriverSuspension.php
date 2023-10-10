@@ -42,6 +42,7 @@ use function gc_collect_cycles;
 use function implode;
 use const DEBUG_BACKTRACE_IGNORE_ARGS;
 
+
 /**
  * @internal
  *
@@ -93,7 +94,7 @@ final class DriverSuspension implements Suspension
     public function resume(mixed $value = null): void
     {
         if (!$this->pending) {
-            throw $this->fiberError ?? new Error('Must call suspend() before calling resume()');
+            throw $this->fiberError ?? new Error('Необходимо вызвать suspend() перед вызовом resume()');
         }
 
         $this->pending = false;
@@ -104,7 +105,7 @@ final class DriverSuspension implements Suspension
         if ($fiber) {
             ($this->queue)($fiber->resume(...), $value);
         } else {
-            // Suspend event loop fiber to {main}.
+            // Приостановить выполнение основного цикла событий.
             ($this->interrupt)(static fn() => $value);
         }
     }
@@ -116,18 +117,18 @@ final class DriverSuspension implements Suspension
     public function suspend(): mixed
     {
         if ($this->pending) {
-            throw new Error('Must call resume() or throw() before calling suspend() again');
+            throw new Error('Необходимо вызвать resume() или throw() перед повторным вызовом suspend()');
         }
 
         $fiber = $this->fiberRef?->get();
 
         if ($fiber !== Fiber::getCurrent()) {
-            throw new Error('Must not call suspend() from another fiber');
+            throw new Error('Нельзя вызывать suspend() из другого волокна');
         }
 
         $this->pending = true;
 
-        // Awaiting from within a fiber.
+        // Ожидание внутри волокна.
         if ($fiber) {
             $this->suspendedFiber = $fiber;
 
@@ -143,17 +144,16 @@ final class DriverSuspension implements Suspension
             }
         }
 
-        // Awaiting from {main}.
+        // Ожидание в {main}.
         $result = ($this->run)();
 
-        /** @psalm-suppress RedundantCondition $this->pending should be changed when resumed. */
+        /** @psalm-suppress RedundantCondition Поле pending должно измениться при возобновлении. */
         if ($this->pending) {
             $this->pending = false;
-            $result && $result(); // Unwrap any uncaught exceptions from the event loop
-
-            gc_collect_cycles(); // Collect any circular references before dumping pending suspensions.
-
+            $result && $result(); // Распаковка любых необработанных исключений из цикла событий
+            gc_collect_cycles(); // Сбор циклических ссылок перед выводом ожидающих приостановок.
             $info = '';
+
             foreach ($this->suspensions as $suspensionRef) {
                 if ($suspension = $suspensionRef->get()) {
                     assert($suspension instanceof self);
@@ -161,13 +161,11 @@ final class DriverSuspension implements Suspension
                     if ($fiber === null) {
                         continue;
                     }
-
                     $reflectionFiber = new ReflectionFiber($fiber);
                     $info .= "\n\n" . $this->formatStacktrace($reflectionFiber->getTrace(DEBUG_BACKTRACE_IGNORE_ARGS));
                 }
             }
-
-            throw new Error('Event loop terminated without resuming the current suspension (the cause is either a fiber deadlock, or an incorrectly unreferenced/canceled watcher):' . $info);
+            throw new Error('Цикл событий завершился без возобновления текущей приостановки (причиной может быть либо тупик волокон, либо неправильно отмененный/нессылочный наблюдатель)');
         }
 
         return $result();
@@ -179,6 +177,7 @@ final class DriverSuspension implements Suspension
      */
     private function formatStacktrace(array $trace): string
     {
+        // Форматирование стека вызовов.
         return implode("\n", array_map(static function ($e, $i) {
             $line = "#$i ";
 
@@ -200,8 +199,9 @@ final class DriverSuspension implements Suspension
      */
     public function throw(Throwable $throwable): void
     {
+        // Бросить исключение.
         if (!$this->pending) {
-            throw $this->fiberError ?? new Error('Must call suspend() before calling throw()');
+            throw $this->fiberError ?? new Error('Необходимо вызвать suspend() перед вызовом throw()');
         }
 
         $this->pending = false;
@@ -210,9 +210,10 @@ final class DriverSuspension implements Suspension
         $fiber = $this->fiberRef?->get();
 
         if ($fiber) {
+            // Передать исключение в очередь.
             ($this->queue)($fiber->throw(...), $throwable);
         } else {
-            // Suspend event loop fiber to {main}.
+            // Приостановить выполнение основного цикла событий.
             ($this->interrupt)(static fn() => throw $throwable);
         }
     }
