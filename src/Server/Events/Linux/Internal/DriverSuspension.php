@@ -123,12 +123,12 @@ final class DriverSuspension implements Suspension
         $fiber = $this->fiberRef?->get();
 
         if ($fiber !== Fiber::getCurrent()) {
-            throw new Error('Нельзя вызывать suspend() из другого волокна');
+            throw new Error('Нельзя вызывать suspend() из другого Fiber\'а');
         }
 
         $this->pending = true;
 
-        // Ожидание внутри волокна.
+        // Ожидание внутри Fiber'а.
         if ($fiber) {
             $this->suspendedFiber = $fiber;
 
@@ -165,7 +165,7 @@ final class DriverSuspension implements Suspension
                     $info .= "\n\n" . $this->formatStacktrace($reflectionFiber->getTrace(DEBUG_BACKTRACE_IGNORE_ARGS));
                 }
             }
-            throw new Error('Цикл событий завершился без возобновления текущей приостановки (причиной может быть либо тупик волокон, либо неправильно отмененный/нессылочный наблюдатель)');
+            throw new Error('Цикл событий завершился без возобновления текущей приостановки (причиной может быть либо тупик Fiber\'а, либо неправильно отмененный/нессылочный наблюдатель)');
         }
 
         return $result();
