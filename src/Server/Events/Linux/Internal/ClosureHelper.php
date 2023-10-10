@@ -40,20 +40,25 @@ final class ClosureHelper
     public static function getDescription(Closure $closure): string
     {
         try {
+            // Создаем объект ReflectionFunction для замыкания.
             $reflection = new ReflectionFunction($closure);
 
+            // Получаем имя замыкания.
             $description = $reflection->name;
 
+            // Если у замыкания есть класс области видимости, добавляем его к описанию.
             if ($scopeClass = $reflection->getClosureScopeClass()) {
                 $description = $scopeClass->name . '::' . $description;
             }
 
+            // Если у замыкания есть имя файла и номер строки начала, добавляем их к описанию.
             if ($reflection->getFileName() && $reflection->getStartLine()) {
-                $description .= " defined in " . $reflection->getFileName() . ':' . $reflection->getStartLine();
+                $description .= " определено в " . $reflection->getFileName() . ':' . $reflection->getStartLine();
             }
 
             return $description;
         } catch (ReflectionException) {
+            // В случае ошибки возвращаем неопределенное значение.
             return '???';
         }
     }
