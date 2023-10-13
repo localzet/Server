@@ -296,11 +296,13 @@ class Websocket
         // Протокол HTTP.
         if (str_starts_with($buffer, 'GET')) {
             // Найти "\r\n\r\n".
-            $headerEndPos = strpos($buffer, "\r\n\r\n");
-            if (!$headerEndPos) {
+            $pos = strpos($buffer, "\r\n\r\n");
+            if (!$pos) {
                 return 0;
             }
-            $headerLength = $headerEndPos + 4;
+
+            // Длина заголовка.
+            $headerLength = $pos + 4;
 
             // Получить Sec-WebSocket-Key.
             if (preg_match("/Sec-WebSocket-Key: *(.*?)\r\n/i", $buffer, $match)) {
@@ -324,11 +326,14 @@ class Websocket
 
             // Буфер данных websocket.
             $connection->context->websocketDataBuffer = '';
+            
             // Текущая длина кадра websocket.
             $connection->context->websocketCurrentFrameLength = 0;
+
             // Текущие данные кадра websocket.
             $connection->context->websocketCurrentFrameBuffer = '';
-            // Потребление данных рукопожатия.
+
+            // Разбор данных рукопожатия.
             $connection->consumeRecvBuffer($headerLength);
 
             // Попытка вызвать обратный вызов onWebSocketConnect.
