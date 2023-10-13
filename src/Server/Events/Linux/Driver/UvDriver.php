@@ -60,33 +60,36 @@ use function uv_update_time;
 use const PHP_INT_MAX;
 
 /**
- *
+ * Класс UvDriver
  */
 final class UvDriver extends AbstractDriver
 {
-    /** @var resource|UVLoop A uv_loop resource created with uv_loop_new() */
+    /** @var resource|UVLoop Ресурс uv_loop, созданный с помощью uv_loop_new() */
     private $handle;
-    /** @var array<string, resource> */
+    /** @var array<string, resource> Массив событий */
     private array $events = [];
-    /** @var array<int, array<array-key, DriverCallback>> */
+    /** @var array<int, array<array-key, DriverCallback>> Массив обратных вызовов */
     private array $callbacks = [];
-    /** @var array<int, resource> */
+    /** @var array<int, resource> Массив потоков */
     private array $streams = [];
     /**
      * @var Closure
+     * Замыкание для обратного вызова ввода-вывода
      */
     private readonly Closure $ioCallback;
     /**
      * @var Closure
+     * Замыкание для обратного вызова таймера
      */
     private readonly Closure $timerCallback;
     /**
      * @var Closure
+     * Замыкание для обратного вызова сигнала
      */
     private readonly Closure $signalCallback;
 
     /**
-     *
+     * Конструктор класса UvDriver
      */
     public function __construct()
     {
@@ -97,8 +100,8 @@ final class UvDriver extends AbstractDriver
         $this->ioCallback = function ($event, $status, $events, $resource): void {
             $callbacks = $this->callbacks[(int)$event];
 
-            // Invoke the callback on errors, as this matches behavior with other loop back-ends.
-            // Re-enable callback as libuv disables the callback on non-zero status.
+            // Вызываем обратный вызов при ошибках, так как это соответствует поведению с другими бэкендами цикла.
+            // Включаем обратный вызов, так как libuv отключает обратный вызов при ненулевом статусе.
             if ($status !== 0) {
                 $flags = 0;
                 foreach ($callbacks as $callback) {
@@ -112,7 +115,7 @@ final class UvDriver extends AbstractDriver
             foreach ($callbacks as $callback) {
                 assert($callback instanceof StreamCallback);
 
-                // $events is ORed with 4 to trigger callback if no events are indicated (0) or on UV_DISCONNECT (4).
+                // События объединяются с 4 для активации обратного вызова, если не указаны события (0) или при UV_DISCONNECT (4).
                 // http://docs.libuv.org/en/v1.x/poll.html
                 if (!($this->getStreamCallbackFlags($callback) & $events || ($events | 4) === 4)) {
                     continue;
