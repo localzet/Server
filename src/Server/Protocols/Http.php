@@ -187,6 +187,7 @@ class Http
             $request->properties = [];
             return $request;
         }
+        
         $request = new static::$requestClass($buffer);
         $request->connection = $connection;
         $connection->request = $request;
@@ -196,6 +197,17 @@ class Http
                 unset($requests[key($requests)]);
             }
         }
+
+        foreach ($request->header() as $name => $value) {
+            $_SERVER[strtoupper($name)] = $value;
+        }
+
+        $_GET = $request->get();
+        $_POST = $request->post();
+        $_COOKIE = $request->cookie();
+
+        $_REQUEST = $_GET + $_POST + $_COOKIE;
+        $_SESSION = $request->session();
 
         return $request;
     }
