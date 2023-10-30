@@ -188,7 +188,7 @@ class Response implements Stringable
     )
     {
         $this->status = $status;
-        $this->headers = $headers;
+        $this->headers = array_change_key_case($headers);
         $this->body = $body;
     }
 
@@ -244,7 +244,7 @@ class Response implements Stringable
      */
     public function header(string $name, string $value): static
     {
-        $this->headers[$name] = $value;
+        $this->headers[strtolower($name)] = $value;
         return $this;
     }
 
@@ -256,7 +256,9 @@ class Response implements Stringable
      */
     public function withHeaders(array $headers): static
     {
-        $this->headers = array_merge_recursive($this->headers, $headers);
+        foreach ($headers as $name => $value) {
+            $this->header($name, $value);
+        }
         return $this;
     }
 
@@ -268,7 +270,7 @@ class Response implements Stringable
      */
     public function withoutHeader(string $name): static
     {
-        unset($this->headers[$name]);
+        unset($this->headers[strtolower($name)]);
         return $this;
     }
 
@@ -280,7 +282,7 @@ class Response implements Stringable
      */
     public function getHeader(string $name): array|string|null
     {
-        return $this->headers[$name] ?? null;
+        return $this->headers[strtolower($name)] ?? null;
     }
 
     /**
@@ -393,13 +395,13 @@ class Response implements Stringable
      */
     public function cookie(string $name, string $value = '', ?int $maxAge = null, string $path = '', string $domain = '', bool $secure = false, bool $httpOnly = false, ?string $sameSite = null): static
     {
-        $this->headers['Set-Cookie'][] = $name . '=' . rawurlencode($value)
+        $this->header('set-cookie', $name . '=' . rawurlencode($value)
             . (empty($domain) ? '' : '; Domain=' . $domain)
             . ($maxAge === null ? '' : '; Max-Age=' . $maxAge)
             . (empty($path) ? '' : '; Path=' . $path)
             . (!$secure ? '' : '; Secure')
             . (!$httpOnly ? '' : '; HttpOnly')
-            . (empty($sameSite) ? '' : '; SameSite=' . $sameSite);
+            . (empty($sameSite) ? '' : '; SameSite=' . $sameSite));
         return $this;
     }
 
@@ -424,10 +426,8 @@ class Response implements Stringable
 
         // Заголовок.
         $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
-        // Заголовки.
-        $headers = $this->headers;
 
-        foreach ($headers as $name => $value) {
+        foreach ($this->headers as $name => $value) {
             if (strtolower($name) == 'server') {
                 continue;
             }
@@ -442,19 +442,19 @@ class Response implements Stringable
             $head .= "$name: $value\r\n";
         }
 
-        if (!isset($headers['Connection'])) {
+        if (!$this->getHeader('connection')) {
             // Соединение.
             $head .= "Connection: keep-alive\r\n";
         }
 
-        if (!isset($headers['Content-Type'])) {
+        if (!$this->getHeader('content-type')) {
             // Тип контента.
             $head .= "Content-Type: text/html;charset=utf-8\r\n";
-        } else if ($headers['Content-Type'] === 'text/event-stream') {
+        } else if ($this->getHeader('content-type') === 'text/event-stream') {
             return $head . $this->body;
         }
 
-        if (!isset($headers['Transfer-Encoding'])) {
+        if (!$this->getHeader('transfer-encoding')) {
             // Длина контента.
             $head .= "Content-Length: $bodyLen\r\n\r\n";
         } else {
@@ -479,10 +479,8 @@ class Response implements Stringable
         $reason = $this->reason ?: self::PHRASES[$this->status];
         // Заголовок.
         $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
-        // Заголовки.
-        $headers = $this->headers;
 
-        foreach ($headers as $name => $value) {
+        foreach ($this->headers as $name => $value) {
             if (strtolower($name) == 'server') {
                 continue;
             }
@@ -497,7 +495,7 @@ class Response implements Stringable
             $head .= "$name: $value\r\n";
         }
 
-        if (!isset($headers['Connection'])) {
+        if (!$this->getHeader('connection')) {
             // Соединение.
             $head .= "Connection: keep-alive\r\n";
         }
@@ -508,7 +506,7 @@ class Response implements Stringable
         $extension = $fileInfo['extension'] ?? '';
         // Базовое имя файла.
         $baseName = $fileInfo['basename'] ?: 'unknown';
-        if (!isset($headers['Content-Type'])) {
+        if (!$this->getHeader('content-type')) {
             if (isset(self::$mimeTypeMap[$extension])) {
                 // Тип контента.
                 $head .= "Content-Type: " . self::$mimeTypeMap[$extension] . "\r\n";
@@ -518,12 +516,12 @@ class Response implements Stringable
             }
         }
 
-        if (!isset($headers['Content-Disposition']) && !isset(self::$mimeTypeMap[$extension])) {
+        if (!$this->getHeader('content-disposition') && !isset(self::$mimeTypeMap[$extension])) {
             // Расположение контента.
             $head .= "Content-Disposition: attachment; filename=\"$baseName\"\r\n";
         }
 
-        if (!isset($headers['Last-Modified']) && $mtime = filemtime($file)) {
+        if (!$this->getHeader('last-modified') && $mtime = filemtime($file)) {
             // Последнее изменение.
             $head .= 'Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
         }
