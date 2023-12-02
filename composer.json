@@ -20,12 +20,6 @@
     "issues": "https://github.com/localzet/server/issues",
     "source": "https://github.com/localzet/server"
   },
-  "funding": [
-    {
-      "type": "other",
-      "url": "https://www.tinkoff.ru/cf/Ad5MBNhodod"
-    }
-  ],
   "require": {
     "php": ">=8.2",
     "ext-json": "*",
