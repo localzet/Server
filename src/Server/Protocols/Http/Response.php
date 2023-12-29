@@ -26,9 +26,12 @@
 
 namespace localzet\Server\Protocols\Http;
 
+use Fig\Http\Message\StatusCodeInterface;
 use localzet\Server;
+use localzet\Server\PSRUtil;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 use Stringable;
-use function array_merge_recursive;
 use function explode;
 use function file;
 use function filemtime;
@@ -38,7 +41,6 @@ use function is_file;
 use function pathinfo;
 use function preg_match;
 use function rawurlencode;
-use function strlen;
 use function substr;
 use const FILE_IGNORE_NEW_LINES;
 use const FILE_SKIP_EMPTY_LINES;
@@ -47,7 +49,7 @@ use const FILE_SKIP_EMPTY_LINES;
  * Class Response
  * @package localzet\Server\Protocols\Http
  */
-class Response implements Stringable
+class Response extends Message implements ResponseInterface, StatusCodeInterface, Stringable
 {
     /**
      * Phrases.
@@ -56,74 +58,76 @@ class Response implements Stringable
      *
      * @link https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
      */
-    public const PHRASES = [
-        100 => 'Continue',
-        101 => 'Switching Protocols',
-        102 => 'Processing', // WebDAV; RFC 2518
-        103 => 'Early Hints', // RFC 8297
+    protected static array $phrases = [
+        // Informational 1xx
+        self::STATUS_CONTINUE => 'Continue',
+        self::STATUS_SWITCHING_PROTOCOLS => 'Switching Protocols',
+        self::STATUS_PROCESSING => 'Processing', // WebDAV; RFC 2518
+        self::STATUS_EARLY_HINTS => 'Early Hints', // RFC 8297
+        // Successful 2xx
+        self::STATUS_OK => 'OK',
+        self::STATUS_CREATED => 'Created',
+        self::STATUS_ACCEPTED => 'Accepted',
+        self::STATUS_NON_AUTHORITATIVE_INFORMATION => 'Non-Authoritative Information', // since HTTP/1.1
+        self::STATUS_NO_CONTENT => 'No Content',
+        self::STATUS_RESET_CONTENT => 'Reset Content',
+        self::STATUS_PARTIAL_CONTENT => 'Partial Content', // RFC 7233
+        self::STATUS_MULTI_STATUS => 'Multi-Status', // WebDAV; RFC 4918
+        self::STATUS_ALREADY_REPORTED => 'Already Reported', // WebDAV; RFC 5842
+        self::STATUS_IM_USED => 'IM Used', // RFC 3229
+        // Redirection 3xx
+        self::STATUS_MULTIPLE_CHOICES => 'Multiple Choices',
+        self::STATUS_MOVED_PERMANENTLY => 'Moved Permanently',
+        self::STATUS_FOUND => 'Found', // Previously "Moved temporarily"
+        self::STATUS_SEE_OTHER => 'See Other', // since HTTP/1.1
+        self::STATUS_NOT_MODIFIED => 'Not Modified', // RFC 7232
+        self::STATUS_USE_PROXY => 'Use Proxy', // since HTTP/1.1
+        self::STATUS_RESERVED => 'Switch Proxy',
+        self::STATUS_TEMPORARY_REDIRECT => 'Temporary Redirect', // since HTTP/1.1
+        self::STATUS_PERMANENT_REDIRECT => 'Permanent Redirect', // RFC 7538
+        // Client Errors 4xx
+        self::STATUS_BAD_REQUEST => 'Bad Request',
+        self::STATUS_UNAUTHORIZED => 'Unauthorized', // RFC 7235
+        self::STATUS_PAYMENT_REQUIRED => 'Payment Required',
+        self::STATUS_FORBIDDEN => 'Forbidden',
+        self::STATUS_NOT_FOUND => 'Not Found',
+        self::STATUS_METHOD_NOT_ALLOWED => 'Method Not Allowed',
+        self::STATUS_NOT_ACCEPTABLE => 'Not Acceptable',
+        self::STATUS_PROXY_AUTHENTICATION_REQUIRED => 'Proxy Authentication Required', // RFC 7235
+        self::STATUS_REQUEST_TIMEOUT => 'Request Timeout',
+        self::STATUS_CONFLICT => 'Conflict',
+        self::STATUS_GONE => 'Gone',
+        self::STATUS_LENGTH_REQUIRED => 'Length Required',
+        self::STATUS_PRECONDITION_FAILED => 'Precondition Failed', // RFC 7232
+        self::STATUS_PAYLOAD_TOO_LARGE => 'Payload Too Large', // RFC 7231
+        self::STATUS_URI_TOO_LONG => 'URI Too Long', // RFC 7231
+        self::STATUS_UNSUPPORTED_MEDIA_TYPE => 'Unsupported Media Type', // RFC 7231
+        self::STATUS_RANGE_NOT_SATISFIABLE => 'Range Not Satisfiable', // RFC 7233
+        self::STATUS_EXPECTATION_FAILED => 'Expectation Failed',
+        self::STATUS_IM_A_TEAPOT => 'I\'m a teapot', // RFC 2324, RFC 7168
+        self::STATUS_MISDIRECTED_REQUEST => 'Misdirected Request', // RFC 7540
+        self::STATUS_UNPROCESSABLE_ENTITY => 'Unprocessable Entity', // WebDAV; RFC 4918
+        self::STATUS_LOCKED => 'Locked', // WebDAV; RFC 4918
+        self::STATUS_FAILED_DEPENDENCY => 'Failed Dependency', // WebDAV; RFC 4918
+        self::STATUS_TOO_EARLY => 'Too Early', // RFC 8470
+        self::STATUS_UPGRADE_REQUIRED => 'Upgrade Required',
+        self::STATUS_PRECONDITION_REQUIRED => 'Precondition Required', // RFC 6585
+        self::STATUS_TOO_MANY_REQUESTS => 'Too Many Requests', // RFC 6585
+        self::STATUS_REQUEST_HEADER_FIELDS_TOO_LARGE => 'Request Header Fields Too Large', // RFC 6585
+        self::STATUS_UNAVAILABLE_FOR_LEGAL_REASONS => 'Unavailable For Legal Reasons', // RFC 7725
+        // Server Errors 5xx
+        self::STATUS_INTERNAL_SERVER_ERROR => 'Internal Server Error',
+        self::STATUS_NOT_IMPLEMENTED => 'Not Implemented',
+        self::STATUS_BAD_GATEWAY => 'Bad Gateway',
+        self::STATUS_SERVICE_UNAVAILABLE => 'Service Unavailable',
+        self::STATUS_GATEWAY_TIMEOUT => 'Gateway Timeout',
+        self::STATUS_VERSION_NOT_SUPPORTED => 'HTTP Version Not Supported',
+        self::STATUS_VARIANT_ALSO_NEGOTIATES => 'Variant Also Negotiates', // RFC 2295
+        self::STATUS_INSUFFICIENT_STORAGE => 'Insufficient Storage', // WebDAV; RFC 4918
+        self::STATUS_LOOP_DETECTED => 'Loop Detected', // WebDAV; RFC 5842
+        self::STATUS_NOT_EXTENDED => 'Not Extended', // RFC 2774
+        self::STATUS_NETWORK_AUTHENTICATION_REQUIRED => 'Network Authentication Required', // RFC 6585
 
-        200 => 'OK',
-        201 => 'Created',
-        202 => 'Accepted',
-        203 => 'Non-Authoritative Information', // since HTTP/1.1
-        204 => 'No Content',
-        205 => 'Reset Content',
-        206 => 'Partial Content', // RFC 7233
-        207 => 'Multi-Status', // WebDAV; RFC 4918
-        208 => 'Already Reported', // WebDAV; RFC 5842
-        226 => 'IM Used', // RFC 3229
-
-        300 => 'Multiple Choices',
-        301 => 'Moved Permanently',
-        302 => 'Found', // Previously "Moved temporarily"
-        303 => 'See Other', // since HTTP/1.1
-        304 => 'Not Modified', // RFC 7232
-        305 => 'Use Proxy', // since HTTP/1.1
-        306 => 'Switch Proxy',
-        307 => 'Temporary Redirect', // since HTTP/1.1
-        308 => 'Permanent Redirect', // RFC 7538
-
-        400 => 'Bad Request',
-        401 => 'Unauthorized', // RFC 7235
-        402 => 'Payment Required',
-        403 => 'Forbidden',
-        404 => 'Not Found',
-        405 => 'Method Not Allowed',
-        406 => 'Not Acceptable',
-        407 => 'Proxy Authentication Required', // RFC 7235
-        408 => 'Request Timeout',
-        409 => 'Conflict',
-        410 => 'Gone',
-        411 => 'Length Required',
-        412 => 'Precondition Failed', // RFC 7232
-        413 => 'Payload Too Large', // RFC 7231
-        414 => 'URI Too Long', // RFC 7231
-        415 => 'Unsupported Media Type', // RFC 7231
-        416 => 'Range Not Satisfiable', // RFC 7233
-        417 => 'Expectation Failed',
-        418 => 'I\'m a teapot', // RFC 2324, RFC 7168
-        421 => 'Misdirected Request', // RFC 7540
-        422 => 'Unprocessable Entity', // WebDAV; RFC 4918
-        423 => 'Locked', // WebDAV; RFC 4918
-        424 => 'Failed Dependency', // WebDAV; RFC 4918
-        425 => 'Too Early', // RFC 8470
-        426 => 'Upgrade Required',
-        428 => 'Precondition Required', // RFC 6585
-        429 => 'Too Many Requests', // RFC 6585
-        431 => 'Request Header Fields Too Large', // RFC 6585
-        451 => 'Unavailable For Legal Reasons', // RFC 7725
-
-        500 => 'Internal Server Error',
-        501 => 'Not Implemented',
-        502 => 'Bad Gateway',
-        503 => 'Service Unavailable',
-        504 => 'Gateway Timeout',
-        505 => 'HTTP Version Not Supported',
-        506 => 'Variant Also Negotiates', // RFC 2295
-        507 => 'Insufficient Storage', // WebDAV; RFC 4918
-        508 => 'Loop Detected', // WebDAV; RFC 5842
-        510 => 'Not Extended', // RFC 2774
-        511 => 'Network Authentication Required', // RFC 6585
     ];
 
     /**
@@ -137,7 +141,7 @@ class Response implements Stringable
      *
      * @var ?array
      */
-    public ?array $file = null;
+    protected ?array $file = null;
 
     /**
      * Данные заголовка.
@@ -151,14 +155,14 @@ class Response implements Stringable
      *
      * @var int
      */
-    protected int $status;
+    protected int $statusCode = 200;
 
     /**
      * Http причина.
      *
      * @var ?string
      */
-    protected ?string $reason = null;
+    protected ?string $reasonPhrase = '';
 
     /**
      * Версия Http.
@@ -179,17 +183,32 @@ class Response implements Stringable
      *
      * @param int $status
      * @param array|null $headers
-     * @param string $body
+     * @param StreamInterface|string|null $body
+     * @param string $version
+     * @param string|null $reason
      */
     public function __construct(
-        int    $status = 200,
-        ?array $headers = [],
-        string $body = ''
+        int                    $status = 200,
+        ?array                 $headers = [],
+        StreamInterface|string $body = null,
+        string                 $version = '1.1',
+        string                 $reason = null
     )
     {
-        $this->status = $status;
-        $this->headers = array_change_key_case($headers);
-        $this->body = $body;
+        $this->statusCode = $status;
+
+        if ($body !== '' && $body !== null) {
+            $this->stream = PSRUtil::stream_for($body);
+        }
+
+        $this->withHeaders($headers);
+        if ($reason == '' && isset(self::$phrases[$this->statusCode])) {
+            $this->reasonPhrase = self::$phrases[$this->statusCode];
+        } else {
+            $this->reasonPhrase = (string)$reason;
+        }
+
+        $this->protocol = $version;
     }
 
     /**
@@ -302,17 +321,17 @@ class Response implements Stringable
      */
     public function getStatusCode(): int
     {
-        return $this->status;
+        return $this->statusCode;
     }
 
     /**
      * Получить причину фразы.
      *
-     * @return ?string
+     * @return string
      */
-    public function getReasonPhrase(): ?string
+    public function getReasonPhrase(): string
     {
-        return $this->reason;
+        return $this->reasonPhrase;
     }
 
     /**
@@ -373,11 +392,15 @@ class Response implements Stringable
      * @param string|null $reasonPhrase
      * @return Response
      */
-    public function withStatus(int $code, string $reasonPhrase = null): static
+    public function withStatus($code, $reasonPhrase = ''): Response|static
     {
-        $this->status = $code;
-        $this->reason = $reasonPhrase;
-        return $this;
+        $new = clone $this;
+        $new->statusCode = (int)$code;
+        if ($reasonPhrase == '' && isset(self::$phrases[$new->statusCode])) {
+            $reasonPhrase = self::$phrases[$new->statusCode];
+        }
+        $new->reasonPhrase = $reasonPhrase;
+        return $new;
     }
 
     /**
@@ -412,57 +435,53 @@ class Response implements Stringable
      */
     public function __toString(): string
     {
+
         if ($this->file) {
             return $this->createHeadForFile($this->file);
         }
 
-        // Причина фразы.
-        $reason = $this->reason ?: self::PHRASES[$this->status] ?? '';
-        // Длина тела.
-        $bodyLen = strlen($this->body);
-        if (empty($this->headers)) {
-            return "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\nConnection: keep-alive\r\n\r\n$this->body";
+        $msg = 'HTTP/' . $this->getProtocolVersion() . ' '
+            . $this->getStatusCode() . ' '
+            . $this->getReasonPhrase()
+            . "\r\nServer: Localzet Server " . Server::getVersion();
+
+
+        $headers = $this->getHeaders();
+        if (empty($headers)) {
+            $msg .=
+                "\r\nContent-Length: " . $this->getBody()->getSize() .
+                "\r\nContent-Type: text/html;charset=utf-8" .
+                "\r\nConnection: keep-alive";
+        } else {
+            if ('' === $this->getHeaderLine('Transfer-Encoding') &&
+                '' === $this->getHeaderLine('Content-Length')) {
+                $msg .= "\r\nContent-Length: " . $this->getBody()->getSize();
+            }
+            if ('' === $this->getHeaderLine('Content-Type')) {
+                $msg .= "\r\nContent-Type: text/html;charset=utf-8";
+            }
+            if ('' === $this->getHeaderLine('Connection')) {
+                $msg .= "\r\nConnection: keep-alive";
+            }
         }
 
-        // Заголовок.
-        $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
-
-        foreach ($this->headers as $name => $value) {
+        foreach ($headers as $name => $values) {
             if (strtolower($name) == 'server') {
                 continue;
             }
-            if (is_array($value)) {
-                foreach ($value as $item) {
-                    // Заголовок.
-                    $head .= "$name: $item\r\n";
-                }
-                continue;
-            }
-            // Заголовок.
-            $head .= "$name: $value\r\n";
+            $msg .= "\r\n$name: " . implode(', ', $values);
         }
 
-        if (!$this->getHeader('connection')) {
-            // Соединение.
-            $head .= "Connection: keep-alive\r\n";
+        if ($this->getHeader('Content-Type') === 'text/event-stream') {
+            return "$msg\r\n\r\n" . $this->getBody();
         }
 
-        if (!$this->getHeader('content-type')) {
-            // Тип контента.
-            $head .= "Content-Type: text/html;charset=utf-8\r\n";
-        } else if ($this->getHeader('content-type') === 'text/event-stream') {
-            return $head . $this->body;
-        }
-
-        if (!$this->getHeader('transfer-encoding')) {
-            // Длина контента.
-            $head .= "Content-Length: $bodyLen\r\n\r\n";
-        } else {
-            return $bodyLen ? "$head\r\n" . dechex($bodyLen) . "\r\n$this->body\r\n" : "$head\r\n";
+        if ('' !== $this->getHeader('Transfer-Encoding')) {
+            return $this->getBody()->getSize() ? "$msg\r\n" . dechex($this->getBody()->getSize()) . "\r\n" . $this->getBody() . "\r\n" : "$msg\r\n";
         }
 
         // Весь HTTP-пакет.
-        return $head . $this->body;
+        return "$msg\r\n\r\n" . $this->getBody();
     }
 
 
@@ -476,7 +495,7 @@ class Response implements Stringable
     {
         $file = $fileInfo['file'];
         // Причина фразы.
-        $reason = $this->reason ?: self::PHRASES[$this->status];
+        $reason = $this->reason ?: self::$phrases[$this->status];
         // Заголовок.
         $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
 

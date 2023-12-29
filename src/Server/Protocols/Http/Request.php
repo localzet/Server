@@ -27,8 +27,13 @@
 namespace localzet\Server\Protocols\Http;
 
 use Exception;
+use Fig\Http\Message\RequestMethodInterface;
+use InvalidArgumentException;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http;
+use localzet\Server\PSRUtil;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\UriInterface;
 use RuntimeException;
 use Stringable;
 use function array_walk_recursive;
@@ -39,7 +44,6 @@ use function explode;
 use function file_put_contents;
 use function is_file;
 use function json_decode;
-use function ltrim;
 use function microtime;
 use function pack;
 use function parse_str;
@@ -61,7 +65,7 @@ use function urlencode;
  * @property mixed|string $sid
  * @package localzet\Server\Protocols\Http
  */
-class Request implements Stringable
+class Request extends Message implements RequestInterface, RequestMethodInterface, Stringable
 {
     /**
      * Максимальное количество загружаемых файлов.
@@ -69,12 +73,6 @@ class Request implements Stringable
      * @var int
      */
     public static int $maxFileUploads = 1024;
-    /**
-     * Включить кэш.
-     *
-     * @var bool
-     */
-    protected static bool $enableCache = true;
     /**
      * Соединение.
      *
@@ -111,12 +109,26 @@ class Request implements Stringable
      * @var bool
      */
     protected bool $isSafe = true;
+
     /**
      * Идентификатор сессии.
      *
      * @var mixed|string
      */
     protected mixed $sid;
+
+    /** @var string */
+    private string $method;
+
+    /** @var null|string */
+    private ?string $requestTarget;
+
+    /** @var string|Uri|UriInterface */
+    private string|Uri|UriInterface $uri;
+
+    protected array $dataGet = [];
+    protected array $dataPost = [];
+    protected array $dataFiles = [];
 
     /**
      * Конструктор запроса.
@@ -125,135 +137,174 @@ class Request implements Stringable
      */
     public function __construct(string $buffer)
     {
-        $this->buffer = $buffer;
-    }
+        $data = PSRUtil::_parse_message($buffer);
+        $matches = [];
 
-    /**
-     * Включить или отключить кэш.
-     *
-     * @param bool $value
-     */
-    public static function enableCache(bool $value): void
-    {
-        static::$enableCache = $value;
-    }
-
-    /**
-     * Получить запрос.
-     *
-     * @param string|null $name
-     * @param mixed|null $default
-     * @return mixed
-     */
-    public function get(string $name = null, mixed $default = null): mixed
-    {
-        if (!isset($this->data['get'])) {
-            $this->parseGet();
-        }
-        if (null === $name) {
-            return $this->data['get'];
-        }
-        return $this->data['get'][$name] ?? $default;
-    }
-
-    /**
-     * Разобрать заголовок.
-     *
-     * @return void
-     */
-    protected function parseGet(): void
-    {
-        static $cache = [];
-        $queryString = $this->queryString();
-        $this->data['get'] = [];
-        if ($queryString === '') {
-            return;
+        if (!preg_match('/^\S+\s+([a-zA-Z]+:\/\/|\/).*/', $data['start-line'], $matches)) {
+            throw new InvalidArgumentException('Invalid request string');
         }
 
-        // Проверяем, можно ли использовать кэш и не превышает ли строка запроса 1024 символа.
-        $cacheable = static::$enableCache && !isset($queryString[1024]);
-        if ($cacheable && isset($cache[$queryString])) {
-            // Если условие выполняется, используем данные из кэша.
-            $this->data['get'] = $cache[$queryString];
-            return;
+        $parts = explode(' ', $data['start-line'], 3);
+        $version = isset($parts[2]) ? explode('/', $parts[2])[1] : '1.1';
+        $uri = $matches[1] === '/' ? PSRUtil::_parse_request_uri($parts[1], $data['headers']) : $parts[1];
+
+        if (!($uri instanceof UriInterface)) {
+            $uri = new Uri($uri);
         }
 
-        // Если нет - парсим строку запроса и сохраняем результат в кэше.
-        parse_str($queryString, $this->data['get']);
-        if ($cacheable) {
-            $cache[$queryString] = $this->data['get'];
-            // Если размер кэша превышает 256, удаляем самый старый элемент кэша.
-            if (count($cache) > 256) {
-                unset($cache[key($cache)]);
+        $this->method = strtoupper($parts[0]);
+        $this->uri = $uri;
+        $this->withHeaders($data['headers']);
+        $this->protocol = $version;
+
+        if (!$this->hasHeader('Host')) {
+            $this->updateHostFromUri();
+        }
+
+        if ($data['body'] !== '' && $data['body'] !== null) {
+            $this->stream = PSRUtil::stream_for($data['body']);
+        }
+
+        // ParseGet
+        $queryString = $this->getUri()->getQuery();
+        if ($queryString !== '') {
+            parse_str($queryString, $this->dataGet);
+        }
+
+        // ParsePost
+        $contentType = $this->getHeaderLine('Content-Type');
+        if (preg_match('/boundary="?(\S+)"?/', $contentType, $match)) {
+            $httpPostBoundary = '--' . $match[1];
+            $this->parseUploadFiles($httpPostBoundary);
+        } else {
+            $bodyBuffer = $this->rawBody();
+            if ($bodyBuffer !== '') {
+                if (preg_match('/\bjson\b/i', $contentType)) {
+                    $this->dataPost = (array)json_decode($bodyBuffer, true);
+                } else {
+                    parse_str($bodyBuffer, $this->dataPost);
+                }
             }
         }
     }
 
-    /**
-     * Получить строку запроса.
-     *
-     * @return string
-     */
-    public function queryString(): string
+    public function getRequestTarget(): string
     {
-        if (!isset($this->data['query_string'])) {
-            $this->data['query_string'] = (string)parse_url($this->uri(), PHP_URL_QUERY);
+        if ($this->requestTarget !== null) {
+            return $this->requestTarget;
         }
-        return $this->data['query_string'];
-    }
 
-    /**
-     * Получить URI.
-     *
-     * @return string
-     */
-    public function uri(): string
-    {
-        if (!isset($this->data['uri'])) {
-            $this->parseHeadFirstLine();
+        $target = $this->uri->getPath();
+        if ($target == '') {
+            $target = '/';
         }
-        return $this->data['uri'];
+        if ($this->uri->getQuery() != '') {
+            $target .= '?' . $this->uri->getQuery();
+        }
+
+        return $target;
     }
 
-    /**
-     * Разобрать первую строку буфера заголовка http.
-     *
-     * @return void
-     */
-    protected function parseHeadFirstLine(): void
+    public function withRequestTarget($requestTarget): Request|static
     {
-        $firstLine = strstr($this->buffer, "\r\n", true);
-        $tmp = explode(' ', $firstLine, 3);
-        $this->data['method'] = $tmp[0];
-        $this->data['uri'] = $tmp[1] ?? '/';
+        if (preg_match('#\s#', $requestTarget)) {
+            throw new InvalidArgumentException(
+                'Invalid request target provided; cannot contain whitespace'
+            );
+        }
+
+        $this->requestTarget = $requestTarget;
+        return $this;
     }
 
-    /**
-     * Получить POST.
-     *
-     * @param string|null $name
-     * @param mixed|null $default
-     * @return mixed
-     */
+    public function getMethod(): string
+    {
+        return $this->method;
+    }
+
+    public function withMethod($method): Request|static
+    {
+        $this->method = strtoupper($method);
+        return $this;
+    }
+
+    public function getUri(): UriInterface
+    {
+        return $this->uri;
+    }
+
+    public function withUri(UriInterface $uri, $preserveHost = false): Request|static
+    {
+        if ($uri === $this->uri) {
+            return $this;
+        }
+
+        $this->uri = $uri;
+
+        if (!$preserveHost) {
+            $this->updateHostFromUri();
+        }
+
+        return $this;
+    }
+
+    private function updateHostFromUri(): void
+    {
+        $host = $this->uri->getHost();
+
+        if ($host == '') {
+            return;
+        }
+
+        if (($port = $this->uri->getPort()) !== null) {
+            $host .= ':' . $port;
+        }
+
+        if (isset($this->headerNames['host'])) {
+            $header = $this->headerNames['host'];
+        } else {
+            $header = 'Host';
+            $this->headerNames['host'] = 'Host';
+        }
+        // Ensure Host is the first header.
+        // See: http://tools.ietf.org/html/rfc7230#section-5.4
+        $this->headers = [$header => [$host]] + $this->headers;
+    }
+
+
+
+    public function header(string $name = null, mixed $default = null): mixed
+    {
+        if (null === $name) {
+            return $this->getHeaders();
+        }
+
+        return $this->getHeaderLine($name) ?? $default;
+    }
+
+    public function get(string $name = null, mixed $default = null): mixed
+    {
+        if (null === $name) {
+            return $this->dataGet;
+        }
+        return $this->dataGet[$name] ?? $default;
+    }
+
     public function post(string $name = null, mixed $default = null): mixed
     {
-        if (!isset($this->data['post'])) {
-            $this->parsePost();
-        }
         if (null === $name) {
-            return $this->data['post'];
+            return $this->dataPost;
         }
-        return $this->data['post'][$name] ?? $default;
+        return $this->dataPost[$name] ?? $default;
+    }
+
+    public function file(string $name = null): mixed
+    {
+        return $name === null ? $this->dataFiles : $this->dataFiles[$name] ?? null;
     }
 
 
-    /**
-     * Получить ввод.
-     *
-     * @param string $name
-     * @param mixed|null $default
-     * @return mixed|null
-     */
+
     public function input(string $name, mixed $default = null): mixed
     {
         $post = $this->post();
@@ -264,12 +315,11 @@ class Request implements Stringable
         return $get[$name] ?? $default;
     }
 
-    /**
-     * Получить только указанные ключи.
-     *
-     * @param array $keys
-     * @return array
-     */
+    public function all(): mixed
+    {
+        return $this->post() + $this->get();
+    }
+
     public function only(array $keys): array
     {
         $all = $this->all();
@@ -282,22 +332,6 @@ class Request implements Stringable
         return $result;
     }
 
-    /**
-     * Получить все данные из POST и GET.
-     *
-     * @return mixed|null
-     */
-    public function all(): mixed
-    {
-        return $this->post() + $this->get();
-    }
-
-    /**
-     * Получить все данные, кроме указанных ключей.
-     *
-     * @param array $keys
-     * @return mixed|null
-     */
     public function except(array $keys): mixed
     {
         $all = $this->all();
@@ -307,128 +341,8 @@ class Request implements Stringable
         return $all;
     }
 
-    /**
-     * Разбор POST.
-     *
-     * @return void
-     */
-    protected function parsePost(): void
-    {
-        static $cache = [];
-        $this->data['post'] = $this->data['files'] = [];
-        $contentType = $this->header('content-type', '');
-        if (preg_match('/boundary="?(\S+)"?/', $contentType, $match)) {
-            $httpPostBoundary = '--' . $match[1];
-            $this->parseUploadFiles($httpPostBoundary);
-            return;
-        }
-        $bodyBuffer = $this->rawBody();
-        if ($bodyBuffer === '') {
-            return;
-        }
-        $cacheable = static::$enableCache && !isset($bodyBuffer[1024]);
-        if ($cacheable && isset($cache[$bodyBuffer])) {
-            $this->data['post'] = $cache[$bodyBuffer];
-            return;
-        }
-        if (preg_match('/\bjson\b/i', $contentType)) {
-            $this->data['post'] = (array)json_decode($bodyBuffer, true);
-        } else {
-            parse_str($bodyBuffer, $this->data['post']);
-        }
-        if ($cacheable) {
-            $cache[$bodyBuffer] = $this->data['post'];
-            if (count($cache) > 256) {
-                unset($cache[key($cache)]);
-            }
-        }
-    }
-
-    /**
-     * Получить элемент заголовка по имени.
-     *
-     * @param string|null $name
-     * @param mixed|null $default
-     * @return mixed
-     */
-    public function header(string $name = null, mixed $default = null): mixed
-    {
-        if (!isset($this->data['headers'])) {
-            $this->parseHeaders();
-        }
-
-        if (null === $name) {
-            return $this->data['headers'];
-        }
-
-        $name = strtolower($name);
-        return $this->data['headers'][$name] ?? $default;
-    }
 
 
-    /**
-     * Разбор заголовков.
-     *
-     * @return void
-     */
-    protected function parseHeaders(): void
-    {
-        static $cache = [];
-        $this->data['headers'] = [];
-        $rawHead = $this->rawHead();
-        $endLinePosition = strpos($rawHead, "\r\n");
-        if ($endLinePosition === false) {
-            return;
-        }
-        $headBuffer = substr($rawHead, $endLinePosition + 2);
-        $cacheable = static::$enableCache && !isset($headBuffer[4096]);
-        if ($cacheable && isset($cache[$headBuffer])) {
-            $this->data['headers'] = $cache[$headBuffer];
-            return;
-        }
-        $headData = explode("\r\n", $headBuffer);
-        foreach ($headData as $content) {
-            if (str_contains($content, ':')) {
-                [$key, $value] = explode(':', $content, 2);
-                $key = strtolower($key);
-                $value = ltrim($value);
-            } else {
-                $key = strtolower($content);
-                $value = '';
-            }
-            if (isset($this->data['headers'][$key])) {
-                $this->data['headers'][$key] .= ",$value";
-            } else {
-                $this->data['headers'][$key] = $value;
-            }
-        }
-        if ($cacheable) {
-            $cache[$headBuffer] = $this->data['headers'];
-            if (count($cache) > 128) {
-                unset($cache[key($cache)]);
-            }
-        }
-    }
-
-    /**
-     * Получить сырой HTTP-заголовок.
-     *
-     * @return string
-     */
-    public function rawHead(): string
-    {
-        if (!isset($this->data['head'])) {
-            $this->data['head'] = strstr($this->buffer, "\r\n\r\n", true);
-        }
-        return $this->data['head'];
-    }
-
-    /**
-     * Разбор загруженных файлов.
-     *
-     * @param string $httpPostBoundary
-     * @return void
-     */
     protected function parseUploadFiles(string $httpPostBoundary): void
     {
         // Удаление кавычек из границы POST-запроса HTTP
@@ -461,7 +375,7 @@ class Request implements Stringable
 
         // Если есть строка кодирования POST-запроса, преобразовать ее в массив POST-запроса
         if ($postEncodeString) {
-            parse_str($postEncodeString, $this->data['post']);
+            parse_str($postEncodeString, $this->dataPost);
         }
 
         // Если есть строка кодирования файлов, преобразовать ее в массив файлов
@@ -475,16 +389,6 @@ class Request implements Stringable
         }
     }
 
-    /**
-     * Разбор загруженного файла.
-     *
-     * @param $boundary
-     * @param $sectionStartOffset
-     * @param $postEncodeString
-     * @param $filesEncodeStr
-     * @param $files
-     * @return int
-     */
     protected function parseUploadFile($boundary, $sectionStartOffset, &$postEncodeString, &$filesEncodeStr, &$files): int
     {
         // Инициализация массива для файла
@@ -621,114 +525,50 @@ class Request implements Stringable
         return $sectionEndOffset + strlen($boundary) + 2;
     }
 
-    /**
-     * Получить сырое тело HTTP.
-     *
-     * @return string
-     */
+    public function rawHead(): string
+    {
+        return strstr((string)$this->getBody(), "\r\n\r\n", true);
+    }
+
     public function rawBody(): string
     {
-        return substr($this->buffer, strpos($this->buffer, "\r\n\r\n") + 4);
+        return substr((string)$this->getBody(), strpos((string)$this->getBody(), "\r\n\r\n") + 4);
     }
 
-    /**
-     * Получить загруженные файлы.
-     *
-     * @param string|null $name
-     * @return array|null
-     */
-    public function file(string $name = null): mixed
-    {
-        // Если файлы не установлены, разобрать POST-запрос
-        if (!isset($this->data['files'])) {
-            $this->parsePost();
-        }
 
-        // Если имя не указано, вернуть все файлы, иначе вернуть файл с указанным именем или null, если он не найден
-        return $name === null ? $this->data['files'] : $this->data['files'][$name] ?? null;
-    }
-
-    /**
-     * Получить URL.
-     *
-     * @return string
-     */
     public function url(): string
     {
         // Вернуть URL, состоящий из хоста и пути
         return '//' . $this->host() . $this->path();
     }
 
-    /**
-     * Получить полный URL.
-     *
-     * @return string
-     */
     public function fullUrl(): string
     {
         // Вернуть полный URL, состоящий из хоста и URI
         return '//' . $this->host() . $this->uri();
     }
 
-    /**
-     * Ожидает ли запрос JSON.
-     *
-     * @return bool
-     */
     public function expectsJson(): bool
     {
         // Вернуть true, если запрос является AJAX-запросом и не является PJAX-запросом, или принимает JSON, или метод не равен GET
-        return ($this->isAjax() && !$this->isPjax()) || $this->acceptJson() || strtoupper($this->method()) != 'GET';
+        return ($this->isAjax() && !$this->isPjax()) || $this->acceptJson() || strtoupper($this->getMethod()) != 'GET';
     }
 
-    /**
-     * Является ли запрос AJAX-запросом.
-     *
-     * @return bool
-     */
     public function isAjax(): bool
     {
-        // Вернуть true, если заголовок 'X-Requested-With' равен 'XMLHttpRequest'
         return $this->header('X-Requested-With') === 'XMLHttpRequest';
     }
 
-    /**
-     * Является ли запрос PJAX-запросом.
-     *
-     * @return bool
-     */
     public function isPjax(): bool
     {
-        // Вернуть true, если заголовок 'X-PJAX' установлен
         return (bool)$this->header('X-PJAX');
     }
 
-    /**
-     * Принимает ли запрос JSON.
-     *
-     * @return bool
-     */
     public function acceptJson(): bool
     {
-        // Вернуть true, если заголовок 'accept' содержит 'json'
         return str_contains($this->header('accept', ''), 'json');
     }
 
-    /**
-     * Получить метод.
-     *
-     * @return string
-     */
-    public function method(): string
-    {
-        // Если метод не установлен, разобрать первую строку заголовка
-        if (!isset($this->data['method'])) {
-            $this->parseHeadFirstLine();
-        }
-
-        // Вернуть метод
-        return $this->data['method'];
-    }
 
     /**
      * Получить версию протокола HTTP.
@@ -1101,5 +941,29 @@ class Request implements Stringable
                 }
             });
         }
+    }
+
+    /**
+     * @deprecated $this->getMethod()
+     */
+    public function method(): string
+    {
+        return $this->getMethod();
+    }
+
+    /**
+     * @deprecated (string) $this->getUri()
+     */
+    public function uri(): string
+    {
+        return (string)$this->getUri();
+    }
+
+    /**
+     * @deprecated $this->getUri()->getQuery()
+     */
+    public function queryString(): string
+    {
+        return $this->getUri()->getQuery();
     }
 }

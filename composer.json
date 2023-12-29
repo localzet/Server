@@ -1,11 +1,25 @@
 {
   "name": "localzet/server",
-  "description": "Localzet Server - Асинхронный event-based сервер на PHP.",
+  "description": "Localzet Server - это мощный асинхронный event-based сервер на PHP, предназначенный для обработки большого количества одновременных соединений и предоставления высокопроизводительных веб-сервисов.",
   "type": "library",
   "keywords": [
-    "localzet"
+    "localzet",
+    "PHP",
+    "asynchronous",
+    "event-based",
+    "server",
+    "library",
+    "backend",
+    "web development",
+    "PHP library",
+    "event-driven",
+    "socket programming",
+    "PCNTL",
+    "POSIX",
+    "PSR-7",
+    "HTTP message"
   ],
-  "homepage": "https://www.localzet.com/webcore",
+  "homepage": "https://www.localzet.com/projects/server",
   "license": "AGPL-3.0-or-later",
   "authors": [
     {
@@ -23,10 +37,11 @@
   "require": {
     "php": ">=8.2",
     "ext-json": "*",
-    "localzet/psr": ">=1.0",
     "ext-sockets": "*",
     "ext-pcntl": "*",
-    "ext-posix": "*"
+    "ext-posix": "*",
+    "psr/http-message": "^2.0",
+    "fig/http-message-util": "^1.1"
   },
   "suggest": {
     "ext-uv": "For better performance",
