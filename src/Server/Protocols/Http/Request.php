@@ -1012,6 +1012,33 @@ class Request implements Stringable
         return $this->connection;
     }
 
+    public function toArray(): array
+    {
+        return $this->properties +
+            [
+                'localIp' => $this->getLocalIp(),
+                'localPort' => $this->getLocalPort(),
+                'remoteIp' => $this->getRemoteIp(),
+                'remotePort' => $this->getRemotePort(),
+
+                'protocolVersion' => $this->protocolVersion(),
+                'host' => $this->host(),
+                'path' => $this->path(),
+                'uri' => $this->uri(),
+
+                'method' => $this->method(),
+                'get' => $this->get(),
+                'post' => $this->post(),
+                'header' => $this->header(),
+                'cookie' => $this->cookie(),
+
+                'isAjax' => $this->isAjax(),
+                'isPjax' => $this->isPjax(),
+                'acceptJson' => $this->acceptJson(),
+                'expectsJson' => $this->expectsJson(),
+            ];
+    }
+
     /**
      * __toString.
      */
