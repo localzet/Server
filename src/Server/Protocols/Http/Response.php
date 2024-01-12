@@ -238,10 +238,10 @@ class Response implements Stringable
      * Установить заголовок.
      *
      * @param string $name
-     * @param array|string $value
+     * @param array|string|int $value
      * @return Response
      */
-    public function header(string $name, array|string $value): static
+    public function header(string $name, mixed $value): static
     {
         $this->headers[strtolower($name)] = $value;
         return $this;
@@ -380,6 +380,7 @@ class Response implements Stringable
     }
 
     /**
+     * Установить cookie.
      * Установить cookie.
      *
      * @param string $name
