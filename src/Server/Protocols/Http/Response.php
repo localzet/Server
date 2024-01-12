@@ -5,7 +5,7 @@
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2023 Localzet Group
+ * @copyright   Copyright (c) 2018-2024 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -28,7 +28,6 @@ namespace localzet\Server\Protocols\Http;
 
 use localzet\Server;
 use Stringable;
-use function array_merge_recursive;
 use function explode;
 use function file;
 use function filemtime;

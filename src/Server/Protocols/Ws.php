@@ -5,7 +5,7 @@
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2023 Localzet Group
+ * @copyright   Copyright (c) 2018-2024 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -26,19 +26,15 @@
 
 namespace localzet\Server\Protocols;
 
-use Exception;
-use Throwable;
 use localzet\Server;
-use localzet\Server\Connection\{ConnectionInterface, AsyncTcpConnection};
+use localzet\Server\Connection\{AsyncTcpConnection, ConnectionInterface};
 use localzet\Server\Protocols\Http\Response;
 use localzet\Timer;
+use Throwable;
 use function base64_encode;
 use function bin2hex;
 use function explode;
 use function floor;
-use function gettype;
-use function is_array;
-use function is_scalar;
 use function ord;
 use function pack;
 use function preg_match;
@@ -127,13 +123,13 @@ class Ws
 
             switch ($opcode) {
                 case 0x0:
-                // BLOB
+                    // BLOB
                 case 0x1:
-                // Массив
+                    // Массив
                 case 0x2:
-                // Пинг-пакет
+                    // Пинг-пакет
                 case 0x9:
-                // Понг-пакет
+                    // Понг-пакет
                 case 0xa:
                     break;
                 // Закрытие
@@ -441,7 +437,7 @@ class Ws
         $frame = $connection->websocketType . $head . $maskKey;
 
         // Добавляем полезную нагрузку в кадр:
-        $maskKey = str_repeat($maskKey, (int) floor($length / 4)) . substr($maskKey, 0, $length % 4);
+        $maskKey = str_repeat($maskKey, (int)floor($length / 4)) . substr($maskKey, 0, $length % 4);
         $frame .= $buffer ^ $maskKey;
 
         if ($connection->context->handshakeStep === 1) {
@@ -502,7 +498,7 @@ class Ws
         }
 
         // Возвращаем объект Response с установленными значениями статуса, заголовков и версии протокола.
-        return (new Response())->withStatus((int) $status, $phrase)->withHeaders($headers)->withProtocolVersion($protocolVersion);
+        return (new Response())->withStatus((int)$status, $phrase)->withHeaders($headers)->withProtocolVersion($protocolVersion);
     }
 
 

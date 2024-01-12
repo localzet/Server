@@ -5,7 +5,7 @@
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2023 Localzet Group
+ * @copyright   Copyright (c) 2018-2024 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -43,7 +43,9 @@ use WeakReference;
 use function array_keys;
 use function array_map;
 use function assert;
+use function getenv;
 use function sprintf;
+use const PHP_VERSION_ID;
 
 /**
  * Драйвер цикла событий, который реализует все основные операции для обеспечения взаимодействия.
@@ -132,6 +134,12 @@ abstract class AbstractDriver implements Driver
      */
     public function __construct()
     {
+        if (PHP_VERSION_ID < 80117 || PHP_VERSION_ID >= 80200 && PHP_VERSION_ID < 80204) {
+            // PHP GC is broken on early 8.1 and 8.2 versions, see https://github.com/php/php-src/issues/10496
+            if (!getenv('LCZ_DRIVER_SUPPRESS_ISSUE_10496')) {
+                throw new Error('Your version of PHP is affected by serious garbage collector bugs related to fibers. Please upgrade to a newer version of PHP, i.e. >= 8.1.17 or => 8.2.4');
+            }
+        }
 
         /** @psalm-suppress InvalidArgument */
         // Создание нового экземпляра WeakMap для приостановок.
@@ -546,11 +554,9 @@ abstract class AbstractDriver implements Driver
             try {
                 $errorHandler($exception);
             } catch (Throwable $exception) {
-                $this->setInterrupt(
-                    static fn() => $exception instanceof UncaughtThrowable
-                        ? throw $exception
-                        : throw UncaughtThrowable::throwingErrorHandler($errorHandler, $exception)
-                );
+                $this->interrupt = static fn() => $exception instanceof UncaughtThrowable
+                    ? throw $exception
+                    : throw UncaughtThrowable::throwingErrorHandler($errorHandler, $exception);
             }
         };
     }
@@ -707,8 +713,8 @@ abstract class AbstractDriver implements Driver
     /**
      * Выполняет задачу при возникновении события записи.
      *
-     * @param mixed   stream
-     * @param Closure closure
+     * @param $stream
+     * @param Closure $closure
      * @return string
      */
     public function onWritable($stream, Closure $closure): string
@@ -784,8 +790,11 @@ abstract class AbstractDriver implements Driver
         // Пользовательские обратные вызовы всегда выполняются вне Fiber'а цикла событий, поэтому это всегда должно быть false.
         assert($fiber !== $this->fiber);
 
+        // Use queue closure in case of {main}, which can be unset by DriverSuspension after an uncaught exception.
+        $key = $fiber ?? $this->queueCallback;
+
         // Используем текущий объект в случае {main}
-        $suspension = ($this->suspensions[$fiber ?? $this] ?? null)?->get();
+        $suspension = ($this->suspensions[$key] ?? null)?->get();
         if ($suspension) {
             return $suspension;
         }
@@ -797,7 +806,7 @@ abstract class AbstractDriver implements Driver
             $this->suspensions,
         );
 
-        $this->suspensions[$fiber ?? $this] = WeakReference::create($suspension);
+        $this->suspensions[$key] = WeakReference::create($suspension);
 
         return $suspension;
     }

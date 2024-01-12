@@ -5,7 +5,7 @@
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2023 Localzet Group
+ * @copyright   Copyright (c) 2018-2024 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -60,14 +60,19 @@ final class DriverSuspension implements Suspension
     private readonly ?WeakReference $fiberRef;
 
     /**
-     * @var FiberError|null
+     * @var Error|null
      */
-    private ?FiberError $fiberError = null;
+    private ?Error $error = null;
 
     /**
      * @var bool
      */
     private bool $pending = false;
+
+    /**
+     * @var bool
+     */
+    private bool $deadMain = false;
 
     /**
      * @param Closure $run
@@ -93,8 +98,13 @@ final class DriverSuspension implements Suspension
      */
     public function resume(mixed $value = null): void
     {
+        // Ignore spurious resumes to old dead {main} suspension
+        if ($this->deadMain) {
+            return;
+        }
+
         if (!$this->pending) {
-            throw $this->fiberError ?? new Error('Необходимо вызвать suspend() перед вызовом resume()');
+            throw $this->error ?? new Error('Необходимо вызвать suspend() перед вызовом resume()');
         }
 
         $this->pending = false;
@@ -103,7 +113,12 @@ final class DriverSuspension implements Suspension
         $fiber = $this->fiberRef?->get();
 
         if ($fiber) {
-            ($this->queue)($fiber->resume(...), $value);
+            ($this->queue)(static function () use ($fiber, $value): void {
+                // The fiber may be destroyed with suspension as part of the GC cycle collector.
+                if (!$fiber->isTerminated()) {
+                    $fiber->resume($value);
+                }
+            });
         } else {
             // Приостановить выполнение основного цикла событий.
             ($this->interrupt)(static fn() => $value);
@@ -116,6 +131,13 @@ final class DriverSuspension implements Suspension
      */
     public function suspend(): mixed
     {
+        // Throw exception when trying to use old dead {main} suspension
+        if ($this->deadMain) {
+            throw new Error(
+                'Suspension cannot be suspended after an uncaught exception is thrown from the event loop',
+            );
+        }
+
         if ($this->pending) {
             throw new Error('Необходимо вызвать resume() или throw() перед повторным вызовом suspend()');
         }
@@ -127,21 +149,27 @@ final class DriverSuspension implements Suspension
         }
 
         $this->pending = true;
+        $this->error = null;
 
         // Ожидание внутри Fiber'а.
         if ($fiber) {
             $this->suspendedFiber = $fiber;
 
             try {
-                return Fiber::suspend();
-            } catch (FiberError $exception) {
-                $this->pending = false;
-                $this->fiberError = $exception;
-
-                throw $exception;
-            } finally {
+                $value = Fiber::suspend();
                 $this->suspendedFiber = null;
+            } catch (FiberError $error) {
+                $this->pending = false;
+                $this->suspendedFiber = null;
+                $this->error = $error;
+
+                throw $error;
             }
+
+            // Setting $this->suspendedFiber = null in finally will set the fiber to null if a fiber is destroyed
+            // as part of a cycle collection, causing an error if the suspension is subsequently resumed.
+
+            return $value;
         }
 
         // Ожидание в {main}.
@@ -149,7 +177,9 @@ final class DriverSuspension implements Suspension
 
         /** @psalm-suppress RedundantCondition Поле pending должно измениться при возобновлении. */
         if ($this->pending) {
-            $this->pending = false;
+            // This is now a dead {main} suspension.
+            $this->deadMain = true;
+
             $result && $result(); // Распаковка любых необработанных исключений из цикла событий
             gc_collect_cycles(); // Сбор циклических ссылок перед выводом ожидающих приостановок.
             $info = '';
@@ -199,9 +229,14 @@ final class DriverSuspension implements Suspension
      */
     public function throw(Throwable $throwable): void
     {
+        // Ignore spurious resumes to old dead {main} suspension
+        if ($this->deadMain) {
+            return;
+        }
+
         // Бросить исключение.
         if (!$this->pending) {
-            throw $this->fiberError ?? new Error('Необходимо вызвать suspend() перед вызовом throw()');
+            throw $this->error ?? new Error('Необходимо вызвать suspend() перед вызовом throw()');
         }
 
         $this->pending = false;
@@ -211,7 +246,12 @@ final class DriverSuspension implements Suspension
 
         if ($fiber) {
             // Передать исключение в очередь.
-            ($this->queue)($fiber->throw(...), $throwable);
+            ($this->queue)(static function () use ($fiber, $throwable): void {
+                // The fiber may be destroyed with suspension as part of the GC cycle collector.
+                if (!$fiber->isTerminated()) {
+                    $fiber->throw($throwable);
+                }
+            });
         } else {
             // Приостановить выполнение основного цикла событий.
             ($this->interrupt)(static fn() => throw $throwable);

@@ -5,7 +5,7 @@
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2023 Localzet Group
+ * @copyright   Copyright (c) 2018-2024 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -132,8 +132,15 @@ final class TracingDriver implements Driver
     /**
      * Formats a stacktrace obtained via `debug_backtrace()`.
      *
-     * @param array<array{file?: string, line: int, type?: string, class?: class-string, function: string}> $trace
-     *     Output of `debug_backtrace()`.
+     * @param list<array{
+     *     args?: list<mixed>,
+     *     class?: class-string,
+     *     file?: string,
+     *     function: string,
+     *     line?: int,
+     *     object?: object,
+     *     type?: string
+     * }> $trace Output of `debug_backtrace()`.
      *
      * @return string Formatted stacktrace.
      */
@@ -142,7 +149,7 @@ final class TracingDriver implements Driver
         return implode("\n", array_map(static function (array $e, int|string $i) {
             $line = "#$i ";
 
-            if (isset($e["file"])) {
+            if (isset($e["file"], $e['line'])) {
                 $line .= "{$e['file']}:{$e['line']} ";
             }
 

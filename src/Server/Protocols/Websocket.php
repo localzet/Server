@@ -5,7 +5,7 @@
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2023 Localzet Group
+ * @copyright   Copyright (c) 2018-2024 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -27,10 +27,10 @@
 namespace localzet\Server\Protocols;
 
 use Exception;
-use Throwable;
 use localzet\Server;
 use localzet\Server\Connection\{ConnectionInterface, TcpConnection};
 use localzet\Server\Protocols\Http\Request;
+use Throwable;
 use function base64_encode;
 use function chr;
 use function floor;
@@ -118,13 +118,13 @@ class Websocket
 
             switch ($opcode) {
                 case 0x0:
-                // BLOB
+                    // BLOB
                 case 0x1:
-                // Массив
+                    // Массив
                 case 0x2:
-                // Пинг-пакет
+                    // Пинг-пакет
                 case 0x9:
-                // Понг-пакет
+                    // Понг-пакет
                 case 0xa:
                     break;
                 // Закрытие
@@ -326,7 +326,7 @@ class Websocket
 
             // Буфер данных websocket.
             $connection->context->websocketDataBuffer = '';
-            
+
             // Текущая длина кадра websocket.
             $connection->context->websocketCurrentFrameLength = 0;
 
@@ -419,7 +419,7 @@ class Websocket
         // Вычисляем длину данных.
         $dataLength = strlen($data);
         // Генерируем маску для декодирования данных.
-        $masks = str_repeat($masks, (int) floor($dataLength / 4)) . substr($masks, 0, $dataLength % 4);
+        $masks = str_repeat($masks, (int)floor($dataLength / 4)) . substr($masks, 0, $dataLength % 4);
         // Декодируем данные.
         $decodedData = $data ^ $masks;
 
@@ -481,7 +481,7 @@ class Websocket
             if (empty($connection->context->tmpWebsocketData)) {
                 $connection->context->tmpWebsocketData = '';
             }
-            
+
             // Если буфер уже заполнен, отбрасываем текущий пакет.
             if (strlen($connection->context->tmpWebsocketData) > $connection->maxSendBufferSize) {
                 if ($connection->onError) {
