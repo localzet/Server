@@ -1,0 +1,72 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "9edb1a09cfb24a0c3eac3c0925d000d8",
+    "packages": [
+        {
+            "name": "localzet/psr",
+            "version": "v1.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/localzet/PSR.git",
+                "reference": "104c2a987c09785c1ce3bf7addfc34274c025519"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/localzet/PSR/zipball/104c2a987c09785c1ce3bf7addfc34274c025519",
+                "reference": "104c2a987c09785c1ce3bf7addfc34274c025519",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.2"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "localzet\\PSR\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "AGPL-3.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "Ivan Zorin",
+                    "email": "creator@localzet.com",
+                    "homepage": "https://github.com/localzet",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Localzet PSR Component for projects",
+            "keywords": [
+                "localzet",
+                "psr"
+            ],
+            "support": {
+                "email": "support@localzet.com",
+                "issues": "https://github.com/localzet/PSR/issues",
+                "source": "https://github.com/localzet/PSR"
+            },
+            "time": "2023-08-16T20:55:44+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": [],
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": {
+        "php": ">=8.2",
+        "ext-json": "*",
+        "ext-sockets": "*",
+        "ext-pcntl": "*",
+        "ext-posix": "*"
+    },
+    "platform-dev": [],
+    "plugin-api-version": "2.2.0"
+}
