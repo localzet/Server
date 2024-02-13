@@ -34,7 +34,6 @@
   "require": {
     "php": ">=8.2",
     "ext-json": "*",
-    "localzet/psr": ">=1.0",
     "ext-sockets": "*",
     "ext-pcntl": "*",
     "ext-posix": "*"
