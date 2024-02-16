@@ -583,8 +583,8 @@ class Server
      */
     protected static function checkSapiEnv(): void
     {
-        // Только для CLI
-        if (PHP_SAPI !== 'cli') {
+        // Только для CLI и Micro
+        if (!in_array(PHP_SAPI, ['cli', 'micro'])) {
             exit("Localzet Server запускается только из терминала \n");
         }
     }
