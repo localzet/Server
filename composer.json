@@ -48,6 +48,9 @@
   "autoload": {
     "psr-4": {
       "localzet\\": "src"
-    }
+    },
+    "files": [
+      "src/Helpers.php"
+    ]
   }
 }

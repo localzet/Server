@@ -403,7 +403,7 @@ class Server
     protected string $socketName = '';
 
     /**
-     * Context of socket.
+     * Контекст сокета.
      *
      * @var resource
      */
@@ -2332,7 +2332,7 @@ class Server
      * @param string|null $socketName
      * @param array $socketContext
      */
-    public function __construct(string $socketName = null, array $socketContext = [])
+    public function __construct(?string $socketName = null, array $socketContext = [])
     {
         // Сохранение всех экземпляров сервера.
         $this->serverId = spl_object_hash($this);
