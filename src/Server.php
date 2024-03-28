@@ -863,11 +863,6 @@ class Server
         return static::$globalEvent;
     }
 
-    protected static function getEventLoopName(): string
-    {
-        return static::$eventLoopClass;
-    }
-
     /**
      * Получить основной ресурс сокета.
      *
@@ -1441,8 +1436,13 @@ class Server
 
         static::$masterPid = posix_getpid();
         if (false === file_put_contents(static::$pidFile, static::$masterPid)) {
-            throw new Exception('Не удалось сохранить PID в ' . static::$pidFile);
+            throw new RuntimeException('Не удалось сохранить PID в ' . static::$pidFile);
         }
+    }
+
+    protected static function getEventLoopName(): string
+    {
+        return static::$eventLoopClass;
     }
 
     /**
@@ -1527,11 +1527,12 @@ class Server
             static::$status = static::STATUS_RUNNING;
 
             // Зарегистрировать функцию проверки ошибок.
-            register_shutdown_function([__CLASS__, 'checkErrors']);
+            register_shutdown_function(static::checkErrors(...));
 
             // Создать глобальный цикл событий.
-            if (!static::$globalEvent) {
-                static::$globalEvent = new Linux;
+            if (static::$globalEvent === null) {
+                $eventLoopClass = static::getEventLoopName();
+                static::$globalEvent = new $eventLoopClass();
                 static::$globalEvent->setErrorHandler(function ($exception) {
                     static::stopAll(250, $exception);
                 });
@@ -1596,13 +1597,11 @@ class Server
     public static function forkOneServerForWindows(string $startFile): void
     {
         $startFile = realpath($startFile);
+        $descriptorSpec = [STDIN, STDOUT, STDOUT];
+        $pipes = [];
+        $process = proc_open('"' . PHP_BINARY . '" ' . " \"$startFile\" -q", $descriptorSpec, $pipes, null, null, ['bypass_shell' => true]);
 
-        $descriptor_spec = array(STDIN, STDOUT, STDOUT);
-
-        $pipes = array();
-        $process = proc_open('"' . PHP_BINARY . '" ' . " \"$startFile\" -q", $descriptor_spec, $pipes, null, null, ['bypass_shell' => true]);
-
-        if (empty(static::$globalEvent)) {
+        if (static::$globalEvent === null) {
             static::$globalEvent = new Windows();
             static::$globalEvent->setErrorHandler(function ($exception) {
                 static::stopAll(250, $exception);
@@ -1611,7 +1610,7 @@ class Server
         }
 
         // Сохранить дескриптор процесса
-        static::$processForWindows[$startFile] = array($process, $startFile);
+        static::$processForWindows[$startFile] = [$process, $startFile];
     }
 
     /**
@@ -1669,11 +1668,12 @@ class Server
             static::$status = static::STATUS_RUNNING;
 
             // Зарегистрировать функцию завершения для проверки ошибок.
-            register_shutdown_function(["\\localzet\\Server", 'checkErrors']);
+            register_shutdown_function(static::checkErrors(...));
 
             // Создать глобальный цикл событий.
-            if (!static::$globalEvent) {
-                static::$globalEvent = new Linux;
+            if (static::$globalEvent === null) {
+                $eventLoopClass = static::getEventLoopName();
+                static::$globalEvent = new $eventLoopClass();
                 static::$globalEvent->setErrorHandler(function ($exception) {
                     static::stopAll(250, $exception);
                 });
@@ -1761,8 +1761,7 @@ class Server
      */
     protected static function setProcessTitle(string $title): void
     {
-        set_error_handler(function () {
-        });
+        set_error_handler(static fn (): bool => true);
         cli_set_process_title($title);
         restore_error_handler();
     }
@@ -1776,8 +1775,7 @@ class Server
      */
     protected static function sendSignal(int $process_id, int $signal): void
     {
-        set_error_handler(function () {
-        });
+        set_error_handler(static fn (): bool => true);
         posix_kill($process_id, $signal);
         restore_error_handler();
     }
@@ -1845,10 +1843,8 @@ class Server
                         }
 
                         // Для статистики.
-                        if (!isset(static::$globalStatistics['server_exit_info'][$serverId][$status])) {
-                            static::$globalStatistics['server_exit_info'][$serverId][$status] = 0;
-                        }
-                        ++static::$globalStatistics['server_exit_info'][$serverId][$status];
+                        static::$globalStatistics['server_exit_info'][$serverId][$status] ??= 0;
+                        static::$globalStatistics['server_exit_info'][$serverId][$status]++;
 
                         // Очищаем данные процесса.
                         unset(static::$pidMap[$serverId][$pid]);
@@ -1888,7 +1884,7 @@ class Server
      */
     protected static function monitorServersForWindows(): void
     {
-        Timer::add(1, "\\localzet\\Server::checkServerStatusForWindows");
+        Timer::add(1, static::checkServerStatusForWindows(...));
 
         static::$globalEvent->run();
     }
@@ -1896,7 +1892,7 @@ class Server
     /**
      * Выход из текущего процесса.
      */
-    #[NoReturn] protected static function exitAndClearAll(): void
+    protected static function exitAndClearAll(): void
     {
         foreach (static::$servers as $server) {
             $socketName = $server->getSocketName();
@@ -1909,7 +1905,7 @@ class Server
         @unlink(static::$pidFile);
         static::log("Localzet Server [" . basename(static::$startFile) . "] был остановлен");
         if (static::$onMasterStop) {
-            call_user_func(static::$onMasterStop);
+            (static::$onMasterStop)();
         }
         exit(0);
     }
@@ -2453,7 +2449,7 @@ class Server
             $address = parse_url($socketName);
             if (isset($address['host']) && isset($address['port'])) {
                 try {
-                    set_error_handler(function () {});
+                    set_error_handler(static fn (): bool => true);
                     // Если адрес не используется, автоматически включаем опцию reusePort.
                     $server = stream_socket_server("tcp://{$address['host']}:{$address['port']}");
                     if ($server) {
@@ -2510,8 +2506,7 @@ class Server
 
             // Попытка открыть keepalive для TCP и отключить алгоритм Nagle.
             if (function_exists('socket_import_stream') && self::BUILD_IN_TRANSPORTS[$this->transport] === 'tcp') {
-                set_error_handler(function () {
-                });
+                set_error_handler(static fn (): bool => true);
                 $socket = socket_import_stream($this->mainSocket);
                 socket_set_option($socket, SOL_SOCKET, SO_KEEPALIVE, 1);
                 socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
@@ -2534,8 +2529,7 @@ class Server
     {
         $this->pauseAccept();
         if ($this->mainSocket) {
-            set_error_handler(function () {
-            });
+            set_error_handler(static fn (): bool => true);
             fclose($this->mainSocket);
             restore_error_handler();
             $this->mainSocket = null;
@@ -2686,8 +2680,7 @@ class Server
     public function acceptTcpConnection($socket): void
     {
         // Принять соединение на сокете сервера.
-        set_error_handler(function () {
-        });
+        set_error_handler(static fn (): bool => true);
         $newSocket = stream_socket_accept($socket, 0, $remoteAddress);
         restore_error_handler();
 
@@ -2728,8 +2721,7 @@ class Server
     public function acceptUdpConnection($socket): bool
     {
         // Принять соединение на сокете сервера.
-        set_error_handler(function () {
-        });
+        set_error_handler(static fn (): bool => true);
         $recvBuffer = stream_socket_recvfrom($socket, UdpConnection::MAX_UDP_PACKAGE_SIZE, 0, $remoteAddress);
         restore_error_handler();
         if (false === $recvBuffer || empty($remoteAddress)) {
