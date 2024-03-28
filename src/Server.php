@@ -1392,46 +1392,39 @@ class Server
      * @return void
      * @throws Exception
      */
-    public static function resetStd(bool $throwException = true): void
+    public static function resetStd(): void
     {
         if (!static::$daemonize || DIRECTORY_SEPARATOR !== '/') {
             return;
         }
-        global $STDOUT, $STDERR;
-        $handle = fopen(static::$stdoutFile, "a");
-        if ($handle) {
-            unset($handle);
-            set_error_handler(function () {
-            });
-            if ($STDOUT) {
-                fclose($STDOUT);
-            }
-            if ($STDERR) {
-                fclose($STDERR);
-            }
-            if (is_resource(STDOUT)) {
-                fclose(STDOUT);
-            }
-            if (is_resource(STDERR)) {
-                fclose(STDERR);
-            }
-            $STDOUT = fopen(static::$stdoutFile, "a");
-            $STDERR = fopen(static::$stdoutFile, "a");
-            // Исправление ошибки PHP 8.1.8, связанной с невозможностью перенаправления стандартного вывода
-            if (function_exists('posix_isatty') && posix_isatty(2)) {
-                ob_start(function ($string) {
-                    file_put_contents(static::$stdoutFile, $string, FILE_APPEND);
-                }, 1);
-            }
-            // изменение потока вывода
-            static::$outputStream = null;
-            self::outputStream($STDOUT);
-            restore_error_handler();
+
+        if (is_resource(STDOUT)) {
+            fclose(STDOUT);
+        }
+
+        if (is_resource(STDERR)) {
+            fclose(STDERR);
+        }
+
+        if (is_resource(static::$outputStream)) {
+            fclose(static::$outputStream);
+        }
+
+        set_error_handler(static fn(): bool => true);
+        $stdOutStream = fopen(static::$stdoutFile, 'a');
+        restore_error_handler();
+
+        if ($stdOutStream === false) {
             return;
         }
 
-        if ($throwException) {
-            throw new RuntimeException('Не могу открыть stdoutFile ' . static::$stdoutFile);
+        static::$outputStream = $stdOutStream;
+
+        // Исправление ошибки PHP 8.1.8, связанной с невозможностью перенаправления стандартного вывода
+        if (function_exists('posix_isatty') && posix_isatty(2)) {
+            ob_start(function (string $string) {
+                file_put_contents(static::$stdoutFile, $string, FILE_APPEND);
+            }, 1);
         }
     }
 
