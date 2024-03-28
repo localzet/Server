@@ -26,7 +26,6 @@
 
 namespace localzet;
 
-use Exception;
 use localzet\Server\Events\{EventInterface, Linux, Revolt};
 use RuntimeException;
 use Throwable;
