@@ -2489,7 +2489,7 @@ class Server
      */
     public function pauseAccept(): void
     {
-        if (static::$globalEvent && false === $this->pauseAccept && $this->mainSocket) {
+        if (static::$globalEvent !== null && $this->pauseAccept === false && $this->mainSocket !== null) {
             static::$globalEvent->offReadable($this->mainSocket);
             $this->pauseAccept = true;
         }
