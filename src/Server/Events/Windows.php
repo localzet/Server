@@ -51,54 +51,56 @@ final class Windows implements EventInterface
     /**
      * Массив всех обработчиков событий чтения.
      *
-     * @var array
+     * @var array<int, callable>
      */
     protected array $readEvents = [];
 
     /**
      * Массив всех обработчиков событий записи.
      *
-     * @var array
+     * @var array<int, callable>
      */
     protected array $writeEvents = [];
 
     /**
      * Массив всех обработчиков событий исключений.
      *
-     * @var array
+     * @var array<int, callable>
      */
     protected array $exceptEvents = [];
 
     /**
      * Массив всех обработчиков сигналов.
      *
-     * @var array
+     * @var array<int, callable>
      */
     protected array $signalEvents = [];
 
     /**
      * Массив файловых дескрипторов, ожидающих события чтения.
      *
-     * @var array
+     * @var array<int, resource>
      */
     protected array $readFds = [];
 
     /**
      * Массив файловых дескрипторов, ожидающих события записи.
      *
-     * @var array
+     * @var array<int, resource>
      */
     protected array $writeFds = [];
 
     /**
      * Массив файловых дескрипторов, ожидающих исключительные события.
      *
-     * @var array
+     *
+     * @var array<int, resource>
      */
     protected array $exceptFds = [];
 
     /**
      * Планировщик таймеров.
+     * {['data':timer_id, 'priority':run_timestamp], ..}
      *
      * @var SplPriorityQueue
      */
@@ -289,17 +291,7 @@ final class Windows implements EventInterface
             return;
         }
         $this->signalEvents[$signal] = $func;
-        pcntl_signal($signal, fn() => $this->safeCall($this->signalEvents[$signal], [$signal]));
-    }
-
-    /**
-     * Signal handler.
-     *
-     * @param int $signal
-     */
-    public function signalHandler(int $signal): void
-    {
-        $this->signalEvents[$signal]($signal);
+        pcntl_signal($signal, fn () => $this->safeCall($this->signalEvents[$signal], [$signal]));
     }
 
     /**
@@ -401,19 +393,6 @@ final class Windows implements EventInterface
             return;
         }
         $this->selectTimeout = 100000000;
-    }
-
-    /**
-     * @param Throwable $e
-     * @return void
-     * @throws Throwable
-     */
-    public function error(Throwable $e): void
-    {
-        if (!$this->errorHandler) {
-            throw new $e;
-        }
-        ($this->errorHandler)($e);
     }
 
     /**
