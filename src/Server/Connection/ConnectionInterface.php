@@ -28,6 +28,7 @@ namespace localzet\Server\Connection;
 
 use AllowDynamicProperties;
 use localzet\Server;
+use localzet\Server\Events\Event;
 use localzet\Server\Events\EventInterface;
 use Throwable;
 
@@ -107,9 +108,9 @@ abstract class ConnectionInterface
      *
      * @param mixed $sendBuffer
      * @param bool $raw
-     * @return void|boolean
+     * @return bool|null
      */
-    abstract public function send(mixed $sendBuffer, bool $raw = false);
+    abstract public function send(mixed $sendBuffer, bool $raw = false): bool|null;
 
     /**
      * Получить удаленный IP-адрес.
@@ -156,7 +157,7 @@ abstract class ConnectionInterface
     /**
      * Закрыть соединение.
      *
-     * @param mixed|null $data
+     * @param mixed $data
      * @param bool $raw
      * @return void
      */
@@ -187,7 +188,14 @@ abstract class ConnectionInterface
             Server::stopAll(250, $exception);
             return;
         }
-
-        ($this->errorHandler)($exception);
+        try {
+            ($this->errorHandler)($exception);
+        } catch (Throwable $exception) {
+            if ($this->eventLoop instanceof Event) {
+                echo $exception;
+                return;
+            }
+            throw $exception;
+        }
     }
 }
