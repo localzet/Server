@@ -256,9 +256,9 @@ final class Windows implements EventInterface
     /**
      * On except.
      * @param resource $stream
-     * @param $func
+     * @param callable $func
      */
-    public function onExcept($stream, $func): void
+    public function onExcept($stream, callable $func): void
     {
         $fdKey = (int)$stream;
         $this->exceptEvents[$fdKey] = $func;
@@ -289,7 +289,7 @@ final class Windows implements EventInterface
             return;
         }
         $this->signalEvents[$signal] = $func;
-        pcntl_signal($signal, $this->signalHandler(...));
+        pcntl_signal($signal, fn() => $this->safeCall($this->signalEvents[$signal], [$signal]));
     }
 
     /**
@@ -311,10 +311,12 @@ final class Windows implements EventInterface
             $read = $this->readFds;
             $write = $this->writeFds;
             $except = $this->exceptFds;
-            if ($read || $write || $except) {
+            if (!empty($read) || !empty($write) || !empty($except)) {
+                // Waiting read/write/signal/timeout events.
                 try {
                     @stream_select($read, $write, $except, 0, $this->selectTimeout);
-                } catch (Throwable) {
+                } catch (\Throwable) {
+                    // do nothing
                 }
             } else {
                 $this->selectTimeout >= 1 && usleep($this->selectTimeout);
@@ -327,25 +329,26 @@ final class Windows implements EventInterface
             foreach ($read as $fd) {
                 $fdKey = (int)$fd;
                 if (isset($this->readEvents[$fdKey])) {
-                    $this->readEvents[$fdKey]($fd);
+                    $this->safeCall($this->readEvents[$fdKey], [$fd]);
                 }
             }
 
             foreach ($write as $fd) {
                 $fdKey = (int)$fd;
                 if (isset($this->writeEvents[$fdKey])) {
-                    $this->writeEvents[$fdKey]($fd);
+                    $this->safeCall($this->writeEvents[$fdKey], [$fd]);
                 }
             }
 
             foreach ($except as $fd) {
                 $fdKey = (int)$fd;
                 if (isset($this->exceptEvents[$fdKey])) {
-                    $this->exceptEvents[$fdKey]($fd);
+                    $this->safeCall($this->exceptEvents[$fdKey], [$fd]);
                 }
             }
 
             if (!empty($this->signalEvents)) {
+                // Calls signal handlers for pending signals
                 pcntl_signal_dispatch();
             }
         }
@@ -366,6 +369,7 @@ final class Windows implements EventInterface
             $nextRunTime = -$schedulerData['priority'];
             $timeNow = microtime(true);
             $this->selectTimeout = (int)(($nextRunTime - $timeNow) * 1000000);
+
             if ($this->selectTimeout <= 0) {
                 $this->scheduler->extract();
 
@@ -381,12 +385,7 @@ final class Windows implements EventInterface
                 } else {
                     unset($this->eventTimer[$timerId]);
                 }
-                try {
-                    $taskData[0](...$taskData[1]);
-                } catch (Throwable $e) {
-                    $this->error($e);
-                    continue;
-                }
+                $this->safeCall($taskData[0], $taskData[1]);
             } else {
                 break;
             }
@@ -427,8 +426,13 @@ final class Windows implements EventInterface
         foreach ($this->signalEvents as $signal => $item) {
             $this->offsignal($signal);
         }
-        $this->readFds = $this->writeFds = $this->exceptFds = $this->readEvents
-            = $this->writeEvents = $this->exceptEvents = $this->signalEvents = [];
+        $this->readFds = [];
+        $this->writeFds = [];
+        $this->exceptFds = [];
+        $this->readEvents = [];
+        $this->writeEvents = [];
+        $this->exceptEvents = [];
+        $this->signalEvents = [];
     }
 
     /**
@@ -436,8 +440,8 @@ final class Windows implements EventInterface
      */
     public function deleteAllTimer(): void
     {
-        $this->scheduler = new SplPriorityQueue();
-        $this->scheduler->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
+        $this->scheduler = new \SplPriorityQueue();
+        $this->scheduler->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
         $this->eventTimer = [];
     }
 
@@ -468,16 +472,26 @@ final class Windows implements EventInterface
     /**
      * {@inheritdoc}
      */
-    public function getErrorHandler(): ?callable
-    {
-        return $this->errorHandler;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function setErrorHandler(callable $errorHandler): void
     {
         $this->errorHandler = $errorHandler;
+    }
+
+    /**
+     * @param callable $func
+     * @param array $args
+     * @return void
+     */
+    private function safeCall(callable $func, array $args = []): void
+    {
+        try {
+            $func(...$args);
+        } catch (\Throwable $e) {
+            if ($this->errorHandler === null) {
+                echo $e;
+            } else {
+                ($this->errorHandler)($e);
+            }
+        }
     }
 }
