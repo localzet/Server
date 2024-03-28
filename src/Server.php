@@ -31,8 +31,9 @@ use Composer\InstalledVersions;
 use Exception;
 use JetBrains\PhpStorm\NoReturn;
 use localzet\Server\Connection\{ConnectionInterface, TcpConnection, UdpConnection};
-use localzet\Server\Events\{EventInterface, Linux, Windows};
+use localzet\Server\Events\{EventInterface, Revolt, Event, Linux, Windows};
 use localzet\Server\Protocols\ProtocolInterface;
+use Revolt\EventLoop;
 use RuntimeException;
 use stdClass;
 use Throwable;
@@ -41,12 +42,16 @@ use function current;
 use function fflush;
 use function floor;
 use function fwrite;
+use function get_class;
 use function get_resource_type;
 use function lcfirst;
 use function method_exists;
 use function register_shutdown_function;
+use function restore_error_handler;
+use function set_error_handler;
 use function stream_socket_accept;
 use function stream_socket_recvfrom;
+use function substr;
 use const DIRECTORY_SEPARATOR;
 use const E_COMPILE_ERROR;
 use const E_CORE_ERROR;
@@ -89,6 +94,13 @@ use const WUNTRACED;
 #[AllowDynamicProperties]
 class Server
 {
+    /**
+     * Version.
+     *
+     * @var string
+     */
+    final public const VERSION = '24.03.27';
+
     /**
      * Статус: запуск
      *
@@ -319,19 +331,19 @@ class Server
      *
      * @var string
      */
-    public static string $pidFile = '';
+    public static string $pidFile;
     /**
      * Файл, используемый для хранения файла состояния мастер-процесса
      *
      * @var string
      */
-    public static string $statusFile = '';
+    public static string $statusFile;
     /**
      * Файл лога
      *
      * @var mixed
      */
-    public static mixed $logFile = '';
+    public static mixed $logFile;
     /**
      * Глобальная петля событий
      *
@@ -359,6 +371,13 @@ class Server
      * @var ?callable
      */
     public static $onServerExit = null;
+
+    /**
+     * Класс событийной петли
+     *
+     * @var class-string<EventInterface>
+     */
+    public static string $eventLoopClass;
 
     /**
      * Таймаут после команды остановки для дочерних процессов
@@ -503,6 +522,13 @@ class Server
     protected static string $statisticsFile = '';
 
     /**
+     * Файл для хранения информации о соединениях.
+     *
+     * @var string
+     */
+    protected static string $connectionsFile;
+
+    /**
      * Файл запуска.
      *
      * @var string
@@ -561,19 +587,24 @@ class Server
      */
     public static function runAll(): void
     {
-        static::checkSapiEnv();
-        static::init();
-        static::parseCommand();
-        static::lock();
-        static::daemonize();
-        static::initServers();
-        static::installSignal();
-        static::saveMasterPid();
-        static::lock(LOCK_UN);
-        static::displayUI();
-        static::forkServers();
-        static::resetStd();
-        static::monitorServers();
+        try {
+            static::checkSapiEnv();
+            static::initStdOut();
+            static::init();
+            static::parseCommand();
+            static::lock();
+            static::daemonize();
+            static::initServers();
+            static::installSignal();
+            static::saveMasterPid();
+            static::lock(LOCK_UN);
+            static::displayUI();
+            static::forkServers();
+            static::resetStd();
+            static::monitorServers();
+        } catch (Throwable $e) {
+            static::log($e);
+        }
     }
 
     /**
@@ -587,6 +618,44 @@ class Server
         if (!in_array(PHP_SAPI, ['cli', 'micro'])) {
             exit("Localzet Server запускается только из терминала \n");
         }
+    }
+
+    protected static function initStdOut(): void
+    {
+        $defaultStream = fn() => \defined('STDOUT') ? \STDOUT : (@fopen('php://stdout', 'w') ?: fopen('php://output', 'w'));
+        static::$outputStream ??= $defaultStream(); //@phpstan-ignore-line
+        if (!\is_resource(self::$outputStream) || get_resource_type(self::$outputStream) !== 'stream') {
+            $type = get_debug_type(self::$outputStream);
+            static::$outputStream = $defaultStream();
+            throw new \RuntimeException(sprintf('The $outputStream must to be a stream, %s given', $type));
+        }
+
+        static::$outputDecorated ??= self::hasColorSupport();
+    }
+
+    /**
+     * Borrowed from the symfony console
+     * @link https://github.com/symfony/console/blob/0d14a9f6d04d4ac38a8cea1171f4554e325dae92/Output/StreamOutput.php#L92
+     */
+    private static function hasColorSupport(): bool
+    {
+        // Follow https://no-color.org/
+        if (getenv('NO_COLOR') !== false) {
+            return false;
+        }
+
+        if (getenv('TERM_PROGRAM') === 'Hyper') {
+            return true;
+        }
+
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            return (\function_exists('sapi_windows_vt100_support') && @sapi_windows_vt100_support(self::$outputStream))
+                || getenv('ANSICON') !== false
+                || getenv('ConEmuANSI') === 'ON'
+                || getenv('TERM') === 'xterm';
+        }
+
+        return stream_isatty(self::$outputStream);
     }
 
     /**
@@ -613,27 +682,28 @@ class Server
     protected static function init(): void
     {
         // Устанавливаем обработчик ошибок, который будет выводить сообщение об ошибке
-        set_error_handler(function ($code, $msg, $file, $line) {
-            static::safeEcho("$msg в файле $file на строке $line\n");
+        set_error_handler(static function (int $code, string $msg, string $file, int $line): bool {
+            static::safeEcho(sprintf("%s \"%s\" в файле %s на строке %d\n", static::getErrorType($code), $msg, $file, $line));
+            return true;
         });
 
         // Начало
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-        static::$startFile = end($backtrace)['file'];
+        static::$startFile ??= end($backtrace)['file'];
+        $startFilePrefix = hash('xxh64', static::$startFile);
 
-        $uniquePrefix = str_replace('/', '_', static::$startFile);
+        // PID-файл
+        static::$pidFile ??= sprintf('%s/localzet.%s.pid', dirname(__DIR__), $startFilePrefix);
 
-        // Пид-файл
-        if (empty(static::$pidFile)) {
-            static::$pidFile = __DIR__ . "/../$uniquePrefix.pid";
-        }
+        // Статус-файл
+        static::$statusFile ??= sprintf('%s/localzet.%s.status', dirname(__DIR__), $startFilePrefix);
+        static::$statisticsFile ??= static::$statusFile;
+        static::$connectionsFile ??= static::$statusFile . '.connection';
 
         // Лог-файл
-        if (empty(static::$logFile)) {
-            static::$logFile = __DIR__ . '/../server.log';
-        }
+        static::$logFile ??= sprintf('%s/localzet.log', dirname(__DIR__, 2));
 
-        if (!is_file(static::$logFile)) {
+        if (!is_file(static::$logFile) && static::$logFile !== '/dev/null') {
             // Если папка /runtime/logs по умолчанию не существует
             if (!is_dir(dirname(static::$logFile))) {
                 @mkdir(dirname(static::$logFile), 0777, true);
@@ -644,6 +714,9 @@ class Server
 
         // Устанавливаем состояние в STATUS_STARTING
         static::$status = static::STATUS_STARTING;
+
+        // Инициализация глобального события
+        static::initGlobalEvent();
 
         // Для статистики
         static::$globalStatistics['start_timestamp'] = time();
@@ -656,6 +729,33 @@ class Server
 
         // Инициализируем таймер
         Timer::init();
+    }
+
+    /**
+     * Инициализация глобального события.
+     *
+     * @return void
+     */
+    protected static function initGlobalEvent(): void
+    {
+        if (static::$globalEvent !== null) {
+            static::$eventLoopClass = get_class(static::$globalEvent);
+            static::$globalEvent = null;
+            return;
+        }
+
+        if (!empty(static::$eventLoopClass)) {
+            if (!is_subclass_of(static::$eventLoopClass, EventInterface::class)) {
+                throw new RuntimeException(sprintf('%s::$eventLoopClass должен реализовывать %s', static::class, EventInterface::class));
+            }
+            return;
+        }
+
+        static::$eventLoopClass = match (true) {
+            class_exists(EventLoop::class) => Revolt::class,
+            extension_loaded('event') => Event::class,
+            default => DIRECTORY_SEPARATOR === '/' ? Linux::class : Windows::class
+        };
     }
 
     /**
@@ -707,8 +807,6 @@ class Server
             return;
         }
 
-        static::$statisticsFile = static::$statusFile ?: __DIR__ . '/../server-' . posix_getpid() . '.status';
-
         foreach (static::$servers as $server) {
             // Имя сервера.
             if (empty($server->name)) {
@@ -720,7 +818,7 @@ class Server
                 $server->user = static::getCurrentUser();
             } else {
                 if (posix_getuid() !== 0 && $server->user !== static::getCurrentUser()) {
-                    static::log('Внимание: Для изменения UID и GID вам нужно быть root.');
+                    static::log('Внимание: Для изменения UID и GID вам нужны права root.');
                 }
             }
 
@@ -763,6 +861,11 @@ class Server
     public static function getEventLoop(): EventInterface
     {
         return static::$globalEvent;
+    }
+
+    protected static function getEventLoopName(): string
+    {
+        return static::$eventLoopClass;
     }
 
     /**
@@ -818,12 +921,12 @@ class Server
             static::safeEcho("----------------------- Localzet Server -----------------------------\r\n");
             static::safeEcho('Версия сервера: ' . static::getVersion() . '          Версия PHP: ' . PHP_VERSION . "\r\n");
             static::safeEcho("------------------------ СЕРВЕРЫ -------------------------------\r\n");
-            static::safeEcho("сервер                        адресс                              статус процессов\r\n");
+            static::safeEcho("сервер                        адрес                              статус процессов\r\n");
             return;
         }
 
         // Показать версию
-        $lineVersion = 'Версия сервера: ' . static::getVersion() . str_pad(' Версия PHP: ', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad(' Цикл событий: ', 22, ' ', STR_PAD_LEFT) . Linux::class . PHP_EOL;
+        $lineVersion = 'Версия сервера: ' . static::getVersion() . str_pad(' Версия PHP: ', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad(' Цикл событий: ', 22, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
         if (!defined('LINE_VERSION_LENGTH')) define('LINE_VERSION_LENGTH', strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
         $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
