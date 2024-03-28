@@ -241,10 +241,7 @@ final class Linux implements EventInterface
     public function repeat(float $interval, callable $func, array $args = []): int
     {
         $timerId = $this->timerId++;
-        $closure = function () use ($func, $args) {
-            $func(...$args);
-        };
-        $cbId = $this->getDriver()->repeat($interval, $closure);
+        $cbId = $this->getDriver()->repeat($interval, static fn() => $func(...$args));
         $this->eventTimer[$timerId] = $cbId;
         return $timerId;
     }
@@ -254,10 +251,13 @@ final class Linux implements EventInterface
      */
     public function onReadable($stream, callable $func): void
     {
-        $this->cancelAndUnset($stream, $this->readEvents);
-        $this->readEvents[(int)$stream] = $this->getDriver()->onReadable($stream, function () use ($stream, $func) {
-            $func($stream);
-        });
+        $fdKey = (int)$stream;
+        if (isset($this->readEvents[$fdKey])) {
+            $this->getDriver()->cancel($this->readEvents[$fdKey]);
+            unset($this->readEvents[$fdKey]);
+        }
+
+        $this->readEvents[$fdKey] = $this->getDriver()->onReadable($stream, static fn() => $func($stream));
     }
 
     /**
@@ -282,7 +282,13 @@ final class Linux implements EventInterface
      */
     public function offReadable($stream): bool
     {
-        return $this->cancelAndUnset($stream, $this->readEvents);
+        $fdKey = (int)$stream;
+        if (isset($this->readEvents[$fdKey])) {
+            $this->getDriver()->cancel($this->readEvents[$fdKey]);
+            unset($this->readEvents[$fdKey]);
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -290,10 +296,12 @@ final class Linux implements EventInterface
      */
     public function onWritable($stream, callable $func): void
     {
-        $this->cancelAndUnset($stream, $this->writeEvents);
-        $this->writeEvents[(int)$stream] = $this->getDriver()->onWritable($stream, function () use ($stream, $func) {
-            $func($stream);
-        });
+        $fdKey = (int)$stream;
+        if (isset($this->writeEvents[$fdKey])) {
+            $this->getDriver()->cancel($this->writeEvents[$fdKey]);
+            unset($this->writeEvents[$fdKey]);
+        }
+        $this->writeEvents[$fdKey] = $this->getDriver()->onWritable($stream, static fn() => $func($stream));
     }
 
     /**
@@ -301,7 +309,13 @@ final class Linux implements EventInterface
      */
     public function offWritable($stream): bool
     {
-        return $this->cancelAndUnset($stream, $this->writeEvents);
+        $fdKey = (int)$stream;
+        if (isset($this->writeEvents[$fdKey])) {
+            $this->getDriver()->cancel($this->writeEvents[$fdKey]);
+            unset($this->writeEvents[$fdKey]);
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -309,10 +323,12 @@ final class Linux implements EventInterface
      */
     public function onSignal(int $signal, callable $func): void
     {
-        $this->cancelAndUnset($signal, $this->eventSignal);
-        $this->eventSignal[$signal] = $this->getDriver()->onSignal($signal, function () use ($signal, $func) {
-            $func($signal);
-        });
+        $fdKey = $signal;
+        if (isset($this->eventSignal[$fdKey])) {
+            $this->getDriver()->cancel($this->eventSignal[$fdKey]);
+            unset($this->eventSignal[$fdKey]);
+        }
+        $this->eventSignal[$fdKey] = $this->getDriver()->onSignal($signal, static fn() => $func($signal));
     }
 
     /**
@@ -320,7 +336,13 @@ final class Linux implements EventInterface
      */
     public function offSignal(int $signal): bool
     {
-        return $this->cancelAndUnset($signal, $this->eventSignal);
+        $fdKey = $signal;
+        if (isset($this->eventSignal[$fdKey])) {
+            $this->getDriver()->cancel($this->eventSignal[$fdKey]);
+            unset($this->eventSignal[$fdKey]);
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -336,9 +358,13 @@ final class Linux implements EventInterface
      */
     public function offDelay(int $timerId): bool
     {
-        return $this->cancelAndUnset($timerId, $this->eventTimer);
+        if (isset($this->eventTimer[$timerId])) {
+            $this->getDriver()->cancel($this->eventTimer[$timerId]);
+            unset($this->eventTimer[$timerId]);
+            return true;
+        }
+        return false;
     }
-
 
     /**
      * {@inheritdoc}
