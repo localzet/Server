@@ -29,9 +29,8 @@ namespace localzet;
 use AllowDynamicProperties;
 use Composer\InstalledVersions;
 use Exception;
-use JetBrains\PhpStorm\NoReturn;
 use localzet\Server\Connection\{ConnectionInterface, TcpConnection, UdpConnection};
-use localzet\Server\Events\{EventInterface, Revolt, Event, Linux, Windows};
+use localzet\Server\Events\{Event, EventInterface, Linux, Revolt, Windows};
 use localzet\Server\Protocols\ProtocolInterface;
 use Revolt\EventLoop;
 use RuntimeException;
@@ -39,11 +38,14 @@ use stdClass;
 use Throwable;
 use function array_intersect;
 use function current;
+use function defined;
 use function fflush;
 use function floor;
+use function function_exists;
 use function fwrite;
 use function get_class;
 use function get_resource_type;
+use function is_resource;
 use function lcfirst;
 use function method_exists;
 use function register_shutdown_function;
@@ -622,12 +624,12 @@ class Server
 
     protected static function initStdOut(): void
     {
-        $defaultStream = fn() => \defined('STDOUT') ? \STDOUT : (@fopen('php://stdout', 'w') ?: fopen('php://output', 'w'));
+        $defaultStream = fn() => defined('STDOUT') ? STDOUT : (@fopen('php://stdout', 'w') ?: fopen('php://output', 'w'));
         static::$outputStream ??= $defaultStream(); //@phpstan-ignore-line
-        if (!\is_resource(self::$outputStream) || get_resource_type(self::$outputStream) !== 'stream') {
+        if (!is_resource(self::$outputStream) || get_resource_type(self::$outputStream) !== 'stream') {
             $type = get_debug_type(self::$outputStream);
             static::$outputStream = $defaultStream();
-            throw new \RuntimeException(sprintf('The $outputStream must to be a stream, %s given', $type));
+            throw new RuntimeException(sprintf('The $outputStream must to be a stream, %s given', $type));
         }
 
         static::$outputDecorated ??= self::hasColorSupport();
@@ -648,8 +650,8 @@ class Server
             return true;
         }
 
-        if (\DIRECTORY_SEPARATOR === '\\') {
-            return (\function_exists('sapi_windows_vt100_support') && @sapi_windows_vt100_support(self::$outputStream))
+        if (DIRECTORY_SEPARATOR === '\\') {
+            return (function_exists('sapi_windows_vt100_support') && @sapi_windows_vt100_support(self::$outputStream))
                 || getenv('ANSICON') !== false
                 || getenv('ConEmuANSI') === 'ON'
                 || getenv('TERM') === 'xterm';
@@ -2044,7 +2046,7 @@ class Server
                 try {
                     exit($code);
                     /** @phpstan-ignore-next-line */
-                } catch (\Exception) {
+                } catch (Exception) {
                     // :)
                 }
             }
