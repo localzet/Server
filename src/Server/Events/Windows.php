@@ -291,7 +291,25 @@ final class Windows implements EventInterface
             return;
         }
         $this->signalEvents[$signal] = $func;
-        pcntl_signal($signal, fn () => $this->safeCall($this->signalEvents[$signal], [$signal]));
+        pcntl_signal($signal, fn() => $this->safeCall($this->signalEvents[$signal], [$signal]));
+    }
+
+    /**
+     * @param callable $func
+     * @param array $args
+     * @return void
+     */
+    private function safeCall(callable $func, array $args = []): void
+    {
+        try {
+            $func(...$args);
+        } catch (Throwable $e) {
+            if ($this->errorHandler === null) {
+                echo $e;
+            } else {
+                ($this->errorHandler)($e);
+            }
+        }
     }
 
     /**
@@ -307,7 +325,7 @@ final class Windows implements EventInterface
                 // Waiting read/write/signal/timeout events.
                 try {
                     @stream_select($read, $write, $except, 0, $this->selectTimeout);
-                } catch (\Throwable) {
+                } catch (Throwable) {
                     // do nothing
                 }
             } else {
@@ -419,8 +437,8 @@ final class Windows implements EventInterface
      */
     public function deleteAllTimer(): void
     {
-        $this->scheduler = new \SplPriorityQueue();
-        $this->scheduler->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
+        $this->scheduler = new SplPriorityQueue();
+        $this->scheduler->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
         $this->eventTimer = [];
     }
 
@@ -454,23 +472,5 @@ final class Windows implements EventInterface
     public function setErrorHandler(callable $errorHandler): void
     {
         $this->errorHandler = $errorHandler;
-    }
-
-    /**
-     * @param callable $func
-     * @param array $args
-     * @return void
-     */
-    private function safeCall(callable $func, array $args = []): void
-    {
-        try {
-            $func(...$args);
-        } catch (\Throwable $e) {
-            if ($this->errorHandler === null) {
-                echo $e;
-            } else {
-                ($this->errorHandler)($e);
-            }
-        }
     }
 }
