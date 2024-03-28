@@ -1761,7 +1761,7 @@ class Server
      */
     protected static function setProcessTitle(string $title): void
     {
-        set_error_handler(static fn (): bool => true);
+        set_error_handler(static fn(): bool => true);
         cli_set_process_title($title);
         restore_error_handler();
     }
@@ -1775,7 +1775,7 @@ class Server
      */
     protected static function sendSignal(int $process_id, int $signal): void
     {
-        set_error_handler(static fn (): bool => true);
+        set_error_handler(static fn(): bool => true);
         posix_kill($process_id, $signal);
         restore_error_handler();
     }
@@ -1928,12 +1928,12 @@ class Server
                 static::$status = static::STATUS_RELOADING;
 
                 // Сбросить стандартные ввод и вывод.
-                static::resetStd(false);
+                static::resetStd();
 
                 // Пробуем вызвать обратный вызов onMasterReload.
                 if (static::$onMasterReload) {
                     try {
-                        call_user_func(static::$onMasterReload);
+                        (static::$onMasterReload)();
                     } catch (Throwable $e) {
                         static::stopAll(250, $e);
                     }
@@ -1946,14 +1946,12 @@ class Server
                     $server = static::$servers[$serverId];
                     if ($server->reloadable) {
                         foreach ($serverPidArray as $pid) {
-                            $reloadablePidArray[$pid] = $pid;
-                        }
-                    } else {
-                        foreach ($serverPidArray as $pid) {
-                            // Отправляем сигнал перезагрузки процессу, для которого reloadable равно false.
-                            static::sendSignal($pid, $sig);
+                            $reloadablePidArray += $serverPidArray;
                         }
                     }
+
+                    // Отправляем сигнал перезагрузки процессу, для которого reloadable равно false.
+                    array_walk($serverPidArray, static fn($pid) => posix_kill($pid, $sig));
                 }
 
                 // Получаем все pid, которые ожидают перезагрузки.
@@ -1976,7 +1974,7 @@ class Server
 
             // Если процесс не завершится после stopTimeout секунд, пытаемся убить его.
             if (!static::$gracefulStop) {
-                Timer::add(static::$stopTimeout, 'posix_kill', [$oneServerPid, SIGKILL], false);
+                Timer::add(static::$stopTimeout, posix_kill(...), [$oneServerPid, SIGKILL], false);
             }
         } // Для дочерних процессов.
         else {
@@ -1986,7 +1984,7 @@ class Server
             // Пробуем вызвать обратный вызов onServerReload.
             if ($server->onServerReload) {
                 try {
-                    call_user_func($server->onServerReload, $server);
+                    ($server->onServerReload)($server);
                 } catch (Throwable $e) {
                     static::stopAll(250, $e);
                 }
@@ -1996,7 +1994,7 @@ class Server
             if ($server->reloadable) {
                 static::stopAll();
             } else {
-                static::resetStd(false);
+                static::resetStd();
             }
         }
     }
@@ -2024,34 +2022,31 @@ class Server
             foreach ($serverPidArray as $serverPid) {
                 // Исправить выход с кодом 2 для PHP 8.2.
                 if ($sig === SIGINT && !static::$daemonize) {
-                    Timer::add(1, 'posix_kill', [$serverPid, SIGINT], false);
+                    Timer::add(1, posix_kill(...), [$serverPid, SIGINT], false);
                 } else {
                     static::sendSignal($serverPid, $sig);
                 }
                 if (!static::$gracefulStop) {
-                    Timer::add(ceil(static::$stopTimeout), 'posix_kill', [$serverPid, SIGKILL], false);
+                    Timer::add(ceil(static::$stopTimeout), posix_kill(...), [$serverPid, SIGKILL], false);
                 }
             }
-            Timer::add(1, "\\localzet\\Server::checkIfChildRunning");
-            // Удалить файл статистики.
-            if (is_file(static::$statisticsFile)) {
-                @unlink(static::$statisticsFile);
-            }
+            Timer::add(1, static::checkIfChildRunning(...));
         } // Для дочерних процессов.
         else {
             // Выполнить выход.
             $servers = array_reverse(static::$servers);
-            foreach ($servers as $server) {
-                if (!$server->stopping) {
-                    $server->stop();
-                    $server->stopping = true;
-                }
-            }
+            array_walk($servers, static fn(Server $servers) => $servers->stop());
+
             if (!static::$gracefulStop || ConnectionInterface::$statistics['connection_count'] <= 0) {
                 static::$servers = [];
                 static::$globalEvent?->stop();
 
-                exit($code);
+                try {
+                    exit($code);
+                    /** @phpstan-ignore-next-line */
+                } catch (\Exception) {
+                    // :)
+                }
             }
         }
     }
@@ -2506,7 +2501,7 @@ class Server
 
             // Попытка открыть keepalive для TCP и отключить алгоритм Nagle.
             if (function_exists('socket_import_stream') && self::BUILD_IN_TRANSPORTS[$this->transport] === 'tcp') {
-                set_error_handler(static fn (): bool => true);
+                set_error_handler(static fn(): bool => true);
                 $socket = socket_import_stream($this->mainSocket);
                 socket_set_option($socket, SOL_SOCKET, SO_KEEPALIVE, 1);
                 socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
@@ -2529,7 +2524,7 @@ class Server
     {
         $this->pauseAccept();
         if ($this->mainSocket) {
-            set_error_handler(static fn (): bool => true);
+            set_error_handler(static fn(): bool => true);
             fclose($this->mainSocket);
             restore_error_handler();
             $this->mainSocket = null;
@@ -2680,7 +2675,7 @@ class Server
     public function acceptTcpConnection($socket): void
     {
         // Принять соединение на сокете сервера.
-        set_error_handler(static fn (): bool => true);
+        set_error_handler(static fn(): bool => true);
         $newSocket = stream_socket_accept($socket, 0, $remoteAddress);
         restore_error_handler();
 
@@ -2721,7 +2716,7 @@ class Server
     public function acceptUdpConnection($socket): bool
     {
         // Принять соединение на сокете сервера.
-        set_error_handler(static fn (): bool => true);
+        set_error_handler(static fn(): bool => true);
         $recvBuffer = stream_socket_recvfrom($socket, UdpConnection::MAX_UDP_PACKAGE_SIZE, 0, $remoteAddress);
         restore_error_handler();
         if (false === $recvBuffer || empty($remoteAddress)) {
