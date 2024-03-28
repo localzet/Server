@@ -26,11 +26,12 @@
 
 namespace localzet\Server\Connection;
 
-use JetBrains\PhpStorm\Pure;
 use JsonSerializable;
 use localzet\Server;
 use localzet\Server\Events\EventInterface;
-use localzet\Server\Protocols\{Http\Request, ProtocolInterface, Ws};
+use localzet\Server\Protocols\Http\Request;
+use localzet\Server\Protocols\ProtocolInterface;
+use RuntimeException;
 use stdClass;
 use Throwable;
 use function ceil;
@@ -361,12 +362,12 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             stream_set_read_buffer($this->socket, 0);
         }
         $this->eventLoop = $eventLoop;
-        $this->eventLoop->onReadable($this->socket, [$this, 'baseRead']);
+        $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
         $this->maxSendBufferSize = self::$defaultMaxSendBufferSize;
         $this->maxPackageSize = self::$defaultMaxPackageSize;
         $this->remoteAddress = $remoteAddress;
         static::$connections[$this->id] = $this;
-        $this->context = new stdClass;
+        $this->context = new stdClass();
     }
 
     /**
@@ -460,7 +461,9 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         // Удалить обработчик событий.
         $this->eventLoop->offReadable($this->socket);
         $this->eventLoop->offWritable($this->socket);
-
+        if (DIRECTORY_SEPARATOR === '\\' && method_exists($this->eventLoop, 'offExcept')) {
+            $this->eventLoop->offExcept($this->socket);
+        }
         // Закрыть сокет.
         try {
             @fclose($this->socket);
@@ -477,7 +480,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             }
         }
         // Попытка вызвать protocol::onClose
-        if ($this->protocol && $this->protocol instanceof Ws) {
+        if ($this->protocol && method_exists($this->protocol, 'onClose')) {
             try {
                 $this->protocol::onClose($this);
             } catch (Throwable $e) {
@@ -527,7 +530,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @inheritdoc
      * @throws Throwable
      */
-    public function send(mixed $sendBuffer, bool $raw = false)
+    public function send(mixed $sendBuffer, bool $raw = false): bool|null
     {
         if ($this->status === self::STATUS_CLOSING || $this->status === self::STATUS_CLOSED) {
             return false;
@@ -537,15 +540,18 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         if (false === $raw && $this->protocol !== null) {
             /** @var ProtocolInterface $parser */
             $parser = $this->protocol;
-            $sendBuffer = $parser::encode($sendBuffer, $this);
+            try {
+                $sendBuffer = $parser::encode($sendBuffer, $this);
+            } catch (Throwable $e) {
+                $this->error($e);
+            }
             if ($sendBuffer === '') {
-                return;
+                return null;
             }
         }
 
         // Если соединение еще не установлено или еще не завершено SSL-рукопожатие.
-        if (
-            $this->status !== self::STATUS_ESTABLISHED ||
+        if ($this->status !== self::STATUS_ESTABLISHED ||
             ($this->transport === 'ssl' && $this->sslHandshakeCompleted !== true)
         ) {
             if ($this->sendBuffer && $this->bufferIsFull()) {
@@ -554,16 +560,16 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             }
             $this->sendBuffer .= $sendBuffer;
             $this->checkBufferWillFull();
-            return;
+            return null;
         }
 
         // Попытка отправить данные напрямую.
         if ($this->sendBuffer === '') {
             if ($this->transport === 'ssl') {
-                $this->eventLoop->onWritable($this->socket, [$this, 'baseWrite']);
+                $this->eventLoop->onWritable($this->socket, $this->baseWrite(...));
                 $this->sendBuffer = $sendBuffer;
                 $this->checkBufferWillFull();
-                return;
+                return null;
             }
             $len = 0;
             try {
@@ -596,10 +602,10 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                 }
                 $this->sendBuffer = $sendBuffer;
             }
-            $this->eventLoop->onWritable($this->socket, [$this, 'baseWrite']);
+            $this->eventLoop->onWritable($this->socket, $this->baseWrite(...));
             // Проверка, будет ли буфер отправки заполнен.
             $this->checkBufferWillFull();
-            return;
+            return null;
         }
 
         if ($this->bufferIsFull()) {
@@ -610,6 +616,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         $this->sendBuffer .= $sendBuffer;
         // Проверка, будет ли буфер отправки заполнен.
         $this->checkBufferWillFull();
+        return null;
     }
 
     /**
@@ -699,7 +706,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     public function resumeRecv(): void
     {
         if ($this->isPaused === true) {
-            $this->eventLoop->onReadable($this->socket, [$this, 'baseRead']);
+            $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
             $this->isPaused = false;
             $this->baseRead($this->socket, false);
         }
@@ -721,7 +728,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             if ($this->doSslHandshake($socket)) {
                 $this->sslHandshakeCompleted = true;
                 if ($this->sendBuffer) {
-                    $this->eventLoop->onWritable($socket, [$this, 'baseWrite']);
+                    $this->eventLoop->onWritable($socket, $this->baseWrite(...));
                 }
             } else {
                 return;
@@ -732,6 +739,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         try {
             $buffer = @fread($socket, self::READ_BUFFER_SIZE);
         } catch (Throwable) {
+            // :)
         }
 
         // Проверка закрытия соединения.
@@ -793,7 +801,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                         }
                     } // Неверный пакет.
                     else {
-                        Server::safeEcho('Ошибка пакета. package_length=' . var_export($this->currentPackageLength, true));
+                        Server::safeEcho((string)(new RuntimeException("Protocol $this->protocol Error package. package_length=" . var_export($this->currentPackageLength, true))));
                         $this->destroy();
                         return;
                     }
@@ -869,18 +877,15 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         if ($async) {
             $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT | STREAM_CRYPTO_METHOD_SSLv3_CLIENT;
         } else {
-            // if (defined('STREAM_CRYPTO_METHOD_SERVER')) {
-            //     $type = STREAM_CRYPTO_METHOD_SERVER;
-            // } else {
             $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER | STREAM_CRYPTO_METHOD_SSLv3_SERVER;
-            // }
         }
 
         // Скрытая ошибка.
-        set_error_handler(function ($errno, $err_str) {
+        set_error_handler(static function (int $code, string $msg): bool {
             if (!Server::$daemonize) {
-                Server::safeEcho("Ошибка SSL-соединения: $err_str \n");
+                Server::safeEcho(sprintf("Ошибка SSL-соединения: %s\n", $msg));
             }
+            return true;
         });
         $ret = stream_socket_enable_crypto($socket, true, $type);
         restore_error_handler();
@@ -1035,7 +1040,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * @inheritdoc
      */
-    #[Pure]
     public function isIpV4(): bool
     {
         if ($this->transport === 'unix') {
@@ -1047,7 +1051,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * @inheritdoc
      */
-    #[Pure]
     public function isIpV6(): bool
     {
         if ($this->transport === 'unix') {
@@ -1067,13 +1070,11 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         static $mod;
         self::$statistics['connection_count']--;
         if (Server::getGracefulStop()) {
-            if (!isset($mod)) {
-                $mod = ceil((self::$statistics['connection_count'] + 1) / 3);
-            }
+            $mod ??= ceil((self::$statistics['connection_count'] + 1) / 3);
 
             if (0 === self::$statistics['connection_count'] % $mod) {
                 $pid = function_exists('posix_getpid') ? posix_getpid() : 0;
-                Server::log('server[' . $pid . '] осталось ' . self::$statistics['connection_count'] . ' соединений(я)');
+                Server::log('Localzet Server [' . $pid . '] осталось ' . self::$statistics['connection_count'] . ' соединений(я)');
             }
 
             if (0 === self::$statistics['connection_count']) {
