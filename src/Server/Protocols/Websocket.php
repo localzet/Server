@@ -295,23 +295,19 @@ class Websocket
     {
         // Протокол HTTP.
         if (str_starts_with($buffer, 'GET')) {
-            // Найти "\r\n\r\n".
-            $pos = strpos($buffer, "\r\n\r\n");
-            if (!$pos) {
+            // Find \r\n\r\n.
+            $headerEndPos = strpos($buffer, "\r\n\r\n");
+            if (!$headerEndPos) {
                 return 0;
             }
+            $headerLength = $headerEndPos + 4;
 
-            // Длина заголовка.
-            $headerLength = $pos + 4;
-
-            // Получить Sec-WebSocket-Key.
+            // Get Sec-WebSocket-Key.
             if (preg_match("/Sec-WebSocket-Key: *(.*?)\r\n/i", $buffer, $match)) {
                 $SecWebSocketKey = $match[1];
             } else {
                 $connection->close(
-                    "HTTP/1.0 200 OK\r\nServer: Localzet Server " . Server::getVersion() . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server " . Server::getVersion() . "</div>",
-                    true
-                );
+                    "HTTP/1.0 200 OK\r\nServer: Localzet Server\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server</div>", true);
                 return 0;
             }
             // Расчет ключа websocket.
@@ -381,12 +377,9 @@ class Websocket
         }
         // Неверный запрос рукопожатия через веб-сокет.
         $connection->close(
-            "HTTP/1.0 200 OK\r\nServer: Localzet Server " . Server::getVersion() . "\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server " . Server::getVersion() . "</div>",
-            true
-        );
+            "HTTP/1.0 200 OK\r\nServer: Localzet Server\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server</div>", true);
         return 0;
     }
-
 
     /**
      * Декодирование WebSocket.
@@ -406,34 +399,30 @@ class Websocket
         if ($dataLength === 126) {
             $masks = substr($buffer, 4, 4);
             $data = substr($buffer, 8);
-        } else if ($dataLength === 127) {
-            // Если длина равна 127, то маска начинается с 10-го байта, а данные - с 14-го.
-            $masks = substr($buffer, 10, 4);
-            $data = substr($buffer, 14);
         } else {
-            // В противном случае маска начинается со 2-го байта, а данные - с 6-го.
-            $masks = substr($buffer, 2, 4);
-            $data = substr($buffer, 6);
+            if ($len === 127) {
+                $masks = substr($buffer, 10, 4);
+                $data = substr($buffer, 14);
+            } else {
+                $masks = substr($buffer, 2, 4);
+                $data = substr($buffer, 6);
+            }
         }
 
         // Вычисляем длину данных.
         $dataLength = strlen($data);
         // Генерируем маску для декодирования данных.
         $masks = str_repeat($masks, (int)floor($dataLength / 4)) . substr($masks, 0, $dataLength % 4);
-        // Декодируем данные.
-        $decodedData = $data ^ $masks;
-
-        // Если текущая длина кадра websocket не равна нулю,
-        // добавляем декодированные данные в буфер данных websocket и возвращаем его.
+        $decoded = $data ^ $masks;
         if ($connection->context->websocketCurrentFrameLength) {
-            $connection->context->websocketDataBuffer .= $decodedData;
+            $connection->context->websocketDataBuffer .= $decoded;
             return $connection->context->websocketDataBuffer;
         }
 
         // Если в буфере данных websocket есть данные,
         // добавляем к ним декодированные данные и очищаем буфер.
         if ($connection->context->websocketDataBuffer !== '') {
-            $decodedData = $connection->context->websocketDataBuffer . $decodedData;
+            $decoded = $connection->context->websocketDataBuffer . $decoded;
             $connection->context->websocketDataBuffer = '';
         }
 
@@ -457,7 +446,7 @@ class Websocket
         }
 
         // Получаем длину буфера.
-        $length = strlen($buffer);
+        $len = strlen($buffer);
 
         // Если тип websocket не установлен, устанавливаем его в BINARY_TYPE_BLOB.
         if (empty($connection->websocketType)) {
@@ -467,13 +456,14 @@ class Websocket
         // Устанавливаем первый байт в тип websocket.
         $firstByte = $connection->websocketType;
 
-        // Кодируем данные в зависимости от их длины.
-        if ($length <= 125) {
-            $encodeBuffer = $firstByte . chr($length) . $buffer;
-        } elseif ($length <= 65535) {
-            $encodeBuffer = $firstByte . chr(126) . pack("n", $length) . $buffer;
+        if ($len <= 125) {
+            $encodeBuffer = $firstByte . chr($len) . $buffer;
         } else {
-            $encodeBuffer = $firstByte . chr(127) . pack("xxxxN", $length) . $buffer;
+            if ($len <= 65535) {
+                $encodeBuffer = $firstByte . chr(126) . pack("n", $len) . $buffer;
+            } else {
+                $encodeBuffer = $firstByte . chr(127) . pack("xxxxN", $len) . $buffer;
+            }
         }
 
         // Если рукопожатие еще не завершено, данные websocket временного буфера ожидают отправки.
@@ -493,7 +483,6 @@ class Websocket
                 }
                 return '';
             }
-            // Добавляем закодированный буфер во временные данные websocket.
             $connection->context->tmpWebsocketData .= $encodeBuffer;
 
             // Проверяем, заполнен ли буфер.
@@ -508,8 +497,6 @@ class Websocket
             return '';
         }
 
-        // Возвращаем закодированный буфер.
         return $encodeBuffer;
     }
-
 }
