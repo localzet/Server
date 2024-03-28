@@ -28,8 +28,6 @@ namespace localzet\Server\Connection;
 
 use Exception;
 use localzet\Server;
-use localzet\Server\Events\Windows;
-use localzet\Server\Protocols\Ws;
 use localzet\Timer;
 use RuntimeException;
 use stdClass;
@@ -368,7 +366,7 @@ class AsyncTcpConnection extends TcpConnection
     public function checkConnection(): void
     {
         // Удаляем EV_EXPECT для Windows.
-        if ($this->eventLoop && $this->eventLoop instanceof Windows) {
+        if (DIRECTORY_SEPARATOR === '\\' && method_exists($this->eventLoop, 'offExcept')) {
             $this->eventLoop->offExcept($this->socket);
         }
 
@@ -405,12 +403,12 @@ class AsyncTcpConnection extends TcpConnection
             } else {
                 // Есть некоторые данные, ожидающие отправки.
                 if ($this->sendBuffer) {
-                    $this->eventLoop->onWritable($this->socket, [$this, 'baseWrite']);
+                    $this->eventLoop->onWritable($this->socket, $this->baseWrite(...));
                 }
             }
 
             // Зарегистрируем слушателя чтения.
-            $this->eventLoop->onReadable($this->socket, [$this, 'baseRead']);
+            $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
 
             $this->status = self::STATUS_ESTABLISHED;
             $this->remoteAddress = $address;
@@ -425,7 +423,7 @@ class AsyncTcpConnection extends TcpConnection
             }
 
             // Попытка вызвать protocol::onConnect
-            if ($this->protocol && ($this->protocol instanceof Ws || method_exists($this->protocol, 'onConnect'))) {
+            if ($this->protocol && method_exists($this->protocol, 'onConnect')) {
                 try {
                     $this->protocol::onConnect($this);
                 } catch (Throwable $e) {
@@ -433,7 +431,6 @@ class AsyncTcpConnection extends TcpConnection
                 }
             }
         } else {
-
             // Ошибка соединения.
             $this->emitError(static::CONNECT_FAIL, 'Не удалось подключиться к ' . $this->remoteAddress . ' после ' . round(microtime(true) - $this->connectStartTime, 4) . ' секунд');
             if ($this->status === self::STATUS_CLOSING) {
