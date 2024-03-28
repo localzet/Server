@@ -920,7 +920,7 @@ class Server
         if (DIRECTORY_SEPARATOR !== '/') {
             static::safeEcho("---------------------------------------------- Localzet Server -----------------------------------------------\r\n");
             static::safeEcho('Server version:' . static::getVersion() . '          PHP version:' . PHP_VERSION . "\r\n");
-            static::safeEcho("----------------------------------------------- WORKERS ------------------------------------------------\r\n");
+            static::safeEcho("----------------------------------------------- SERVERS ------------------------------------------------\r\n");
             static::safeEcho("server                                          listen                              processes   status\r\n");
             return;
         }
@@ -930,7 +930,7 @@ class Server
         !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
         $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
-        $lineTwo = str_pad('<w> Servers </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
+        $lineTwo = str_pad('<w> SERVERS </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
         static::safeEcho($lineOne . $lineVersion . $lineTwo);
 
         // Показать заголовок
@@ -1004,7 +1004,7 @@ class Server
         }
 
         // Сохранить красоту при отображении меньшего количества столбцов
-        if (!defined('LINE_VERSION_LENGTH')) define('LINE_VERSION_LENGTH', 0);
+        !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', 0);
         $totalLength <= LINE_VERSION_LENGTH && $totalLength = LINE_VERSION_LENGTH;
 
         return $totalLength;
@@ -1073,8 +1073,6 @@ class Server
             exit;
         }
 
-        $statisticsFile = static::$statusFile ?: __DIR__ . "/../localzet-$masterPid.$command";
-
         // Выполнение команды.
         switch ($command) {
             case 'start':
@@ -1083,34 +1081,28 @@ class Server
                 }
                 break;
             case 'status':
+                register_shutdown_function(unlink(...), static::$statisticsFile);
                 while (1) {
-                    if (is_file($statisticsFile)) {
-                        @unlink($statisticsFile);
-                    }
-
-                    // Мастер-процесс отправит сигнал SIGIOT всем дочерним процессам.
+                    // Мастер-процесс отправит сигнал SIGIOT всем дочерним процессам
                     static::sendSignal($masterPid, SIGIOT);
 
-                    // Пауза на 1 секунду.
-                    sleep(1);
+                    // Пауза
+                    usleep(500000);
 
-                    // Очистка терминала.
+                    // Очистка терминала
                     if ($mode === '-d') {
                         static::safeEcho("\33[H\33[2J\33(B\33[m", true);
                     }
 
-                    // Вывод данных о состоянии.
-                    static::safeEcho(static::formatStatusData($statisticsFile));
+                    // Вывод данных о состоянии
+                    static::safeEcho(static::formatProcessStatusData());
                     if ($mode !== '-d') {
-                        @unlink($statisticsFile);
                         exit(0);
                     }
-                    static::safeEcho("\Нажмите Ctrl+C для завершения.\n\n");
+                    static::safeEcho("\Нажмите Ctrl+C для выхода.\n\n");
                 }
             case 'connections':
-                if (is_file($statisticsFile) && is_writable($statisticsFile)) {
-                    unlink($statisticsFile);
-                }
+                register_shutdown_function(unlink(...), static::$connectionsFile);
 
                 // Мастер-процесс отправит сигнал SIGIO всем дочерним процессам.
                 static::sendSignal($masterPid, SIGIO);
@@ -1119,9 +1111,7 @@ class Server
                 usleep(500000);
 
                 // Вывод данных о соединениях из файла на диске.
-                if (is_readable($statisticsFile)) {
-                    readfile($statisticsFile);
-                }
+                static::safeEcho(static::formatConnectionStatusData());
                 exit(0);
             case 'restart':
             case 'stop':
@@ -1147,7 +1137,7 @@ class Server
                     $masterIsAlive = $masterPid && posix_kill($masterPid, 0);
                     if ($masterIsAlive) {
                         // Превышение тайм-аута?
-                        if (!static::$gracefulStop && time() - $startTime >= $timeout) {
+                        if (!static::getGracefulStop() && time() - $startTime >= $timeout) {
                             static::log("Localzet Server [$startFile] не остановлен!");
                             exit;
                         }
@@ -1174,7 +1164,6 @@ class Server
                 }
 
                 static::sendSignal($masterPid, $sig);
-
                 exit;
             default:
                 static::safeEcho('Неизвестная команда: ' . $command . "\n");
@@ -1199,13 +1188,13 @@ class Server
      * @param $statisticsFile
      * @return string
      */
-    protected static function formatStatusData($statisticsFile): string
+    protected static function formatProcessStatusData(): string
     {
         static $totalRequestCache = [];
-        if (!is_readable($statisticsFile)) {
+        if (!is_readable(static::$statisticsFile)) {
             return '';
         }
-        $info = file($statisticsFile, FILE_IGNORE_NEW_LINES);
+        $info = file(static::$statisticsFile, FILE_IGNORE_NEW_LINES);
         if (!$info) {
             return '';
         }
@@ -1215,6 +1204,10 @@ class Server
         try {
             $serverInfo = unserialize($info[0], ['allowed_classes' => false]);
         } catch (Throwable) {
+            // :)
+        }
+        if (!is_array($serverInfo)) {
+            $serverInfo = [];
         }
         ksort($serverInfo, SORT_NUMERIC);
         unset($info[0]);
@@ -1254,7 +1247,7 @@ class Server
         foreach ($serverInfo as $pid => $info) {
             if (!isset($dataWaitingSort[$pid])) {
                 $statusStr .= "$pid\t" . str_pad('N/A', 7) . " "
-                    . str_pad((string)$info['listen'], static::$maxSocketNameLength) . " "
+                    . str_pad($info['listen'], static::$maxSocketNameLength) . " "
                     . str_pad((string)$info['name'], static::$maxServerNameLength) . " "
                     . str_pad('N/A', 11) . " " . str_pad('N/A', 9) . " "
                     . str_pad('N/A', 7) . " " . str_pad('N/A', 13) . " N/A    [занят] \n";
@@ -1280,6 +1273,11 @@ class Server
         return $statusStr;
     }
 
+    protected static function formatConnectionStatusData(): string
+    {
+        return file_get_contents(static::$connectionsFile);
+    }
+
     /**
      * Установить обработчик сигналов.
      *
@@ -1292,9 +1290,9 @@ class Server
         }
         $signals = [SIGINT, SIGTERM, SIGHUP, SIGTSTP, SIGQUIT, SIGUSR1, SIGUSR2, SIGIOT, SIGIO];
         foreach ($signals as $signal) {
-            pcntl_signal($signal, [static::class, 'signalHandler'], false);
+            pcntl_signal($signal, static::signalHandler(...), false);
         }
-        // Игнорировать сигнал SIGPIPE.
+        // - А мне ∏∅⨉ на ваш SIGPIPE!
         pcntl_signal(SIGPIPE, SIG_IGN, false);
     }
 
@@ -1311,8 +1309,7 @@ class Server
         }
         $signals = [SIGINT, SIGTERM, SIGHUP, SIGTSTP, SIGQUIT, SIGUSR1, SIGUSR2, SIGIOT, SIGIO];
         foreach ($signals as $signal) {
-            pcntl_signal($signal, SIG_IGN, false);
-            static::$globalEvent->onSignal($signal, [static::class, 'signalHandler']);
+            static::$globalEvent->onSignal($signal, static::signalHandler(...));
         }
     }
 
@@ -1331,12 +1328,12 @@ class Server
             case SIGHUP:
             case SIGTSTP:
                 static::$gracefulStop = false;
-                static::stopAll();
+                static::stopAll(0, "Получен сигнал: $signal");
                 break;
             // Плавная остановка.
             case SIGQUIT:
                 static::$gracefulStop = true;
-                static::stopAll();
+                static::stopAll(0, "Получен сигнал: $signal");
                 break;
             // Перезагрузка.
             case SIGUSR2:
