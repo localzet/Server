@@ -2306,28 +2306,28 @@ class Server
      * @param bool $decorated
      * @return bool
      */
-    public static function safeEcho(string $msg, bool $decorated = false): bool
+    public static function safeEcho(string $msg, bool $decorated = false): void
     {
-        $stream = self::outputStream();
-        if (!$stream) {
-            return false;
+        if ((static::$outputDecorated ?? false) && $decorated) {
+            $line = "\033[1A\n\033[K";
+            $white = "\033[47;30m";
+            $green = "\033[32;40m";
+            $end = "\033[0m";
+        } else {
+            $line = '';
+            $white = '';
+            $green = '';
+            $end = '';
         }
-        if (!$decorated) {
-            $line = $white = $green = $end = '';
-            if (static::$outputDecorated) {
-                $line = "\033[1A\n\033[K";
-                $white = "\033[47;30m";
-                $green = "\033[32;40m";
-                $end = "\033[0m";
-            }
-            $msg = str_replace(['<n>', '<w>', '<g>'], [$line, $white, $green], $msg);
-            $msg = str_replace(['</n>', '</w>', '</g>'], $end, $msg);
-        } elseif (!static::$outputDecorated) {
-            return false;
+
+        $msg = str_replace(['<n>', '<w>', '<g>'], [$line, $white, $green], $msg);
+        $msg = str_replace(['</n>', '</w>', '</g>'], $end, $msg);
+        set_error_handler(static fn(): bool => true);
+        if (!feof(self::$outputStream)) {
+            fwrite(self::$outputStream, $msg);
+            fflush(self::$outputStream);
         }
-        fwrite($stream, $msg);
-        fflush($stream);
-        return true;
+        restore_error_handler();
     }
 
     /**
