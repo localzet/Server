@@ -56,30 +56,35 @@ final class Linux implements EventInterface
 
     /**
      * Все обработчики события чтения.
-     * @var array
+     *
+     * @var array<int, string>
      */
     protected array $readEvents = [];
 
     /**
      * Все обработчики события записи.
-     * @var array
+     *
+     * @var array<int, string>
      */
     protected array $writeEvents = [];
 
     /**
      * Обработчики событий сигналов.
-     * @var array
+     *
+     * @var array<int, string>
      */
     protected array $eventSignal = [];
 
     /**
      * Обработчики событий таймеров.
-     * @var array
+     *
+     * @var array<int, string>
      */
     protected array $eventTimer = [];
 
     /**
      * Идентификатор таймера.
+     *
      * @var int
      */
     protected int $timerId = 1;
