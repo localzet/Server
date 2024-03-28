@@ -2503,11 +2503,11 @@ class Server
     public function resumeAccept(): void
     {
         // Зарегистрировать слушателя для оповещения о готовности серверного сокета к чтению.
-        if (static::$globalEvent && true === $this->pauseAccept && $this->mainSocket) {
+        if (static::$globalEvent !== null && $this->pauseAccept === true && $this->mainSocket !== null) {
             if ($this->transport !== 'udp') {
-                static::$globalEvent->onReadable($this->mainSocket, [$this, 'acceptTcpConnection']);
+                static::$globalEvent->onReadable($this->mainSocket, $this->acceptTcpConnection(...));
             } else {
-                static::$globalEvent->onReadable($this->mainSocket, [$this, 'acceptUdpConnection']);
+                static::$globalEvent->onReadable($this->mainSocket, $this->acceptUdpConnection(...));
             }
             $this->pauseAccept = false;
         }
@@ -2553,6 +2553,10 @@ class Server
      */
     public function stop(): void
     {
+        if ($this->stopping === true) {
+            return;
+        }
+
         // Попробовать вызвать обратный вызов onServerStop.
         if ($this->onServerStop) {
             try {
@@ -2581,6 +2585,7 @@ class Server
 
         // Очистить обратные вызовы.
         $this->onMessage = $this->onClose = $this->onError = $this->onBufferDrain = $this->onBufferFull = null;
+        $this->stopping = true;
     }
 
     /**
@@ -2676,7 +2681,7 @@ class Server
                 } else {
                     $messageCallback($connection, $recvBuffer);
                 }
-                ++ConnectionInterface::$statistics['total_request'];
+                ConnectionInterface::$statistics['total_request']++;
             } catch (Throwable $e) {
                 static::stopAll(250, $e);
             }
@@ -2698,6 +2703,7 @@ class Server
 
         $masterIsAlive = posix_kill($masterPid, 0) && posix_getpid() !== $masterPid;
         if (!$masterIsAlive) {
+            static::log("Мастер-процесс pid:$masterPid уже не жив");
             return false;
         }
 
@@ -2711,6 +2717,6 @@ class Server
             return true;
         }
 
-        return stripos($content, 'Localzet Server') !== false || stripos($content, 'php') !== false;
+        return stripos($content, 'Localzet Server') || str_contains($content, 'php');
     }
 }
