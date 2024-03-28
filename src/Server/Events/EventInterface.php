@@ -38,7 +38,7 @@ interface EventInterface
     /**
      * Задержать выполнение колбэка на указанное время.
      * @param float $delay Задержка в секундах.
-     * @param callable $func Колбэк, который нужно выполнить.
+     * @param callable(mixed...): void $func Колбэк, который нужно выполнить.
      * @param array $args Аргументы, передаваемые в колбэк.
      * @return int Идентификатор таймера.
      */
@@ -54,7 +54,7 @@ interface EventInterface
     /**
      * Повторно выполнять колбэк через указанный интервал времени.
      * @param float $interval Интервал в секундах.
-     * @param callable $func Колбэк, который нужно выполнить.
+     * @param callable(mixed...): void $func Колбэк, который нужно выполнить.
      * @param array $args Аргументы, передаваемые в колбэк.
      * @return int Идентификатор таймера.
      */
@@ -70,7 +70,7 @@ interface EventInterface
     /**
      * Зарегистрировать колбэк для выполнения при возможности чтения или закрытия потока для чтения.
      * @param resource $stream Поток, для которого нужно зарегистрировать колбэк.
-     * @param callable $func Колбэк, который нужно выполнить.
+     * @param callable(resource): void $func Колбэк, который нужно выполнить.
      * @return void
      */
     public function onReadable($stream, callable $func): void;
@@ -85,7 +85,7 @@ interface EventInterface
     /**
      * Зарегистрировать колбэк для выполнения при возможности записи или закрытия потока для записи.
      * @param resource $stream Поток, для которого нужно зарегистрировать колбэк.
-     * @param callable $func Колбэк, который нужно выполнить.
+     * @param callable(resource): void $func Колбэк, который нужно выполнить.
      * @return void
      */
     public function onWritable($stream, callable $func): void;
@@ -100,7 +100,7 @@ interface EventInterface
     /**
      * Зарегистрировать колбэк для выполнения при получении сигнала.
      * @param int $signal Номер сигнала.
-     * @param callable $func Колбэк, который нужно выполнить.
+     * @param callable(int): void $func Колбэк, который нужно выполнить.
      * @return void
      * @throws Throwable
      */
@@ -147,14 +147,8 @@ interface EventInterface
 
     /**
      * Установить обработчик ошибок.
-     * @param callable $errorHandler Обработчик ошибок.
+     * @param callable(Throwable): void $errorHandler Обработчик ошибок.
      * @return void
      */
     public function setErrorHandler(callable $errorHandler): void;
-
-//    /**
-//     * Получить обработчик ошибок.
-//     * @return callable|null Обработчик ошибок или null, если обработчик не установлен.
-//     */
-//    public function getErrorHandler(): ?callable;
 }
