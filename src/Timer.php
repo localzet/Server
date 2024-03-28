@@ -27,7 +27,7 @@
 namespace localzet;
 
 use Exception;
-use localzet\Server\Events\{EventInterface, Linux};
+use localzet\Server\Events\{EventInterface, Linux, Revolt};
 use RuntimeException;
 use Throwable;
 use function function_exists;
@@ -94,7 +94,7 @@ class Timer
             return;
         }
         if (function_exists('pcntl_signal')) {
-            pcntl_signal(SIGALRM, ['\localzet\Timer', 'signalHandle'], false);
+            pcntl_signal(SIGALRM, self::signalHandle(...), false);
         }
     }
 
@@ -156,13 +156,14 @@ class Timer
      */
     public static function sleep(float $delay): void
     {
-        if (Server::$globalEvent && Server::$globalEvent instanceof Linux) {
+        if (Server::$globalEvent && (Server::$globalEvent instanceof Linux || Server::$globalEvent instanceof Revolt)) {
             $suspension = Server::$globalEvent->getSuspension();
             static::add($delay, function () use ($suspension) {
                 $suspension->resume();
             }, null, false);
             $suspension->suspend();
         }
+        throw new RuntimeException('Timer::sleep() требует событийную петлю!');
     }
 
     /**
@@ -174,7 +175,7 @@ class Timer
      * @param bool $persistent
      * @return int|bool
      */
-    public static function add(float $timeInterval, callable $func, null|array $args = [], bool $persistent = true): int|bool
+    public static function add(float $timeInterval, callable $func, null|array $args = [], bool $persistent = true): int
     {
         if ($timeInterval < 0) {
             throw new RuntimeException('$timeInterval не может быть меньше 0');
@@ -189,12 +190,7 @@ class Timer
         }
 
         if (!Server::getAllServers()) {
-            return false;
-        }
-
-        if (!is_callable($func)) {
-            Server::safeEcho((string)new Exception("Невозможно вызвать функцию"));
-            return false;
+            throw new RuntimeException('Таймер может использоваться только в окружении Localzet');
         }
 
         if (empty(self::$tasks)) {
