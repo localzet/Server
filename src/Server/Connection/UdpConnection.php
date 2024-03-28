@@ -26,7 +26,7 @@
 
 namespace localzet\Server\Connection;
 
-use JetBrains\PhpStorm\{ArrayShape, Pure};
+use JetBrains\PhpStorm\{Pure};
 use JsonSerializable;
 use localzet\Server\Protocols\ProtocolInterface;
 use function stream_socket_get_name;
@@ -96,14 +96,14 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * @inheritdoc
      */
-    public function send(mixed $sendBuffer, bool $raw = false)
+    public function send(mixed $sendBuffer, bool $raw = false): bool|null
     {
         if (false === $raw && $this->protocol) {
             /** @var ProtocolInterface $parser */
             $parser = $this->protocol;
             $sendBuffer = $parser::encode($sendBuffer, $this);
             if ($sendBuffer === '') {
-                return;
+                return null;
             }
         }
         return strlen($sendBuffer) === stream_socket_sendto($this->socket, $sendBuffer, 0, $this->isIpV6() ? '[' . $this->getRemoteIp() . ']:' . $this->getRemotePort() : $this->remoteAddress);
@@ -159,19 +159,6 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
      *
      * @return array
      */
-    #[ArrayShape(
-        [
-            'transport' => "string",
-            'getRemoteIp' => "string",
-            'remotePort' => "int",
-            'getRemoteAddress' => "string",
-            'getLocalIp' => "string",
-            'getLocalPort' => "int",
-            'getLocalAddress' => "string",
-            'isIpV4' => "bool",
-            'isIpV6' => "bool"
-        ]
-    )]
     public function jsonSerialize(): array
     {
         return [
