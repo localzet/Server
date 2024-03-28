@@ -918,19 +918,19 @@ class Server
             return;
         }
         if (DIRECTORY_SEPARATOR !== '/') {
-            static::safeEcho("----------------------- Localzet Server -----------------------------\r\n");
-            static::safeEcho('Версия сервера: ' . static::getVersion() . '          Версия PHP: ' . PHP_VERSION . "\r\n");
-            static::safeEcho("------------------------ СЕРВЕРЫ -------------------------------\r\n");
-            static::safeEcho("сервер                        адрес                              статус процессов\r\n");
+            static::safeEcho("---------------------------------------------- Localzet Server -----------------------------------------------\r\n");
+            static::safeEcho('Server version:' . static::getVersion() . '          PHP version:' . PHP_VERSION . "\r\n");
+            static::safeEcho("----------------------------------------------- WORKERS ------------------------------------------------\r\n");
+            static::safeEcho("server                                          listen                              processes   status\r\n");
             return;
         }
 
         // Показать версию
-        $lineVersion = 'Версия сервера: ' . static::getVersion() . str_pad(' Версия PHP: ', 22, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad(' Цикл событий: ', 22, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
-        if (!defined('LINE_VERSION_LENGTH')) define('LINE_VERSION_LENGTH', strlen($lineVersion));
+        $lineVersion = 'Server version:' . static::getVersion() . str_pad('PHP version:', 16, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Event-loop:', 16, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
+        !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
         $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
-        $lineTwo = str_pad('<w> СЕРВЕРЫ </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
+        $lineTwo = str_pad('<w> Servers </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
         static::safeEcho($lineOne . $lineVersion . $lineTwo);
 
         // Показать заголовок
@@ -938,7 +938,7 @@ class Server
         foreach (static::getUiColumns() as $columnName => $prop) {
             $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
             // Совместимость с названием слушателя
-            $columnName === 'socket' && $columnName = 'слушаем';
+            $columnName === 'socket' && $columnName = 'listen';
             $title .= "<w>$columnName</w>" . str_pad('', static::$$key + static::UI_SAFE_LENGTH - strlen($columnName));
         }
         $title && static::safeEcho($title . PHP_EOL);
@@ -961,7 +961,7 @@ class Server
         !empty($content) && static::safeEcho($lineLast);
 
         if (static::$daemonize) {
-            static::safeEcho('Выполните "php ' . basename(static::$startFile) . ' stop" для остановки. Localzet Server запущен.' . "\n\n");
+            static::safeEcho('Выполните "php ' . basename(static::$startFile) . ' stop" для остановки. Сервер запущен.' . "\n\n");
         } else if (!empty(static::$command)) {
             static::safeEcho("Localzet Server запущен.\n");
         } else {
