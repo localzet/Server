@@ -2331,35 +2331,6 @@ class Server
     }
 
     /**
-     * @param resource|null $stream
-     * @return false|resource
-     */
-    private static function outputStream($stream = null)
-    {
-        if (!$stream) {
-            $stream = static::$outputStream ?: STDOUT;
-        }
-        // @phpstan-ignore-next-line Negated boolean expression is always false.
-        if (!$stream || !is_resource($stream) || 'stream' !== get_resource_type($stream)) {
-            return false;
-        }
-        $stat = fstat($stream);
-        if (!$stat) {
-            return false;
-        }
-
-        if (($stat['mode'] & 0170000) === 0100000) {
-            static::$outputDecorated = false;
-        } else {
-            static::$outputDecorated =
-                DIRECTORY_SEPARATOR === '/' && // linux or unix
-                function_exists('posix_isatty') &&
-                posix_isatty($stream); // whether is interactive terminal
-        }
-        return static::$outputStream = $stream;
-    }
-
-    /**
      * Конструктор.
      *
      * @param string|null $socketName
@@ -2376,9 +2347,7 @@ class Server
         // Контекст для сокета.
         if ($socketName) {
             $this->socketName = $socketName;
-            if (!isset($socketContext['socket']['backlog'])) {
-                $socketContext['socket']['backlog'] = static::DEFAULT_BACKLOG;
-            }
+            $socketContext['socket']['backlog'] ??= static::DEFAULT_BACKLOG;
             $this->socketContext = stream_context_create($socketContext);
         }
 
