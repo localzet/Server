@@ -2287,12 +2287,16 @@ class Server
      */
     public static function log(mixed $msg, bool $decorated = false): void
     {
-        $msg .= "\n";
+        $msg = trim((string)$msg);
+
         if (!static::$daemonize) {
-            static::safeEcho($msg, $decorated);
+            static::safeEcho("$msg\n", $decorated);
         }
-        file_put_contents(static::$logFile, date('Y-m-d H:i:s') . ' ' . 'pid:'
-            . (DIRECTORY_SEPARATOR === '/' ? posix_getpid() : 1) . ' ' . $msg, FILE_APPEND | LOCK_EX);
+
+        if (isset(static::$logFile)) {
+            $pid = DIRECTORY_SEPARATOR === '/' ? posix_getpid() : 1;
+            file_put_contents(static::$logFile, sprintf("%s pid:%d %s\n", date('Y-m-d H:i:s'), $pid, $msg), FILE_APPEND | LOCK_EX);
+        }
     }
 
     /**
