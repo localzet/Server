@@ -1376,7 +1376,7 @@ class Server
         if (-1 === posix_setsid()) {
             throw new RuntimeException('Ошибка установки SID');
         }
-        // Fork again to avoid SVR4 system regaining control of the terminal.
+        // Fork again avoid SVR4 system regain the control of terminal.
         $pid = pcntl_fork();
         if (-1 === $pid) {
             throw new RuntimeException('Ошибка форка');
