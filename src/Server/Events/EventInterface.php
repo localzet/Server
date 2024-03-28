@@ -152,9 +152,9 @@ interface EventInterface
      */
     public function setErrorHandler(callable $errorHandler): void;
 
-    /**
-     * Получить обработчик ошибок.
-     * @return callable|null Обработчик ошибок или null, если обработчик не установлен.
-     */
-    public function getErrorHandler(): ?callable;
+//    /**
+//     * Получить обработчик ошибок.
+//     * @return callable|null Обработчик ошибок или null, если обработчик не установлен.
+//     */
+//    public function getErrorHandler(): ?callable;
 }
