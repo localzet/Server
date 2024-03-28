@@ -154,10 +154,10 @@ class AsyncTcpConnection extends TcpConnection
      * Конструктор.
      *
      * @param string $remoteAddress Адрес удаленного хоста
-     * @param array $contextOption Опции контекста
+     * @param array $socketContext Опции контекста
      * @throws Exception
      */
-    public function __construct(string $remoteAddress, array $contextOption = [])
+    public function __construct(string $remoteAddress, array $socketContext = [])
     {
         $addressInfo = parse_url($remoteAddress);
         if (!$addressInfo) {
@@ -169,12 +169,8 @@ class AsyncTcpConnection extends TcpConnection
                 throw new RuntimeException('Некорректный remoteAddress');
             }
         } else {
-            if (!isset($addressInfo['port'])) {
-                $addressInfo['port'] = 0;
-            }
-            if (!isset($addressInfo['path'])) {
-                $addressInfo['path'] = '/';
-            }
+            $addressInfo['port'] ??= 0;
+            $addressInfo['path'] ??= '/';
             if (!isset($addressInfo['query'])) {
                 $addressInfo['query'] = '';
             } else {
@@ -212,7 +208,7 @@ class AsyncTcpConnection extends TcpConnection
         ++self::$statistics['connection_count'];
         $this->maxSendBufferSize = self::$defaultMaxSendBufferSize;
         $this->maxPackageSize = self::$defaultMaxPackageSize;
-        $this->contextOption = $contextOption;
+        $this->socketContext = $socketContext;
         static::$connections[$this->realId] = $this;
         $this->context = new stdClass;
     }
@@ -232,7 +228,7 @@ class AsyncTcpConnection extends TcpConnection
             Timer::del($this->reconnectTimer);
         }
         if ($after > 0) {
-            $this->reconnectTimer = Timer::add($after, [$this, 'connect'], null, false);
+            $this->reconnectTimer = Timer::add($after, $this->connect(...), null, false);
             return;
         }
         $this->connect();
@@ -246,10 +242,8 @@ class AsyncTcpConnection extends TcpConnection
      */
     public function connect(): void
     {
-        if (
-            $this->status !== self::STATUS_INITIAL && $this->status !== self::STATUS_CLOSING &&
-            $this->status !== self::STATUS_CLOSED
-        ) {
+        if ($this->status !== self::STATUS_INITIAL && $this->status !== self::STATUS_CLOSING &&
+            $this->status !== self::STATUS_CLOSED) {
             return;
         }
 
@@ -266,49 +260,33 @@ class AsyncTcpConnection extends TcpConnection
             }
             // Открыть соединение сокета асинхронно.
             if ($this->proxySocks5) {
-                $this->contextOption['ssl']['peer_name'] = $this->remoteHost;
-                $context = stream_context_create($this->contextOption);
+                $this->socketContext['ssl']['peer_name'] = $this->remoteHost;
+                $context = stream_context_create($this->socketContext);
                 $this->socket = stream_socket_client("tcp://$this->proxySocks5", $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT, $context);
                 fwrite($this->socket, chr(5) . chr(1) . chr(0));
                 fread($this->socket, 512);
                 fwrite($this->socket, chr(5) . chr(1) . chr(0) . chr(3) . chr(strlen($this->remoteHost)) . $this->remoteHost . pack("n", $this->remotePort));
                 fread($this->socket, 512);
             } else if ($this->proxyHttp) {
-                $this->contextOption['ssl']['peer_name'] = $this->remoteHost;
-                $context = stream_context_create($this->contextOption);
+                $this->socketContext['ssl']['peer_name'] = $this->remoteHost;
+                $context = stream_context_create($this->socketContext);
                 $this->socket = stream_socket_client("tcp://$this->proxyHttp", $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT, $context);
                 $str = "CONNECT $this->remoteHost:$this->remotePort HTTP/1.1\n";
                 $str .= "Host: $this->remoteHost:$this->remotePort\n";
                 $str .= "Proxy-Connection: keep-alive\n";
                 fwrite($this->socket, $str);
                 fread($this->socket, 512);
-            } else if ($this->contextOption) {
-                $context = stream_context_create($this->contextOption);
-                $this->socket = stream_socket_client(
-                    "tcp://$this->remoteHost:$this->remotePort",
-                    $errno,
-                    $err_str,
-                    0,
-                    STREAM_CLIENT_ASYNC_CONNECT,
-                    $context
-                );
+            } else if ($this->socketContext) {
+                $context = stream_context_create($this->socketContext);
+                $this->socket = stream_socket_client("tcp://$this->remoteHost:$this->remotePort",
+                    $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT, $context);
             } else {
-                $this->socket = stream_socket_client(
-                    "tcp://$this->remoteHost:$this->remotePort",
-                    $errno,
-                    $err_str,
-                    0,
-                    STREAM_CLIENT_ASYNC_CONNECT
-                );
+                $this->socket = stream_socket_client("tcp://$this->remoteHost:$this->remotePort",
+                    $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT);
             }
         } else {
-            $this->socket = stream_socket_client(
-                "$this->transport://$this->remoteAddress",
-                $errno,
-                $err_str,
-                0,
-                STREAM_CLIENT_ASYNC_CONNECT
-            );
+            $this->socket = stream_socket_client("$this->transport://$this->remoteAddress", $errno, $err_str, 0,
+                STREAM_CLIENT_ASYNC_CONNECT);
         }
         // В случае неудачной попытки вызвать колбэк onError.
         if (!$this->socket || !is_resource($this->socket)) {
@@ -322,11 +300,10 @@ class AsyncTcpConnection extends TcpConnection
             return;
         }
         // Добавить сокет в глобальный цикл событий, ожидающий успешного подключения или ошибки.
-        $this->eventLoop->onWritable($this->socket, [$this, 'checkConnection']);
-
+        $this->eventLoop->onWritable($this->socket, $this->checkConnection(...));
         // Для Windows.
-        if ($this->eventLoop && $this->eventLoop instanceof Windows) {
-            $this->eventLoop->onExcept($this->socket, [$this, 'checkConnection']);
+        if (DIRECTORY_SEPARATOR === '\\' && method_exists($this->eventLoop, 'onExcept')) {
+            $this->eventLoop->onExcept($this->socket, $this->checkConnection(...));
         }
     }
 
