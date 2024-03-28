@@ -2101,94 +2101,48 @@ class Server
                     $allServerInfo[$pid] = ['name' => $server->name, 'listen' => $server->getSocketName()];
                 }
             }
-
+            file_put_contents(static::$statisticsFile, '');
+            chmod(static::$statisticsFile, 0722);
             file_put_contents(static::$statisticsFile, serialize($allServerInfo) . "\n", FILE_APPEND);
-            $loadavg = function_exists('sys_getloadavg') ? array_map('round', sys_getloadavg(), [2, 2, 2]) : ['-', '-', '-'];
-            file_put_contents(
-                static::$statisticsFile,
-                "----------------------------------------------GLOBAL STATUS----------------------------------------------------\n",
-                FILE_APPEND
-            );
-            file_put_contents(
-                static::$statisticsFile,
-                'Server version:' . static::getVersion() . "          PHP version:" . PHP_VERSION . "\n",
-                FILE_APPEND
-            );
-            file_put_contents(
-                static::$statisticsFile,
-                'start time:' . date(
-                    'Y-m-d H:i:s',
-                    static::$globalStatistics['start_timestamp']
-                ) .
-                '   запущен ' .
-                floor(
-                    (time() -
-                        static::$globalStatistics['start_timestamp']) /
-                    (24 * 60 * 60)
-                ) .
-                ' дней ' .
-                floor(
-                    ((time() -
-                            static::$globalStatistics['start_timestamp']) %
-                        (24 * 60 * 60)) /
-                    (60 * 60)
-                ) .
-                " часов   \n",
-                FILE_APPEND
-            );
+            $loadavg = function_exists('sys_getloadavg') ? array_map(round(...), sys_getloadavg(), [2, 2, 2]) : ['-', '-', '-'];
+            file_put_contents(static::$statisticsFile,
+                (static::$daemonize ? "Start server in DAEMON mode." : "Start server in DEBUG mode.") . "\n", FILE_APPEND);
+            file_put_contents(static::$statisticsFile,
+                "----------------------------------------------GLOBAL STATUS----------------------------------------------------\n", FILE_APPEND);
+            file_put_contents(static::$statisticsFile,
+                'Server version:' . static::VERSION . "          PHP version:" . PHP_VERSION . "\n", FILE_APPEND);
+            file_put_contents(static::$statisticsFile, 'start time:' . date('Y-m-d H:i:s',
+                    static::$globalStatistics['start_timestamp']) . '   run ' . floor((time() - static::$globalStatistics['start_timestamp']) / (24 * 60 * 60)) . ' days ' . floor(((time() - static::$globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . " hours   \n",
+                FILE_APPEND);
             $loadStr = 'load average: ' . implode(", ", $loadavg);
-            file_put_contents(
-                static::$statisticsFile,
-                str_pad($loadStr, 33) . 'event-loop:' . Linux::class . "\n",
-                FILE_APPEND
-            );
-            file_put_contents(
-                static::$statisticsFile,
+            file_put_contents(static::$statisticsFile,
+                str_pad($loadStr, 33) . 'event-loop:' . static::getEventLoopName() . "\n", FILE_APPEND);
+            file_put_contents(static::$statisticsFile,
                 count(static::$pidMap) . ' servers       ' . count(static::getAllServerPids()) . " processes\n",
-                FILE_APPEND
-            );
-            file_put_contents(
-                static::$statisticsFile,
-                str_pad('server_name', static::$maxServerNameLength) . " exit_status      exit_count\n",
-                FILE_APPEND
-            );
+                FILE_APPEND);
+            file_put_contents(static::$statisticsFile,
+                str_pad('server_name', static::$maxServerNameLength) . " exit_status      exit_count\n", FILE_APPEND);
             foreach (static::$pidMap as $serverId => $serverPidArray) {
                 $server = static::$servers[$serverId];
                 if (isset(static::$globalStatistics['server_exit_info'][$serverId])) {
                     foreach (static::$globalStatistics['server_exit_info'][$serverId] as $serverExitStatus => $serverExitCount) {
-                        file_put_contents(
-                            static::$statisticsFile,
-                            str_pad($server->name, static::$maxServerNameLength) . " " . str_pad(
-                                (string)$serverExitStatus,
-                                16
-                            ) . " $serverExitCount\n",
-                            FILE_APPEND
-                        );
+                        file_put_contents(static::$statisticsFile,
+                            str_pad($server->name, static::$maxServerNameLength) . " " . str_pad((string)$serverExitStatus,
+                                16) . " $serverExitCount\n", FILE_APPEND);
                     }
                 } else {
-                    file_put_contents(
-                        static::$statisticsFile,
-                        str_pad($server->name, static::$maxServerNameLength) . " " . str_pad("0", 16) . " 0\n",
-                        FILE_APPEND
-                    );
+                    file_put_contents(static::$statisticsFile,
+                        str_pad($server->name, static::$maxServerNameLength) . " " . str_pad('0', 16) . " 0\n",
+                        FILE_APPEND);
                 }
             }
-            file_put_contents(
-                static::$statisticsFile,
+            file_put_contents(static::$statisticsFile,
                 "----------------------------------------------PROCESS STATUS---------------------------------------------------\n",
-                FILE_APPEND
-            );
-            file_put_contents(
-                static::$statisticsFile,
-                "pid\tmemory  " . str_pad('listening', static::$maxSocketNameLength) . " " . str_pad(
-                    'server_name',
-                    static::$maxServerNameLength
-                ) . " connections " . str_pad('send_fail', 9) . " "
-                . str_pad('timers', 8) . str_pad('total_request', 13) . " qps    status\n",
-                FILE_APPEND
-            );
-
-            chmod(static::$statisticsFile, 0722);
+                FILE_APPEND);
+            file_put_contents(static::$statisticsFile,
+                "pid\tmemory  " . str_pad('listening', static::$maxSocketNameLength) . " " . str_pad('server_name',
+                    static::$maxServerNameLength) . " connections " . str_pad('send_fail', 9) . " "
+                . str_pad('timers', 8) . str_pad('total_request', 13) . " qps    status\n", FILE_APPEND);
 
             foreach (static::getAllServerPids() as $serverPid) {
                 static::sendSignal($serverPid, SIGIOT);
@@ -2198,9 +2152,7 @@ class Server
 
         // Для дочерних процессов.
         gc_collect_cycles();
-        if (function_exists('gc_mem_caches')) {
-            gc_mem_caches();
-        }
+        gc_mem_caches();
         reset(static::$servers);
         /** @var static $server */
         $server = current(static::$servers);
@@ -2224,17 +2176,10 @@ class Server
     {
         // Для мастер-процесса.
         if (static::$masterPid === posix_getpid()) {
-            file_put_contents(
-                static::$statisticsFile,
-                "--------------------------------------------------------------------- SERVER CONNECTION STATUS --------------------------------------------------------------------------------\n",
-                FILE_APPEND
-            );
-            file_put_contents(
-                static::$statisticsFile,
-                "PID      Server          CID       Trans   Protocol        ipv4   ipv6   Recv-Q       Send-Q       Bytes-R      Bytes-W       Status         Local Address          Foreign Address\n",
-                FILE_APPEND
-            );
-            chmod(static::$statisticsFile, 0722);
+            file_put_contents(static::$connectionsFile, '');
+            chmod(static::$connectionsFile, 0722);
+            file_put_contents(static::$connectionsFile, "--------------------------------------------------------------------- SERVER CONNECTION STATUS --------------------------------------------------------------------------------\n", FILE_APPEND);
+            file_put_contents(static::$connectionsFile, "PID      Server          CID       Trans   Protocol        ipv4   ipv6   Recv-Q       Send-Q       Bytes-R      Bytes-W       Status         Local Address          Foreign Address\n", FILE_APPEND);
             foreach (static::getAllServerPids() as $serverPid) {
                 static::sendSignal($serverPid, SIGIO);
             }
@@ -2244,18 +2189,18 @@ class Server
         // Для дочерних процессов.
         $bytesFormat = function ($bytes) {
             if ($bytes > 1024 * 1024 * 1024 * 1024) {
-                return round($bytes / (1024 * 1024 * 1024 * 1024), 1) . 'TB';
+                return round($bytes / (1024 * 1024 * 1024 * 1024), 1) . "TB";
             }
             if ($bytes > 1024 * 1024 * 1024) {
-                return round($bytes / (1024 * 1024 * 1024), 1) . 'GB';
+                return round($bytes / (1024 * 1024 * 1024), 1) . "GB";
             }
             if ($bytes > 1024 * 1024) {
-                return round($bytes / (1024 * 1024), 1) . 'MB';
+                return round($bytes / (1024 * 1024), 1) . "MB";
             }
             if ($bytes > 1024) {
-                return round($bytes / 1024, 1) . 'KB';
+                return round($bytes / (1024), 1) . "KB";
             }
-            return $bytes . 'B';
+            return $bytes . "B";
         };
 
         $pid = posix_getpid();
@@ -2295,7 +2240,7 @@ class Server
                 . str_pad($state, 14) . ' ' . str_pad($localAddress, 22) . ' ' . str_pad($remoteAddress, 22) . "\n";
         }
         if ($str) {
-            file_put_contents(static::$statisticsFile, $str, FILE_APPEND);
+            file_put_contents(static::$connectionsFile, $str, FILE_APPEND);
         }
     }
 
