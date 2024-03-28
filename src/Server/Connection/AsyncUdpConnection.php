@@ -163,17 +163,17 @@ class AsyncUdpConnection extends UdpConnection
      *
      * @param mixed $sendBuffer
      * @param bool $raw
-     * @return void|boolean
+     * @return bool|null
      * @throws Throwable
      */
-    public function send(mixed $sendBuffer, bool $raw = false)
+    public function send(mixed $sendBuffer, bool $raw = false): bool|null
     {
         if (false === $raw && $this->protocol) {
             /** @var ProtocolInterface $parser */
             $parser = $this->protocol;
             $sendBuffer = $parser::encode($sendBuffer, $this);
             if ($sendBuffer === '') {
-                return;
+                return null;
             }
         }
         if ($this->connected === false) {
@@ -198,14 +198,8 @@ class AsyncUdpConnection extends UdpConnection
         }
         if ($this->contextOption) {
             $context = stream_context_create($this->contextOption);
-            $this->socket = stream_socket_client(
-                "udp://$this->remoteAddress",
-                $errno,
-                $errmsg,
-                30,
-                STREAM_CLIENT_CONNECT,
-                $context
-            );
+            $this->socket = stream_socket_client("udp://$this->remoteAddress", $errno, $errmsg,
+                30, STREAM_CLIENT_CONNECT, $context);
         } else {
             $this->socket = stream_socket_client("udp://$this->remoteAddress", $errno, $errmsg);
         }
@@ -218,7 +212,7 @@ class AsyncUdpConnection extends UdpConnection
 
         stream_set_blocking($this->socket, false);
         if ($this->onMessage) {
-            $this->eventLoop->onReadable($this->socket, [$this, 'baseRead']);
+            $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
         }
         $this->connected = true;
         // Попытка вызова обработчика события onConnect.
