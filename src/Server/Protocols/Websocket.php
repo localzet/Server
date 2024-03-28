@@ -390,13 +390,10 @@ class Websocket
      */
     public static function decode(string $buffer, TcpConnection $connection): string
     {
-        // Получаем первый байт данных.
         $firstByte = ord($buffer[1]);
-        // Извлекаем длину данных.
-        $dataLength = $firstByte & 127;
+        $len = $firstByte & 127;
 
-        // Если длина равна 126, то маска начинается с 4-го байта, а данные - с 8-го.
-        if ($dataLength === 126) {
+        if ($len === 126) {
             $masks = substr($buffer, 4, 4);
             $data = substr($buffer, 8);
         } else {
@@ -408,10 +405,7 @@ class Websocket
                 $data = substr($buffer, 6);
             }
         }
-
-        // Вычисляем длину данных.
         $dataLength = strlen($data);
-        // Генерируем маску для декодирования данных.
         $masks = str_repeat($masks, (int)floor($dataLength / 4)) . substr($masks, 0, $dataLength % 4);
         $decoded = $data ^ $masks;
         if ($connection->context->websocketCurrentFrameLength) {
@@ -419,15 +413,11 @@ class Websocket
             return $connection->context->websocketDataBuffer;
         }
 
-        // Если в буфере данных websocket есть данные,
-        // добавляем к ним декодированные данные и очищаем буфер.
         if ($connection->context->websocketDataBuffer !== '') {
             $decoded = $connection->context->websocketDataBuffer . $decoded;
             $connection->context->websocketDataBuffer = '';
         }
-
-        // Возвращаем декодированные данные.
-        return $decodedData;
+        return $decoded;
     }
 
     /**
