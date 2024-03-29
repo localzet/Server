@@ -26,7 +26,6 @@
 
 namespace localzet\Server\Protocols;
 
-use localzet\Server;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\{Request, Response};
 use Throwable;
@@ -85,7 +84,7 @@ class Http
      */
     public static function requestClass(string $className = null): string
     {
-        if ($className) {
+        if ($className !== null) {
             static::$requestClass = $className;
         }
         return static::$requestClass;
@@ -96,7 +95,7 @@ class Http
      *
      * @param bool $value
      */
-    public static function enableCache(bool $value): void
+    public static function enableCache(bool $value)
     {
         static::$enableCache = $value;
     }
@@ -133,9 +132,8 @@ class Http
         }
 
         $header = substr($buffer, 0, $crlfPos);
-        $hostHeaderPosition = stripos($header, "\r\nHost: ");
 
-        if (false === $hostHeaderPosition && $firstLine[2] === "HTTP/1.1") {
+        if (!str_contains($header, "\r\nHost: ") && $firstLine[2] === "HTTP/1.1") {
             $connection->close("HTTP/1.1 400 Неверный запрос\r\nContent-Length: 0\r\n\r\n", true);
             return 0;
         }
@@ -148,7 +146,7 @@ class Http
             $hasContentLength = true;
         } else {
             $hasContentLength = false;
-            if (false !== stripos($header, "\r\nTransfer-Encoding:")) {
+            if (str_contains($header, "\r\nTransfer-Encoding:")) {
                 $connection->close("HTTP/1.1 400 Неверный запрос\r\nContent-Length: 0\r\n\r\n", true);
                 return 0;
             }
@@ -187,7 +185,6 @@ class Http
             $request->properties = [];
             return $request;
         }
-
         $request = new static::$requestClass($buffer);
         $request->connection = $connection;
         $connection->request = $request;
@@ -251,7 +248,7 @@ class Http
             // Получаем длину тела ответа.
             $bodyLen = strlen($response);
             // Возвращаем сформированный HTTP-ответ.
-            return "HTTP/1.1 200 OK\r\nServer: Localzet Server " . Server::getVersion() . "\r\n{$extHeader}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\n\r\n$response";
+            return "HTTP/1.1 200 OK\r\nServer: Localzet-Server\r\n{$extHeader}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\n\r\n$response";
         }
 
         if ($connection->headers) {
@@ -262,8 +259,6 @@ class Http
         }
 
         if (isset($response->file)) {
-            // Обрабатываем файловый ответ.
-
             $file = $response->file['file'];
             $offset = $response->file['offset'];
             $length = $response->file['length'];
@@ -317,9 +312,9 @@ class Http
         $offsetEnd = $offset + $length;
         // Читаем содержимое файла с диска по частям и отправляем клиенту.
         $doWrite = function () use ($connection, $handler, $length, $offsetEnd) {
-            // Send buffer not full.
+
             while ($connection->context->bufferFull === false) {
-                // Read from disk.
+
                 $size = 1024 * 1024;
                 if ($length !== 0) {
                     $tell = ftell($handler);
@@ -333,7 +328,7 @@ class Http
                 }
 
                 $buffer = fread($handler, $size);
-                // Read eof.
+
                 if ($buffer === '' || $buffer === false) {
                     fclose($handler);
                     $connection->onBufferDrain = null;
@@ -343,11 +338,11 @@ class Http
                 $connection->send($buffer, true);
             }
         };
-        // Send buffer full.
+
         $connection->onBufferFull = function ($connection) {
             $connection->context->bufferFull = true;
         };
-        // Send buffer drain.
+
         $connection->onBufferDrain = function ($connection) use ($doWrite) {
             $connection->context->bufferFull = false;
             $doWrite();
@@ -363,11 +358,9 @@ class Http
      */
     public static function uploadTmpDir(string|null $dir = null): string
     {
-        // Если указана директория, устанавливаем ее как временную директорию для загрузки.
         if (null !== $dir) {
             static::$uploadTmpDir = $dir;
         }
-        // Если временная директория для загрузки не установлена, пытаемся получить ее из конфигурации PHP или системной временной директории.
         if (static::$uploadTmpDir === '') {
             if ($uploadTmpDir = ini_get('upload_tmp_dir')) {
                 static::$uploadTmpDir = $uploadTmpDir;
@@ -375,7 +368,6 @@ class Http
                 static::$uploadTmpDir = $uploadTmpDir;
             }
         }
-        // Возвращаем временную директорию для загрузки.
         return static::$uploadTmpDir;
     }
 }
