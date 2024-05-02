@@ -32,7 +32,7 @@
     "source": "https://github.com/localzet/Server"
   },
   "require": {
-    "php": ">=8.1",
+    "php": ">=8.2",
     "ext-json": "*",
     "ext-sockets": "*",
     "ext-pcntl": "*",
