@@ -2374,10 +2374,19 @@ class Server
             $socketContext['socket']['backlog'] ??= static::DEFAULT_BACKLOG;
 
             foreach (self::CONTEXT_SSL as $const => $key) {
-                if (function_exists('env') && env($const) !== null) {
-                    $socketContext['ssl'][$key] = env($const);
-                } elseif (defined($const)) {
-                    $socketContext['ssl'][$key] = constant($const);
+                if (!isset($socketContext['ssl'][$key])) {
+                    if (function_exists('env')) {
+                        $envConst = env($const);
+                        $envServerConst = env(str_replace('LOCALZET', 'SERVER', $const));
+
+                        if ($envConst !== null) {
+                            $socketContext['ssl'][$key] = $envConst;
+                        } elseif ($envServerConst !== null) {
+                            $socketContext['ssl'][$key] = $envServerConst;
+                        }
+                    } elseif (defined($const)) {
+                        $socketContext['ssl'][$key] = constant($const);
+                    }
                 }
             }
 
