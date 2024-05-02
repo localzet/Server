@@ -57,10 +57,12 @@ use function strrpos;
 use function substr;
 use function var_export;
 use const PHP_INT_MAX;
-use const STREAM_CRYPTO_METHOD_SSLv23_CLIENT;
-use const STREAM_CRYPTO_METHOD_SSLv23_SERVER;
-use const STREAM_CRYPTO_METHOD_SSLv2_CLIENT;
-use const STREAM_CRYPTO_METHOD_SSLv2_SERVER;
+use const STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT;
+use const STREAM_CRYPTO_METHOD_TLSv1_1_SERVER;
+use const STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
+use const STREAM_CRYPTO_METHOD_TLSv1_2_SERVER;
+use const STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
+use const STREAM_CRYPTO_METHOD_TLSv1_3_SERVER;
 
 /**
  * TCP-соединение.
@@ -870,14 +872,20 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         }
         $async = $this instanceof AsyncTcpConnection;
 
-        /**
-         * SSLv3 небезопасен.
-         * @see https://blog.qualys.com/ssllabs/2014/10/15/ssl-3-is-dead-killed-by-the-poodle-attack
-         */
+        // /**
+        //  * SSLv3 небезопасен.
+        //  * @see https://blog.qualys.com/ssllabs/2014/10/15/ssl-3-is-dead-killed-by-the-poodle-attack
+        //  */
+        // if ($async) {
+        //     $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT | STREAM_CRYPTO_METHOD_SSLv3_CLIENT;
+        // } else {
+        //     $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER | STREAM_CRYPTO_METHOD_SSLv3_SERVER;
+        // }
+
         if ($async) {
-            $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT | STREAM_CRYPTO_METHOD_SSLv3_CLIENT;
+            $type = STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
         } else {
-            $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER | STREAM_CRYPTO_METHOD_SSLv3_SERVER;
+            $type = STREAM_CRYPTO_METHOD_TLSv1_1_SERVER | STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER;
         }
 
         // Скрытая ошибка.
@@ -887,9 +895,11 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             }
             return true;
         });
+
         $ret = stream_socket_enable_crypto($socket, true, $type);
         restore_error_handler();
-        // Переговоры не удалось.
+
+        // Переговоры не удались.
         if (false === $ret) {
             $this->destroy();
             return false;

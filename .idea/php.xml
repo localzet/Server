@@ -18,14 +18,14 @@
   </component>
   <component name="PhpInterpreters">
     <interpreters>
-      <interpreter id="accdc76a-3d46-4d9e-b858-0739366e1eac" name="Ubuntu" home="\\wsl$\Ubuntu/usr/bin/php" auto="false" debugger_id="php.debugger.XDebug">
+      <interpreter id="accdc76a-3d46-4d9e-b858-0739366e1eac" name="Ubuntu (project level)" home="\\wsl$\Ubuntu/usr/bin/php" auto="false" debugger_id="php.debugger.XDebug">
         <remote_data INTERPRETER_PATH="/usr/bin/php" HELPERS_PATH="" VALID="true" RUN_AS_ROOT_VIA_SUDO="false" DISTRIBUTION_ID="Ubuntu" />
       </interpreter>
     </interpreters>
   </component>
   <component name="PhpInterpretersPhpInfoCache">
     <phpInfoCache>
-      <interpreter name="Ubuntu">
+      <interpreter name="Ubuntu (project level)">
         <phpinfo binary_type="PHP" php_cli="/usr/bin/php8.2" path_separator=":" remote_host="172.22.112.1" version="8.2.10">
           <additional_php_ini>/etc/php/8.2/cli/conf.d/10-opcache.ini, /etc/php/8.2/cli/conf.d/10-pdo.ini, /etc/php/8.2/cli/conf.d/15-xml.ini, /etc/php/8.2/cli/conf.d/20-calendar.ini, /etc/php/8.2/cli/conf.d/20-ctype.ini, /etc/php/8.2/cli/conf.d/20-curl.ini, /etc/php/8.2/cli/conf.d/20-dom.ini, /etc/php/8.2/cli/conf.d/20-exif.ini, /etc/php/8.2/cli/conf.d/20-ffi.ini, /etc/php/8.2/cli/conf.d/20-fileinfo.ini, /etc/php/8.2/cli/conf.d/20-ftp.ini, /etc/php/8.2/cli/conf.d/20-gettext.ini, /etc/php/8.2/cli/conf.d/20-iconv.ini, /etc/php/8.2/cli/conf.d/20-intl.ini, /etc/php/8.2/cli/conf.d/20-mbstring.ini, /etc/php/8.2/cli/conf.d/20-mongodb.ini, /etc/php/8.2/cli/conf.d/20-phar.ini, /etc/php/8.2/cli/conf.d/20-posix.ini, /etc/php/8.2/cli/conf.d/20-readline.ini, /etc/php/8.2/cli/conf.d/20-shmop.ini, /etc/php/8.2/cli/conf.d/20-simplexml.ini, /etc/php/8.2/cli/conf.d/20-sockets.ini, /etc/php/8.2/cli/conf.d/20-sysvmsg.ini, /etc/php/8.2/cli/conf.d/20-sysvsem.ini, /etc/php/8.2/cli/conf.d/20-sysvshm.ini, /etc/php/8.2/cli/conf.d/20-tokenizer.ini, /etc/php/8.2/cli/conf.d/20-xmlreader.ini, /etc/php/8.2/cli/conf.d/20-xmlwriter.ini, /etc/php/8.2/cli/conf.d/20-xsl.ini</additional_php_ini>
           <configuration_file>/etc/php/8.2/cli/php.ini</configuration_file>
