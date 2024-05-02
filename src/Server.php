@@ -101,7 +101,7 @@ class Server
      *
      * @var string
      */
-    final public const VERSION = '24.03.27';
+    final public const VERSION = '24.05.02';
 
     /**
      * Статус: запуск
@@ -177,6 +177,28 @@ class Server
         E_DEPRECATED => 'E_DEPRECATED', // 8192
         E_USER_DEPRECATED => 'E_USER_DEPRECATED', // 16384
         // E_ALL => 'E_ALL', // 32767 (не включая E_STRICT)
+    ];
+
+    public const CONTEXT_SSL = [
+        'LOCALZET_SSL_PEER_NAME' => 'peer_name',                            // Имя узла. Если его значение не задано, тогда имя подставляется основываясь на имени хоста, использованного при открытии потока.
+        'LOCALZET_SSL_VERIFY_PEER' => 'verify_peer',                        // Требовать проверки используемого SSL-сертификата.
+        'LOCALZET_SSL_VERIFY_PEER_NAME' => 'verify_peer_name',              // Требовать проверки имени узла.
+        'LOCALZET_SSL_SELF_SIGNED' => 'allow_self_signed',                  // Разрешить самоподписанные сертификаты.
+        'LOCALZET_SSL_CAFILE' => 'cafile',                                  // Расположение файла сертификата в локальной файловой системе, который следует использовать с опцией контекста verify_peer для проверки подлинности удалённого узла.
+        'LOCALZET_SSL_CAPATH' => 'capath',                                  // Если параметр cafile не определён или сертификат не найден, осуществляется поиск в директории, указанной в capath. Путь capath должен быть к корректной директории, содержащей сертификаты, имена которых являются хешем от поля subject, указанного в сертификате.
+        'LOCALZET_SSL_CERT' => 'local_cert',                                // Путь к локальному сертификату в файловой системе. Это должен быть файл, закодированный в PEM, который содержит ваш сертификат и закрытый ключ. Он дополнительно может содержать открытый ключ эмитента. Закрытый ключ также может содержаться в отдельном файле, заданным local_pk.
+        'LOCALZET_SSL_CERT_KEY' => 'local_pk',                              // Путь к локальному файлу с приватным ключом в случае отдельных файлов сертификата (local_cert) и приватного ключа.
+        'LOCALZET_SSL_CERT_PASS' => 'passphrase',                           // Идентификационная фраза, с которой ваш файл local_cert был закодирован.
+        'LOCALZET_SSL_CERT_VERIFY_DEPTH' => 'verify_depth',                 // Прервать, если цепочка сертификата слишком длинная.
+        'LOCALZET_SSL_CIPHERS' => 'ciphers',                                // Устанавливает список доступных алгоритмов шифрования.
+        'LOCALZET_SSL_CAPTURE_CERT' => 'capture_peer_cert',                 // Если установлено в true, то будет создана опция контекста peer_certificate, содержащая сертификат удалённого узла.
+        'LOCALZET_SSL_CAPTURE_CERT_CHAIN' => 'capture_peer_cert_chain',     // Если установлено в true, то будет создана опция контекста peer_certificate_chain, содержащая цепочку сертификатов.
+        'LOCALZET_SSL_SNI' => 'SNI_enabled',                                // Если установлено в true, то будет включено указание имени сервера. Включение SNI позволяет использовать разные сертификаты на одном и том же IP-адресе.
+        'LOCALZET_SSL_DISABLE_COMPRESSION' => 'disable_compression',        // Отключает сжатие TLS, что помогает предотвратить атаки типа CRIME.
+        'LOCALZET_SSL_SECURITY_LEVEL' => 'security_level',                  // Устанавливает уровень безопасности. Если не указан, используется стандартный уровень безопасности, указанный в библиотеке.
+        'LOCALZET_SSL_PEER_FINGERPRINT' => 'peer_fingerprint',              // Прерваться, если дайджест сообщения не совпадает с указанным хешом.
+                                                                            // Если указана строка (string), то её длина определяет какой алгоритм хеширования будет использован: "md5" (32) или "sha1" (40).
+                                                                            // Если указан массив (array), то ключи определяют алгоритм хеширования, а каждое соответствующее значение является требуемым хешом.
     ];
 
     /**
@@ -2350,6 +2372,15 @@ class Server
         if ($socketName) {
             $this->socketName = $socketName;
             $socketContext['socket']['backlog'] ??= static::DEFAULT_BACKLOG;
+
+            foreach (self::CONTEXT_SSL as $const => $key) {
+                if (function_exists('env') && env($const) !== null) {
+                    $socketContext['ssl'][$key] = env($const);
+                } elseif (defined($const)) {
+                    $socketContext['ssl'][$key] = constant($const);
+                }
+            }
+
             $this->socketContext = stream_context_create($socketContext);
         }
 
