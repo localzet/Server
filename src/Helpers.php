@@ -144,3 +144,21 @@ function localzet_bind(Server $server, $class): void
         call_user_func([$class, 'onServerStart'], $server);
     }
 }
+
+if (!function_exists('cpu_count')) {
+    function cpu_count(): int
+    {
+        if (DIRECTORY_SEPARATOR === '\\') {
+            return 1;
+        }
+        $count = 4;
+        if (is_callable('shell_exec')) {
+            if (strtolower(PHP_OS) === 'darwin') {
+                $count = (int)shell_exec('sysctl -n machdep.cpu.core_count');
+            } else {
+                $count = (int)shell_exec('nproc');
+            }
+        }
+        return $count > 0 ? $count : 4;
+    }
+}
