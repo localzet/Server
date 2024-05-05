@@ -196,8 +196,8 @@ class Server
         'LOCALZET_SSL_DISABLE_COMPRESSION' => 'disable_compression',        // Отключает сжатие TLS, что помогает предотвратить атаки типа CRIME.
         'LOCALZET_SSL_SECURITY_LEVEL' => 'security_level',                  // Устанавливает уровень безопасности. Если не указан, используется стандартный уровень безопасности, указанный в библиотеке.
         'LOCALZET_SSL_PEER_FINGERPRINT' => 'peer_fingerprint',              // Прерваться, если дайджест сообщения не совпадает с указанным хешом.
-                                                                            // Если указана строка (string), то её длина определяет какой алгоритм хеширования будет использован: "md5" (32) или "sha1" (40).
-                                                                            // Если указан массив (array), то ключи определяют алгоритм хеширования, а каждое соответствующее значение является требуемым хешом.
+        // Если указана строка (string), то её длина определяет какой алгоритм хеширования будет использован: "md5" (32) или "sha1" (40).
+        // Если указан массив (array), то ключи определяют алгоритм хеширования, а каждое соответствующее значение является требуемым хешом.
     ];
 
     /**
@@ -687,11 +687,7 @@ class Server
     public static function getVersion(): ?string
     {
         if (!self::$version) {
-            if (InstalledVersions::isInstalled('localzet/server')) {
-                self::$version = 'v' . InstalledVersions::getVersion('localzet/server');
-            } else {
-                self::$version = 'v3.0';
-            }
+            self::$version = InstalledVersions::getPrettyVersion('localzet/server');
         }
 
         return self::$version;

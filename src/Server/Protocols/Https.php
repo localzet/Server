@@ -26,7 +26,7 @@
 namespace localzet\Server\Protocols;
 
 /**
- * @uses \localzet\Server\Protocols\Http
+ * @uses Http
  */
 class Https extends Http
 {
