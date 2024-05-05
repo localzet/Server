@@ -148,7 +148,7 @@ function localzet_bind(Server $server, $class): void
 if (!function_exists('cpu_count')) {
     function cpu_count(): int
     {
-        if (DIRECTORY_SEPARATOR === '\\') {
+        if (!is_unix()) {
             return 1;
         }
         $count = 4;
@@ -161,4 +161,9 @@ if (!function_exists('cpu_count')) {
         }
         return $count > 0 ? $count : 4;
     }
+}
+
+function is_unix(): bool
+{
+    return DIRECTORY_SEPARATOR === '/';
 }

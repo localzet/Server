@@ -300,7 +300,7 @@ class AsyncTcpConnection extends TcpConnection
         // Добавить сокет в глобальный цикл событий, ожидающий успешного подключения или ошибки.
         $this->eventLoop->onWritable($this->socket, $this->checkConnection(...));
         // Для Windows.
-        if (DIRECTORY_SEPARATOR === '\\' && method_exists($this->eventLoop, 'onExcept')) {
+        if (!is_unix() && method_exists($this->eventLoop, 'onExcept')) {
             $this->eventLoop->onExcept($this->socket, $this->checkConnection(...));
         }
     }
@@ -366,7 +366,7 @@ class AsyncTcpConnection extends TcpConnection
     public function checkConnection(): void
     {
         // Удаляем EV_EXPECT для Windows.
-        if (DIRECTORY_SEPARATOR === '\\' && method_exists($this->eventLoop, 'offExcept')) {
+        if (!is_unix() && method_exists($this->eventLoop, 'offExcept')) {
             $this->eventLoop->offExcept($this->socket);
         }
 

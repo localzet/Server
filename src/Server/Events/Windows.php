@@ -34,7 +34,6 @@ use function max;
 use function microtime;
 use function pcntl_signal;
 use function pcntl_signal_dispatch;
-use const DIRECTORY_SEPARATOR;
 
 /**
  * Класс Windows реализует интерфейс EventInterface и представляет select event loop.
@@ -205,7 +204,7 @@ final class Windows implements EventInterface
         $count = count($this->readFds);
         if ($count >= 1024) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений.\n");
-        } else if (DIRECTORY_SEPARATOR !== '/' && $count >= 256) {
+        } else if (!is_unix() && $count >= 256) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n");
         }
         $fdKey = (int)$stream;
@@ -234,7 +233,7 @@ final class Windows implements EventInterface
         $count = count($this->writeFds);
         if ($count >= 1024) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений.\n");
-        } else if (DIRECTORY_SEPARATOR !== '/' && $count >= 256) {
+        } else if (!is_unix() && $count >= 256) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n");
         }
         $fdKey = (int)$stream;

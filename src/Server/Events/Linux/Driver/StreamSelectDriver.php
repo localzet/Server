@@ -57,7 +57,6 @@ use function str_replace;
 use function stream_select;
 use function stripos;
 use function usleep;
-use const DIRECTORY_SEPARATOR;
 use const PHP_INT_MAX;
 use const SIG_DFL;
 
@@ -270,7 +269,7 @@ final class StreamSelectDriver extends AbstractDriver
             // @link https://github.com/reactphp/event-loop/blob/8bd064ce23c26c4decf186c2a5a818c9a8209eb0/src/StreamSelectLoop.php#L279-L287
             // @link https://docs.microsoft.com/de-de/windows/win32/api/winsock2/nf-winsock2-select
             $except = null;
-            if (DIRECTORY_SEPARATOR === '\\') {
+            if (!is_unix()) {
                 $except = $write;
             }
 

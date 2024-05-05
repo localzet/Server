@@ -54,7 +54,6 @@ use function set_error_handler;
 use function stream_socket_accept;
 use function stream_socket_recvfrom;
 use function substr;
-use const DIRECTORY_SEPARATOR;
 use const E_COMPILE_ERROR;
 use const E_CORE_ERROR;
 use const E_ERROR;
@@ -672,7 +671,7 @@ class Server
             return true;
         }
 
-        if (DIRECTORY_SEPARATOR === '\\') {
+        if (!is_unix()) {
             return (function_exists('sapi_windows_vt100_support') && @sapi_windows_vt100_support(self::$outputStream))
                 || getenv('ANSICON') !== false
                 || getenv('ConEmuANSI') === 'ON'
@@ -778,7 +777,7 @@ class Server
         static::$eventLoopClass = match (true) {
             class_exists(EventLoop::class) => Revolt::class,
             extension_loaded('event') => Event::class,
-            default => DIRECTORY_SEPARATOR === '/' ? Linux::class : Windows::class
+            default => is_unix() ? Linux::class : Windows::class
         };
     }
 
@@ -793,7 +792,7 @@ class Server
         static $fd;
 
         // Проверяем, что используется UNIX-подобная операционная система
-        if (DIRECTORY_SEPARATOR !== '/') {
+        if (!is_unix()) {
             return;
         }
 
@@ -827,7 +826,7 @@ class Server
     protected static function initServers(): void
     {
         // Проверяем, что используется UNIX-подобная операционная система
-        if (DIRECTORY_SEPARATOR !== '/') {
+        if (!is_unix()) {
             return;
         }
 
@@ -936,7 +935,7 @@ class Server
         if (in_array('-q', $tmpArgv)) {
             return;
         }
-        if (DIRECTORY_SEPARATOR !== '/') {
+        if (!is_unix()) {
             static::safeEcho("---------------------------------------------- Localzet Server -----------------------------------------------\r\n");
             static::safeEcho('Server version:' . static::getVersion() . '          PHP version:' . PHP_VERSION . "\r\n");
             static::safeEcho("----------------------------------------------- SERVERS ------------------------------------------------\r\n");
@@ -1036,7 +1035,7 @@ class Server
      */
     protected static function parseCommand(): void
     {
-        if (DIRECTORY_SEPARATOR !== '/') {
+        if (!is_unix()) {
             return;
         }
 
@@ -1304,7 +1303,7 @@ class Server
      */
     protected static function installSignal(): void
     {
-        if (DIRECTORY_SEPARATOR !== '/') {
+        if (!is_unix()) {
             return;
         }
         $signals = [SIGINT, SIGTERM, SIGHUP, SIGTSTP, SIGQUIT, SIGUSR1, SIGUSR2, SIGIOT, SIGIO];
@@ -1323,7 +1322,7 @@ class Server
      */
     protected static function reinstallSignal(): void
     {
-        if (DIRECTORY_SEPARATOR !== '/') {
+        if (!is_unix()) {
             return;
         }
         $signals = [SIGINT, SIGTERM, SIGHUP, SIGTSTP, SIGQUIT, SIGUSR1, SIGUSR2, SIGIOT, SIGIO];
@@ -1382,7 +1381,7 @@ class Server
      */
     protected static function daemonize(): void
     {
-        if (!static::$daemonize || DIRECTORY_SEPARATOR !== '/') {
+        if (!static::$daemonize || !is_unix()) {
             return;
         }
         umask(0);
@@ -1413,7 +1412,7 @@ class Server
      */
     public static function resetStd(): void
     {
-        if (!static::$daemonize || DIRECTORY_SEPARATOR !== '/') {
+        if (!static::$daemonize || !is_unix()) {
             return;
         }
 
@@ -1454,7 +1453,7 @@ class Server
      */
     protected static function saveMasterPid(): void
     {
-        if (DIRECTORY_SEPARATOR !== '/') {
+        if (!is_unix()) {
             return;
         }
 
@@ -1493,7 +1492,7 @@ class Server
      */
     protected static function forkServers(): void
     {
-        if (DIRECTORY_SEPARATOR === '/') {
+        if (is_unix()) {
             static::forkServersForLinux();
         } else {
             static::forkServersForWindows();
@@ -1812,7 +1811,7 @@ class Server
      */
     protected static function monitorServers(): void
     {
-        if (DIRECTORY_SEPARATOR === '/') {
+        if (is_unix()) {
             static::monitorServersForLinux();
         } else {
             static::monitorServersForWindows();
@@ -2038,7 +2037,7 @@ class Server
 
         static::$status = static::STATUS_SHUTDOWN;
         // Для процесса-мастера.
-        if (DIRECTORY_SEPARATOR === '/' && static::$masterPid === posix_getpid()) {
+        if (is_unix() && static::$masterPid === posix_getpid()) {
             static::log("Localzet Server [" . basename(static::$startFile) . "] останавливается ...");
             $serverPidArray = static::getAllServerPids();
             // Отправить сигнал остановки всем дочерним процессам.
@@ -2276,7 +2275,7 @@ class Server
     public static function checkErrors(): void
     {
         if (static::STATUS_SHUTDOWN !== static::$status) {
-            $errorMsg = DIRECTORY_SEPARATOR === '/' ? 'Localzet Server [' . posix_getpid() . '] процесс завершен' : 'Серверный процесс завершен';
+            $errorMsg = is_unix() ? 'Localzet Server [' . posix_getpid() . '] процесс завершен' : 'Серверный процесс завершен';
             $errors = error_get_last();
             if (
                 $errors && ($errors['type'] === E_ERROR ||
@@ -2318,7 +2317,7 @@ class Server
         }
 
         if (isset(static::$logFile)) {
-            $pid = DIRECTORY_SEPARATOR === '/' ? posix_getpid() : 1;
+            $pid = is_unix() ? posix_getpid() : 1;
             file_put_contents(static::$logFile, sprintf("%s pid:%d %s\n", date('Y-m-d H:i:s'), $pid, $msg), FILE_APPEND | LOCK_EX);
         }
     }
@@ -2394,7 +2393,7 @@ class Server
         }
 
         // Попытка включить опцию reusePort.
-        /*if (DIRECTORY_SEPARATOR === '/'  // если это Linux
+        /*if (is_unix()  // если это Linux
             && $socketName
             && version_compare(php_uname('r'), '3.9', 'ge') // если версия ядра >= 3.9
             && strtolower(php_uname('s')) !== 'darwin' // если не Mac OS
