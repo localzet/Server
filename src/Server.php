@@ -1342,12 +1342,12 @@ class Server
             case SIGHUP:
             case SIGTSTP:
                 static::$gracefulStop = false;
-                static::stopAll(0, "Получен сигнал: $signal");
+                static::stopAll();
                 break;
             // Плавная остановка.
             case SIGQUIT:
                 static::$gracefulStop = true;
-                static::stopAll(0, "Получен сигнал: $signal");
+                static::stopAll();
                 break;
             // Перезагрузка.
             case SIGUSR2:
