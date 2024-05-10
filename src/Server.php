@@ -592,7 +592,7 @@ class Server
      * Поддерживается ли у потока $outputStream декорация.
      * @var bool
      */
-    protected static bool $outputDecorated = false;
+    protected static bool $outputDecorated;
 
     /**
      * Хэш-идентификатор объекта сервера (уникальный идентификатор)
@@ -845,7 +845,7 @@ class Server
             $server->context->statusSocket = $server->getSocketName();
 
             // Состояние сервера.
-            $server->context->statusState = '<g> [OK] </g>';
+            $server->context->statusState = '<green>[OK]</green>';
 
             // Получаем соответствие столбца для интерфейса пользователя.
             foreach (static::getUiColumns() as $columnName => $prop) {
@@ -940,12 +940,12 @@ class Server
         }
 
         // Показать версию
-        $lineVersion = 'Server version: ' . static::getVersion() . str_pad('PHP version: ', 16, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Event-loop: ', 16, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
-        !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', strlen($lineVersion));
+        $lineVersion = 'Server version: <cyan>' . static::getVersion() . '</cyan>' . str_pad('PHP version: ', 16, ' ', STR_PAD_LEFT) . '<cyan>' . PHP_VERSION . '</cyan>' . str_pad('Event-loop: ', 16, ' ', STR_PAD_LEFT) . '<cyan>' . static::getEventLoopName() . '</cyan>' . PHP_EOL;
+        !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', strlen($lineVersion) - 39);
         $totalLength = static::getSingleLineTotalLength();
-        $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
-        $lineTwo = str_pad('<w> SERVERS </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . PHP_EOL;
-        static::safeEcho($lineOne . $lineVersion . $lineTwo);
+        $lineOne = '<n>' . str_pad('<magenta> Localzet Server </magenta>', $totalLength + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
+        $lineTwo = str_pad('<magenta> SERVERS </magenta>', $totalLength + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH) . PHP_EOL;
+        static::safeEcho($lineOne . $lineVersion . $lineTwo, true);
 
         // Показать заголовок
         $title = '';
@@ -953,9 +953,9 @@ class Server
             $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
             // Совместимость с названием слушателя
             strtolower($columnName) === 'socket' && $columnName = 'listen';
-            $title .= "<w>" . strtoupper($columnName) . "</w>" . str_pad('', static::$$key + static::UI_SAFE_LENGTH - strlen($columnName));
+            $title .= "<blue>" . strtoupper($columnName) . "</blue>" . str_pad('', static::$$key + static::UI_SAFE_LENGTH - strlen($columnName));
         }
-        $title && static::safeEcho($title . PHP_EOL);
+        $title && static::safeEcho($title . PHP_EOL, true);
 
         // Показать содержимое
         foreach (static::$servers as $server) {
@@ -963,16 +963,16 @@ class Server
             foreach (static::getUiColumns() as $columnName => $prop) {
                 $propValue = (string)($server->$prop ?? $server->context->$prop);
                 $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
-                preg_match_all("/(<n>|<\/n>|<w>|<\/w>|<g>|<\/g>)/i", $propValue, $matches);
+                preg_match_all("/(<n>|<\/n>|<w>|<\/w>|<g>|<\/g>|<black>|<\/black>|<red>|<\/red>|<green>|<\/green>|<yellow>|<\/yellow>|<blue>|<\/blue>|<magenta>|<\/magenta>|<cyan>|<\/cyan>|<white>|<\/white>)/i", $propValue, $matches);
                 $placeHolderLength = !empty($matches) ? strlen(implode('', $matches[0])) : 0;
                 $content .= str_pad($propValue, static::$$key + static::UI_SAFE_LENGTH + $placeHolderLength);
             }
-            $content && static::safeEcho($content . PHP_EOL);
+            $content && static::safeEcho($content . PHP_EOL, true);
         }
 
         // Показать последнюю строку
         $lineLast = str_pad('', static::getSingleLineTotalLength(), '-') . PHP_EOL;
-        !empty($content) && static::safeEcho($lineLast);
+        !empty($content) && static::safeEcho($lineLast, true);
 
         if (static::$daemonize) {
             static::safeEcho('Выполните "php ' . basename(static::$startFile) . ' stop" для остановки. Сервер запущен.' . "\n\n");
@@ -1067,23 +1067,22 @@ class Server
         $modeStr = '';
         if ($command === 'start') {
             if ($mode === '-d' || static::$daemonize) {
-                $modeStr = 'в фоновом режиме';
-            } else {
-                $modeStr = 'в режиме разработки';
+                $modeStr = '(daemon)';
             }
         }
-        static::log("Localzet Server [$startFile] $command $modeStr");
+
+        static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> $command $modeStr");
 
         // Получение PID мастер-процесса.
         $masterPid = is_file(static::$pidFile) ? (int)file_get_contents(static::$pidFile) : 0;
         // Мастер-процесс всё ещё активен?
         if (static::checkMasterIsAlive($masterPid)) {
             if ($command === 'start') {
-                static::log("Localzet Server [$startFile] уже запущен");
+                static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> уже запущен");
                 exit;
             }
         } elseif ($command !== 'start' && $command !== 'restart') {
-            static::log("Localzet Server [$startFile] не запущен");
+            static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> не запущен");
             exit;
         }
 
@@ -1109,7 +1108,7 @@ class Server
                     }
 
                     // Вывод данных о состоянии
-                    static::safeEcho(static::formatProcessStatusData());
+                    static::safeEcho(static::formatProcessStatusData(), true);
                     if ($mode !== '-d') {
                         exit(0);
                     }
@@ -1125,18 +1124,18 @@ class Server
                 usleep(500000);
 
                 // Вывод данных о соединениях из файла на диске.
-                static::safeEcho(static::formatConnectionStatusData());
+                static::safeEcho(static::formatConnectionStatusData(), true);
                 exit(0);
             case 'restart':
             case 'stop':
                 if ($mode === '-g') {
                     static::$gracefulStop = true;
                     $sig = SIGQUIT;
-                    static::log("Localzet Server [$startFile] плавно останавливается ...");
+                    static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> плавно останавливается...");
                 } else {
                     static::$gracefulStop = false;
                     $sig = SIGINT;
-                    static::log("Localzet Server [$startFile] останавливается ...");
+                    static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> останавливается...");
                 }
 
                 // Отправка сигнала остановки мастер-процессу.
@@ -1152,7 +1151,7 @@ class Server
                     if ($masterIsAlive) {
                         // Превышение тайм-аута?
                         if (!static::getGracefulStop() && time() - $startTime >= $timeout) {
-                            static::log("Localzet Server [$startFile] не остановлен!");
+                            static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> не остановлен!");
                             exit;
                         }
                         // Пауза.
@@ -1160,7 +1159,7 @@ class Server
                         continue;
                     }
                     // Остановка успешна.
-                    static::log("Localzet Server [$startFile] остановлен");
+                    static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> остановлен");
                     if ($command === 'stop') {
                         exit(0);
                     }
@@ -1570,7 +1569,7 @@ class Server
             });
 
             // Отобразить пользовательский интерфейс (UI).
-            static::safeEcho(str_pad($server->name, 48) . str_pad($server->getSocketName(), 36) . str_pad("1", 10) . "[OK]\n");
+            static::safeEcho(str_pad($server->name, 48) . str_pad($server->getSocketName(), 36) . str_pad("1", 10) . "[OK]\n", true);
             $server->listen();
             $server->run();
             static::$globalEvent->run();
@@ -1849,7 +1848,7 @@ class Server
 
                         // Статус завершения процесса.
                         if ($status !== 0) {
-                            static::log("Localzet Server [$server->name:$pid] завершился со статусом $status");
+                            static::log("<magenta>Localzet Server</magenta> <cyan>[$server->name:$pid]</cyan> завершился со статусом $status");
                         }
 
                         // onServerExit
@@ -1857,7 +1856,7 @@ class Server
                             try {
                                 (static::$onServerExit)($server, $status, $pid);
                             } catch (Throwable $exception) {
-                                static::log("Localzet Server [$server->name] onServerExit $exception");
+                                static::log("<magenta>Localzet Server</magenta> <cyan>[$server->name]</cyan> onServerExit $exception");
                             }
                         }
 
@@ -1922,7 +1921,7 @@ class Server
             }
         }
         @unlink(static::$pidFile);
-        static::log("Localzet Server [" . basename(static::$startFile) . "] был остановлен");
+        static::log("<magenta>Localzet Server</magenta> <cyan>[" . basename(static::$startFile) . "]</cyan> был остановлен");
         if (static::$onMasterStop) {
             (static::$onMasterStop)();
         }
@@ -1943,7 +1942,7 @@ class Server
 
             // Устанавливаем состояние перезагрузки.
             if (static::$status !== static::STATUS_RELOADING && static::$status !== static::STATUS_SHUTDOWN) {
-                static::log("Localzet Server [" . basename(static::$startFile) . "] обновляется");
+                static::log("<magenta>Localzet Server</magenta> <cyan>[" . basename(static::$startFile) . "]</cyan> обновляется");
                 static::$status = static::STATUS_RELOADING;
 
                 // Сбросить стандартные ввод и вывод.
@@ -2034,7 +2033,7 @@ class Server
         static::$status = static::STATUS_SHUTDOWN;
         // Для процесса-мастера.
         if (is_unix() && static::$masterPid === posix_getpid()) {
-            static::log("Localzet Server [" . basename(static::$startFile) . "] останавливается ...");
+            static::log("<magenta>Localzet Server</magenta> <cyan>[" . basename(static::$startFile) . "]</cyan> останавливается...");
             $serverPidArray = static::getAllServerPids();
             // Отправить сигнал остановки всем дочерним процессам.
             $sig = static::$gracefulStop ? SIGQUIT : SIGINT;
@@ -2271,7 +2270,7 @@ class Server
     public static function checkErrors(): void
     {
         if (static::STATUS_SHUTDOWN !== static::$status) {
-            $errorMsg = is_unix() ? 'Localzet Server [' . posix_getpid() . '] процесс завершен' : 'Серверный процесс завершен';
+            $errorMsg = is_unix() ? '<magenta>Localzet Server</magenta> <cyan>[' . posix_getpid() . ']</cyan> процесс завершен' : 'Серверный процесс завершен';
             $errors = error_get_last();
             if (
                 $errors && ($errors['type'] === E_ERROR ||
@@ -2304,7 +2303,7 @@ class Server
      * @param bool $decorated
      * @return void
      */
-    public static function log(mixed $msg, bool $decorated = false): void
+    public static function log(mixed $msg, bool $decorated = true): void
     {
         $msg = trim((string)$msg);
 
@@ -2325,19 +2324,48 @@ class Server
      * @param bool $decorated
      * @return void
      */
-    public static function safeEcho(string $msg, bool $decorated = false): void
+    public static function safeEcho(string $msg, bool $decorated = true): void
     {
         if ((static::$outputDecorated ?? false) && $decorated) {
+            /**
+             * Цвета в терминале строятся след. образом:
+             * "\033" + [ ($background ? '4' : '3') + COLOR + m
+             * "\033" + [ ($background ? '10' : '9') + BRIGHT_COLOR + m
+             *
+             * COLOR = ['black' => 0, 'red' => 1, 'green' => 2, 'yellow' => 3, 'blue' => 4, 'magenta' => 5, 'cyan' => 6, 'white' => 7, 'default' => 9];
+             * BRIGHT_COLOR = ['gray' => 0, 'bright-red' => 1, 'bright-green' => 2, 'bright-yellow' => 3, 'bright-blue' => 4, 'bright-magenta' => 5, 'bright-cyan' => 6, 'bright-white' => 7];
+             */
+
+            $black = "\033[30m";
+            $red = "\033[31m";
+            $green = "\033[32m";
+            $yellow = "\033[33m";
+            $blue = "\033[34m";
+            $magenta = "\033[35m";
+            $cyan = "\033[36m";
+            $white = "\033[37m";
+            $default = "\033[39m";
+
             $line = "\033[1A\n\033[K";
-            $white = "\033[47;30m";
-            $green = "\033[32;40m";
             $end = "\033[0m";
         } else {
+            $black = "";
+            $red = "";
+            $green = "";
+            $yellow = "";
+            $blue = "";
+            $magenta = "";
+            $cyan = "";
+            $white = "";
+            $who = "";
+            $default = "";
+
             $line = '';
-            $white = '';
-            $green = '';
             $end = '';
         }
+
+        $msg = str_replace(['<black>', '<red>', '<green>', '<yellow>', '<blue>', '<magenta>', '<cyan>', '<white>'], [$black, $red, $green, $yellow, $blue, $magenta, $cyan, $white], $msg);
+        $msg = str_replace(['</black>', '</red>', '</green>', '</yellow>', '</blue>', '</magenta>', '</cyan>', '</white>'], $end, $msg);
 
         $msg = str_replace(['<n>', '<w>', '<g>'], [$line, $white, $green], $msg);
         $msg = str_replace(['</n>', '</w>', '</g>'], $end, $msg);
