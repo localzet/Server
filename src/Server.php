@@ -556,7 +556,7 @@ class Server
      *
      * @var string
      */
-    protected static string $startFile = '';
+    protected static string $startFile;
 
     /**
      * Процессы для операционных систем Windows.
@@ -940,7 +940,7 @@ class Server
         }
 
         // Показать версию
-        $lineVersion = 'Server version:' . static::getVersion() . str_pad('PHP version:', 16, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Event-loop:', 16, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
+        $lineVersion = 'Server version: ' . static::getVersion() . str_pad('PHP version: ', 16, ' ', STR_PAD_LEFT) . PHP_VERSION . str_pad('Event-loop: ', 16, ' ', STR_PAD_LEFT) . static::getEventLoopName() . PHP_EOL;
         !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', strlen($lineVersion));
         $totalLength = static::getSingleLineTotalLength();
         $lineOne = '<n>' . str_pad('<w> Localzet Server </w>', $totalLength + strlen('<w></w>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
@@ -952,8 +952,8 @@ class Server
         foreach (static::getUiColumns() as $columnName => $prop) {
             $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
             // Совместимость с названием слушателя
-            $columnName === 'socket' && $columnName = 'listen';
-            $title .= "<w>$columnName</w>" . str_pad('', static::$$key + static::UI_SAFE_LENGTH - strlen($columnName));
+            strtolower($columnName) === 'socket' && $columnName = 'listen';
+            $title .= "<w>" . strtoupper($columnName) . "</w>" . str_pad('', static::$$key + static::UI_SAFE_LENGTH - strlen($columnName));
         }
         $title && static::safeEcho($title . PHP_EOL);
 
@@ -1570,7 +1570,7 @@ class Server
             });
 
             // Отобразить пользовательский интерфейс (UI).
-            static::safeEcho(str_pad($server->name, 48) . str_pad($server->getSocketName(), 36) . str_pad("1", 10) . "[ok]\n");
+            static::safeEcho(str_pad($server->name, 48) . str_pad($server->getSocketName(), 36) . str_pad("1", 10) . "[OK]\n");
             $server->listen();
             $server->run();
             static::$globalEvent->run();
@@ -2323,7 +2323,7 @@ class Server
      *
      * @param string $msg
      * @param bool $decorated
-     * @return bool
+     * @return void
      */
     public static function safeEcho(string $msg, bool $decorated = false): void
     {
