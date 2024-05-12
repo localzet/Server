@@ -143,6 +143,7 @@ class Server
      * @var int
      */
     public const UI_SAFE_LENGTH = 4;
+
     /**
      * Встроенные протоколы
      *
@@ -154,6 +155,7 @@ class Server
         'unix' => 'unix',
         'ssl' => 'tcp',
     ];
+
     /**
      * Встроенные типы ошибок
      *
@@ -206,84 +208,98 @@ class Server
      * @var int
      */
     public int $id = 0;
+
     /**
      * Название для серверных процессов
      *
      * @var string
      */
     public string $name = 'none';
+
     /**
      * Количество серверных процессов
      *
      * @var int
      */
     public int $count = 1;
+
     /**
      * Unix пользователь (нужен root)
      *
      * @var string
      */
     public string $user = '';
+
     /**
      * Unix группа (нужен root)
      *
      * @var string
      */
     public string $group = '';
+
     /**
      * Перезагружаемый экземпляр?
      *
      * @var bool
      */
     public bool $reloadable = true;
+
     /**
      * Повторно использовать порт?
      *
      * @var bool
      */
     public bool $reusePort = false;
+
     /**
      * Выполняется при запуске серверных процессов
      *
      * @var ?callable
      */
     public $onServerStart = null;
+
     /**
      * Выполняется, когда подключение к сокету успешно установлено
      *
      * @var ?callable
      */
     public $onConnect = null;
+
     /**
      * Выполняется, когда завершено рукопожатие веб-сокета (работает только в протоколе ws)
      *
      * @var ?callable
      */
     public $onWebSocketConnect = null;
+
     /**
      * Выполняется при получении данных
      *
      * @var ?callable
      */
     public $onMessage = null;
+
     /**
      * Выполняется, когда другой конец сокета отправляет пакет FIN
      *
      * @var ?callable
      */
     public $onClose = null;
+
     /**
      * Выполняется, когда возникает ошибка с подключением
      *
      * @var ?callable
      */
     public $onError = null;
+
     /**
      * Выполняется, когда буфер отправки заполняется
      *
      * @var ?callable
      */
     public $onBufferFull = null;
+
     /**
      * Выполняется, когда буфер отправки становится пустым
      *
@@ -297,6 +313,7 @@ class Server
      * @var ?callable
      */
     public $onServerStop = null;
+
     /**
      * Выполняется при перезагрузке
      *
@@ -310,12 +327,14 @@ class Server
      * @var string
      */
     public string $transport = 'tcp';
+
     /**
      * Хранитель всех клиентских соединений
      *
      * @var TcpConnection[]
      */
     public array $connections = [];
+
     /**
      * Протокол уровня приложения
      *
@@ -343,36 +362,48 @@ class Server
      * @var bool
      */
     public static bool $daemonize = false;
+
+    /**
+     * Поток стандартного вывода.
+     * @var resource
+     */
+    public static $outputStream;
+
     /**
      * Файл Stdout
      *
      * @var string
      */
     public static string $stdoutFile = '/dev/null';
+
     /**
      * Файл для хранения PID мастер-процесса
      *
      * @var string
      */
     public static string $pidFile;
+
     /**
      * Файл, используемый для хранения файла состояния мастер-процесса
      *
      * @var string
      */
     public static string $statusFile;
+
     /**
      * Файл лога
      *
      * @var mixed
      */
     public static mixed $logFile;
+
     /**
      * Глобальная петля событий
      *
      * @var ?EventInterface
      */
     public static ?EventInterface $globalEvent = null;
+
     /**
      * Выполняется при перезагруззке мастер-процесса
      *
@@ -386,7 +417,6 @@ class Server
      * @var ?callable
      */
     public static $onMasterStop = null;
-
 
     /**
      * Выполняется при выходе
@@ -455,7 +485,6 @@ class Server
      * @var stdClass
      */
     protected stdClass $context;
-
 
     /**
      * Все экземпляры сервера.
@@ -542,7 +571,7 @@ class Server
      *
      * @var string
      */
-    protected static string $statisticsFile = '';
+    protected static string $statisticsFile;
 
     /**
      * Файл для хранения информации о соединениях.
@@ -583,12 +612,6 @@ class Server
     protected static bool $gracefulStop = false;
 
     /**
-     * Поток стандартного вывода.
-     * @var ?resource
-     */
-    protected static $outputStream = null;
-
-    /**
      * Поддерживается ли у потока $outputStream декорация.
      * @var bool
      */
@@ -600,7 +623,6 @@ class Server
      * @var ?string
      */
     protected ?string $serverId = null;
-
 
     /**
      * Запуск всех экземпляров сервера
@@ -2782,6 +2804,6 @@ class Server
             return true;
         }
 
-        return stripos($content, 'Localzet Server') || str_contains($content, 'php');
+        return stripos($content, 'Localzet Server') !== false || str_contains($content, 'php');
     }
 }
