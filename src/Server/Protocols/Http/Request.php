@@ -677,8 +677,56 @@ class Request implements Stringable
      */
     public function expectsJson(): bool
     {
-        // Вернуть true, если запрос является AJAX-запросом и не является PJAX-запросом, или принимает JSON, или метод не равен GET
-        return ($this->isAjax() && !$this->isPjax()) || $this->acceptJson() || strtoupper($this->method()) != 'GET';
+        return ($this->isAjax() && !$this->isPjax() && $this->acceptsAnyContentType()) || $this->acceptJson();
+    }
+
+    /**
+     * Принимает ли запрос любой тип контента.
+     *
+     * @return bool
+     */
+    public function acceptsAnyContentType(): bool
+    {
+        if (!isset($this->data['accept'])) {
+            $this->parseAcceptHeader();
+        }
+
+        return array_key_exists('*/*', $this->data['accept']) || array_key_exists('*', $this->data['accept']);
+    }
+
+    /**
+     * Парсит заголовок Accept.
+     *
+     * @return void
+     */
+    public function parseAcceptHeader(): void
+    {
+        $accepts = explode(',', $this->header('Accept'));
+        $this->data['accept'] = [];
+
+        foreach ($accepts as $accept) {
+            $parts = explode(';', $accept);
+            $media_type = trim(array_shift($parts));
+            $params = array();
+
+            foreach ($parts as $part) {
+                list($name, $value) = explode('=', $part);
+                $params[trim($name)] = trim($value);
+            }
+
+            $this->data['accept'][$media_type] = $params;
+        }
+    }
+
+    /**
+     * Проверяет, является ли тип контента JSON.
+     *
+     * @return bool
+     */
+    public function isJson(): bool
+    {
+        return str_contains($this->header('Content-Type', ''), '/json')
+            || str_contains($this->header('Content-Type', ''), '+json');
     }
 
     /**
@@ -688,7 +736,6 @@ class Request implements Stringable
      */
     public function isAjax(): bool
     {
-        // Вернуть true, если заголовок 'X-Requested-With' равен 'XMLHttpRequest'
         return $this->header('X-Requested-With') === 'XMLHttpRequest';
     }
 
@@ -699,7 +746,6 @@ class Request implements Stringable
      */
     public function isPjax(): bool
     {
-        // Вернуть true, если заголовок 'X-PJAX' установлен
         return (bool)$this->header('X-PJAX');
     }
 
@@ -710,8 +756,9 @@ class Request implements Stringable
      */
     public function acceptJson(): bool
     {
-        // Вернуть true, если заголовок 'accept' содержит 'json'
-        return str_contains($this->header('accept', ''), 'json');
+        return str_contains($this->header('Accept', ''), '/json')
+            || str_contains($this->header('Accept', ''), '+json');
+
     }
 
     /**
@@ -728,6 +775,17 @@ class Request implements Stringable
 
         // Вернуть метод
         return $this->data['method'];
+    }
+
+    /**
+     * Проверяет, является ли метод запроса указанным методом.
+     *
+     * @param string $method
+     * @return bool
+     */
+    public function isMethod(string $method): bool
+    {
+        return $this->method() === strtoupper($method);
     }
 
     /**
