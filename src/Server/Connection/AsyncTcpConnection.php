@@ -261,19 +261,19 @@ class AsyncTcpConnection extends TcpConnection
                 $this->socketContext['ssl']['peer_name'] = $this->remoteHost;
                 $context = stream_context_create($this->socketContext);
                 $this->socket = stream_socket_client("tcp://$this->proxySocks5", $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT, $context);
-                fwrite($this->socket, chr(5) . chr(1) . chr(0));
-                fread($this->socket, 512);
-                fwrite($this->socket, chr(5) . chr(1) . chr(0) . chr(3) . chr(strlen($this->remoteHost)) . $this->remoteHost . pack("n", $this->remotePort));
-                fread($this->socket, 512);
+                // fwrite($this->socket, chr(5) . chr(1) . chr(0));
+                // fread($this->socket, 512);
+                // fwrite($this->socket, chr(5) . chr(1) . chr(0) . chr(3) . chr(strlen($this->remoteHost)) . $this->remoteHost . pack("n", $this->remotePort));
+                // fread($this->socket, 512);
             } else if ($this->proxyHttp) {
                 $this->socketContext['ssl']['peer_name'] = $this->remoteHost;
                 $context = stream_context_create($this->socketContext);
                 $this->socket = stream_socket_client("tcp://$this->proxyHttp", $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT, $context);
-                $str = "CONNECT $this->remoteHost:$this->remotePort HTTP/1.1\n";
-                $str .= "Host: $this->remoteHost:$this->remotePort\n";
-                $str .= "Proxy-Connection: keep-alive\n";
-                fwrite($this->socket, $str);
-                fread($this->socket, 512);
+                // $str = "CONNECT $this->remoteHost:$this->remotePort HTTP/1.1\n";
+                // $str .= "Host: $this->remoteHost:$this->remotePort\n";
+                // $str .= "Proxy-Connection: keep-alive\n";
+                // fwrite($this->socket, $str);
+                // fread($this->socket, 512);
             } else if ($this->socketContext) {
                 $context = stream_context_create($this->socketContext);
                 $this->socket = stream_socket_client("tcp://$this->remoteHost:$this->remotePort",
@@ -379,11 +379,25 @@ class AsyncTcpConnection extends TcpConnection
 
         // Проверим состояние сокета.
         if ($address = stream_socket_get_name($this->socket, true)) {
+            // Прокси :)
+            if ($this->proxySocks5 && $address === $this->proxySocks5) {
+                fwrite($this->socket, chr(5) . chr(1) . chr(0));
+                fread($this->socket, 512);
+                fwrite($this->socket, chr(5) . chr(1) . chr(0) . chr(3) . chr(strlen($this->remoteHost)) . $this->remoteHost . pack("n", $this->remotePort));
+                fread($this->socket, 512);
+            }
+            if ($this->proxyHttp && $address === $this->proxyHttp) {
+                $str = "CONNECT $this->remoteHost:$this->remotePort HTTP/1.1\r\n";
+                $str .= "Host: $this->remoteHost:$this->remotePort\r\n";
+                $str .= "Proxy-Connection: keep-alive\r\n\r\n";
+                fwrite($this->socket, $str);
+                fread($this->socket, 512);
+            }
 
-            // Неблокирующий.
+            // Неблокирующий стрим
             stream_set_blocking($this->socket, false);
 
-            // Совместим с hhvm
+            // Совместимость с hhvm
             if (function_exists('stream_set_read_buffer')) {
                 stream_set_read_buffer($this->socket, 0);
             }
