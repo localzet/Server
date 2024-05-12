@@ -2804,6 +2804,6 @@ class Server
             return true;
         }
 
-        return stripos($content, 'Localzet Server') !== false || str_contains($content, 'php');
+        return str_contains($content, 'Localzet Server') || str_contains($content, 'php');
     }
 }
