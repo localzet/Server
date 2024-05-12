@@ -187,7 +187,7 @@ class Response implements Stringable
     )
     {
         $this->status = $status;
-        $this->headers = array_change_key_case($headers);
+        $this->headers = array_change_key_case($headers, CASE_LOWER);
         $this->body = $body;
     }
 
@@ -412,56 +412,42 @@ class Response implements Stringable
      */
     public function __toString(): string
     {
+        // Если файл установлен, создаем заголовок для файла.
         if ($this->file) {
             return $this->createHeadForFile($this->file);
         }
 
-        // Причина фразы.
+        // Получаем причину фразы или используем стандартную.
         $reason = $this->reason ?: self::PHRASES[$this->status] ?? '';
-        // Длина тела.
+
+        // Получаем длину тела.
         $bodyLen = strlen($this->body);
-        if (empty($this->headers)) {
-            return "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\nConnection: keep-alive\r\n\r\n$this->body";
-        }
 
-        // Заголовок.
-        $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
+        // Устанавливаем базовые заголовки.
+        $this->withHeader('Server', 'Localzet-Server');
+        $this->withHeader('Connection', $this->getHeader('Connection') ?: 'keep-alive');
+        $this->withHeader('Content-Type', $this->getHeader('Content-Type') ?: 'text/html;charset=utf-8');
 
-        foreach ($this->headers as $name => $value) {
-            if (strtolower($name) == 'server') {
-                continue;
+        // Формируем строку заголовка.
+        $head = "HTTP/$this->version $this->status $reason\r\n";
+        foreach ($this->headers as $name => $values) {
+            foreach ((array)$values as $value) {
+                $head .= "$name: $value\r\n";
             }
-            if (is_array($value)) {
-                foreach ($value as $item) {
-                    // Заголовок.
-                    $head .= "$name: $item\r\n";
-                }
-                continue;
-            }
-            // Заголовок.
-            $head .= "$name: $value\r\n";
         }
 
-        if (!$this->getHeader('connection')) {
-            // Соединение.
-            $head .= "Connection: keep-alive\r\n";
-        }
-
-        if (!$this->getHeader('content-type')) {
-            // Тип контента.
-            $head .= "Content-Type: text/html;charset=utf-8\r\n";
-        } else if ($this->getHeader('content-type') === 'text/event-stream') {
+        // Обрабатываем специфические случаи типов контента.
+        if ($this->getHeader('Content-Type') === 'text/event-stream') {
             return $head . $this->body;
         }
 
-        if (!$this->getHeader('transfer-encoding')) {
-            // Длина контента.
+        // Добавляем длину контента, если не установлен Transfer-Encoding.
+        if (!$this->getHeader('Transfer-Encoding')) {
             $head .= "Content-Length: $bodyLen\r\n\r\n";
         } else {
             return $bodyLen ? "$head\r\n" . dechex($bodyLen) . "\r\n$this->body\r\n" : "$head\r\n";
         }
 
-        // Весь HTTP-пакет.
         return $head . $this->body;
     }
 
@@ -477,27 +463,17 @@ class Response implements Stringable
         $file = $fileInfo['file'];
         // Причина фразы.
         $reason = $this->reason ?: self::PHRASES[$this->status];
-        // Заголовок.
-        $head = "HTTP/$this->version $this->status $reason\r\nServer: Localzet Server " . Server::getVersion() . "\r\n";
 
-        foreach ($this->headers as $name => $value) {
-            if (strtolower($name) == 'server') {
-                continue;
-            }
-            if (is_array($value)) {
-                foreach ($value as $item) {
-                    // Заголовок.
-                    $head .= "$name: $item\r\n";
-                }
-                continue;
-            }
-            // Заголовок.
-            $head .= "$name: $value\r\n";
-        }
+        // Устанавливаем базовые заголовки.
+        $this->withHeader('Server', 'Localzet-Server');
+        $this->withHeader('Connection', $this->getHeader('Connection') ?: 'keep-alive');
 
-        if (!$this->getHeader('connection')) {
-            // Соединение.
-            $head .= "Connection: keep-alive\r\n";
+        // Формируем строку заголовка.
+        $head = "HTTP/$this->version $this->status $reason\r\n";
+        foreach ($this->headers as $name => $values) {
+            foreach ((array)$values as $value) {
+                $head .= "$name: $value\r\n";
+            }
         }
 
         // Информация о файле.

@@ -228,27 +228,29 @@ class Http
         if (!is_object($response)) {
             // Дополнительные заголовки.
             $extHeader = '';
-            if ($connection->headers) {
-                foreach ($connection->headers as $name => $value) {
-                    if (is_array($value)) {
-                        foreach ($value as $item) {
-                            // Добавляем каждый элемент массива в заголовок.
-                            $extHeader .= "$name: $item\r\n";
-                        }
-                    } else {
-                        // Добавляем значение в заголовок.
-                        $extHeader .= "$name: $value\r\n";
+            $connection->headers['Server'] = 'Localzet-Server';
+            $connection->headers['Connection'] = 'keep-alive';
+            $connection->headers['Content-Type'] = 'text/html;charset=utf-8';
+
+            foreach ($connection->headers as $name => $value) {
+                if (is_array($value)) {
+                    foreach ($value as $item) {
+                        // Добавляем каждый элемент массива в заголовок.
+                        $extHeader .= "$name: $item\r\n";
                     }
+                } else {
+                    // Добавляем значение в заголовок.
+                    $extHeader .= "$name: $value\r\n";
                 }
-                // Очищаем заголовки после использования.
-                $connection->headers = [];
             }
+            // Очищаем заголовки после использования.
+            $connection->headers = [];
             // Преобразуем ответ в строку.
             $response = (string)$response;
             // Получаем длину тела ответа.
             $bodyLen = strlen($response);
             // Возвращаем сформированный HTTP-ответ.
-            return "HTTP/1.1 200 OK\r\nServer: Localzet-Server\r\n{$extHeader}Connection: keep-alive\r\nContent-Type: text/html;charset=utf-8\r\nContent-Length: $bodyLen\r\n\r\n$response";
+            return "HTTP/1.1 200 OK\r\n{$extHeader}Content-Length: $bodyLen\r\n\r\n$response";
         }
 
         if ($connection->headers) {
