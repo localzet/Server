@@ -83,7 +83,6 @@ use const SOL_SOCKET;
 use const SOL_TCP;
 use const STDERR;
 use const STDOUT;
-use const STR_PAD_LEFT;
 use const STREAM_SERVER_BIND;
 use const STREAM_SERVER_LISTEN;
 use const TCP_NODELAY;
@@ -962,11 +961,18 @@ class Server
         }
 
         // Показать версию
-        $lineVersion = 'Server version: <cyan>' . static::getVersion() . '</cyan>' . str_pad('PHP version: ', 16, ' ', STR_PAD_LEFT) . '<cyan>' . PHP_VERSION . '</cyan>' . str_pad('Event-loop: ', 16, ' ', STR_PAD_LEFT) . '<cyan>' . static::getEventLoopName() . '</cyan>' . PHP_EOL;
-        !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', strlen($lineVersion) - 39);
+        $lineVersion = '';
+        $lineVersion .= str_pad('Server version: ' . '<cyan>' . static::getVersion() . '</cyan>', 39, ' ', STR_PAD_RIGHT);
+        $lineVersion .= str_pad('PHP version: ' . '<cyan>' . PHP_VERSION . '</cyan>', 35, ' ', STR_PAD_RIGHT);
+        $lineVersion .= str_pad('Event-loop: ' . '<cyan>' . static::getEventLoopName() . '</cyan>', 45, ' ', STR_PAD_RIGHT);
+        $lineVersion .= PHP_EOL;
+
+        !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', strlen($lineVersion) - (strlen('<cyan></cyan>') * 3));
         $totalLength = static::getSingleLineTotalLength();
+
         $lineOne = '<n>' . str_pad('<magenta> Localzet Server </magenta>', $totalLength + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
-        $lineTwo = str_pad('<magenta> SERVERS </magenta>', $totalLength + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH) . PHP_EOL;
+        $lineTwo = '<n>' . str_pad('<magenta> SERVERS </magenta>', $totalLength + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
+
         static::safeEcho($lineOne . $lineVersion . $lineTwo, true);
 
         // Показать заголовок
@@ -1254,12 +1260,12 @@ class Server
         $totalFails = 0;
         $totalMemory = 0;
         $totalTimers = 0;
-        $maxLen1 = static::$maxSocketNameLength;
-        $maxLen2 = static::$maxServerNameLength;
+        $maxLen1 = 20;
+        $maxLen2 = 16;
         foreach ($info as $value) {
             if (!$readProcessStatus) {
                 $statusStr .= $value . "\n";
-                if (preg_match('/^pid.*?memory.*?listening/', $value)) {
+                if (preg_match('/^<blue>PID<\/blue>.*?<blue>MEM<\/blue>.*?<blue>LISTEN<\/blue>/', $value)) {
                     $readProcessStatus = true;
                 }
                 continue;
@@ -1281,11 +1287,18 @@ class Server
         }
         foreach ($serverInfo as $pid => $info) {
             if (!isset($dataWaitingSort[$pid])) {
-                $statusStr .= "$pid\t" . str_pad('N/A', 7) . " "
-                    . str_pad($info['listen'], static::$maxSocketNameLength) . " "
-                    . str_pad((string)$info['name'], static::$maxServerNameLength) . " "
-                    . str_pad('N/A', 11) . " " . str_pad('N/A', 9) . " "
-                    . str_pad('N/A', 7) . " " . str_pad('N/A', 13) . " N/A    [занят] \n";
+                $statusStr .=
+                    "$pid"
+                    . "\t" . str_pad('<red>N/A</red>', 7 + strlen('<red></red>'))
+                    . " " . str_pad($info['listen'], $maxLen1)
+                    . " " . str_pad((string)$info['name'], $maxLen2)
+                    . " " . str_pad('<red>N/A</red>', 11 + strlen('<red></red>'))
+                    . " " . str_pad('<red>N/A</red>', 9 + strlen('<red></red>'))
+                    . " " . str_pad('<red>N/A</red>', 8 + strlen('<red></red>'))
+                    . " " . str_pad('<red>N/A</red>', 13 + strlen('<red></red>'))
+                    . " " . str_pad('<red>N/A</red>', 6 + strlen('<red></red>'))
+                    . " " . str_pad('<yellow>[занят]</yellow>', 10 + strlen('<yellow></yellow>'))
+                    . "\n";
                 continue;
             }
             //$qps = isset($totalRequestCache[$pid]) ? $currentTotalRequest[$pid]
@@ -1295,16 +1308,21 @@ class Server
                 $qps = $currentTotalRequest[$pid] - $totalRequestCache[$pid];
                 $totalQps += $qps;
             }
-            $statusStr .= $dataWaitingSort[$pid] . " " . str_pad((string)$qps, 6) . " [не занят]\n";
+            $statusStr .= $dataWaitingSort[$pid] . " " . str_pad((string)$qps, 6) . " <green>[не занят]</green>\n";
         }
         $totalRequestCache = $currentTotalRequest;
-        $statusStr .= "----------------------------------------------PROCESS STATUS---------------------------------------------------\n";
-        $statusStr .= "Итог\t" . str_pad($totalMemory . 'M', 7) . " "
-            . str_pad('-', $maxLen1) . " "
-            . str_pad('-', $maxLen2) . " "
-            . str_pad((string)$totalConnections, 11) . " " . str_pad((string)$totalFails, 9) . " "
-            . str_pad((string)$totalTimers, 7) . " " . str_pad((string)$totalRequests, 13) . " "
-            . str_pad((string)$totalQps, 6) . " [Итог] \n";
+        $statusStr .= str_pad('<magenta>PROCESS STATUS</magenta>', 116 + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH) . "\n";
+        $statusStr .= "<blue>Итог</blue>"
+            . "\t" . str_pad('<cyan>' . $totalMemory . 'M' . '</cyan>', 7 + strlen('<cyan></cyan>'))
+            . " " . str_pad('', $maxLen1)
+            . " " . str_pad('', $maxLen2)
+            . " " . str_pad('<cyan>' . (string)$totalConnections . '</cyan>', 11 + strlen('<cyan></cyan>'))
+            . " " . str_pad('<cyan>' . (string)$totalFails . '</cyan>', 9 + strlen('<cyan></cyan>'))
+            . " " . str_pad('<cyan>' . (string)$totalTimers . '</cyan>', 8 + strlen('<cyan></cyan>'))
+            . " " . str_pad('<cyan>' . (string)$totalRequests . '</cyan>', 13 + strlen('<cyan></cyan>'))
+            . " " . str_pad('<cyan>' . (string)$totalQps . '</cyan>', 6 + strlen('<cyan></cyan>'))
+            . " " . str_pad('<blue>[Итог]</blue>', 10 + strlen('<blue></blue>'))
+            . "\n";
         return $statusStr;
     }
 
@@ -2145,44 +2163,79 @@ class Server
             chmod(static::$statisticsFile, 0722);
             file_put_contents(static::$statisticsFile, serialize($allServerInfo) . "\n", FILE_APPEND);
             $loadavg = function_exists('sys_getloadavg') ? array_map(round(...), sys_getloadavg(), [2, 2, 2]) : ['-', '-', '-'];
+
             file_put_contents(static::$statisticsFile,
-                (static::$daemonize ? "Start server in DAEMON mode." : "Start server in DEBUG mode.") . "\n", FILE_APPEND);
+                '<yellow>' . (static::$daemonize ? "Сервер запущен в фоновом режиме" : "Сервер запущен в режиме разработки") . '</yellow>'
+                . "\n", FILE_APPEND);
+
+
             file_put_contents(static::$statisticsFile,
-                "----------------------------------------------GLOBAL STATUS----------------------------------------------------\n", FILE_APPEND);
+                str_pad('<magenta>GLOBAL STATUS</magenta>', 116 + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH)
+                . "\n", FILE_APPEND);
+
             file_put_contents(static::$statisticsFile,
-                'Server version:' . static::VERSION . "          PHP version:" . PHP_VERSION . "\n", FILE_APPEND);
-            file_put_contents(static::$statisticsFile, 'start time:' . date('Y-m-d H:i:s',
-                    static::$globalStatistics['start_timestamp']) . '   run ' . floor((time() - static::$globalStatistics['start_timestamp']) / (24 * 60 * 60)) . ' days ' . floor(((time() - static::$globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . " hours   \n",
-                FILE_APPEND);
-            $loadStr = 'load average: ' . implode(", ", $loadavg);
+                str_pad('Server version: ' . '<cyan>' . static::getVersion() . '</cyan>', 40, ' ', STR_PAD_RIGHT)
+                . str_pad('PHP version: ' . '<cyan>' . PHP_VERSION . '</cyan>', 36, ' ', STR_PAD_RIGHT)
+                . str_pad('Event-loop: ' . '<cyan>' . static::getEventLoopName() . '</cyan>', 73, ' ', STR_PAD_RIGHT)
+                . "\n", FILE_APPEND);
+
             file_put_contents(static::$statisticsFile,
-                str_pad($loadStr, 33) . 'event-loop:' . static::getEventLoopName() . "\n", FILE_APPEND);
+                str_pad('Start time: ' . '<cyan>' . date('Y-m-d H:i:s', static::$globalStatistics['start_timestamp']) . '</cyan>', 63, ' ', STR_PAD_RIGHT)
+                . str_pad('Uptime: ' . '<cyan>' . floor((time() - static::$globalStatistics['start_timestamp']) / (24 * 60 * 60)) . '</cyan>' . ' days ' . '<cyan>' . floor(((time() - static::$globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . '</cyan>' . ' hours', 86, ' ', STR_PAD_RIGHT)
+                . "\n", FILE_APPEND);
+
             file_put_contents(static::$statisticsFile,
-                count(static::$pidMap) . ' servers       ' . count(static::getAllServerPids()) . " processes\n",
-                FILE_APPEND);
+                str_pad('Load average: ' . '<cyan>' . implode(", ", $loadavg) . '</cyan>', 63)
+                . str_pad('Started: ' . '<cyan>' . count(static::$pidMap) . '</cyan>' . ' servers ' . '<cyan>' . count(static::getAllServerPids()) . '</cyan>' . ' processes', 86)
+                . "\n", FILE_APPEND);
+
+
             file_put_contents(static::$statisticsFile,
-                str_pad('server_name', static::$maxServerNameLength) . " exit_status      exit_count\n", FILE_APPEND);
+                str_pad('<magenta>STATISTICS</magenta>', 116 + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH)
+                . "\n", FILE_APPEND);
+
+            file_put_contents(static::$statisticsFile,
+                str_pad('<blue>SERVER</blue>', 63)
+                . str_pad('<blue>STATUS</blue>', 38)
+                . str_pad('<blue>COUNT</blue>', 38)
+                . "\n", FILE_APPEND);
+
             foreach (static::$pidMap as $serverId => $serverPidArray) {
                 $server = static::$servers[$serverId];
                 if (isset(static::$globalStatistics['server_exit_info'][$serverId])) {
                     foreach (static::$globalStatistics['server_exit_info'][$serverId] as $serverExitStatus => $serverExitCount) {
                         file_put_contents(static::$statisticsFile,
-                            str_pad($server->name, static::$maxServerNameLength) . " " . str_pad((string)$serverExitStatus,
-                                16) . " $serverExitCount\n", FILE_APPEND);
+                            str_pad($server->name, 50)
+                            . str_pad((string)$serverExitStatus, 25)
+                            . str_pad((string)$serverExitCount, 25)
+                            . "\n", FILE_APPEND);
                     }
                 } else {
                     file_put_contents(static::$statisticsFile,
-                        str_pad($server->name, static::$maxServerNameLength) . " " . str_pad('0', 16) . " 0\n",
-                        FILE_APPEND);
+                        str_pad($server->name, 50)
+                        . str_pad('0', 25)
+                        . str_pad('0', 25)
+                        . "\n", FILE_APPEND);
                 }
             }
+
+
             file_put_contents(static::$statisticsFile,
-                "----------------------------------------------PROCESS STATUS---------------------------------------------------\n",
-                FILE_APPEND);
+                str_pad('<magenta>PROCESS STATUS</magenta>', 116 + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH)
+                . "\n", FILE_APPEND);
+
             file_put_contents(static::$statisticsFile,
-                "pid\tmemory  " . str_pad('listening', static::$maxSocketNameLength) . " " . str_pad('server_name',
-                    static::$maxServerNameLength) . " connections " . str_pad('send_fail', 9) . " "
-                . str_pad('timers', 8) . str_pad('total_request', 13) . " qps    status\n", FILE_APPEND);
+                "<blue>PID</blue>"
+                . "\t" . str_pad("<blue>MEM</blue>", 7 + strlen('<blue></blue>'))
+                . " " . str_pad('<blue>LISTEN</blue>', 20 + strlen('<blue></blue>'))
+                . " " . str_pad('<blue>SERVER</blue>', 16 + strlen('<blue></blue>'))
+                . " " . str_pad("<blue>CONNECTIONS</blue>", 11 + strlen('<blue></blue>'))
+                . " " . str_pad('<blue>FAILS</blue>', 9 + strlen('<blue></blue>'))
+                . " " . str_pad('<blue>TIMERS</blue>', 8 + strlen('<blue></blue>'))
+                . " " . str_pad('<blue>REQUESTS</blue>', 13 + strlen('<blue></blue>'))
+                . " " . str_pad('<blue>QPS</blue>', 6 + strlen('<blue></blue>'))
+                . " " . str_pad("<blue>STATUS</blue>", 10 + strlen('<blue></blue>'))
+                . "\n", FILE_APPEND);
 
             foreach (static::getAllServerPids() as $serverPid) {
                 static::sendSignal($serverPid, SIGIOT);
@@ -2196,15 +2249,16 @@ class Server
         reset(static::$servers);
         /** @var static $server */
         $server = current(static::$servers);
-        $serverStatusStr = posix_getpid() . "\t" . str_pad(round(memory_get_usage() / (1024 * 1024), 2) . "M", 7)
-            . " " . str_pad($server->getSocketName(), static::$maxSocketNameLength) . " "
-            . str_pad(($server->name === $server->getSocketName() ? 'none' : $server->name), static::$maxServerNameLength)
-            . " ";
-        $serverStatusStr .= str_pad((string)ConnectionInterface::$statistics['connection_count'], 11)
+        file_put_contents(static::$statisticsFile,
+            posix_getpid()
+            . "\t" . str_pad(round(memory_get_usage() / (1024 * 1024), 2) . "M", 7)
+            . " " . str_pad($server->getSocketName(), 20)
+            . " " . ($server->name === $server->getSocketName() ? str_pad('<red>none</red>', 16 + strlen('<red></red>')) : str_pad($server->name, 16))
+            . " " . str_pad((string)ConnectionInterface::$statistics['connection_count'], 11)
             . " " . str_pad((string)ConnectionInterface::$statistics['send_fail'], 9)
-            . " " . str_pad((string)static::$globalEvent->getTimerCount(), 7)
-            . " " . str_pad((string)ConnectionInterface::$statistics['total_request'], 13) . "\n";
-        file_put_contents(static::$statisticsFile, $serverStatusStr, FILE_APPEND);
+            . " " . str_pad((string)static::$globalEvent->getTimerCount(), 8)
+            . " " . str_pad((string)ConnectionInterface::$statistics['total_request'], 13)
+            . "\n", FILE_APPEND);
     }
 
     /**
