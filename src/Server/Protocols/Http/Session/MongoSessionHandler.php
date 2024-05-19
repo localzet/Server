@@ -26,6 +26,7 @@
 
 namespace localzet\Server\Protocols\Http\Session;
 
+use localzet\Server;
 use MongoDB\BSON\UTCDateTime;
 use MongoDB\Client;
 use MongoDB\Collection;
@@ -53,10 +54,40 @@ class MongoSessionHandler implements SessionHandlerInterface
      */
     public function __construct(array $config)
     {
-        $uri = $config['uri'] ?? 'mongodb://localhost:27017/?directConnection=true';
+        $uri = $config['url'] ?? null;
         $database = $config['database'] ?? 'default';
         $collection = $config['collection'] ?? 'sessions';
-        $this->client = new Client($uri);
+
+        if (!isset($config['url'])) {
+            $hosts = is_array($config['host']) ? $config['host'] : [$config['host']];
+
+            foreach ($hosts as &$host) {
+                // ipv6
+                if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    $host = '[' . $host . ']';
+                    if (!empty($config['port'])) {
+                        $host .= ':' . $config['port'];
+                    }
+                } else {
+                    // Check if we need to add a port to the host
+                    if (!str_contains($host, ':') && !empty($config['port'])) {
+                        $host .= ':' . $config['port'];
+                    }
+                }
+            }
+
+            $uri = 'mongodb://' . implode(',', $hosts);
+        }
+
+        $options = $config['options'] ?? [];
+        if (!isset($options['username']) && !empty($config['username'])) {
+            $options['username'] = $config['username'];
+        }
+        if (!isset($options['password']) && !empty($config['password'])) {
+            $options['password'] = $config['password'];
+        }
+
+        $this->client = new Client($uri, $options, ['name' => 'Localzet-Server', 'version' => Server::getVersion(), 'platform' => PHP_OS_FAMILY]);
         $this->collection = $this->client->$database->$collection;
     }
 
