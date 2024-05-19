@@ -677,7 +677,7 @@ class Request implements Stringable
      */
     public function expectsJson(): bool
     {
-        return ($this->isAjax() && !$this->isPjax() && $this->acceptsAnyContentType()) || $this->acceptJson();
+        return ($this->isAjax() && !$this->isPjax()) || $this->acceptJson();
     }
 
     /**
@@ -757,8 +757,8 @@ class Request implements Stringable
     public function acceptJson(): bool
     {
         return str_contains($this->header('Accept', ''), '/json')
-            || str_contains($this->header('Accept', ''), '+json');
-
+            || str_contains($this->header('Accept', ''), '+json')
+            || $this->acceptsAnyContentType();
     }
 
     /**
