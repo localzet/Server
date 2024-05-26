@@ -1,6 +1,12 @@
 <?php
 
 use localzet\Server;
+use localzet\Server\Events\Linux;
+use localzet\Server\Events\Linux\Driver\EvDriver;
+use localzet\Server\Events\Linux\Driver\EventDriver;
+use localzet\Server\Events\Linux\Driver\StreamSelectDriver;
+use localzet\Server\Events\Linux\Driver\UvDriver;
+use localzet\Server\Events\Windows;
 
 /**
  * @package     Localzet Server
@@ -166,4 +172,25 @@ if (!function_exists('cpu_count')) {
 function is_unix(): bool
 {
     return DIRECTORY_SEPARATOR === '/';
+}
+
+function get_event_loop_name(): string
+{
+    if (!is_unix()) {
+        return Windows::class;
+    }
+    if (UvDriver::isSupported()) {
+        return Linux::class . ' (+Uv)';
+    }
+
+    if (EvDriver::isSupported()) {
+        return Linux::class . ' (+Ev)';
+    }
+
+    if (EventDriver::isSupported()) {
+        return Linux::class . ' (+Event)';
+    }
+
+    return Linux::class;
+
 }

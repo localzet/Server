@@ -30,7 +30,7 @@ use AllowDynamicProperties;
 use Composer\InstalledVersions;
 use Exception;
 use localzet\Server\Connection\{ConnectionInterface, TcpConnection, UdpConnection};
-use localzet\Server\Events\{Event, EventInterface, Linux, Revolt, Windows};
+use localzet\Server\Events\{EventInterface, Linux, Revolt, Windows};
 use localzet\Server\Protocols\ProtocolInterface;
 use Revolt\EventLoop;
 use RuntimeException;
@@ -793,7 +793,6 @@ class Server
 
         static::$eventLoopClass = match (true) {
             class_exists(EventLoop::class) => Revolt::class,
-            extension_loaded('event') => Event::class,
             default => is_unix() ? Linux::class : Windows::class
         };
     }
@@ -964,7 +963,7 @@ class Server
         $lineVersion = '';
         $lineVersion .= str_pad('Server version: ' . '<cyan>' . static::getVersion() . '</cyan>', 39, ' ', STR_PAD_RIGHT);
         $lineVersion .= str_pad('PHP version: ' . '<cyan>' . PHP_VERSION . '</cyan>', 35, ' ', STR_PAD_RIGHT);
-        $lineVersion .= str_pad('Event-loop: ' . '<cyan>' . static::getEventLoopName() . '</cyan>', 45, ' ', STR_PAD_RIGHT);
+        $lineVersion .= str_pad('Event-loop: ' . '<cyan>' . get_event_loop_name() . '</cyan>', 45, ' ', STR_PAD_RIGHT);
         $lineVersion .= PHP_EOL;
 
         !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', strlen($lineVersion) - (strlen('<cyan></cyan>') * 3));
@@ -2176,7 +2175,7 @@ class Server
             file_put_contents(static::$statisticsFile,
                 str_pad('Server version: ' . '<cyan>' . static::getVersion() . '</cyan>', 40, ' ', STR_PAD_RIGHT)
                 . str_pad('PHP version: ' . '<cyan>' . PHP_VERSION . '</cyan>', 36, ' ', STR_PAD_RIGHT)
-                . str_pad('Event-loop: ' . '<cyan>' . static::getEventLoopName() . '</cyan>', 73, ' ', STR_PAD_RIGHT)
+                . str_pad('Event-loop: ' . '<cyan>' . get_event_loop_name() . '</cyan>', 73, ' ', STR_PAD_RIGHT)
                 . "\n", FILE_APPEND);
 
             file_put_contents(static::$statisticsFile,
