@@ -701,7 +701,7 @@ class Request implements Stringable
      */
     public function parseAcceptHeader(): void
     {
-        $accepts = explode(',', $this->header('Accept'));
+        $accepts = explode(',', $this->header('Accept', ''));
         $this->data['accept'] = [];
 
         foreach ($accepts as $accept) {
@@ -736,7 +736,7 @@ class Request implements Stringable
      */
     public function isAjax(): bool
     {
-        return $this->header('X-Requested-With') === 'XMLHttpRequest';
+        return $this->header('X-Requested-With', '') === 'XMLHttpRequest';
     }
 
     /**
@@ -746,7 +746,7 @@ class Request implements Stringable
      */
     public function isPjax(): bool
     {
-        return (bool)$this->header('X-PJAX');
+        return (bool)$this->header('X-PJAX', false);
     }
 
     /**
@@ -830,7 +830,7 @@ class Request implements Stringable
     public function host(bool $withoutPort = false): ?string
     {
         // Получить хост из заголовка 'host'
-        $host = $this->header('host');
+        $host = $this->header('host', '');
 
         // Если хост установлен и без порта, вернуть хост без порта, иначе вернуть хост
         return $host && $withoutPort ? preg_replace('/:\d{1,5}$/', '', $host) : $host;
