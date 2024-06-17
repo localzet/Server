@@ -211,7 +211,7 @@ final class StreamSelectDriver extends AbstractDriver
     /**
      * @return null
      */
-    public function getHandle(): null
+    public function getHandle(): mixed
     {
         return null;
     }

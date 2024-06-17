@@ -187,7 +187,7 @@ class Response implements Stringable
     )
     {
         $this->status = $status;
-        $this->headers = array_change_key_case($headers, CASE_LOWER);
+        $this->headers = array_change_key_case($headers);
         $this->body = $body;
     }
 
@@ -390,10 +390,10 @@ class Response implements Stringable
      * @param string $domain
      * @param bool $secure
      * @param bool $httpOnly
-     * @param string|null $sameSite
+     * @param string $sameSite
      * @return Response
      */
-    public function cookie(string $name, string $value = '', ?int $maxAge = null, string $path = '', string $domain = '', bool $secure = false, bool $httpOnly = false, ?string $sameSite = null): static
+    public function cookie(string $name, string $value = '', ?int $maxAge = null, string $path = '', string $domain = '', bool $secure = false, bool $httpOnly = false, string $sameSite = ''): static
     {
         $this->header('set-cookie', $name . '=' . rawurlencode($value)
             . (empty($domain) ? '' : '; Domain=' . $domain)

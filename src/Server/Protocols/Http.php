@@ -95,7 +95,7 @@ class Http
      *
      * @param bool $value
      */
-    public static function enableCache(bool $value)
+    public static function enableCache(bool $value): void
     {
         static::$enableCache = $value;
     }

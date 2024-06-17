@@ -26,7 +26,6 @@
 
 namespace localzet\Server\Connection;
 
-use AllowDynamicProperties;
 use localzet\Server;
 use localzet\Server\Events\Event;
 use localzet\Server\Events\EventInterface;
@@ -35,7 +34,7 @@ use Throwable;
 /**
  * ConnectionInterface.
  */
-#[AllowDynamicProperties]
+#[\AllowDynamicProperties]
 abstract class ConnectionInterface
 {
     /**

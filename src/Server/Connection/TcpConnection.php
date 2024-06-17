@@ -509,13 +509,14 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * Этот метод используется для перенаправления данных между соединениями.
      *
      * @param self $dest
+     * @param bool $raw
      * @return void
      */
-    public function pipe(self $dest): void
+    public function pipe(self $dest, bool $raw = false): void
     {
         $source = $this;
-        $this->onMessage = function ($source, $data) use ($dest) {
-            $dest->send($data);
+        $this->onMessage = function ($source, $data) use ($dest, $raw) {
+            $dest->send($data, $raw);
         };
         $this->onClose = function () use ($dest) {
             $dest->close();

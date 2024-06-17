@@ -172,7 +172,7 @@ class Timer
      * @param callable $func
      * @param null|array $args
      * @param bool $persistent
-     * @return int|bool
+     * @return int
      */
     public static function add(float $timeInterval, callable $func, null|array $args = [], bool $persistent = true): int
     {

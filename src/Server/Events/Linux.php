@@ -143,7 +143,7 @@ final class Linux implements EventInterface
                     // ничего не делать
                 }
 
-                public function getHandle(): null
+                public function getHandle(): mixed
                 {
                     return null;
                 }
@@ -394,7 +394,7 @@ final class Linux implements EventInterface
     }
 
     /**
-     * {@inheritdoc}
+     * {}
      */
     public function getErrorHandler(): ?callable
     {

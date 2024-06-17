@@ -26,7 +26,6 @@
 
 namespace localzet;
 
-use AllowDynamicProperties;
 use Composer\InstalledVersions;
 use Exception;
 use localzet\Server\Connection\{ConnectionInterface, TcpConnection, UdpConnection};
@@ -91,7 +90,7 @@ use const WUNTRACED;
 /**
  * Localzet Server
  */
-#[AllowDynamicProperties]
+#[\AllowDynamicProperties]
 class Server
 {
     /**
@@ -99,7 +98,7 @@ class Server
      *
      * @var string
      */
-    final public const VERSION = '24.05.02';
+    final public const VERSION = '24.06.17';
 
     /**
      * Статус: запуск
@@ -737,7 +736,7 @@ class Server
 
         // Статус-файл
         static::$statusFile ??= sprintf('%s/localzet.%s.status', dirname(__DIR__), $startFilePrefix);
-        static::$statisticsFile ??= static::$statusFile;
+        static::$statisticsFile ??= static::$statusFile . '.statistic';
         static::$connectionsFile ??= static::$statusFile . '.connection';
 
         // Лог-файл
@@ -960,10 +959,9 @@ class Server
         }
 
         // Показать версию
-        $lineVersion = '';
-        $lineVersion .= str_pad('Server version: ' . '<cyan>' . static::getVersion() . '</cyan>', 39, ' ', STR_PAD_RIGHT);
-        $lineVersion .= str_pad('PHP version: ' . '<cyan>' . PHP_VERSION . '</cyan>', 35, ' ', STR_PAD_RIGHT);
-        $lineVersion .= str_pad('Event-loop: ' . '<cyan>' . get_event_loop_name() . '</cyan>', 45, ' ', STR_PAD_RIGHT);
+        $lineVersion = str_pad('Server version: ' . '<cyan>' . static::getVersion() . '</cyan>', 39);
+        $lineVersion .= str_pad('PHP version: ' . '<cyan>' . PHP_VERSION . '</cyan>', 35);
+        $lineVersion .= str_pad('Event-loop: ' . '<cyan>' . get_event_loop_name() . '</cyan>', 45);
         $lineVersion .= PHP_EOL;
 
         !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', strlen($lineVersion) - (strlen('<cyan></cyan>') * 3));
@@ -972,7 +970,7 @@ class Server
         $lineOne = '<n>' . str_pad('<magenta> Localzet Server </magenta>', $totalLength + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
         $lineTwo = '<n>' . str_pad('<magenta> SERVERS </magenta>', $totalLength + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH) . '</n>' . PHP_EOL;
 
-        static::safeEcho($lineOne . $lineVersion . $lineTwo, true);
+        static::safeEcho($lineOne . $lineVersion . $lineTwo);
 
         // Показать заголовок
         $title = '';
@@ -982,7 +980,7 @@ class Server
             strtolower($columnName) === 'socket' && $columnName = 'listen';
             $title .= "<blue>" . strtoupper($columnName) . "</blue>" . str_pad('', static::$$key + static::UI_SAFE_LENGTH - strlen($columnName));
         }
-        $title && static::safeEcho($title . PHP_EOL, true);
+        $title && static::safeEcho($title . PHP_EOL);
 
         // Показать содержимое
         foreach (static::$servers as $server) {
@@ -994,12 +992,12 @@ class Server
                 $placeHolderLength = !empty($matches) ? strlen(implode('', $matches[0])) : 0;
                 $content .= str_pad($propValue, static::$$key + static::UI_SAFE_LENGTH + $placeHolderLength);
             }
-            $content && static::safeEcho($content . PHP_EOL, true);
+            $content && static::safeEcho($content . PHP_EOL);
         }
 
         // Показать последнюю строку
         $lineLast = str_pad('', static::getSingleLineTotalLength(), '-') . PHP_EOL;
-        !empty($content) && static::safeEcho($lineLast, true);
+        !empty($content) && static::safeEcho($lineLast);
 
         if (static::$daemonize) {
             static::safeEcho('Выполните "php ' . basename(static::$startFile) . ' stop" для остановки. Сервер запущен.' . "\n\n");
@@ -1131,11 +1129,11 @@ class Server
 
                     // Очистка терминала
                     if ($mode === '-d') {
-                        static::safeEcho("\33[H\33[2J\33(B\33[m", true);
+                        static::safeEcho("\33[H\33[2J\33(B\33[m");
                     }
 
                     // Вывод данных о состоянии
-                    static::safeEcho(static::formatProcessStatusData(), true);
+                    static::safeEcho(static::formatProcessStatusData());
                     if ($mode !== '-d') {
                         exit(0);
                     }
@@ -1151,7 +1149,7 @@ class Server
                 usleep(500000);
 
                 // Вывод данных о соединениях из файла на диске.
-                static::safeEcho(static::formatConnectionStatusData(), true);
+                static::safeEcho(static::formatConnectionStatusData());
                 exit(0);
             case 'restart':
             case 'stop':
@@ -1225,7 +1223,6 @@ class Server
     /**
      * Данные о состоянии
      *
-     * @param $statisticsFile
      * @return string
      */
     protected static function formatProcessStatusData(): string
@@ -1315,11 +1312,11 @@ class Server
             . "\t" . str_pad('<cyan>' . $totalMemory . 'M' . '</cyan>', 7 + strlen('<cyan></cyan>'))
             . " " . str_pad('', $maxLen1)
             . " " . str_pad('', $maxLen2)
-            . " " . str_pad('<cyan>' . (string)$totalConnections . '</cyan>', 11 + strlen('<cyan></cyan>'))
-            . " " . str_pad('<cyan>' . (string)$totalFails . '</cyan>', 9 + strlen('<cyan></cyan>'))
-            . " " . str_pad('<cyan>' . (string)$totalTimers . '</cyan>', 8 + strlen('<cyan></cyan>'))
-            . " " . str_pad('<cyan>' . (string)$totalRequests . '</cyan>', 13 + strlen('<cyan></cyan>'))
-            . " " . str_pad('<cyan>' . (string)$totalQps . '</cyan>', 6 + strlen('<cyan></cyan>'))
+            . " " . str_pad('<cyan>' . $totalConnections . '</cyan>', 11 + strlen('<cyan></cyan>'))
+            . " " . str_pad('<cyan>' . $totalFails . '</cyan>', 9 + strlen('<cyan></cyan>'))
+            . " " . str_pad('<cyan>' . $totalTimers . '</cyan>', 8 + strlen('<cyan></cyan>'))
+            . " " . str_pad('<cyan>' . $totalRequests . '</cyan>', 13 + strlen('<cyan></cyan>'))
+            . " " . str_pad('<cyan>' . $totalQps . '</cyan>', 6 + strlen('<cyan></cyan>'))
             . " " . str_pad('<blue>[Итог]</blue>', 10 + strlen('<blue></blue>'))
             . "\n";
         return $statusStr;
@@ -1440,9 +1437,7 @@ class Server
     /**
      * Перенаправление стандартного ввода и вывода.
      *
-     * @param bool $throwException
      * @return void
-     * @throws Exception
      */
     public static function resetStd(): void
     {
@@ -1608,7 +1603,7 @@ class Server
             });
 
             // Отобразить пользовательский интерфейс (UI).
-            static::safeEcho(str_pad($server->name, 48) . str_pad($server->getSocketName(), 36) . str_pad("1", 10) . "[OK]\n", true);
+            static::safeEcho(str_pad($server->name, 48) . str_pad($server->getSocketName(), 36) . str_pad("1", 10) . "[OK]\n");
             $server->listen();
             $server->run();
             static::$globalEvent->run();
@@ -1949,7 +1944,7 @@ class Server
     /**
      * Выход из текущего процесса.
      */
-    protected static function exitAndClearAll(): void
+    #[\JetBrains\PhpStorm\NoReturn] protected static function exitAndClearAll(): void
     {
         foreach (static::$servers as $server) {
             $socketName = $server->getSocketName();
@@ -2173,14 +2168,14 @@ class Server
                 . "\n", FILE_APPEND);
 
             file_put_contents(static::$statisticsFile,
-                str_pad('Server version: ' . '<cyan>' . static::getVersion() . '</cyan>', 40, ' ', STR_PAD_RIGHT)
-                . str_pad('PHP version: ' . '<cyan>' . PHP_VERSION . '</cyan>', 36, ' ', STR_PAD_RIGHT)
-                . str_pad('Event-loop: ' . '<cyan>' . get_event_loop_name() . '</cyan>', 73, ' ', STR_PAD_RIGHT)
+                str_pad('Server version: ' . '<cyan>' . static::getVersion() . '</cyan>', 40)
+                . str_pad('PHP version: ' . '<cyan>' . PHP_VERSION . '</cyan>', 36)
+                . str_pad('Event-loop: ' . '<cyan>' . get_event_loop_name() . '</cyan>', 73)
                 . "\n", FILE_APPEND);
 
             file_put_contents(static::$statisticsFile,
-                str_pad('Start time: ' . '<cyan>' . date('Y-m-d H:i:s', static::$globalStatistics['start_timestamp']) . '</cyan>', 63, ' ', STR_PAD_RIGHT)
-                . str_pad('Uptime: ' . '<cyan>' . floor((time() - static::$globalStatistics['start_timestamp']) / (24 * 60 * 60)) . '</cyan>' . ' days ' . '<cyan>' . floor(((time() - static::$globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . '</cyan>' . ' hours', 86, ' ', STR_PAD_RIGHT)
+                str_pad('Start time: ' . '<cyan>' . date('Y-m-d H:i:s', static::$globalStatistics['start_timestamp']) . '</cyan>', 63)
+                . str_pad('Uptime: ' . '<cyan>' . floor((time() - static::$globalStatistics['start_timestamp']) / (24 * 60 * 60)) . '</cyan>' . ' days ' . '<cyan>' . floor(((time() - static::$globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . '</cyan>' . ' hours', 86)
                 . "\n", FILE_APPEND);
 
             file_put_contents(static::$statisticsFile,

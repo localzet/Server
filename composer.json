@@ -32,7 +32,7 @@
     "source": "https://github.com/localzet/Server"
   },
   "require": {
-    "php": ">=8.2",
+    "php": ">=8.1",
     "ext-json": "*",
     "ext-sockets": "*",
     "ext-pcntl": "*",
@@ -42,6 +42,8 @@
     "ext-uv": "For better performance",
     "ext-ev": "For better performance",
     "ext-event": "For better performance",
+    "ext-swoole": "For better performance",
+    "ext-swow": "For better performance",
     "ext-redis": "For Redis Session Handler",
     "mongodb/mongodb": "For Mongo Session Handler"
   },
