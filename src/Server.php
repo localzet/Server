@@ -2439,6 +2439,7 @@ class Server
 
         $msg = str_replace(['<n>', '<w>', '<g>'], [$line, $white, $green], $msg);
         $msg = str_replace(['</n>', '</w>', '</g>'], $end, $msg);
+
         set_error_handler(static fn(): bool => true);
         if (!feof(self::$outputStream)) {
             fwrite(self::$outputStream, $msg);

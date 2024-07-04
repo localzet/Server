@@ -307,13 +307,13 @@ class Websocket
                 $SecWebSocketKey = $match[1];
             } else {
                 $connection->close(
-                    "HTTP/1.0 200 OK\r\nServer: Localzet Server\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server</div>", true);
+                    "HTTP/1.1 400 Некорректный запрос\r\nServer: Localzet Server\r\n\r\n<div style=\"text-align:center\"><h1>400 Некорректный запрос</h1><hr>Localzet Server</div>", true);
                 return 0;
             }
             // Расчет ключа websocket.
             $newKey = base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true));
             // Данные ответа на рукопожатие.
-            $handshakeMessage = "HTTP/1.1 101 Switching Protocol\r\n"
+            $handshakeMessage = "HTTP/1.1 101 Переключение протокола\r\n"
                 . "Server: Localzet Server " . Server::getVersion() . "\r\n"
                 . "Upgrade: websocket\r\n"
                 . "Sec-WebSocket-Version: 13\r\n"
@@ -377,7 +377,7 @@ class Websocket
         }
         // Неверный запрос рукопожатия через веб-сокет.
         $connection->close(
-            "HTTP/1.0 200 OK\r\nServer: Localzet Server\r\n\r\n<div style=\"text-align:center\"><h1>WebSocket</h1><hr>Localzet Server</div>", true);
+            "HTTP/1.1 400 Некорректный запрос\r\nServer: Localzet Server\r\n\r\n<div style=\"text-align:center\"><h1>400 Некорректный запрос</h1><hr>Localzet Server</div>", true);
         return 0;
     }
 
