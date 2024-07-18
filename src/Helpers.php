@@ -88,7 +88,7 @@ function localzet_start(
 
         foreach ($services as $service) {
             if (!class_exists($service['handler'])) {
-                echo "process error: class {$service['handler']} not exists\r\n";
+                Server::log("Класс '{$service['handler']}' не найден");
                 continue;
             }
 
