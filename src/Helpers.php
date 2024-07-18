@@ -1,12 +1,6 @@
 <?php
 
 use localzet\Server;
-use localzet\Server\Events\Linux;
-use localzet\Server\Events\Linux\Driver\EvDriver;
-use localzet\Server\Events\Linux\Driver\EventDriver;
-use localzet\Server\Events\Linux\Driver\StreamSelectDriver;
-use localzet\Server\Events\Linux\Driver\UvDriver;
-use localzet\Server\Events\Windows;
 
 /**
  * @package     Localzet Server
@@ -100,23 +94,15 @@ function localzet_start(
 
             $listen = new Server($service['listen'] ?? null, $service['context'] ?? []);
             if (isset($service['listen'])) {
-                echo "listen: {$service['listen']}\n";
+                Server::log("Прослушиваем: {$service['listen']}\n");
             }
 
-            if (!class_exists($service['handler'])) {
-                throw new Exception("Класс '{$service['handler']}' не найден");
-            }
             $instance = new $service['handler'](...array_values($service['constructor']));
             localzet_bind($listen, $instance);
             $listen->listen();
         }
 
         if ($handler) {
-            if (!class_exists($handler)) {
-                echo "process error: class $handler not exists\r\n";
-                return;
-            }
-
             if (!class_exists($handler)) {
                 throw new Exception("Класс '$handler' не найден");
             }
