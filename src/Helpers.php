@@ -146,14 +146,14 @@ function localzet_bind(Server &$server, mixed $class): void
 /**
  * Проверяет, является ли метод абстрактным.
  *
- * @param string $class Класс, содержащий метод.
- * @param string $method Имя метода.
+ * @param object|string $class Класс, содержащий метод.
+ * @param null|string $method Имя метода.
  *
  * @return bool Возвращает true, если метод абстрактный, иначе false.
  *
  * @throws ReflectionException
  */
-function is_abstract_method(string $class, string $method): bool
+function is_abstract_method(object|string $class, ?string $method): bool
 {
     $reflection = new ReflectionMethod($class, $method);
     return $reflection->isAbstract();
