@@ -133,12 +133,13 @@ function localzet_bind(Server &$server, mixed $class): void
 
     foreach ($callbackMap as $name) {
         if (method_exists($class, $name)) {
-            if ($class instanceof ServerAbstract && is_abstract_method($class::class, $name)) continue;
+            if ($class instanceof ServerAbstract && is_abstract_method($class, $name)) continue;
             $server->$name = [$class, $name];
         }
     }
 
-    if (method_exists($class, 'onServerStart') && !is_abstract_method($class, 'onServerStart')) {
+    if (method_exists($class, 'onServerStart')) {
+        if ($class instanceof ServerAbstract && is_abstract_method($class, $name)) return;
         call_user_func([$class, 'onServerStart'], $server);
     }
 }
@@ -153,7 +154,7 @@ function localzet_bind(Server &$server, mixed $class): void
  *
  * @throws ReflectionException
  */
-function is_abstract_method(object|string $class, ?string $method): bool
+function is_abstract_method($class, $method): bool
 {
     $reflection = new ReflectionMethod($class, $method);
     return $reflection->isAbstract();
@@ -221,14 +222,14 @@ function get_event_loop_name(): string
  * Форматирует HTTP-ответ.
  *
  * @param int $code Код ответа.
- * @param string|null $body Тело ответа.
+ * @param string $body Тело ответа.
  * @param string|null $reason Причина ответа.
  * @param array $headers Заголовки ответа.
  * @param string $version Версия HTTP.
  *
  * @return string Форматированный HTTP-ответ.
  */
-function format_http_response(int $code, ?string $body = '', string $reason = null, array $headers = [], string $version = '1.1'): string
+function format_http_response(int $code, string $body = '', array $headers = [], string $reason = null, string $version = '1.1'): string
 {
     $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
     $head = "HTTP/$version $code $reason\r\n";
@@ -273,22 +274,15 @@ function format_http_response(int $code, ?string $body = '', string $reason = nu
  *
  * @param int $code Код ответа.
  * @param array $headers Заголовки ответа.
- * @param string $version Версия HTTP.
  *
  * @return string Форматированный WebSocket-ответ.
  */
-function format_websocket_response(int $code, array $headers = [], string $version = '1.1'): string
+function format_websocket_response(int $code, array $headers = []): string
 {
-    $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
-    $head = "HTTP/$version $code $reason\r\n";
+    $reason = Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
+    $head = "HTTP/1.1 $code $reason\r\n";
 
-    $defaultHeaders = [
-        'Server' => 'Localzet-Server',
-        'Upgrade' => 'websocket',
-        'Sec-WebSocket-Version' => 13,
-        'Connection' => 'Upgrade',
-    ];
-    $headers = array_merge($defaultHeaders, $headers);
+    $headers = array_merge($headers, ['Server' => 'Localzet-Server']);
 
     foreach ($headers as $name => $values) {
         foreach ((array)$values as $value) {

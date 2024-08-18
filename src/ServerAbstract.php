@@ -39,21 +39,21 @@ abstract class ServerAbstract
      *
      * @param Server $server Экземпляр сервера.
      */
-    public abstract function onServerStart(Server $server): void;
+    public function onServerStart(Server $server): void {}
 
     /**
      * Метод, вызываемый при остановке сервера.
      *
      * @param Server $server Экземпляр сервера.
      */
-    public abstract function onServerStop(Server $server): void;
+    public function onServerStop(Server $server): void {}
 
     /**
      * Метод, вызываемый при перезагрузке сервера.
      *
      * @param Server $server Экземпляр сервера.
      */
-    public abstract function onServerReload(Server $server): void;
+    public function onServerReload(Server $server): void {}
 
     /**
      * Метод, вызываемый при выходе сервера.
@@ -62,24 +62,24 @@ abstract class ServerAbstract
      * @param int $signal Сигнал выхода.
      * @param int $pid PID процесса.
      */
-    public abstract function onServerExit(Server $server, int $signal, int $pid): void;
+    public function onServerExit(Server $server, int $signal, int $pid): void {}
 
     /**
      * Метод, вызываемый при перезагрузке мастера.
      */
-    public abstract function onMasterReload(): void;
+    public function onMasterReload(): void {}
 
     /**
      * Метод, вызываемый при остановке мастера.
      */
-    public abstract function onMasterStop(): void;
+    public function onMasterStop(): void {}
 
     /**
      * Метод, вызываемый при подключении.
      *
      * @param ConnectionInterface $connection Интерфейс соединения.
      */
-    public abstract function onConnect(ConnectionInterface $connection): void;
+    public function onConnect(ConnectionInterface $connection): void {}
 
     /**
      * Метод, вызываемый при подключении WebSocket.
@@ -87,7 +87,7 @@ abstract class ServerAbstract
      * @param TcpConnection $connection TCP соединение.
      * @param Request $request HTTP запрос.
      */
-    public abstract function onWebSocketConnect(TcpConnection $connection, Request $request): void;
+    public function onWebSocketConnect(TcpConnection $connection, Request $request): void {}
 
     /**
      * Метод, вызываемый при получении сообщения.
@@ -95,14 +95,14 @@ abstract class ServerAbstract
      * @param ConnectionInterface $connection Интерфейс соединения.
      * @param mixed $request Запрос.
      */
-    public abstract function onMessage(ConnectionInterface $connection, mixed $request): void;
+    public function onMessage(ConnectionInterface $connection, mixed $request): void {}
 
     /**
      * Метод, вызываемый при закрытии соединения.
      *
      * @param ConnectionInterface $connection Интерфейс соединения.
      */
-    public abstract function onClose(ConnectionInterface $connection): void;
+    public function onClose(ConnectionInterface $connection): void {}
 
     /**
      * Метод, вызываемый при ошибке.
@@ -111,19 +111,19 @@ abstract class ServerAbstract
      * @param int $code Код ошибки.
      * @param string $reason Причина ошибки.
      */
-    public abstract function onError(ConnectionInterface $connection, int $code, string $reason): void;
+    public function onError(ConnectionInterface $connection, int $code, string $reason): void {}
 
     /**
      * Метод, вызываемый при заполнении буфера.
      *
      * @param ConnectionInterface $connection Интерфейс соединения.
      */
-    public abstract function onBufferFull(ConnectionInterface $connection): void;
+    public function onBufferFull(ConnectionInterface $connection): void {}
 
     /**
      * Метод, вызываемый при освобождении буфера.
      *
      * @param ConnectionInterface $connection Интерфейс соединения.
      */
-    public abstract function onBufferDrain(ConnectionInterface $connection): void;
+    public function onBufferDrain(ConnectionInterface $connection): void {}
 }
