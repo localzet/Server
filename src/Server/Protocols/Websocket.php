@@ -306,18 +306,17 @@ class Websocket
             if (preg_match("/Sec-WebSocket-Key: *(.*?)\r\n/i", $buffer, $match)) {
                 $SecWebSocketKey = $match[1];
             } else {
-                $connection->close(format_http_response(400, null), true);
+                $connection->close(format_websocket_response(400, null), true);
                 return 0;
             }
             // Расчет ключа websocket.
             $newKey = base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true));
             // Данные ответа на рукопожатие.
-            $handshakeMessage = format_http_response(101, null, null, [
+            $handshakeMessage = format_websocket_response(101, null, null, [
                 'Upgrade' => 'websocket',
                 'Sec-WebSocket-Version' => 13,
                 'Connection' => 'Upgrade',
                 'Sec-WebSocket-Accept' => $newKey,
-                'Content-Type' => null,
             ]);
 
             // Буфер данных websocket.
@@ -376,7 +375,7 @@ class Websocket
             return 0;
         }
         // Неверный запрос рукопожатия через веб-сокет.
-        $connection->close(format_http_response(400, null), true);
+        $connection->close(format_websocket_response(400, null), true);
         return 0;
     }
 

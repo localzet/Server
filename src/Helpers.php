@@ -188,20 +188,16 @@ function get_event_loop_name(): string
 
 function format_http_response(int $code, ?string $body = '', string $reason = null, array $headers = [], string $version = '1.1'): string
 {
-    // Получаем причину, если она не указана
     $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
-
-    // Формируем начальную строку заголовка
     $head = "HTTP/$version $code $reason\r\n";
 
-    // Объединяем заголовки, добавляя стандартные значения
     $defaultHeaders = [
-        'Connection' => $headers['Connection'] ?? 'keep-alive',
-        'Content-Type' => $headers['Content-Type'] ?? 'text/html;charset=utf-8',
+        'Connection' => 'keep-alive',
+        'Content-Type' => 'text/html;charset=utf-8',
+        'Server' => 'Localzet-Server'
     ];
-    $headers = array_merge(['Server' => 'Localzet-Server'], $headers, $defaultHeaders);
+    $headers = array_merge($defaultHeaders, $headers);
 
-    // Формируем строку заголовков
     foreach ($headers as $name => $values) {
         foreach ((array)$values as $value) {
             if ($value) {
@@ -210,27 +206,52 @@ function format_http_response(int $code, ?string $body = '', string $reason = nu
         }
     }
 
-    // Определяем длину тела
     $bodyLen = $body ? strlen($body) : null;
 
-    // Добавляем Content-Length, если Transfer-Encoding не указан
     if (empty($headers['Transfer-Encoding']) && $bodyLen) {
         $head .= "Content-Length: $bodyLen\r\n";
     }
 
-    // Добавляем пустую строку для разделения заголовков и тела
     $head .= "\r\n";
 
-    if ($version === '1.1') {
-        // В HTTP/1.1 поддерживается Transfer-Encoding: chunked
-        if (!empty($headers['Transfer-Encoding']) && $headers['Transfer-Encoding'] === 'chunked' && $bodyLen) {
-            return $head . dechex($bodyLen) . "\r\n$body\r\n";
-        }
-
-        return $head . $body;
+    if ($version === '1.1' && !empty($headers['Transfer-Encoding']) && $headers['Transfer-Encoding'] === 'chunked' && $bodyLen) {
+        return $head . dechex($bodyLen) . "\r\n$body\r\n";
     }
 
-    // Возвращаем заголовки и тело по умолчанию
     return $head . $body;
 }
 
+function format_websocket_response(int $code, ?string $body = '', string $reason = null, array $headers = [], string $version = '1.1'): string
+{
+    $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
+    $head = "HTTP/$version $code $reason\r\n";
+
+    $defaultHeaders = [
+        'Connection' => 'Upgrade',
+        'Upgrade' => 'websocket',
+        'Server' => 'Localzet-Server'
+    ];
+    $headers = array_merge($defaultHeaders, $headers);
+
+    foreach ($headers as $name => $values) {
+        foreach ((array)$values as $value) {
+            if ($value) {
+                $head .= "$name: $value\r\n";
+            }
+        }
+    }
+
+    $bodyLen = $body ? strlen($body) : null;
+
+    if (empty($headers['Transfer-Encoding']) && $bodyLen) {
+        $head .= "Content-Length: $bodyLen\r\n";
+    }
+
+    $head .= "\r\n";
+
+    if ($version === '1.1' && !empty($headers['Transfer-Encoding']) && $headers['Transfer-Encoding'] === 'chunked' && $bodyLen) {
+        return $head . dechex($bodyLen) . "\r\n$body\r\n";
+    }
+
+    return $head . $body;
+}
