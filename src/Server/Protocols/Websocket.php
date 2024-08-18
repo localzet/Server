@@ -312,12 +312,7 @@ class Websocket
             // Расчет ключа websocket.
             $newKey = base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true));
             // Данные ответа на рукопожатие.
-            $handshakeMessage = format_websocket_response(101, null, null, [
-                'Upgrade' => 'websocket',
-                'Sec-WebSocket-Version' => 13,
-                'Connection' => 'Upgrade',
-                'Sec-WebSocket-Accept' => $newKey,
-            ]);
+            $handshakeMessage = format_websocket_response(101, ['Sec-WebSocket-Accept' => $newKey]);
 
             // Буфер данных websocket.
             $connection->context->websocketDataBuffer = '';

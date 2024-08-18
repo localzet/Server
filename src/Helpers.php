@@ -194,9 +194,8 @@ function format_http_response(int $code, ?string $body = '', string $reason = nu
     $defaultHeaders = [
         'Connection' => 'keep-alive',
         'Content-Type' => 'text/html;charset=utf-8',
-        'Server' => 'Localzet-Server'
     ];
-    $headers = array_merge($defaultHeaders, $headers);
+    $headers = array_merge($defaultHeaders, $headers, ['Server' => 'Localzet-Server']);
 
     foreach ($headers as $name => $values) {
         foreach ((array)$values as $value) {
@@ -204,6 +203,10 @@ function format_http_response(int $code, ?string $body = '', string $reason = nu
                 $head .= "$name: $value\r\n";
             }
         }
+    }
+
+    if ($headers['Content-Type'] === 'text/event-stream') {
+        return $head . $body;
     }
 
     $bodyLen = $body ? strlen($body) : null;
@@ -214,22 +217,25 @@ function format_http_response(int $code, ?string $body = '', string $reason = nu
 
     $head .= "\r\n";
 
-    if ($version === '1.1' && !empty($headers['Transfer-Encoding']) && $headers['Transfer-Encoding'] === 'chunked' && $bodyLen) {
-        return $head . dechex($bodyLen) . "\r\n$body\r\n";
+    if ($version === '1.1'
+        && !empty($headers['Transfer-Encoding'])
+        && $headers['Transfer-Encoding'] === 'chunked') {
+        return $bodyLen ? $head . dechex($bodyLen) . "\r\n$body\r\n" : $head;
     }
 
     return $head . $body;
 }
 
-function format_websocket_response(int $code, ?string $body = '', string $reason = null, array $headers = [], string $version = '1.1'): string
+function format_websocket_response(int $code, array $headers = [], string $version = '1.1'): string
 {
     $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
     $head = "HTTP/$version $code $reason\r\n";
 
     $defaultHeaders = [
-        'Connection' => 'Upgrade',
+        'Server' => 'Localzet-Server',
         'Upgrade' => 'websocket',
-        'Server' => 'Localzet-Server'
+        'Sec-WebSocket-Version' => 13,
+        'Connection' => 'Upgrade',
     ];
     $headers = array_merge($defaultHeaders, $headers);
 
@@ -241,17 +247,5 @@ function format_websocket_response(int $code, ?string $body = '', string $reason
         }
     }
 
-    $bodyLen = $body ? strlen($body) : null;
-
-    if (empty($headers['Transfer-Encoding']) && $bodyLen) {
-        $head .= "Content-Length: $bodyLen\r\n";
-    }
-
-    $head .= "\r\n";
-
-    if ($version === '1.1' && !empty($headers['Transfer-Encoding']) && $headers['Transfer-Encoding'] === 'chunked' && $bodyLen) {
-        return $head . dechex($bodyLen) . "\r\n$body\r\n";
-    }
-
-    return $head . $body;
+    return $head;
 }
