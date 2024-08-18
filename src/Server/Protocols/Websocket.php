@@ -306,7 +306,7 @@ class Websocket
             if (preg_match("/Sec-WebSocket-Key: *(.*?)\r\n/i", $buffer, $match)) {
                 $SecWebSocketKey = $match[1];
             } else {
-                $connection->close(format_websocket_response(400, null), true);
+                $connection->close(format_websocket_response(400), true);
                 return 0;
             }
             // Расчет ключа websocket.
@@ -330,7 +330,21 @@ class Websocket
             $onWebsocketConnect = $connection->onWebSocketConnect ?? $connection->server->onWebSocketConnect ?? false;
             if ($onWebsocketConnect) {
                 try {
-                    $onWebsocketConnect($connection, new Request($buffer));
+                    $request = new Request($buffer);
+                    $request->connection = $connection;
+                    $connection->request = $request;
+
+                    foreach ($request->header() as $name => $value) {
+                        $_SERVER[strtoupper($name)] = $value;
+                    }
+
+                    $_GET = $request->get();
+                    $_POST = $request->post();
+                    $_COOKIE = $request->cookie();
+                    $_REQUEST = $_GET + $_POST + $_COOKIE;
+                    $_SESSION = $request->session();
+
+                    $onWebsocketConnect($connection, $request);
                 } catch (Throwable $e) {
                     Server::stopAll(250, $e);
                 }
@@ -370,7 +384,7 @@ class Websocket
             return 0;
         }
         // Неверный запрос рукопожатия через веб-сокет.
-        $connection->close(format_websocket_response(400, null), true);
+        $connection->close(format_websocket_response(400), true);
         return 0;
     }
 

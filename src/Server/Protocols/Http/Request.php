@@ -1072,13 +1072,8 @@ class Request implements Stringable
 
     public function toArray(): array
     {
-        return $this->properties +
+        $return = $this->properties +
             [
-                'localIp' => $this->getLocalIp(),
-                'localPort' => $this->getLocalPort(),
-                'remoteIp' => $this->getRemoteIp(),
-                'remotePort' => $this->getRemotePort(),
-
                 'protocolVersion' => $this->protocolVersion(),
                 'host' => $this->host(),
                 'path' => $this->path(),
@@ -1095,6 +1090,17 @@ class Request implements Stringable
                 'acceptJson' => $this->acceptJson(),
                 'expectsJson' => $this->expectsJson(),
             ];
+
+        if ($this->connection) {
+            $return += [
+                'localIp' => $this->getLocalIp(),
+                'localPort' => $this->getLocalPort(),
+                'remoteIp' => $this->getRemoteIp(),
+                'remotePort' => $this->getRemotePort(),
+            ];
+        }
+
+        return $return;
     }
 
     /**

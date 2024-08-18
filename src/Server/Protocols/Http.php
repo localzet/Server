@@ -184,6 +184,8 @@ class Http
             $request->properties = [];
             return $request;
         }
+
+        /** @var Request $request */
         $request = new static::$requestClass($buffer);
         $request->connection = $connection;
         $connection->request = $request;
