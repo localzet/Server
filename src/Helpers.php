@@ -1,6 +1,11 @@
 <?php
 
 use localzet\Server;
+use localzet\Server\Events\Linux;
+use localzet\Server\Events\Linux\Driver\EvDriver;
+use localzet\Server\Events\Linux\Driver\EventDriver;
+use localzet\Server\Events\Linux\Driver\UvDriver;
+use localzet\Server\Events\Windows;
 
 /**
  * @package     Localzet Server
