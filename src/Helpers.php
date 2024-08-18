@@ -110,11 +110,11 @@ function localzet_start(
  * Привязывает методы класса к серверу.
  *
  * @param Server $server Экземпляр сервера.
- * @param ServerAbstract|string $class Класс, методы которого будут привязаны.
+ * @param ServerAbstract|mixed $class Класс, методы которого будут привязаны.
  *
  * @throws ReflectionException
  */
-function localzet_bind(Server &$server, ServerAbstract|string $class): void
+function localzet_bind(Server &$server, mixed $class): void
 {
     $callbackMap = [
         'onServerStop',
