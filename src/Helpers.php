@@ -135,7 +135,7 @@ function localzet_bind(Server &$server, mixed $class): void
 
     foreach (['onServerExit', 'onMasterReload', 'onMasterStop'] as $name) {
         if (method_exists($class, $name)) {
-            $server::$$$name = [$class, $name];
+            $server::$$name = [$class, $name];
         }
     }
 }
