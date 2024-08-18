@@ -132,7 +132,8 @@ function localzet_bind(Server &$server, mixed $class): void
     ];
 
     foreach ($callbackMap as $name) {
-        if (method_exists($class, $name) && !is_abstract_method($class, $name)) {
+        if (method_exists($class, $name)) {
+            if ($class instanceof ServerAbstract && is_abstract_method($class::class, $name)) continue;
             $server->$name = [$class, $name];
         }
     }
