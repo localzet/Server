@@ -95,7 +95,7 @@ abstract class ServerAbstract
      * @param ConnectionInterface $connection Интерфейс соединения.
      * @param mixed $request Запрос.
      */
-    public function onMessage(ConnectionInterface $connection, mixed $request): void {}
+    public abstract function onMessage(ConnectionInterface $connection, mixed $request): void;
 
     /**
      * Метод, вызываемый при закрытии соединения.

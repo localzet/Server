@@ -133,31 +133,13 @@ function localzet_bind(Server &$server, mixed $class): void
 
     foreach ($callbackMap as $name) {
         if (method_exists($class, $name)) {
-            if ($class instanceof ServerAbstract && is_abstract_method($class, $name)) continue;
             $server->$name = [$class, $name];
         }
     }
 
     if (method_exists($class, 'onServerStart')) {
-        if ($class instanceof ServerAbstract && is_abstract_method($class, $name)) return;
         call_user_func([$class, 'onServerStart'], $server);
     }
-}
-
-/**
- * Проверяет, является ли метод абстрактным.
- *
- * @param object|string $class Класс, содержащий метод.
- * @param null|string $method Имя метода.
- *
- * @return bool Возвращает true, если метод абстрактный, иначе false.
- *
- * @throws ReflectionException
- */
-function is_abstract_method($class, $method): bool
-{
-    $reflection = new ReflectionMethod($class, $method);
-    return $reflection->isAbstract();
 }
 
 /**
