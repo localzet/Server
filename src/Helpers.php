@@ -153,7 +153,7 @@ function localzet_bind(Server &$server, mixed $class): void
  *
  * @throws ReflectionException
  */
-function is_abstract_method($class, $method): bool
+function is_abstract_method(string $class, string $method): bool
 {
     $reflection = new ReflectionMethod($class, $method);
     return $reflection->isAbstract();
