@@ -327,8 +327,8 @@ class Websocket
             $connection->consumeRecvBuffer($headerLength);
 
             // Попытка вызвать обратный вызов onWebSocketConnect.
-            $onWebsocketConnect = $connection->onWebSocketConnect ?? $connection->server->onWebSocketConnect ?? false;
-            if ($onWebsocketConnect) {
+            $onWebSocketConnect = $connection->onWebSocketConnect ?? $connection->server->onWebSocketConnect ?? false;
+            if ($onWebSocketConnect) {
                 try {
                     $request = new Request($buffer);
                     $request->connection = $connection;
@@ -344,7 +344,7 @@ class Websocket
                     $_REQUEST = $_GET + $_POST + $_COOKIE;
                     $_SESSION = $request->session();
 
-                    $onWebsocketConnect($connection, $request);
+                    $onWebSocketConnect($connection, $request);
                 } catch (Throwable $e) {
                     Server::stopAll(250, $e);
                 }

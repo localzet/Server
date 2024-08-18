@@ -1,19 +1,8 @@
 <?php
 
-use localzet\Server;
-use localzet\Server\Events\Linux;
-use localzet\Server\Events\Linux\Driver\EvDriver;
-use localzet\Server\Events\Linux\Driver\EventDriver;
-use localzet\Server\Events\Linux\Driver\UvDriver;
-use localzet\Server\Events\Windows;
-
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
- *
- * @author      Ivan Zorin <ivan@zorin.space>
- * @copyright   Copyright (c) 2016-2024 Zorin Projects
- * @license     GNU Affero General Public License, version 3
  *
  *              This program is free software: you can redistribute it and/or modify
  *              it under the terms of the GNU Affero General Public License as
@@ -31,25 +20,29 @@ use localzet\Server\Events\Windows;
  *              For any questions, please contact <support@localzet.com>
  */
 
+use localzet\Server;
+use localzet\Server\Events\Linux;
+use localzet\Server\Events\Linux\Driver\EvDriver;
+use localzet\Server\Events\Linux\Driver\EventDriver;
+use localzet\Server\Events\Linux\Driver\UvDriver;
+use localzet\Server\Events\Windows;
+use localzet\ServerAbstract;
+
 /**
+ * Запускает сервер Localzet.
+ *
  * @param string $name Название для серверных процессов
  * @param int $count Количество серверных процессов
- *
  * @param string|null $listen Имя сокета
  * @param array $context Контекст сокета
- *
  * @param string $user Unix пользователь (нужен root)
  * @param string $group Unix группа (нужен root)
- *
  * @param bool $reloadable Перезагружаемый экземпляр?
  * @param bool $reusePort Повторно использовать порт?
- *
  * @param string|null $protocol Протокол уровня приложения
  * @param string $transport Протокол транспортного уровня
- *
  * @param string|null $handler
  * @param array $constructor
- *
  * @param callable|null $onServerStart Выполняется при запуске серверных процессов
  * @param array $services Массив сервисов (только listen, context, handler, constructor)
  *
@@ -58,22 +51,16 @@ use localzet\Server\Events\Windows;
 function localzet_start(
     string    $name = 'none',
     int       $count = 1,
-
     ?string   $listen = null,
     array     $context = [],
-
     string    $user = '',
     string    $group = '',
-
     bool      $reloadable = true,
     bool      $reusePort = false,
-
     ?string   $protocol = null,
     string    $transport = 'tcp',
-
     ?string   $handler = null,
     array     $constructor = [],
-
     ?callable $onServerStart = null,
     array     $services = [],
 ): Server
@@ -119,29 +106,63 @@ function localzet_start(
     return $server;
 }
 
-function localzet_bind(Server $server, $class): void
+/**
+ * Привязывает методы класса к серверу.
+ *
+ * @param Server $server Экземпляр сервера.
+ * @param ServerAbstract|string $class Класс, методы которого будут привязаны.
+ *
+ * @throws ReflectionException
+ */
+function localzet_bind(Server &$server, ServerAbstract|string $class): void
 {
     $callbackMap = [
+        'onServerStop',
+        'onServerReload',
+        'onServerExit',
+        'onMasterReload',
+        'onMasterStop',
         'onConnect',
+        'onWebSocketConnect',
         'onMessage',
         'onClose',
         'onError',
         'onBufferFull',
         'onBufferDrain',
-        'onServerStop',
-        'onWebSocketConnect',
-        'onServerReload'
     ];
+
     foreach ($callbackMap as $name) {
-        if (method_exists($class, $name)) {
+        if (method_exists($class, $name) && !is_abstract_method($class, $name)) {
             $server->$name = [$class, $name];
         }
     }
-    if (method_exists($class, 'onServerStart')) {
+
+    if (method_exists($class, 'onServerStart') && !is_abstract_method($class, 'onServerStart')) {
         call_user_func([$class, 'onServerStart'], $server);
     }
 }
 
+/**
+ * Проверяет, является ли метод абстрактным.
+ *
+ * @param string $class Класс, содержащий метод.
+ * @param string $method Имя метода.
+ *
+ * @return bool Возвращает true, если метод абстрактный, иначе false.
+ *
+ * @throws ReflectionException
+ */
+function is_abstract_method($class, $method): bool
+{
+    $reflection = new ReflectionMethod($class, $method);
+    return $reflection->isAbstract();
+}
+
+/**
+ * Возвращает количество процессоров.
+ *
+ * @return int Количество процессоров.
+ */
 if (!function_exists('cpu_count')) {
     function cpu_count(): int
     {
@@ -160,11 +181,21 @@ if (!function_exists('cpu_count')) {
     }
 }
 
+/**
+ * Проверяет, является ли операционная система Unix-подобной.
+ *
+ * @return bool Возвращает true, если операционная система Unix-подобная, иначе false.
+ */
 function is_unix(): bool
 {
     return DIRECTORY_SEPARATOR === '/';
 }
 
+/**
+ * Возвращает имя используемого цикла событий.
+ *
+ * @return string Имя цикла событий.
+ */
 function get_event_loop_name(): string
 {
     if (!is_unix()) {
@@ -183,9 +214,19 @@ function get_event_loop_name(): string
     }
 
     return Linux::class;
-
 }
 
+/**
+ * Форматирует HTTP-ответ.
+ *
+ * @param int $code Код ответа.
+ * @param string|null $body Тело ответа.
+ * @param string|null $reason Причина ответа.
+ * @param array $headers Заголовки ответа.
+ * @param string $version Версия HTTP.
+ *
+ * @return string Форматированный HTTP-ответ.
+ */
 function format_http_response(int $code, ?string $body = '', string $reason = null, array $headers = [], string $version = '1.1'): string
 {
     $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
@@ -226,6 +267,15 @@ function format_http_response(int $code, ?string $body = '', string $reason = nu
     return $head . $body;
 }
 
+/**
+ * Форматирует WebSocket-ответ.
+ *
+ * @param int $code Код ответа.
+ * @param array $headers Заголовки ответа.
+ * @param string $version Версия HTTP.
+ *
+ * @return string Форматированный WebSocket-ответ.
+ */
 function format_websocket_response(int $code, array $headers = [], string $version = '1.1'): string
 {
     $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
