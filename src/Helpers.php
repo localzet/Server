@@ -47,63 +47,73 @@ use localzet\ServerAbstract;
  * @param array $services Массив сервисов (только listen, context, handler, constructor)
  *
  * @return Server
+ * @throws ReflectionException
  */
 function localzet_start(
-    string    $name = 'none',
-    int       $count = 1,
-    ?string   $listen = null,
-    array     $context = [],
-    string    $user = '',
-    string    $group = '',
-    bool      $reloadable = true,
-    bool      $reusePort = false,
-    ?string   $protocol = null,
-    string    $transport = 'tcp',
-    ?string   $handler = null,
-    array     $constructor = [],
-    ?callable $onServerStart = null,
-    array     $services = [],
+    // Свойства главного сервера
+    string  $name = 'none',
+    int     $count = 1,
+    ?string $listen = null,
+    array   $context = [],
+    string  $user = '',
+    string  $group = '',
+    bool    $reloadable = true,
+    bool    $reusePort = false,
+    ?string $protocol = null,
+    string  $transport = 'tcp',
+    // Бизнес-исполнитель
+    ?string $handler = null,
+    array   $constructor = [],
+    // Дополнительные сервера
+    array   $services = [],
 ): Server
 {
-    $server = new Server($listen, $context);
-    $server->name = $name;
-    $server->count = $count;
-    $server->user = $user;
-    $server->group = $group;
-    $server->reloadable = $reloadable;
-    $server->reusePort = $reusePort;
-    $server->transport = $transport;
-    $server->protocol = $protocol;
+    $master = new Server($listen ?? null, $context ?? []);
+    $master->name = $name ?? 'none';
+    $master->count = $count ?? 1;
+    $master->user = $user ?? '';
+    $master->group = $group ?? '';
+    $master->reloadable = $reloadable ?? true;
+    $master->reusePort = $reusePort ?? false;
+    $master->transport = $transport ?? 'tcp';
+    $master->protocol = $protocol ?? null;
 
-    $server->onServerStart = function ($server) use ($services, $handler, $constructor, $onServerStart) {
-        if ($onServerStart) $onServerStart($server);
+    $onServerStart = null;
+    if ($handler && class_exists($handler)) {
+        $instance = new $handler(...array_values($constructor));
+        localzet_bind($master, $instance);
+
+        if (method_exists($instance, 'onServerStart')) {
+            $onServerStart = [$instance, 'onServerStart'];
+        }
+    }
+
+    $master->onServerStart = function ($master) use ($services, $onServerStart) {
+        if ($onServerStart) $onServerStart($master);
 
         foreach ($services as $service) {
-            if (!class_exists($service['handler'])) {
-                Server::log("Класс '{$service['handler']}' не найден");
-                continue;
+            extract($service);
+
+            $server = new Server($listen ?? null, $context ?? []);
+            $server->name = $name ?? 'none';
+            $server->count = $count ?? 1;
+            $server->user = $user ?? '';
+            $server->group = $group ?? '';
+            $server->reloadable = $reloadable ?? true;
+            $server->reusePort = $reusePort ?? false;
+            $server->transport = $transport ?? 'tcp';
+            $server->protocol = $protocol ?? null;
+
+            if ($handler && class_exists($handler)) {
+                $instance = new $handler(...array_values($constructor ?? []));
+                localzet_bind($server, $instance);
             }
 
-            $listen = new Server($service['listen'] ?? null, $service['context'] ?? []);
-            if (isset($service['listen'])) {
-                Server::log("Прослушиваем: {$service['listen']}\n");
-            }
-
-            $instance = new $service['handler'](...array_values($service['constructor']));
-            localzet_bind($listen, $instance);
-            $listen->listen();
-        }
-
-        if ($handler) {
-            if (!class_exists($handler)) {
-                throw new Exception("Класс '$handler' не найден");
-            }
-            $instance = new $handler(...array_values($constructor ?? []));
-            localzet_bind($server, $instance);
+            $server->listen();
         }
     };
 
-    return $server;
+    return $master;
 }
 
 /**
@@ -111,34 +121,22 @@ function localzet_start(
  *
  * @param Server $server Экземпляр сервера.
  * @param ServerAbstract|mixed $class Класс, методы которого будут привязаны.
- *
- * @throws ReflectionException
  */
 function localzet_bind(Server &$server, mixed $class): void
 {
-    $callbackMap = [
-        'onServerStop',
-        'onServerReload',
-        'onServerExit',
-        'onMasterReload',
-        'onMasterStop',
-        'onConnect',
-        'onWebSocketConnect',
-        'onMessage',
-        'onClose',
-        'onError',
-        'onBufferFull',
-        'onBufferDrain',
-    ];
-
-    foreach ($callbackMap as $name) {
+    foreach (['onServerStart', 'onServerStop', 'onServerReload',
+                 'onConnect', 'onWebSocketConnect',
+                 'onMessage', 'onClose', 'onError',
+                 'onBufferFull', 'onBufferDrain'] as $name) {
         if (method_exists($class, $name)) {
             $server->$name = [$class, $name];
         }
     }
 
-    if (method_exists($class, 'onServerStart')) {
-        call_user_func([$class, 'onServerStart'], $server);
+    foreach (['onServerExit', 'onMasterReload', 'onMasterStop'] as $name) {
+        if (method_exists($class, $name)) {
+            $server::{$name} = [$class, $name];
+        }
     }
 }
 
