@@ -417,7 +417,7 @@ class Response implements Stringable
             return $this->createHeadForFile($this->file);
         }
 
-        return format_http_response($this->status, $this->reason, $this->body, $this->headers, $this->version);
+        return format_http_response($this->status, $this->body, $this->reason, $this->headers, $this->version);
     }
 
 

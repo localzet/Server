@@ -186,7 +186,7 @@ function get_event_loop_name(): string
 
 }
 
-function format_http_response(int $code, string $reason = null, string $body = '', array $headers = [], string $version = '1.1'): string
+function format_http_response(int $code, ?string $body = '', string $reason = null, array $headers = [], string $version = '1.1'): string
 {
     // Получаем причину, если она не указана
     $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
@@ -204,15 +204,17 @@ function format_http_response(int $code, string $reason = null, string $body = '
     // Формируем строку заголовков
     foreach ($headers as $name => $values) {
         foreach ((array)$values as $value) {
-            $head .= "$name: $value\r\n";
+            if ($value) {
+                $head .= "$name: $value\r\n";
+            }
         }
     }
 
     // Определяем длину тела
-    $bodyLen = strlen($body);
+    $bodyLen = $body ? strlen($body) : null;
 
     // Добавляем Content-Length, если Transfer-Encoding не указан
-    if (empty($headers['Transfer-Encoding'])) {
+    if (empty($headers['Transfer-Encoding']) && $bodyLen) {
         $head .= "Content-Length: $bodyLen\r\n";
     }
 
@@ -221,7 +223,7 @@ function format_http_response(int $code, string $reason = null, string $body = '
 
     if ($version === '1.1') {
         // В HTTP/1.1 поддерживается Transfer-Encoding: chunked
-        if (!empty($headers['Transfer-Encoding']) && $headers['Transfer-Encoding'] === 'chunked') {
+        if (!empty($headers['Transfer-Encoding']) && $headers['Transfer-Encoding'] === 'chunked' && $bodyLen) {
             return $head . dechex($bodyLen) . "\r\n$body\r\n";
         }
 

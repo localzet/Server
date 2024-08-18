@@ -225,7 +225,7 @@ class Http
             $request->session = $request->connection = $connection->request = null;
         }
         if (!is_object($response)) {
-            $return = format_http_response(200, 'OK', (string)$response, $connection->headers);
+            $return = format_http_response(200, (string)$response, null, $connection->headers);
             $connection->headers = [];
             return $return;
         }
