@@ -338,17 +338,6 @@ class Websocket
                     $request = new Request($buffer);
                     $request->connection = $connection;
                     $connection->request = $request;
-
-                    foreach ($request->header() as $name => $value) {
-                        $_SERVER[strtoupper($name)] = $value;
-                    }
-
-                    $_GET = $request->get();
-                    $_POST = $request->post();
-                    $_COOKIE = $request->cookie();
-                    $_REQUEST = $_GET + $_POST + $_COOKIE;
-                    $_SESSION = $request->session();
-
                     $onWebSocketConnect($connection, $request);
                 } catch (Throwable $e) {
                     Server::stopAll(250, $e);
