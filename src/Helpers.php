@@ -180,3 +180,50 @@ function get_event_loop_name(): string
     return Linux::class;
 
 }
+
+function format_http_response(int $code, string $reason = null, string $body = '', array $headers = [], string $version = '1.1'): string
+{
+    // Получаем причину, если она не указана
+    $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
+
+    // Формируем начальную строку заголовка
+    $head = "HTTP/$version $code $reason\r\n";
+
+    // Объединяем заголовки, добавляя стандартные значения
+    $defaultHeaders = [
+        'Connection' => $headers['Connection'] ?? 'keep-alive',
+        'Content-Type' => $headers['Content-Type'] ?? 'text/html;charset=utf-8',
+    ];
+    $headers = array_merge(['Server' => 'Localzet-Server'], $headers, $defaultHeaders);
+
+    // Формируем строку заголовков
+    foreach ($headers as $name => $values) {
+        foreach ((array)$values as $value) {
+            $head .= "$name: $value\r\n";
+        }
+    }
+
+    // Определяем длину тела
+    $bodyLen = strlen($body);
+
+    // Добавляем Content-Length, если Transfer-Encoding не указан
+    if (empty($headers['Transfer-Encoding'])) {
+        $head .= "Content-Length: $bodyLen\r\n";
+    }
+
+    // Добавляем пустую строку для разделения заголовков и тела
+    $head .= "\r\n";
+
+    if ($version === '1.1') {
+        // В HTTP/1.1 поддерживается Transfer-Encoding: chunked
+        if (!empty($headers['Transfer-Encoding']) && $headers['Transfer-Encoding'] === 'chunked') {
+            return $head . dechex($bodyLen) . "\r\n$body\r\n";
+        }
+
+        return $head . $body;
+    }
+
+    // Возвращаем заголовки и тело по умолчанию
+    return $head . $body;
+}
+

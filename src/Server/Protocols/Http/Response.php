@@ -417,38 +417,7 @@ class Response implements Stringable
             return $this->createHeadForFile($this->file);
         }
 
-        // Получаем причину фразы или используем стандартную.
-        $reason = $this->reason ?: self::PHRASES[$this->status] ?? '';
-
-        // Получаем длину тела.
-        $bodyLen = strlen($this->body);
-
-        // Устанавливаем базовые заголовки.
-        $this->withHeader('Server', 'Localzet-Server');
-        $this->withHeader('Connection', $this->getHeader('Connection') ?: 'keep-alive');
-        $this->withHeader('Content-Type', $this->getHeader('Content-Type') ?: 'text/html;charset=utf-8');
-
-        // Формируем строку заголовка.
-        $head = "HTTP/$this->version $this->status $reason\r\n";
-        foreach ($this->headers as $name => $values) {
-            foreach ((array)$values as $value) {
-                $head .= "$name: $value\r\n";
-            }
-        }
-
-        // Обрабатываем специфические случаи типов контента.
-        if ($this->getHeader('Content-Type') === 'text/event-stream') {
-            return $head . $this->body;
-        }
-
-        // Добавляем длину контента, если не установлен Transfer-Encoding.
-        if (!$this->getHeader('Transfer-Encoding')) {
-            $head .= "Content-Length: $bodyLen\r\n\r\n";
-        } else {
-            return $bodyLen ? "$head\r\n" . dechex($bodyLen) . "\r\n$this->body\r\n" : "$head\r\n";
-        }
-
-        return $head . $this->body;
+        return format_http_response($this->status, $this->reason, $this->body, $this->headers, $this->version);
     }
 
 
@@ -461,16 +430,22 @@ class Response implements Stringable
     protected function createHeadForFile(array $fileInfo): string
     {
         $file = $fileInfo['file'];
-        // Причина фразы.
-        $reason = $this->reason ?: self::PHRASES[$this->status];
 
-        // Устанавливаем базовые заголовки.
-        $this->withHeader('Server', 'Localzet-Server');
-        $this->withHeader('Connection', $this->getHeader('Connection') ?: 'keep-alive');
+        // Получаем причину, если она не указана
+        $reason ??= Server\Protocols\Http\Response::PHRASES[$this->status] ?? 'Unknown Status';
 
-        // Формируем строку заголовка.
+        // Формируем начальную строку заголовка
         $head = "HTTP/$this->version $this->status $reason\r\n";
-        foreach ($this->headers as $name => $values) {
+
+        // Объединяем заголовки, добавляя стандартные значения
+        $defaultHeaders = [
+            'Server' => 'Localzet-Server',
+            'Connection' => $this->headers['Connection'] ?? 'keep-alive',
+        ];
+        $headers = array_merge($defaultHeaders, $this->headers);
+
+        // Формируем строку заголовков
+        foreach ($headers as $name => $values) {
             foreach ((array)$values as $value) {
                 $head .= "$name: $value\r\n";
             }

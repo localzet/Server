@@ -39,7 +39,6 @@ use function fseek;
 use function ftell;
 use function in_array;
 use function ini_get;
-use function is_array;
 use function is_object;
 use function key;
 use function preg_match;
@@ -118,7 +117,7 @@ class Http
         if (false === $crlfPos) {
             // Проверьте, не превышает ли длина пакета лимит.
             if (strlen($buffer) >= 16384) {
-                $connection->close("HTTP/1.1 413 Слишком большой размер полезной нагрузки\r\n\r\n", true);
+                $connection->close(format_http_response(413), true);
             }
             return 0;
         }
@@ -127,14 +126,14 @@ class Http
         $firstLine = explode(" ", strstr($buffer, "\r\n", true), 3);
 
         if (!in_array($firstLine[0], ['GET', 'POST', 'OPTIONS', 'HEAD', 'DELETE', 'PUT', 'PATCH'])) {
-            $connection->close("HTTP/1.1 400 Неверный запрос\r\nContent-Length: 0\r\n\r\n", true);
+            $connection->close(format_http_response(400), true);
             return 0;
         }
 
         $header = substr($buffer, 0, $crlfPos);
 
         if (!str_contains($header, "\r\nHost: ") && $firstLine[2] === "HTTP/1.1") {
-            $connection->close("HTTP/1.1 400 Неверный запрос\r\nContent-Length: 0\r\n\r\n", true);
+            $connection->close(format_http_response(400), true);
             return 0;
         }
 
@@ -147,13 +146,13 @@ class Http
         } else {
             $hasContentLength = false;
             if (str_contains($header, "\r\nTransfer-Encoding:")) {
-                $connection->close("HTTP/1.1 400 Неверный запрос\r\nContent-Length: 0\r\n\r\n", true);
+                $connection->close(format_http_response(400), true);
                 return 0;
             }
         }
 
         if ($hasContentLength && $length > $connection->maxPackageSize) {
-            $connection->close("HTTP/1.1 413 Слишком большой размер полезной нагрузки\r\n\r\n", true);
+            $connection->close(format_http_response(413), true);
             return 0;
         }
 
@@ -226,31 +225,9 @@ class Http
             $request->session = $request->connection = $connection->request = null;
         }
         if (!is_object($response)) {
-            // Дополнительные заголовки.
-            $extHeader = '';
-            $connection->headers['Server'] = 'Localzet-Server';
-            $connection->headers['Connection'] = 'keep-alive';
-            $connection->headers['Content-Type'] = 'text/html;charset=utf-8';
-
-            foreach ($connection->headers as $name => $value) {
-                if (is_array($value)) {
-                    foreach ($value as $item) {
-                        // Добавляем каждый элемент массива в заголовок.
-                        $extHeader .= "$name: $item\r\n";
-                    }
-                } else {
-                    // Добавляем значение в заголовок.
-                    $extHeader .= "$name: $value\r\n";
-                }
-            }
-            // Очищаем заголовки после использования.
+            $return = format_http_response(200, 'OK', (string)$response, $connection->headers);
             $connection->headers = [];
-            // Преобразуем ответ в строку.
-            $response = (string)$response;
-            // Получаем длину тела ответа.
-            $bodyLen = strlen($response);
-            // Возвращаем сформированный HTTP-ответ.
-            return "HTTP/1.1 200 OK\r\n{$extHeader}Content-Length: $bodyLen\r\n\r\n$response";
+            return $return;
         }
 
         if ($connection->headers) {
