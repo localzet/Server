@@ -177,12 +177,12 @@ class Response implements Stringable
      * Конструктор ответа.
      *
      * @param int $status
-     * @param array|null $headers
+     * @param array $headers
      * @param string $body
      */
     public function __construct(
         int    $status = 200,
-        ?array $headers = [],
+        array $headers = [],
         string $body = ''
     )
     {

@@ -215,10 +215,11 @@ function format_http_response(int $code, string $body = '', array $headers = [],
     $head = "HTTP/$version $code $reason\r\n";
 
     $defaultHeaders = [
-        'Connection' => 'keep-alive',
-        'Content-Type' => 'text/html;charset=utf-8',
+        'Server' => 'Localzet-Server',
+        'Connection' => $headers['Connection'] ?? 'keep-alive',
+        'Content-Type' => $headers['Content-Type'] ?? 'text/html;charset=utf-8',
     ];
-    $headers = array_merge($defaultHeaders, $headers, ['Server' => 'Localzet-Server']);
+    $headers = array_merge($headers, $defaultHeaders);
 
     foreach ($headers as $name => $values) {
         foreach ((array)$values as $value) {
@@ -262,7 +263,13 @@ function format_websocket_response(int $code, array $headers = []): string
     $reason = Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
     $head = "HTTP/1.1 $code $reason\r\n";
 
-    $headers = array_merge($headers, ['Server' => 'Localzet-Server']);
+    $defaultHeaders = [
+        'Server' => 'Localzet-Server',
+        'Connection' => $headers['Connection'] ?? 'Upgrade',
+        'Upgrade' => $headers['Upgrade'] ?? 'websocket',
+        'Sec-WebSocket-Version' => $headers['Sec-WebSocket-Version'] ?? 13,
+    ];
+    $headers = array_merge($headers, $defaultHeaders);
 
     foreach ($headers as $name => $values) {
         foreach ((array)$values as $value) {
