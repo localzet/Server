@@ -31,56 +31,56 @@ use localzet\ServerAbstract;
 /**
  * Запускает сервер Localzet.
  *
- * @param string $name Название для серверных процессов
- * @param int $count Количество серверных процессов
+ * @param string|null $name Название для серверных процессов
+ * @param int|null $count Количество серверных процессов
  * @param string|null $listen Имя сокета
- * @param array $context Контекст сокета
- * @param string $user Unix пользователь (нужен root)
- * @param string $group Unix группа (нужен root)
- * @param bool $reloadable Перезагружаемый экземпляр?
- * @param bool $reusePort Повторно использовать порт?
+ * @param array|null $context Контекст сокета
+ * @param string|null $user Unix пользователь (нужен root)
+ * @param string|null $group Unix группа (нужен root)
+ * @param bool|null $reloadable Перезагружаемый экземпляр?
+ * @param bool|null $reusePort Повторно использовать порт?
  * @param string|null $protocol Протокол уровня приложения
- * @param string $transport Протокол транспортного уровня
- * @param string|null $handler
- * @param array $constructor
- * @param callable|null $onServerStart Выполняется при запуске серверных процессов
- * @param array $services Массив сервисов (только listen, context, handler, constructor)
+ * @param string|null $transport Протокол транспортного уровня
+ * @param Server|null $server Экземпляр сервера, или его наследника
+ * @param string|null $handler [ServerAbstract](\localzet\ServerAbstract)
+ * @param array|null $constructor
+ * @param array|null $services Массив сервисов (только listen, context, handler, constructor)
  *
  * @return Server
- * @throws ReflectionException
  */
 function localzet_start(
     // Свойства главного сервера
-    string  $name = 'none',
-    int     $count = 1,
+    ?string $name = null,
+    ?int    $count = null,
     ?string $listen = null,
-    array   $context = [],
-    string  $user = '',
-    string  $group = '',
-    bool    $reloadable = true,
-    bool    $reusePort = false,
+    ?array  $context = null,
+    ?string $user = null,
+    ?string $group = null,
+    ?bool   $reloadable = null,
+    ?bool   $reusePort = null,
     ?string $protocol = null,
-    string  $transport = 'tcp',
+    ?string $transport = null,
+    ?Server $server = null,
     // Бизнес-исполнитель
     ?string $handler = null,
-    array   $constructor = [],
+    ?array  $constructor = null,
     // Дополнительные сервера
-    array   $services = [],
+    ?array  $services = null,
 ): Server
 {
-    $master = new Server($listen ?? null, $context ?? []);
-    $master->name = $name ?? 'none';
-    $master->count = $count ?? 1;
-    $master->user = $user ?? '';
-    $master->group = $group ?? '';
-    $master->reloadable = $reloadable ?? true;
-    $master->reusePort = $reusePort ?? false;
-    $master->transport = $transport ?? 'tcp';
-    $master->protocol = $protocol ?? null;
+    $master = $server ?? new Server($listen ?? null, $context ?? []);
+    $master->name = $name ?? $server->name;
+    $master->count = $count ?? $server->count;
+    $master->user = $user ?? $server->user;
+    $master->group = $group ?? $server->group;
+    $master->reloadable = $reloadable ?? $server->reloadable;
+    $master->reusePort = $reusePort ?? $server->reusePort;
+    $master->transport = $transport ?? $server->transport;
+    $master->protocol = $protocol ?? $server->protocol;
 
     $onServerStart = null;
     if ($handler && class_exists($handler)) {
-        $instance = new $handler(...array_values($constructor));
+        $instance = new $handler(...array_values($constructor ?? []));
         localzet_bind($master, $instance);
 
         if (method_exists($instance, 'onServerStart')) {
@@ -91,10 +91,10 @@ function localzet_start(
     $master->onServerStart = function ($master) use ($services, $onServerStart) {
         if ($onServerStart) $onServerStart($master);
 
-        foreach ($services as $service) {
+        foreach ($services ?? [] as $service) {
             extract($service);
 
-            $server = new Server($listen ?? null, $context ?? []);
+            $server ??= new Server($listen ?? null, $context ?? []);
             $server->name = $name ?? 'none';
             $server->count = $count ?? 1;
             $server->user = $user ?? '';
