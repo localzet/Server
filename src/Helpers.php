@@ -41,7 +41,7 @@ use localzet\ServerAbstract;
  * @param bool|null $reusePort Повторно использовать порт?
  * @param string|null $protocol Протокол уровня приложения
  * @param string|null $transport Протокол транспортного уровня
- * @param Server|null $server Экземпляр сервера, или его наследника
+ * @param class-string|null $server Экземпляр сервера, или его наследника
  * @param string|null $handler [ServerAbstract](\localzet\ServerAbstract)
  * @param array|null $constructor
  * @param array|null $services Массив сервисов (только listen, context, handler, constructor)
@@ -60,7 +60,7 @@ function localzet_start(
     ?bool   $reusePort = null,
     ?string $protocol = null,
     ?string $transport = null,
-    ?Server $server = null,
+    ?string $server = null,
     // Бизнес-исполнитель
     ?string $handler = null,
     ?array  $constructor = null,
