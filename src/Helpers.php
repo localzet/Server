@@ -68,15 +68,16 @@ function localzet_start(
     ?array  $services = null,
 ): Server
 {
-    $master = $server ?? new Server($listen ?? null, $context ?? []);
-    $master->name = $name ?? $server->name;
-    $master->count = $count ?? $server->count;
-    $master->user = $user ?? $server->user;
-    $master->group = $group ?? $server->group;
-    $master->reloadable = $reloadable ?? $server->reloadable;
-    $master->reusePort = $reusePort ?? $server->reusePort;
-    $master->transport = $transport ?? $server->transport;
-    $master->protocol = $protocol ?? $server->protocol;
+    $server ??= Server::class;
+    $master = new $server($listen ?? null, $context ?? []);
+    $master->name = $name ?? $master->name;
+    $master->count = $count ?? $master->count;
+    $master->user = $user ?? $master->user;
+    $master->group = $group ?? $master->group;
+    $master->reloadable = $reloadable ?? $master->reloadable;
+    $master->reusePort = $reusePort ?? $master->reusePort;
+    $master->transport = $transport ?? $master->transport;
+    $master->protocol = $protocol ?? $master->protocol;
 
     $onServerStart = null;
     if ($handler && class_exists($handler)) {
@@ -94,7 +95,8 @@ function localzet_start(
         foreach ($services ?? [] as $service) {
             extract($service);
 
-            $server ??= new Server($listen ?? null, $context ?? []);
+            $server ??= Server::class;
+            $server = new $server($listen ?? null, $context ?? []);
             $server->name = $name ?? 'none';
             $server->count = $count ?? 1;
             $server->user = $user ?? '';
