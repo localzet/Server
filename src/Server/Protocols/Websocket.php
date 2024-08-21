@@ -67,6 +67,27 @@ class Websocket
     public const BINARY_TYPE_ARRAYBUFFER = "\x82";
 
     /**
+     * Имя класса Request.
+     *
+     * @var string
+     */
+    protected static string $requestClass = Request::class;
+
+    /**
+     * Получить или установить имя класса Request для рукопожатия.
+     *
+     * @param string|null $className
+     * @return string
+     */
+    public static function requestClass(string $className = null): string
+    {
+        if ($className !== null) {
+            static::$requestClass = $className;
+        }
+        return static::$requestClass;
+    }
+
+    /**
      * Проверка целостности пакета.
      *
      * @param string $buffer
@@ -330,7 +351,8 @@ class Websocket
             $onWebSocketConnect = $connection->onWebSocketConnect ?? $connection->server->onWebSocketConnect ?? false;
             if ($onWebSocketConnect) {
                 try {
-                    $request = new Request($buffer);
+                    /** @var Request $request */
+                    $request = new static::$requestClass($buffer);
                     $request->connection = $connection;
                     $connection->request = $request;
                     $onWebSocketConnect($connection, $request);
