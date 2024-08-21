@@ -337,7 +337,7 @@ class Websocket
             $newKey = base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true));
 
             // Данные ответа на рукопожатие.
-            $response = new Server\Protocols\Http\Response(101, [
+            $connection->response = new Server\Protocols\Http\Response(101, [
                 'Sec-WebSocket-Accept' => $newKey,
                 'Connection' => 'Upgrade',
                 'Upgrade' => 'websocket',
@@ -363,15 +363,15 @@ class Websocket
                     $addResponse = $onWebSocketConnect($connection, $request) ?? null;
                     if ($addResponse instanceof Server\Protocols\Http\Response) {
                         if (!in_array($addResponse->getStatusCode(), [200, 101])) {
-                            $response->withStatus($addResponse->getStatusCode());
+                            $connection->response->withStatus($addResponse->getStatusCode());
                         }
 
                         if ($addResponse->getHeaders() !== null) {
-                            $response->withHeaders($addResponse->getHeaders());
+                            $connection->response->withHeaders($addResponse->getHeaders());
                         }
 
                         if (!empty($addResponse->rawBody())) {
-                            $response->withBody($addResponse->rawBody());
+                            $connection->response->withBody($addResponse->rawBody());
                         }
                     }
                 } catch (Throwable $e) {
@@ -385,11 +385,11 @@ class Websocket
             }
 
             if ($connection->headers) {
-                $response->withHeaders($connection->headers);
+                $connection->response->withHeaders($connection->headers);
             }
 
             // Отправить ответ на рукопожатие.
-            $connection->send($response, true);
+            $connection->send((string)$connection->response, true);
             // Пометить рукопожатие как завершенное.
             $connection->context->websocketHandshake = true;
 
