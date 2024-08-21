@@ -317,103 +317,94 @@ class Websocket
         $request->connection = $connection;
         $connection->request = $request;
 
-        try {
-            // Протокол HTTP.
-            if ($request->isMethod('GET')) {
-                $headerEndPos = strpos($buffer, "\r\n\r\n");
-                if (!$headerEndPos) {
-                    return 0;
-                }
-                $headerLength = $headerEndPos + 4;
-
-                // Get Sec-WebSocket-Key.
-                $SecWebSocketKey = $request->header('Sec-WebSocket-Key');
-                if (!$SecWebSocketKey) {
-                    $connection->close(format_http_response(400), true);
-                    return 0;
-                }
-
-                // Данные ответа на рукопожатие.
-                $connection->response = new Server\Protocols\Http\Response(101, [
-                    'Sec-WebSocket-Accept' => base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true)),
-                    'Connection' => 'Upgrade',
-                    'Upgrade' => 'websocket',
-                    'Sec-WebSocket-Version' => 13,
-                ], null);
-
-                // Буфер данных websocket.
-                $connection->context->websocketDataBuffer = '';
-
-                // Текущая длина кадра websocket.
-                $connection->context->websocketCurrentFrameLength = 0;
-
-                // Текущие данные кадра websocket.
-                $connection->context->websocketCurrentFrameBuffer = '';
-
-                // Разбор данных рукопожатия.
-                $connection->consumeRecvBuffer($headerLength);
-
-                // Попытка вызвать обратный вызов onWebSocketConnect.
-                $onWebSocketConnect = $connection->onWebSocketConnect ?? $connection->server->onWebSocketConnect ?? false;
-                if ($onWebSocketConnect) {
-                    try {
-                        $addResponse = $onWebSocketConnect($connection, $request) ?? null;
-
-                        if ($addResponse instanceof Server\Protocols\Http\Response) {
-                            if ($addResponse->getHeaders()) {
-                                $connection->response->withHeaders($addResponse->getHeaders());
-                            }
-
-                            if ($addResponse->getStatusCode() >= 400) {
-                                $connection->response->withStatus($addResponse->getStatusCode());
-
-                                if (!empty($addResponse->rawBody())) {
-                                    $connection->response->withBody($addResponse->rawBody());
-                                }
-
-                                $connection->close((string)$connection->response, true);
-                                return 0;
-                            }
-                        }
-                    } catch (Throwable $e) {
-                        Server::stopAll(250, $e);
-                    }
-                }
-
-                // blob или arraybuffer
-                if (empty($connection->websocketType)) {
-                    $connection->websocketType = static::BINARY_TYPE_BLOB;
-                }
-
-                if ($connection->headers) {
-                    $connection->response->withHeaders($connection->headers);
-                }
-
-                // Отправить ответ на рукопожатие.
-                $connection->send((string)$connection->response, true);
-                // Пометить рукопожатие как завершенное.
-                $connection->context->websocketHandshake = true;
-
-                // Есть данные, ожидающие отправки.
-                if (!empty($connection->context->tmpWebsocketData)) {
-                    // Отправка временных данных websocket.
-                    $connection->send($connection->context->tmpWebsocketData, true);
-                    // Очистка временных данных websocket.
-                    $connection->context->tmpWebsocketData = '';
-                }
-
-                if (strlen($buffer) > $headerLength) {
-                    return static::input(substr($buffer, $headerLength), $connection);
-                }
+        // Протокол HTTP.
+        if ($request->isMethod('GET')) {
+            $headerEndPos = strpos($buffer, "\r\n\r\n");
+            if (!$headerEndPos) {
                 return 0;
             }
-        } finally {
-            if (isset($connection->request)) {
-                // Удаляем ссылки на запрос и соединение для предотвращения утечки памяти.
-                $request = $connection->request;
-                // Очищаем свойства запроса и соединения.
-                $request->session = $request->connection = $connection->request = null;
+            $headerLength = $headerEndPos + 4;
+
+            // Get Sec-WebSocket-Key.
+            $SecWebSocketKey = $request->header('Sec-WebSocket-Key');
+            if (!$SecWebSocketKey) {
+                $connection->close(format_http_response(400), true);
+                return 0;
             }
+
+            // Данные ответа на рукопожатие.
+            $connection->response = new Server\Protocols\Http\Response(101, [
+                'Sec-WebSocket-Accept' => base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true)),
+                'Connection' => 'Upgrade',
+                'Upgrade' => 'websocket',
+                'Sec-WebSocket-Version' => 13,
+            ], null);
+
+            // Буфер данных websocket.
+            $connection->context->websocketDataBuffer = '';
+
+            // Текущая длина кадра websocket.
+            $connection->context->websocketCurrentFrameLength = 0;
+
+            // Текущие данные кадра websocket.
+            $connection->context->websocketCurrentFrameBuffer = '';
+
+            // Разбор данных рукопожатия.
+            $connection->consumeRecvBuffer($headerLength);
+
+            // Попытка вызвать обратный вызов onWebSocketConnect.
+            $onWebSocketConnect = $connection->onWebSocketConnect ?? $connection->server->onWebSocketConnect ?? false;
+            if ($onWebSocketConnect) {
+                try {
+                    $addResponse = $onWebSocketConnect($connection, $request) ?? null;
+
+                    if ($addResponse instanceof Server\Protocols\Http\Response) {
+                        if ($addResponse->getHeaders()) {
+                            $connection->response->withHeaders($addResponse->getHeaders());
+                        }
+
+                        if ($addResponse->getStatusCode() >= 400) {
+                            $connection->response->withStatus($addResponse->getStatusCode());
+
+                            if (!empty($addResponse->rawBody())) {
+                                $connection->response->withBody($addResponse->rawBody());
+                            }
+
+                            $connection->close((string)$connection->response, true);
+                            return 0;
+                        }
+                    }
+                } catch (Throwable $e) {
+                    Server::stopAll(250, $e);
+                }
+            }
+
+            // blob или arraybuffer
+            if (empty($connection->websocketType)) {
+                $connection->websocketType = static::BINARY_TYPE_BLOB;
+            }
+
+            if ($connection->headers) {
+                $connection->response->withHeaders($connection->headers);
+            }
+
+            // Отправить ответ на рукопожатие.
+            $connection->send((string)$connection->response, true);
+            // Пометить рукопожатие как завершенное.
+            $connection->context->websocketHandshake = true;
+
+            // Есть данные, ожидающие отправки.
+            if (!empty($connection->context->tmpWebsocketData)) {
+                // Отправка временных данных websocket.
+                $connection->send($connection->context->tmpWebsocketData, true);
+                // Очистка временных данных websocket.
+                $connection->context->tmpWebsocketData = '';
+            }
+
+            if (strlen($buffer) > $headerLength) {
+                return static::input(substr($buffer, $headerLength), $connection);
+            }
+            return 0;
         }
 
         // Неверный запрос рукопожатия через веб-сокет.
