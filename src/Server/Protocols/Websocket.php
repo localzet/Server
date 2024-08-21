@@ -38,10 +38,8 @@ use function gettype;
 use function is_scalar;
 use function ord;
 use function pack;
-use function preg_match;
 use function sha1;
 use function str_repeat;
-use function stripos;
 use function strlen;
 use function strpos;
 use function substr;
@@ -314,8 +312,13 @@ class Websocket
      */
     public static function dealHandshake(string $buffer, TcpConnection $connection): int
     {
+        /** @var Request $request */
+        $request = new static::$requestClass($buffer);
+        $request->connection = $connection;
+        $connection->request = $request;
+
         // Протокол HTTP.
-        if (str_starts_with($buffer, 'GET')) {
+        if ($request->isMethod('GET')) {
             // Find \r\n\r\n.
             $headerEndPos = strpos($buffer, "\r\n\r\n");
             if (!$headerEndPos) {
@@ -324,16 +327,22 @@ class Websocket
             $headerLength = $headerEndPos + 4;
 
             // Get Sec-WebSocket-Key.
-            if (preg_match("/Sec-WebSocket-Key: *(.*?)\r\n/i", $buffer, $match)) {
-                $SecWebSocketKey = $match[1];
-            } else {
+            $SecWebSocketKey = $request->header('Sec-WebSocket-Key');
+            if (!$SecWebSocketKey) {
                 $connection->close(format_websocket_response(400), true);
                 return 0;
             }
+
             // Расчет ключа websocket.
             $newKey = base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true));
+
             // Данные ответа на рукопожатие.
-            $handshakeMessage = format_websocket_response(101, ['Sec-WebSocket-Accept' => $newKey]);
+            $response = new Server\Protocols\Http\Response(101, [
+                'Sec-WebSocket-Accept' => $newKey,
+                'Connection' => 'Upgrade',
+                'Upgrade' => 'websocket',
+                'Sec-WebSocket-Version' => 13,
+            ], null);
 
             // Буфер данных websocket.
             $connection->context->websocketDataBuffer = '';
@@ -351,11 +360,20 @@ class Websocket
             $onWebSocketConnect = $connection->onWebSocketConnect ?? $connection->server->onWebSocketConnect ?? false;
             if ($onWebSocketConnect) {
                 try {
-                    /** @var Request $request */
-                    $request = new static::$requestClass($buffer);
-                    $request->connection = $connection;
-                    $connection->request = $request;
-                    $onWebSocketConnect($connection, $request);
+                    $addResponse = $onWebSocketConnect($connection, $request) ?? null;
+                    if ($addResponse instanceof Server\Protocols\Http\Response) {
+                        if (!in_array($addResponse->getStatusCode(), [200, 101])) {
+                            $response->withStatus($addResponse->getStatusCode());
+                        }
+
+                        if ($addResponse->getHeaders() !== null) {
+                            $response->withHeaders($addResponse->getHeaders());
+                        }
+
+                        if (!empty($addResponse->rawBody())) {
+                            $response->withBody($addResponse->rawBody());
+                        }
+                    }
                 } catch (Throwable $e) {
                     Server::stopAll(250, $e);
                 }
@@ -367,17 +385,11 @@ class Websocket
             }
 
             if ($connection->headers) {
-                foreach ($connection->headers as $header) {
-                    if (stripos($header, 'Server:') === 0) {
-                        continue;
-                    }
-                    $handshakeMessage .= "$header\r\n";
-                }
+                $response->withHeaders($connection->headers);
             }
 
-            $handshakeMessage .= "\r\n";
             // Отправить ответ на рукопожатие.
-            $connection->send($handshakeMessage, true);
+            $connection->send($response, true);
             // Пометить рукопожатие как завершенное.
             $connection->context->websocketHandshake = true;
 

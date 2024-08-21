@@ -169,21 +169,21 @@ class Response implements Stringable
     /**
      * Тело Http.
      *
-     * @var string
+     * @var string|null
      */
-    protected string $body = '';
+    protected ?string $body = '';
 
     /**
      * Конструктор ответа.
      *
      * @param int $status
      * @param array $headers
-     * @param string $body
+     * @param string|null $body
      */
     public function __construct(
         int    $status = 200,
         array $headers = [],
-        string $body = ''
+        ?string $body = ''
     )
     {
         $this->status = $status;
@@ -329,9 +329,9 @@ class Response implements Stringable
     /**
      * Получить HTTP-тело в исходном виде.
      *
-     * @return string
+     * @return string|null
      */
-    public function rawBody(): string
+    public function rawBody(): ?string
     {
         return $this->body;
     }
@@ -356,10 +356,10 @@ class Response implements Stringable
     /**
      * Установить HTTP-тело.
      *
-     * @param string $body
+     * @param string|null $body
      * @return Response
      */
-    public function withBody(string $body): static
+    public function withBody(?string $body): static
     {
         $this->body = $body;
         return $this;

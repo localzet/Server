@@ -204,14 +204,14 @@ function get_event_loop_name(): string
  * Форматирует HTTP-ответ.
  *
  * @param int $code Код ответа.
- * @param string $body Тело ответа.
+ * @param string|null $body Тело ответа.
  * @param string|null $reason Причина ответа.
  * @param array $headers Заголовки ответа.
  * @param string $version Версия HTTP.
  *
  * @return string Форматированный HTTP-ответ.
  */
-function format_http_response(int $code, string $body = '', array $headers = [], string $reason = null, string $version = '1.1'): string
+function format_http_response(int $code, ?string $body = '', array $headers = [], string $reason = null, string $version = '1.1'): string
 {
     $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
     $head = "HTTP/$version $code $reason\r\n";
@@ -230,6 +230,8 @@ function format_http_response(int $code, string $body = '', array $headers = [],
             }
         }
     }
+
+    if ($body === null) return $head;
 
     if ($headers['Content-Type'] === 'text/event-stream') {
         return $head . $body;
