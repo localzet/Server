@@ -217,9 +217,9 @@ function format_http_response(int $code, ?string $body = '', array $headers = []
     $head = "HTTP/$version $code $reason\r\n";
 
     $defaultHeaders = [
-        'Server' => 'Localzet-Server',
-        'Connection' => $headers['Connection'] ?? 'keep-alive',
-        'Content-Type' => $headers['Content-Type'] ?? 'text/html;charset=utf-8',
+        'server' => 'Localzet-Server',
+        'connection' => $headers['connection'] ?? 'keep-alive',
+        'content-type' => $headers['content-type'] ?? 'text/html;charset=utf-8',
     ];
     $headers = array_merge($headers, $defaultHeaders);
 
@@ -231,21 +231,21 @@ function format_http_response(int $code, ?string $body = '', array $headers = []
         }
     }
 
-    if ($headers['Content-Type'] === 'text/event-stream') {
+    if ($headers['content-type'] === 'text/event-stream') {
         return $head . $body;
     }
 
     $bodyLen = $body ? strlen($body) : null;
 
-    if (empty($headers['Transfer-Encoding']) && $bodyLen) {
-        $head .= "Content-Length: $bodyLen\r\n";
+    if (empty($headers['transfer-encoding']) && $bodyLen) {
+        $head .= "content-length: $bodyLen\r\n";
     }
 
     $head .= "\r\n";
 
     if ($version === '1.1'
-        && !empty($headers['Transfer-Encoding'])
-        && $headers['Transfer-Encoding'] === 'chunked') {
+        && !empty($headers['transfer-encoding'])
+        && $headers['transfer-encoding'] === 'chunked') {
         return $bodyLen ? $head . dechex($bodyLen) . "\r\n$body\r\n" : $head;
     }
 
