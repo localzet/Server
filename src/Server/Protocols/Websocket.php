@@ -362,16 +362,19 @@ class Websocket
                 try {
                     $addResponse = $onWebSocketConnect($connection, $request) ?? null;
                     if ($addResponse instanceof Server\Protocols\Http\Response) {
-                        if (!in_array($addResponse->getStatusCode(), [200, 101])) {
-                            $connection->response->withStatus($addResponse->getStatusCode());
-                        }
-
-                        if ($addResponse->getHeaders() !== null) {
+                        if ($addResponse->getHeaders()) {
                             $connection->response->withHeaders($addResponse->getHeaders());
                         }
 
-                        if (!empty($addResponse->rawBody())) {
-                            $connection->response->withBody($addResponse->rawBody());
+                        if ($addResponse->getStatusCode() >= 400) {
+                            $connection->response->withStatus($addResponse->getStatusCode());
+
+                            if (!empty($addResponse->rawBody())) {
+                                $connection->response->withBody($addResponse->rawBody());
+                            }
+
+                            $connection->close((string)$connection->response, true);
+                            return 0;
                         }
                     }
                 } catch (Throwable $e) {
