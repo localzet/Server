@@ -226,11 +226,8 @@ class Http
             // Очищаем свойства запроса и соединения.
             $request->session = $request->connection = $connection->request = null;
         }
-        if (!is_object($response)) {
-            $return = format_http_response(200, (string)$response, $connection->headers);
-            $connection->headers = [];
-            return $return;
-        }
+
+        $response = is_object($response) ? $response : new Response(200, [], (string)$response);
 
         if ($connection->headers) {
             // Добавляем заголовки соединения в ответ.

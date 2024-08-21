@@ -432,7 +432,7 @@ class Response implements Stringable
         $file = $fileInfo['file'];
 
         // Получаем причину, если она не указана
-        $reason ??= Server\Protocols\Http\Response::PHRASES[$this->status] ?? 'Unknown Status';
+        $reason ??= static::PHRASES[$this->status] ?? 'Unknown Status';
 
         // Формируем начальную строку заголовка
         $head = "HTTP/$this->version $this->status $reason\r\n";
