@@ -329,7 +329,7 @@ class Websocket
             // Get Sec-WebSocket-Key.
             $SecWebSocketKey = $request->header('Sec-WebSocket-Key');
             if (!$SecWebSocketKey) {
-                $connection->close(format_websocket_response(400), true);
+                $connection->close(format_http_response(400), true);
                 return 0;
             }
 
@@ -407,7 +407,7 @@ class Websocket
             return 0;
         }
         // Неверный запрос рукопожатия через веб-сокет.
-        $connection->close(format_websocket_response(400), true);
+        $connection->close(format_http_response(400), true);
         return 0;
     }
 

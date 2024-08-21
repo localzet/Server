@@ -231,8 +231,6 @@ function format_http_response(int $code, ?string $body = '', array $headers = []
         }
     }
 
-    if ($body === null) return $head;
-
     if ($headers['Content-Type'] === 'text/event-stream') {
         return $head . $body;
     }
@@ -252,36 +250,4 @@ function format_http_response(int $code, ?string $body = '', array $headers = []
     }
 
     return $head . $body;
-}
-
-/**
- * Форматирует WebSocket-ответ.
- *
- * @param int $code Код ответа.
- * @param array $headers Заголовки ответа.
- *
- * @return string Форматированный WebSocket-ответ.
- */
-function format_websocket_response(int $code, array $headers = []): string
-{
-    $reason = Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
-    $head = "HTTP/1.1 $code $reason\r\n";
-
-    $defaultHeaders = [
-        'Server' => 'Localzet-Server',
-        'Connection' => $headers['Connection'] ?? 'Upgrade',
-        'Upgrade' => $headers['Upgrade'] ?? 'websocket',
-        'Sec-WebSocket-Version' => $headers['Sec-WebSocket-Version'] ?? 13,
-    ];
-    $headers = array_merge($headers, $defaultHeaders);
-
-    foreach ($headers as $name => $values) {
-        foreach ((array)$values as $value) {
-            if ($value) {
-                $head .= "$name: $value\r\n";
-            }
-        }
-    }
-
-    return $head;
 }
