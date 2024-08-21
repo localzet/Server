@@ -28,6 +28,7 @@ namespace localzet;
 use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\Request;
+use localzet\Server\Protocols\Http\Response;
 
 /**
  * Абстрактный класс ServerAbstract, определяющий основные методы сервера.
@@ -39,21 +40,27 @@ abstract class ServerAbstract
      *
      * @param Server $server Экземпляр сервера.
      */
-    public function onServerStart(Server &$server): void {}
+    public function onServerStart(Server &$server): void
+    {
+    }
 
     /**
      * Метод, вызываемый при остановке сервера.
      *
      * @param Server $server Экземпляр сервера.
      */
-    public function onServerStop(Server &$server): void {}
+    public function onServerStop(Server &$server): void
+    {
+    }
 
     /**
      * Метод, вызываемый при перезагрузке сервера.
      *
      * @param Server $server Экземпляр сервера.
      */
-    public function onServerReload(Server &$server): void {}
+    public function onServerReload(Server &$server): void
+    {
+    }
 
     /**
      * Метод, вызываемый при выходе сервера.
@@ -62,32 +69,43 @@ abstract class ServerAbstract
      * @param int $signal Сигнал выхода.
      * @param int $pid PID процесса.
      */
-    public function onServerExit(Server $server, int $signal, int $pid): void {}
+    public function onServerExit(Server $server, int $signal, int $pid): void
+    {
+    }
 
     /**
      * Метод, вызываемый при перезагрузке мастера.
      */
-    public function onMasterReload(): void {}
+    public function onMasterReload(): void
+    {
+    }
 
     /**
      * Метод, вызываемый при остановке мастера.
      */
-    public function onMasterStop(): void {}
+    public function onMasterStop(): void
+    {
+    }
 
     /**
      * Метод, вызываемый при подключении.
      *
      * @param ConnectionInterface $connection Интерфейс соединения.
      */
-    public function onConnect(ConnectionInterface &$connection): void {}
+    public function onConnect(ConnectionInterface &$connection): void
+    {
+    }
 
     /**
      * Метод, вызываемый при подключении WebSocket.
      *
      * @param TcpConnection $connection TCP соединение.
      * @param Request $request HTTP запрос.
+     * @return void|Response
      */
-    public function onWebSocketConnect(TcpConnection &$connection, Request $request): void {}
+    public function onWebSocketConnect(TcpConnection &$connection, Request $request): mixed
+    {
+    }
 
     /**
      * Метод, вызываемый при получении сообщения.
@@ -102,7 +120,9 @@ abstract class ServerAbstract
      *
      * @param ConnectionInterface $connection Интерфейс соединения.
      */
-    public function onClose(ConnectionInterface &$connection): void {}
+    public function onClose(ConnectionInterface &$connection): void
+    {
+    }
 
     /**
      * Метод, вызываемый при ошибке.
@@ -111,19 +131,25 @@ abstract class ServerAbstract
      * @param int $code Код ошибки.
      * @param string $reason Причина ошибки.
      */
-    public function onError(ConnectionInterface &$connection, int $code, string $reason): void {}
+    public function onError(ConnectionInterface &$connection, int $code, string $reason): void
+    {
+    }
 
     /**
      * Метод, вызываемый при заполнении буфера.
      *
      * @param ConnectionInterface $connection Интерфейс соединения.
      */
-    public function onBufferFull(ConnectionInterface &$connection): void {}
+    public function onBufferFull(ConnectionInterface &$connection): void
+    {
+    }
 
     /**
      * Метод, вызываемый при освобождении буфера.
      *
      * @param ConnectionInterface $connection Интерфейс соединения.
      */
-    public function onBufferDrain(ConnectionInterface &$connection): void {}
+    public function onBufferDrain(ConnectionInterface &$connection): void
+    {
+    }
 }
