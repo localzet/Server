@@ -31,43 +31,45 @@ use localzet\ServerAbstract;
 /**
  * Запускает сервер Localzet.
  *
- * @param string|null $name Название для серверных процессов
- * @param int|null $count Количество серверных процессов
- * @param string|null $listen Имя сокета
- * @param array|null $context Контекст сокета
- * @param string|null $user Unix пользователь (нужен root)
- * @param string|null $group Unix группа (нужен root)
- * @param bool|null $reloadable Перезагружаемый экземпляр?
- * @param bool|null $reusePort Повторно использовать порт?
- * @param string|null $protocol Протокол уровня приложения
- * @param string|null $transport Протокол транспортного уровня
- * @param class-string|null $server Экземпляр сервера, или его наследника
- * @param string|null $handler [ServerAbstract](\localzet\ServerAbstract)
- * @param array|null $constructor
- * @param array|null $services Массив сервисов (только listen, context, handler, constructor)
+ * @param null|string|array $name Название для серверных процессов
+ * @param null|int $count Количество серверных процессов
+ * @param null|string $listen Имя сокета
+ * @param null|array $context Контекст сокета
+ * @param null|string $user Unix пользователь (нужен root)
+ * @param null|string $group Unix группа (нужен root)
+ * @param null|bool $reloadable Перезагружаемый экземпляр?
+ * @param null|bool $reusePort Повторно использовать порт?
+ * @param null|string $protocol Протокол уровня приложения
+ * @param null|string $transport Протокол транспортного уровня
+ * @param null|class-string $server Экземпляр сервера, или его наследника
+ * @param null|string $handler [ServerAbstract](\localzet\ServerAbstract)
+ * @param null|array $constructor
+ * @param null|array $services Массив сервисов (только listen, context, handler, constructor)
  *
  * @return Server
  */
 function localzet_start(
     // Свойства главного сервера
-    ?string $name = null,
-    ?int    $count = null,
-    ?string $listen = null,
-    ?array  $context = null,
-    ?string $user = null,
-    ?string $group = null,
-    ?bool   $reloadable = null,
-    ?bool   $reusePort = null,
-    ?string $protocol = null,
-    ?string $transport = null,
-    ?string $server = null,
+    null|string|array $name = null,
+    null|int          $count = null,
+    null|string       $listen = null,
+    null|array        $context = null,
+    null|string       $user = null,
+    null|string       $group = null,
+    null|bool         $reloadable = null,
+    null|bool         $reusePort = null,
+    null|string       $protocol = null,
+    null|string       $transport = null,
+    null|string       $server = null,
     // Бизнес-исполнитель
-    ?string $handler = null,
-    ?array  $constructor = null,
+    null|string       $handler = null,
+    null|array        $constructor = null,
     // Дополнительные сервера
-    ?array  $services = null,
+    null|array        $services = null,
 ): Server
 {
+    is_array($name) && extract($name);
+
     $server ??= Server::class;
     $master = new $server($listen ?? null, $context ?? []);
     $master->name = $name ?? $master->name;
