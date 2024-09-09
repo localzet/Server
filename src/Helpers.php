@@ -218,6 +218,7 @@ function format_http_response(int $code, ?string $body = '', array $headers = []
     $reason ??= Server\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
     $head = "HTTP/$version $code $reason\r\n";
 
+    $headers = array_change_key_case($headers);
     $defaultHeaders = [
         'server' => 'Localzet-Server',
         'connection' => $headers['connection'] ?? 'keep-alive',
@@ -233,11 +234,7 @@ function format_http_response(int $code, ?string $body = '', array $headers = []
         }
     }
 
-    if ($headers['content-type'] === 'text/event-stream') {
-        return $head . $body;
-    }
-
-    $bodyLen = $body ? strlen($body) : null;
+    $bodyLen = !empty($body) ? strlen($body) : null;
 
     if (empty($headers['transfer-encoding']) && $bodyLen) {
         $head .= "content-length: $bodyLen\r\n";
