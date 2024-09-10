@@ -229,7 +229,7 @@ class Http
 
         $response = is_object($response) ? $response : new Response(200, [], (string)$response);
 
-        if ($connection->headers) {
+        if ($connection->headers && method_exists($response, 'withHeaders')) {
             // Добавляем заголовки соединения в ответ.
             $response->withHeaders($connection->headers);
             // Очищаем заголовки после использования.
