@@ -1,5 +1,5 @@
 # Security Policy
-[Документ на русском языке](SECURITY_ru.md)
+[Документ на русском языке](.github/SECURITY_ru.md)
 ## Supported Versions
 
 The following versions of the Localzet Server project are currently being supported:
