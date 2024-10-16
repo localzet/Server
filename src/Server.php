@@ -26,10 +26,8 @@
 
 namespace localzet;
 
-use AllowDynamicProperties;
 use Composer\InstalledVersions;
 use Exception;
-use JetBrains\PhpStorm\NoReturn;
 use localzet\Server\Connection\{ConnectionInterface, TcpConnection, UdpConnection};
 use localzet\Server\Events\{EventInterface, Linux, Revolt, Windows};
 use localzet\Server\Protocols\ProtocolInterface;
@@ -104,7 +102,7 @@ use const WUNTRACED;
  * ]
  * </code>
  */
-#[AllowDynamicProperties]
+#[\AllowDynamicProperties]
 class Server
 {
     /**
@@ -734,7 +732,7 @@ class Server
      */
     protected static function init(): void
     {
-        Events::on('Server::Start', function ($server = null) {
+        Events::on('Server::Start', function (Server $server = null) {
             if ($server?->onServerStart) {
                 try {
                     ($server->onServerStart)($server);
@@ -746,7 +744,7 @@ class Server
             }
         });
 
-        Events::on('Server::Stop', function ($server = null) {
+        Events::on('Server::Stop', function (Server $server = null) {
             if ($server?->onServerStop) {
                 try {
                     ($server->onServerStop)($server);
@@ -756,7 +754,7 @@ class Server
             }
         });
 
-        Events::on('Server::Reload', function ($server = null) {
+        Events::on('Server::Reload', function (Server $server = null) {
             if ($server?->onServerReload) {
                 try {
                     ($server->onServerReload)($server);
@@ -766,7 +764,7 @@ class Server
             }
         });
 
-        Events::on('Server::Exit', function ($data = []) {
+        Events::on('Server::Exit', function (array $data = []) {
             extract($data);
             if (static::$onServerExit) {
                 try {
@@ -2016,7 +2014,7 @@ class Server
     /**
      * Выход из текущего процесса.
      */
-    #[NoReturn]
+    #[\JetBrains\PhpStorm\NoReturn]
     protected static function exitAndClearAll(): void
     {
         foreach (static::$servers as $server) {
