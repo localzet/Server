@@ -14,6 +14,7 @@
     <include_path>
       <path value="$PROJECT_DIR$/vendor/composer" />
       <path value="$PROJECT_DIR$/vendor/localzet/psr" />
+      <path value="$PROJECT_DIR$/vendor/localzet/events" />
     </include_path>
   </component>
   <component name="PhpInterpreters">

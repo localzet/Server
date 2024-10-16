@@ -36,7 +36,8 @@
     "ext-json": "*",
     "ext-sockets": "*",
     "ext-pcntl": "*",
-    "ext-posix": "*"
+    "ext-posix": "*",
+    "localzet/events": "^1.0"
   },
   "suggest": {
     "ext-uv": "For better performance",

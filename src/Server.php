@@ -26,8 +26,10 @@
 
 namespace localzet;
 
+use AllowDynamicProperties;
 use Composer\InstalledVersions;
 use Exception;
+use JetBrains\PhpStorm\NoReturn;
 use localzet\Server\Connection\{ConnectionInterface, TcpConnection, UdpConnection};
 use localzet\Server\Events\{EventInterface, Linux, Revolt, Windows};
 use localzet\Server\Protocols\ProtocolInterface;
@@ -89,8 +91,20 @@ use const WUNTRACED;
 
 /**
  * Localzet Server
+ *
+ * <code>
+ * Localzet\Events = [
+ *  'Server::Start' => fn($server = null){},
+ *  'Server::Stop' => fn($server = null){},
+ *  'Server::Reload' => fn($server = null){},
+ *  'Server::Exit' => fn(['server', 'status', 'pid'] = []){},
+ *
+ *  'Server::Master::Stop' => fn(){},
+ *  'Server::Master::Reload' => fn(){},
+ * ]
+ * </code>
  */
-#[\AllowDynamicProperties]
+#[AllowDynamicProperties]
 class Server
 {
     /**
@@ -720,6 +734,70 @@ class Server
      */
     protected static function init(): void
     {
+        Events::on('Server::Start', function ($server = null) {
+            if ($server?->onServerStart) {
+                try {
+                    ($server->onServerStart)($server);
+                } catch (Throwable $e) {
+                    // Избегаем бесконечного выхода из цикла.
+                    sleep(1);
+                    static::stopAll(250, $e);
+                }
+            }
+        });
+
+        Events::on('Server::Stop', function ($server = null) {
+            if ($server?->onServerStop) {
+                try {
+                    ($server->onServerStop)($server);
+                } catch (Throwable $e) {
+                    static::log($e);
+                }
+            }
+        });
+
+        Events::on('Server::Reload', function ($server = null) {
+            if ($server?->onServerReload) {
+                try {
+                    ($server->onServerReload)($server);
+                } catch (Throwable $e) {
+                    static::stopAll(250, $e);
+                }
+            }
+        });
+
+        Events::on('Server::Exit', function ($data = []) {
+            extract($data);
+            if (static::$onServerExit) {
+                try {
+                    (static::$onServerExit)($server, $status, $pid);
+                } catch (Throwable $exception) {
+                    static::log("<magenta>Localzet Server</magenta> <cyan>[$server->name]</cyan> onServerExit $exception");
+                }
+            }
+        });
+
+        Events::on('Server::Master::Stop', function () {
+            if (static::$onMasterStop) {
+                try {
+                    (static::$onMasterStop)();
+                } catch (Throwable $e) {
+                    static::log($e);
+                }
+            }
+        });
+
+        Events::on('Server::Master::Reload', function () {
+            if (static::$onMasterReload) {
+                try {
+                    (static::$onMasterReload)();
+                } catch (Throwable $e) {
+                    static::stopAll(250, $e);
+                }
+                static::initId();
+            }
+        });
+
         // Устанавливаем обработчик ошибок, который будет выводить сообщение об ошибке
         set_error_handler(static function (int $code, string $msg, string $file, int $line): bool {
             static::safeEcho(sprintf("%s \"%s\" в файле %s на строке %d\n", static::getErrorType($code), $msg, $file, $line));
@@ -1886,13 +1964,7 @@ class Server
                         }
 
                         // onServerExit
-                        if (static::$onServerExit) {
-                            try {
-                                (static::$onServerExit)($server, $status, $pid);
-                            } catch (Throwable $exception) {
-                                static::log("<magenta>Localzet Server</magenta> <cyan>[$server->name]</cyan> onServerExit $exception");
-                            }
-                        }
+                        Events::emit('Server::Exit', compact('server', 'status', 'pid'));
 
                         // Для статистики.
                         static::$globalStatistics['server_exit_info'][$serverId][$status] ??= 0;
@@ -1944,7 +2016,8 @@ class Server
     /**
      * Выход из текущего процесса.
      */
-    #[\JetBrains\PhpStorm\NoReturn] protected static function exitAndClearAll(): void
+    #[NoReturn]
+    protected static function exitAndClearAll(): void
     {
         foreach (static::$servers as $server) {
             $socketName = $server->getSocketName();
@@ -1956,9 +2029,7 @@ class Server
         }
         @unlink(static::$pidFile);
         static::log("<magenta>Localzet Server</magenta> <cyan>[" . basename(static::$startFile) . "]</cyan> был остановлен");
-        if (static::$onMasterStop) {
-            (static::$onMasterStop)();
-        }
+        Events::emit('Server::Master::Stop', null);
         exit(0);
     }
 
@@ -1982,15 +2053,7 @@ class Server
                 // Сбросить стандартные ввод и вывод.
                 static::resetStd();
 
-                // Пробуем вызвать обратный вызов onMasterReload.
-                if (static::$onMasterReload) {
-                    try {
-                        (static::$onMasterReload)();
-                    } catch (Throwable $e) {
-                        static::stopAll(250, $e);
-                    }
-                    static::initId();
-                }
+                Events::emit('Server::Master::Reload', null);
 
                 // Отправляем сигнал перезагрузки всем дочерним процессам.
                 $reloadablePidArray = [];
@@ -2033,14 +2096,7 @@ class Server
             reset(static::$servers);
             $server = current(static::$servers);
 
-            // Пробуем вызвать обратный вызов onServerReload.
-            if ($server->onServerReload) {
-                try {
-                    ($server->onServerReload)($server);
-                } catch (Throwable $e) {
-                    static::stopAll(250, $e);
-                }
-            }
+            Events::emit('Server::Reload', $server);
 
             // Если процесс reloadable равен true, то останавливаем все процессы.
             if ($server->reloadable) {
@@ -2668,17 +2724,7 @@ class Server
     public function run(): void
     {
         $this->listen();
-
-        // Попытаться вызвать обратный вызов onServerStart.
-        if ($this->onServerStart) {
-            try {
-                ($this->onServerStart)($this);
-            } catch (Throwable $e) {
-                // Избежать быстрого бесконечного выхода из цикла.
-                sleep(1);
-                static::stopAll(250, $e);
-            }
-        }
+        Events::emit('Server::Start', $this);
     }
 
     /**
@@ -2693,16 +2739,7 @@ class Server
             return;
         }
 
-        // Попробовать вызвать обратный вызов onServerStop.
-        if ($this->onServerStop) {
-            try {
-                ($this->onServerStop)($this);
-            } catch (Throwable $e) {
-                static::log($e);
-            }
-        }
-
-        // Удалить слушателя для сокета сервера.
+        Events::emit('Server::Stop', $this);
         $this->unlisten();
 
         // Закрыть все соединения для сервера.
