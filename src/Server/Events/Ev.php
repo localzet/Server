@@ -79,7 +79,7 @@ final class Ev implements EventInterface
     public function delay(float $delay, callable $func, array $args = []): int
     {
         $timerId = self::$timerId;
-        $event = new EvTimer($delay, 0, function () use ($func, $args, $timerId) {
+        $event = new EvTimer($delay, 0, function () use ($func, $args, $timerId): void {
             unset($this->eventTimer[$timerId]);
             $this->safeCall($func, $args);
         });

@@ -319,7 +319,7 @@ class Ws
 
             // Серцебиение.
             if (!empty($connection->websocketPingInterval)) {
-                $connection->context->websocketPingTimer = Timer::add($connection->websocketPingInterval, function () use ($connection) {
+                $connection->context->websocketPingTimer = Timer::add($connection->websocketPingInterval, function () use ($connection): void {
                     if (false === $connection->send(pack('H*', '898000000000'), true)) {
                         Timer::del($connection->context->websocketPingTimer);
                         $connection->context->websocketPingTimer = null;

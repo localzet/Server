@@ -68,7 +68,7 @@ final class Swoole implements EventInterface
     {
         $t = (int)($delay * 1000);
         $t = max($t, 1);
-        $timerId = Timer::after($t, function () use ($func, $args, &$timerId) {
+        $timerId = Timer::after($t, function () use ($func, $args, &$timerId): void {
             unset($this->eventTimer[$timerId]);
             $this->safeCall($func, $args);
         });
@@ -101,7 +101,7 @@ final class Swoole implements EventInterface
     {
         $t = (int)($interval * 1000);
         $t = max($t, 1);
-        $timerId = Timer::tick($t, function () use ($func, $args) {
+        $timerId = Timer::tick($t, function () use ($func, $args): void {
             $this->safeCall($func, $args);
         });
         $this->eventTimer[$timerId] = $timerId;

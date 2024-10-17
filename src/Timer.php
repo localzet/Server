@@ -157,7 +157,7 @@ class Timer
     {
         if (Server::$globalEvent && (Server::$globalEvent instanceof Linux || Server::$globalEvent instanceof Revolt)) {
             $suspension = Server::$globalEvent->getSuspension();
-            static::add($delay, function () use ($suspension) {
+            static::add($delay, function () use ($suspension): void {
                 $suspension->resume();
             }, null, false);
             $suspension->suspend();

@@ -91,7 +91,7 @@ function localzet_start(
         }
     }
 
-    $master->onServerStart = function ($master) use ($services, $onServerStart) {
+    $master->onServerStart = function ($master) use ($services, $onServerStart): void {
         if ($onServerStart) $onServerStart($master);
 
         foreach ($services ?? [] as $service) {

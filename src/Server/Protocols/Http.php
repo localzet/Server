@@ -289,7 +289,7 @@ class Http
         // Конечное смещение.
         $offsetEnd = $offset + $length;
         // Читаем содержимое файла с диска по частям и отправляем клиенту.
-        $doWrite = function () use ($connection, $handler, $length, $offsetEnd) {
+        $doWrite = function () use ($connection, $handler, $length, $offsetEnd): void {
 
             while ($connection->context->bufferFull === false) {
 
@@ -317,11 +317,11 @@ class Http
             }
         };
 
-        $connection->onBufferFull = function ($connection) {
+        $connection->onBufferFull = function ($connection): void {
             $connection->context->bufferFull = true;
         };
 
-        $connection->onBufferDrain = function ($connection) use ($doWrite) {
+        $connection->onBufferDrain = function ($connection) use ($doWrite): void {
             $connection->context->bufferFull = false;
             $doWrite();
         };

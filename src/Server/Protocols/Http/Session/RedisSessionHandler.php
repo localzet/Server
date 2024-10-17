@@ -75,7 +75,7 @@ class RedisSessionHandler implements SessionHandlerInterface
         $this->connect();
 
         // Устанавливаем таймер для отправки команды ping на Redis-сервер
-        Timer::add($config['ping'] ?? 55, function () {
+        Timer::add($config['ping'] ?? 55, function (): void {
             $this->redis->get('ping');
         });
     }

@@ -469,7 +469,7 @@ class Request implements Stringable
             parse_str($filesEncodeString, $this->data['files']);
 
             // Обновление значений массива файлов ссылками на реальные файлы
-            array_walk_recursive($this->data['files'], function (&$value) use ($files) {
+            array_walk_recursive($this->data['files'], function (&$value) use ($files): void {
                 $value = $files[$value];
             });
         }
@@ -1185,7 +1185,7 @@ class Request implements Stringable
             clearstatcache();
 
             // Обойти все файлы рекурсивно и удалить временные файлы
-            array_walk_recursive($this->data['files'], function ($value, $key) {
+            array_walk_recursive($this->data['files'], function ($value, $key): void {
                 // Если ключ равен 'tmp_name' и значение является файлом, удалить файл
                 if ($key === 'tmp_name' && is_file($value)) {
                     unlink($value);

@@ -732,7 +732,7 @@ class Server
      */
     protected static function init(): void
     {
-        Events::on('Server::Start', function (Server $server = null) {
+        Events::on('Server::Start', function (Server $server = null): void {
             if ($server?->onServerStart) {
                 try {
                     ($server->onServerStart)($server);
@@ -744,7 +744,7 @@ class Server
             }
         });
 
-        Events::on('Server::Stop', function (Server $server = null) {
+        Events::on('Server::Stop', function (Server $server = null): void {
             if ($server?->onServerStop) {
                 try {
                     ($server->onServerStop)($server);
@@ -754,7 +754,7 @@ class Server
             }
         });
 
-        Events::on('Server::Reload', function (Server $server = null) {
+        Events::on('Server::Reload', function (Server $server = null): void {
             if ($server?->onServerReload) {
                 try {
                     ($server->onServerReload)($server);
@@ -764,7 +764,7 @@ class Server
             }
         });
 
-        Events::on('Server::Exit', function (array $data = []) {
+        Events::on('Server::Exit', function (array $data = []): void {
             extract($data);
             if (static::$onServerExit) {
                 try {
@@ -775,7 +775,7 @@ class Server
             }
         });
 
-        Events::on('Server::Master::Stop', function () {
+        Events::on('Server::Master::Stop', function (): void {
             if (static::$onMasterStop) {
                 try {
                     (static::$onMasterStop)();
@@ -785,7 +785,7 @@ class Server
             }
         });
 
-        Events::on('Server::Master::Reload', function () {
+        Events::on('Server::Master::Reload', function (): void {
             if (static::$onMasterReload) {
                 try {
                     (static::$onMasterReload)();
@@ -1545,7 +1545,7 @@ class Server
 
         // Исправление ошибки PHP 8.1.8, связанной с невозможностью перенаправления стандартного вывода
         if (function_exists('posix_isatty') && posix_isatty(2)) {
-            ob_start(function (string $string) {
+            ob_start(function (string $string): void {
                 file_put_contents(static::$stdoutFile, $string, FILE_APPEND);
             }, 1);
         }
@@ -1661,7 +1661,7 @@ class Server
             if (static::$globalEvent === null) {
                 $eventLoopClass = static::getEventLoopName();
                 static::$globalEvent = new $eventLoopClass();
-                static::$globalEvent->setErrorHandler(function ($exception) {
+                static::$globalEvent->setErrorHandler(function ($exception): void {
                     static::stopAll(250, $exception);
                 });
             }
@@ -1675,7 +1675,7 @@ class Server
             restore_error_handler();
 
             // Добавить пустой таймер, чтобы предотвратить выход из цикла событий.
-            Timer::add(1000000, function () {
+            Timer::add(1000000, function (): void {
             });
 
             // Отобразить пользовательский интерфейс (UI).
@@ -1692,7 +1692,7 @@ class Server
         }
 
         static::$globalEvent = new Windows();
-        static::$globalEvent->setErrorHandler(function ($exception) {
+        static::$globalEvent->setErrorHandler(function ($exception): void {
             static::stopAll(250, $exception);
         });
         Timer::init(static::$globalEvent);
@@ -1731,7 +1731,7 @@ class Server
 
         if (static::$globalEvent === null) {
             static::$globalEvent = new Windows();
-            static::$globalEvent->setErrorHandler(function ($exception) {
+            static::$globalEvent->setErrorHandler(function ($exception): void {
                 static::stopAll(250, $exception);
             });
             Timer::init(static::$globalEvent);
@@ -1802,7 +1802,7 @@ class Server
             if (static::$globalEvent === null) {
                 $eventLoopClass = static::getEventLoopName();
                 static::$globalEvent = new $eventLoopClass();
-                static::$globalEvent->setErrorHandler(function ($exception) {
+                static::$globalEvent->setErrorHandler(function ($exception): void {
                     static::stopAll(250, $exception);
                 });
             }

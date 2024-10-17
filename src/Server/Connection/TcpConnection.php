@@ -515,16 +515,16 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     public function pipe(self $dest, bool $raw = false): void
     {
         $source = $this;
-        $this->onMessage = function ($source, $data) use ($dest, $raw) {
+        $this->onMessage = function ($source, $data) use ($dest, $raw): void {
             $dest->send($data, $raw);
         };
-        $this->onClose = function () use ($dest) {
+        $this->onClose = function () use ($dest): void {
             $dest->close();
         };
-        $dest->onBufferFull = function () use ($source) {
+        $dest->onBufferFull = function () use ($source): void {
             $source->pauseRecv();
         };
-        $dest->onBufferDrain = function () use ($source) {
+        $dest->onBufferDrain = function () use ($source): void {
             $source->resumeRecv();
         };
     }

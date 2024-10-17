@@ -226,7 +226,7 @@ final class Linux implements EventInterface
     public function delay(float $delay, callable $func, array $args = []): int
     {
         $timerId = $this->timerId++;
-        $closure = function () use ($func, $args, $timerId) {
+        $closure = function () use ($func, $args, $timerId): void {
             unset($this->eventTimer[$timerId]);
             $func(...$args);
         };

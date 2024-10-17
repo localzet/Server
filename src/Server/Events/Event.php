@@ -109,7 +109,7 @@ final class Event implements EventInterface
     {
         $className = $this->eventClassName;
         $timerId = $this->timerId++;
-        $event = new $className($this->eventBase, -1, $className::TIMEOUT, function () use ($func, $args, $timerId) {
+        $event = new $className($this->eventBase, -1, $className::TIMEOUT, function () use ($func, $args, $timerId): void {
             unset($this->eventTimer[$timerId]);
             $this->safeCall($func, $args);
         });
