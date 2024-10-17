@@ -958,7 +958,7 @@ class Request implements Stringable
         // Если cookie не установлены, получить их из заголовка 'cookie' и разобрать в массив
         if (!isset($this->data['cookie'])) {
             $this->data['cookie'] = [];
-            parse_str(preg_replace('/; ?/', '&', (string) $this->header('cookie', '')), $this->data['cookie']);
+            parse_str((string) preg_replace('/; ?/', '&', (string) $this->header('cookie', '')), $this->data['cookie']);
         }
 
         // Если имя не указано, вернуть все cookie, иначе вернуть cookie с указанным именем или значение по умолчанию, если он не найден
