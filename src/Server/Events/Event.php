@@ -77,7 +77,7 @@ final class Event implements EventInterface
     /**
      * @var EventBase
      */
-    private EventBase $eventBase;
+    private readonly EventBase $eventBase;
     /**
      * @var string
      */

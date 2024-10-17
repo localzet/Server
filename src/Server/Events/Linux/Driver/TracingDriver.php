@@ -40,11 +40,6 @@ use const DEBUG_BACKTRACE_IGNORE_ARGS;
  */
 final class TracingDriver implements Driver
 {
-    /**
-     * @var Driver
-     */
-    private readonly Driver $driver;
-
     /** @var array<string, true> */
     private array $enabledCallbacks = [];
 
@@ -60,9 +55,8 @@ final class TracingDriver implements Driver
     /**
      * @param Driver $driver
      */
-    public function __construct(Driver $driver)
+    public function __construct(private readonly Driver $driver)
     {
-        $this->driver = $driver;
     }
 
     /**

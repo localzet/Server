@@ -94,12 +94,6 @@ class Request implements Stringable
      */
     public array $properties = [];
     /**
-     * Буфер HTTP.
-     *
-     * @var string
-     */
-    protected string $buffer;
-    /**
      * Данные запроса.
      *
      * @var array
@@ -123,9 +117,13 @@ class Request implements Stringable
      *
      * @param string $buffer
      */
-    public function __construct(string $buffer)
+    public function __construct(
+        /**
+         * Буфер HTTP.
+         */
+        protected string $buffer
+    )
     {
-        $this->buffer = $buffer;
     }
 
     /**
@@ -317,7 +315,7 @@ class Request implements Stringable
         static $cache = [];
         $this->data['post'] = $this->data['files'] = [];
         $contentType = $this->header('content-type', '');
-        if (preg_match('/boundary="?(\S+)"?/', $contentType, $match)) {
+        if (preg_match('/boundary="?(\S+)"?/', (string) $contentType, $match)) {
             $httpPostBoundary = '--' . $match[1];
             $this->parseUploadFiles($httpPostBoundary);
             return;
@@ -331,7 +329,7 @@ class Request implements Stringable
             $this->data['post'] = $cache[$bodyBuffer];
             return;
         }
-        if (preg_match('/\bjson\b/i', $contentType)) {
+        if (preg_match('/\bjson\b/i', (string) $contentType)) {
             $this->data['post'] = (array)json_decode($bodyBuffer, true);
         } else {
             parse_str($bodyBuffer, $this->data['post']);
@@ -461,12 +459,12 @@ class Request implements Stringable
 
         // Если есть строка кодирования POST-запроса, преобразовать ее в массив POST-запроса
         if ($postEncodeString) {
-            parse_str($postEncodeString, $this->data['post']);
+            parse_str((string) $postEncodeString, $this->data['post']);
         }
 
         // Если есть строка кодирования файлов, преобразовать ее в массив файлов
         if ($filesEncodeString) {
-            parse_str($filesEncodeString, $this->data['files']);
+            parse_str((string) $filesEncodeString, $this->data['files']);
 
             // Обновление значений массива файлов ссылками на реальные файлы
             array_walk_recursive($this->data['files'], function (&$value) use ($files): void {
@@ -701,16 +699,16 @@ class Request implements Stringable
      */
     public function parseAcceptHeader(): void
     {
-        $accepts = explode(',', $this->header('Accept', ''));
+        $accepts = explode(',', (string) $this->header('Accept', ''));
         $this->data['accept'] = [];
 
         foreach ($accepts as $accept) {
             $parts = explode(';', $accept);
             $media_type = trim(array_shift($parts));
-            $params = array();
+            $params = [];
 
             foreach ($parts as $part) {
-                list($name, $value) = explode('=', $part);
+                [$name, $value] = explode('=', $part);
                 $params[trim($name)] = trim($value);
             }
 
@@ -725,8 +723,8 @@ class Request implements Stringable
      */
     public function isJson(): bool
     {
-        return str_contains($this->header('Content-Type', ''), '/json')
-            || str_contains($this->header('Content-Type', ''), '+json');
+        return str_contains((string) $this->header('Content-Type', ''), '/json')
+            || str_contains((string) $this->header('Content-Type', ''), '+json');
     }
 
     /**
@@ -756,8 +754,8 @@ class Request implements Stringable
      */
     public function acceptJson(): bool
     {
-        return str_contains($this->header('Accept', ''), '/json')
-            || str_contains($this->header('Accept', ''), '+json')
+        return str_contains((string) $this->header('Accept', ''), '/json')
+            || str_contains((string) $this->header('Accept', ''), '+json')
             || $this->acceptsAnyContentType();
     }
 
@@ -833,7 +831,7 @@ class Request implements Stringable
         $host = $this->header('host', '');
 
         // Если хост установлен и без порта, вернуть хост без порта, иначе вернуть хост
-        return $host && $withoutPort ? preg_replace('/:\d{1,5}$/', '', $host) : $host;
+        return $host && $withoutPort ? preg_replace('/:\d{1,5}$/', '', (string) $host) : $host;
     }
 
     /**
@@ -960,7 +958,7 @@ class Request implements Stringable
         // Если cookie не установлены, получить их из заголовка 'cookie' и разобрать в массив
         if (!isset($this->data['cookie'])) {
             $this->data['cookie'] = [];
-            parse_str(preg_replace('/; ?/', '&', $this->header('cookie', '')), $this->data['cookie']);
+            parse_str(preg_replace('/; ?/', '&', (string) $this->header('cookie', '')), $this->data['cookie']);
         }
 
         // Если имя не указано, вернуть все cookie, иначе вернуть cookie с указанным именем или значение по умолчанию, если он не найден
@@ -1128,7 +1126,6 @@ class Request implements Stringable
      * Setter.
      *
      * @param string $name
-     * @param mixed $value
      * @return void
      */
     public function __set(string $name, mixed $value)

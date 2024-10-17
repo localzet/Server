@@ -70,19 +70,16 @@ class AsyncUdpConnection extends UdpConnection
     protected bool $connected = false;
 
     /**
-     * Опции контекста.
-     *
-     * @var array
-     */
-    protected array $contextOption = [];
-
-    /**
      * Конструктор.
      *
      * @param string $remoteAddress
      * @throws Exception
+     * @param mixed[] $contextOption
      */
-    public function __construct($remoteAddress, $contextOption = [])
+    public function __construct($remoteAddress, /**
+     * Опции контекста.
+     */
+    protected array $contextOption = [])
     {
         // Получаем протокол связи уровня приложения и адрес прослушивания.
         [$scheme, $address] = explode(':', $remoteAddress, 2);
@@ -99,7 +96,6 @@ class AsyncUdpConnection extends UdpConnection
         }
 
         $this->remoteAddress = substr($address, 2);
-        $this->contextOption = $contextOption;
     }
 
     /**
@@ -179,7 +175,7 @@ class AsyncUdpConnection extends UdpConnection
         if ($this->connected === false) {
             $this->connect();
         }
-        return strlen($sendBuffer) === stream_socket_sendto($this->socket, $sendBuffer);
+        return strlen((string) $sendBuffer) === stream_socket_sendto($this->socket, (string) $sendBuffer);
     }
 
     /**

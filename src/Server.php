@@ -820,8 +820,8 @@ class Server
 
         if (!is_file(static::$logFile) && static::$logFile !== '/dev/null') {
             // Если папка /runtime/logs по умолчанию не существует
-            if (!is_dir(dirname(static::$logFile))) {
-                @mkdir(dirname(static::$logFile), 0777, true);
+            if (!is_dir(dirname((string) static::$logFile))) {
+                @mkdir(dirname((string) static::$logFile), 0777, true);
             }
             touch(static::$logFile);
             chmod(static::$logFile, 0644);
@@ -854,7 +854,7 @@ class Server
     protected static function initGlobalEvent(): void
     {
         if (static::$globalEvent !== null) {
-            static::$eventLoopClass = get_class(static::$globalEvent);
+            static::$eventLoopClass = static::$globalEvent::class;
             static::$globalEvent = null;
             return;
         }
@@ -1362,7 +1362,7 @@ class Server
                 $statusStr .=
                     "$pid"
                     . "\t" . str_pad('<red>N/A</red>', 7 + strlen('<red></red>'))
-                    . " " . str_pad($info['listen'], $maxLen1)
+                    . " " . str_pad((string) $info['listen'], $maxLen1)
                     . " " . str_pad((string)$info['name'], $maxLen2)
                     . " " . str_pad('<red>N/A</red>', 11 + strlen('<red></red>'))
                     . " " . str_pad('<red>N/A</red>', 9 + strlen('<red></red>'))
@@ -1776,7 +1776,7 @@ class Server
             static::$idMap[$server->serverId][$id] = $pid;
         } // Для дочерних процессов.
         elseif (0 === $pid) {
-            srand();
+            mt_srand();
             mt_srand();
             static::$gracefulStop = false;
             if (static::$status === static::STATUS_STARTING) {
@@ -2109,7 +2109,6 @@ class Server
      * Остановить все.
      *
      * @param int $code
-     * @param mixed $log
      * @throws Throwable
      */
     public static function stopAll(int $code = 0, mixed $log = ''): void
@@ -2423,7 +2422,6 @@ class Server
     /**
      * Журналирование.
      *
-     * @param mixed $msg
      * @param bool $decorated
      * @return void
      */
@@ -2598,7 +2596,7 @@ class Server
             if ($this->transport === 'ssl') {
                 stream_socket_enable_crypto($this->mainSocket, false);
             } elseif ($this->transport === 'unix') {
-                $socketFile = substr($localSocket, 7);
+                $socketFile = substr((string) $localSocket, 7);
                 if ($this->user) {
                     chown($socketFile, $this->user);
                 }

@@ -105,7 +105,6 @@ abstract class ConnectionInterface
     /**
      * Отправляет данные по соединению.
      *
-     * @param mixed $sendBuffer
      * @param bool $raw
      * @return bool|null
      */
@@ -156,7 +155,6 @@ abstract class ConnectionInterface
     /**
      * Закрыть соединение.
      *
-     * @param mixed $data
      * @param bool $raw
      * @return void
      */

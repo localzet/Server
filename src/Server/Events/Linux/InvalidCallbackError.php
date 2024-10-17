@@ -48,9 +48,6 @@ final class InvalidCallbackError extends Error
     /** @var string */
     private readonly string $rawMessage;
 
-    /** @var string */
-    private readonly string $callbackId;
-
     /** @var array<string, string> */
     private array $info = [];
 
@@ -60,11 +57,9 @@ final class InvalidCallbackError extends Error
      * @param string $callbackId Идентификатор обратного вызова.
      * @param string $message Сообщение об ошибке.
      */
-    private function __construct(string $callbackId, int $code, string $message)
+    private function __construct(private readonly string $callbackId, int $code, string $message)
     {
         parent::__construct($message, $code);
-
-        $this->callbackId = $callbackId;
         $this->rawMessage = $message;
     }
 

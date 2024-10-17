@@ -340,7 +340,6 @@ class Session
      * Сохранить данные в сессии.
      *
      * @param string $name
-     * @param mixed $value
      */
     public function set(string $name, mixed $value): void
     {

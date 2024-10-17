@@ -454,7 +454,6 @@ class Websocket
     /**
      * Кодирование WebSocket.
      *
-     * @param mixed $buffer
      * @param TcpConnection $connection
      * @return string
      * @throws Throwable

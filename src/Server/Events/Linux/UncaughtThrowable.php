@@ -50,7 +50,7 @@ final class UncaughtThrowable extends Error
     {
         parent::__construct(sprintf(
             $message,
-            str_replace("\0", '@', get_class($previous)), // заменить NUL-байт в имени анонимного класса
+            str_replace("\0", '@', $previous::class), // заменить NUL-байт в имени анонимного класса
             ClosureHelper::getDescription($closure),
             $previous->getMessage() !== '' ? ': ' . $previous->getMessage() : ''
         ), 0, $previous);

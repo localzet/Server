@@ -57,7 +57,6 @@ interface ProtocolInterface
     /**
      * Кодируйте пакет перед отправкой клиенту.
      *
-     * @param mixed $data
      * @param ConnectionInterface $connection
      * @return string
      */

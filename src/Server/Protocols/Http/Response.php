@@ -146,13 +146,6 @@ class Response implements Stringable
     protected array $headers = [];
 
     /**
-     * Http статус.
-     *
-     * @var int
-     */
-    protected int $status;
-
-    /**
      * Http причина.
      *
      * @var ?string
@@ -167,13 +160,6 @@ class Response implements Stringable
     protected string $version = '1.1';
 
     /**
-     * Тело Http.
-     *
-     * @var string|null
-     */
-    protected ?string $body = '';
-
-    /**
      * Конструктор ответа.
      *
      * @param int $status
@@ -181,14 +167,18 @@ class Response implements Stringable
      * @param string|null $body
      */
     public function __construct(
-        int    $status = 200,
+        /**
+         * Http статус.
+         */
+        protected int    $status = 200,
         array $headers = [],
-        ?string $body = ''
+        /**
+         * Тело Http.
+         */
+        protected ?string $body = ''
     )
     {
-        $this->status = $status;
         $this->headers = array_change_key_case($headers);
-        $this->body = $body;
     }
 
     /**
@@ -452,7 +442,7 @@ class Response implements Stringable
         }
 
         // Информация о файле.
-        $fileInfo = pathinfo($file);
+        $fileInfo = pathinfo((string) $file);
         // Расширение файла.
         $extension = $fileInfo['extension'] ?? '';
         // Базовое имя файла.

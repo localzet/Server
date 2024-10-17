@@ -37,20 +37,17 @@ use function strlen;
 class Chunk implements Stringable
 {
     /**
-     * Буфер чанка.
-     *
-     * @var string
-     */
-    protected string $buffer;
-
-    /**
      * Конструктор Chunk.
      *
      * @param string $buffer Буфер, передаваемый в чанк.
      */
-    public function __construct(string $buffer)
+    public function __construct(
+        /**
+         * Буфер чанка.
+         */
+        protected string $buffer
+    )
     {
-        $this->buffer = $buffer;
     }
 
     /**

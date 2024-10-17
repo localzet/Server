@@ -57,29 +57,22 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
     public string $transport = 'udp';
 
     /**
-     * UDP-сокет.
-     *
-     * @var resource
-     */
-    protected $socket;
-
-    /**
-     * Удаленный адрес.
-     *
-     * @var string
-     */
-    protected string $remoteAddress = '';
-
-    /**
      * Конструктор.
      *
      * @param resource $socket
      * @param string $remoteAddress
      */
-    public function __construct($socket, string $remoteAddress)
+    public function __construct(
+        /**
+         * UDP-сокет.
+         */
+        protected $socket,
+        /**
+         * Удаленный адрес.
+         */
+        protected string $remoteAddress
+    )
     {
-        $this->socket = $socket;
-        $this->remoteAddress = $remoteAddress;
     }
 
     /**
@@ -106,7 +99,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
                 return null;
             }
         }
-        return strlen($sendBuffer) === stream_socket_sendto($this->socket, $sendBuffer, 0, $this->isIpV6() ? '[' . $this->getRemoteIp() . ']:' . $this->getRemotePort() : $this->remoteAddress);
+        return strlen((string) $sendBuffer) === stream_socket_sendto($this->socket, (string) $sendBuffer, 0, $this->isIpV6() ? '[' . $this->getRemoteIp() . ']:' . $this->getRemotePort() : $this->remoteAddress);
     }
 
     /**

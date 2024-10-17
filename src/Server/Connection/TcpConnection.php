@@ -288,13 +288,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     protected int $realId = 0;
 
     /**
-     * Сокет.
-     *
-     * @var resource
-     */
-    protected $socket = null;
-
-    /**
      * Буфер отправки.
      *
      * @var string
@@ -323,13 +316,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     protected int $status = self::STATUS_ESTABLISHED;
 
     /**
-     * Удаленный адрес.
-     *
-     * @var string
-     */
-    protected string $remoteAddress = '';
-
-    /**
      * Соединение приостановлено?
      *
      * @var bool
@@ -350,14 +336,19 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @param resource $socket
      * @param string $remoteAddress
      */
-    public function __construct(EventInterface $eventLoop, $socket, string $remoteAddress = '')
+    public function __construct(EventInterface $eventLoop, /**
+     * Сокет.
+     */
+    protected $socket, /**
+     * Удаленный адрес.
+     */
+    protected string $remoteAddress = '')
     {
         ++self::$statistics['connection_count'];
         $this->id = $this->realId = self::$idRecorder++;
         if (self::$idRecorder === PHP_INT_MAX) {
             self::$idRecorder = 0;
         }
-        $this->socket = $socket;
         stream_set_blocking($this->socket, false);
         // Совместимость с hhvm
         if (function_exists('stream_set_read_buffer')) {
@@ -367,7 +358,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
         $this->maxSendBufferSize = self::$defaultMaxSendBufferSize;
         $this->maxPackageSize = self::$defaultMaxPackageSize;
-        $this->remoteAddress = $remoteAddress;
         static::$connections[$this->id] = $this;
         $this->context = new stdClass();
     }
@@ -576,18 +566,18 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             }
             $len = 0;
             try {
-                $len = @fwrite($this->socket, $sendBuffer);
+                $len = @fwrite($this->socket, (string) $sendBuffer);
             } catch (Throwable $e) {
                 Server::log($e);
             }
             // Отправка успешна.
-            if ($len === strlen($sendBuffer)) {
+            if ($len === strlen((string) $sendBuffer)) {
                 $this->bytesWritten += $len;
                 return true;
             }
             // Отправить только часть данных.
             if ($len > 0) {
-                $this->sendBuffer = substr($sendBuffer, $len);
+                $this->sendBuffer = substr((string) $sendBuffer, $len);
                 $this->bytesWritten += $len;
             } else {
                 // Соединение закрыто?

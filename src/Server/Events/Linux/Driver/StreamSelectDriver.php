@@ -91,7 +91,7 @@ final class StreamSelectDriver extends AbstractDriver
     /**
      * @var bool
      */
-    private bool $signalHandling;
+    private readonly bool $signalHandling;
 
     /**
      * @var Closure

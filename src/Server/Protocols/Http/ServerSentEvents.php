@@ -35,20 +35,17 @@ use Stringable;
 class ServerSentEvents implements Stringable
 {
     /**
-     * Данные.
-     * @var array
-     */
-    protected array $data;
-
-    /**
      * Конструктор ServerSentEvents.
      *
      * @param array $data Данные для создания объекта ServerSentEvents. Пример: ['event' => 'ping', 'data' => 'какие-то данные', 'id' => 1000, 'retry' => 5000]
      */
-    public function __construct(array $data)
+    public function __construct(
+        /**
+         * Данные.
+         */
+        protected array $data
+    )
     {
-        // Сохраняем переданные данные в свойстве data.
-        $this->data = $data;
     }
 
     /**

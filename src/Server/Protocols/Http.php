@@ -197,7 +197,7 @@ class Http
         }
 
         foreach ($request->header() as $name => $value) {
-            $_SERVER[strtoupper($name)] = $value;
+            $_SERVER[strtoupper((string) $name)] = $value;
         }
 
         $_GET = $request->get();
