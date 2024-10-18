@@ -203,7 +203,7 @@ class Timer
 
         self::$timerId = self::$timerId == PHP_INT_MAX ? 1 : ++self::$timerId;
         self::$status[self::$timerId] = true;
-        self::$tasks[$runTime][self::$timerId] = [$func, (array)$args, $persistent, $timeInterval];
+        self::$tasks[$runTime][self::$timerId] = [$func, $args, $persistent, $timeInterval];
 
         return self::$timerId;
     }
