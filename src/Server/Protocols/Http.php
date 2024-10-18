@@ -130,7 +130,7 @@ class Http
         if ($pos = stripos($header, "\r\nContent-Length: ")) {
             $length += (int)substr($header, $pos + 18, 10);
             $hasContentLength = true;
-        } else if (preg_match("/\r\ncontent-length: ?(\d+)/i", $header, $match)) {
+        } elseif (preg_match("/\r\ncontent-length: ?(\d+)/i", $header, $match)) {
             $length += (int)$match[1];
             $hasContentLength = true;
         } else {
@@ -320,7 +320,7 @@ class Http
         if (static::$uploadTmpDir === '') {
             if ($uploadTmpDir = ini_get('upload_tmp_dir')) {
                 static::$uploadTmpDir = $uploadTmpDir;
-            } else if ($uploadTmpDir = sys_get_temp_dir()) {
+            } elseif ($uploadTmpDir = sys_get_temp_dir()) {
                 static::$uploadTmpDir = $uploadTmpDir;
             }
         }

@@ -837,10 +837,8 @@ class Server
             // Получаем пользовательское имя UNIX-пользователя для процесса сервера.
             if (empty($server->user)) {
                 $server->user = static::getCurrentUser();
-            } else {
-                if (posix_getuid() !== 0 && $server->user !== static::getCurrentUser()) {
-                    static::log('Внимание: Для изменения UID и GID вам нужны права root.');
-                }
+            } elseif (posix_getuid() !== 0 && $server->user !== static::getCurrentUser()) {
+                static::log('Внимание: Для изменения UID и GID вам нужны права root.');
             }
 
             // Имя сокета.
@@ -976,7 +974,7 @@ class Server
 
         if (static::$daemonize) {
             static::safeEcho('Выполните "php ' . basename(static::$startFile) . ' stop" для остановки. Сервер запущен.' . "\n\n");
-        } else if (!empty(static::$command)) {
+        } elseif (!empty(static::$command)) {
             static::safeEcho("Localzet Server запущен.\n");
         } else {
             static::safeEcho("Нажмите Ctrl+C для остановки. Localzet Server запущен.\n");
@@ -2484,11 +2482,10 @@ class Server
                     throw new RuntimeException("Класс \\Protocols\\$scheme не существует");
                 }
             }
-
             if (!isset(self::BUILD_IN_TRANSPORTS[$this->transport])) {
                 throw new RuntimeException('Некорректное значение server->transport: ' . var_export($this->transport, true));
             }
-        } else if ($this->transport === 'tcp') {
+        } elseif ($this->transport === 'tcp') {
             $this->transport = $scheme;
         }
         // Локальный сокет

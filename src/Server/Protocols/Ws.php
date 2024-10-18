@@ -158,7 +158,7 @@ class Ws
                 }
                 $pack = unpack('nn/ntotal_len', $buffer);
                 $currentFrameLength = $pack['total_len'] + 4;
-            } else if ($dataLen === 127) {
+            } elseif ($dataLen === 127) {
                 if (strlen($buffer) < 10) {
                     return 0;
                 }
@@ -377,7 +377,7 @@ class Ws
         // Если длина данных равна 126, данные начинаются с 4-го байта.
         if ($dataLength === 126) {
             $decodedData = substr($bytes, 4);
-        } else if ($dataLength === 127) {
+        } elseif ($dataLength === 127) {
             // Если длина данных равна 127, данные начинаются с 10-го байта.
             $decodedData = substr($bytes, 10);
         } else {

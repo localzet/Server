@@ -194,7 +194,7 @@ final class Windows implements EventInterface
         $count = count($this->readFds);
         if ($count >= 1024) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений.\n");
-        } else if (!is_unix() && $count >= 256) {
+        } elseif (!is_unix() && $count >= 256) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n");
         }
         $fdKey = (int)$stream;
@@ -223,7 +223,7 @@ final class Windows implements EventInterface
         $count = count($this->writeFds);
         if ($count >= 1024) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений.\n");
-        } else if (!is_unix() && $count >= 256) {
+        } elseif (!is_unix() && $count >= 256) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n");
         }
         $fdKey = (int)$stream;

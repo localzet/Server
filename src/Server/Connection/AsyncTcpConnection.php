@@ -246,7 +246,7 @@ class AsyncTcpConnection extends TcpConnection
                 // fread($this->socket, 512);
                 // fwrite($this->socket, chr(5) . chr(1) . chr(0) . chr(3) . chr(strlen($this->remoteHost)) . $this->remoteHost . pack("n", $this->remotePort));
                 // fread($this->socket, 512);
-            } else if ($this->proxyHttp) {
+            } elseif ($this->proxyHttp) {
                 $this->socketContext['ssl']['peer_name'] = $this->remoteHost;
                 $context = stream_context_create($this->socketContext);
                 $this->socket = stream_socket_client("tcp://$this->proxyHttp", $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT, $context);
@@ -255,7 +255,7 @@ class AsyncTcpConnection extends TcpConnection
                 // $str .= "Proxy-Connection: keep-alive\n";
                 // fwrite($this->socket, $str);
                 // fread($this->socket, 512);
-            } else if ($this->socketContext) {
+            } elseif ($this->socketContext) {
                 $context = stream_context_create($this->socketContext);
                 $this->socket = stream_socket_client("tcp://$this->remoteHost:$this->remotePort",
                     $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT, $context);
@@ -389,11 +389,9 @@ class AsyncTcpConnection extends TcpConnection
                 if ($this->sslHandshakeCompleted === false) {
                     return;
                 }
-            } else {
+            } elseif ($this->sendBuffer) {
                 // Есть некоторые данные, ожидающие отправки.
-                if ($this->sendBuffer) {
-                    $this->eventLoop->onWritable($this->socket, $this->baseWrite(...));
-                }
+                $this->eventLoop->onWritable($this->socket, $this->baseWrite(...));
             }
 
             // Зарегистрируем слушателя чтения.

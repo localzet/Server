@@ -17,7 +17,7 @@ return RectorConfig::configure()
     ->withPhpSets(php81: true)
 //    ->withTypeCoverageLevel(100)
 //    ->withDeadCodeLevel(100)
-        ->withCodeQualityLevel(30)
+        ->withCodeQualityLevel(40)
     ->withSkip([
         RemoveNullPropertyInitializationRector::class,
         RemoveUnusedPrivatePropertyRector::class,

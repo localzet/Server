@@ -509,13 +509,9 @@ class Request implements Stringable
                         // Если временный каталог для загрузки HTTP не найден, установить ошибку в UPLOAD_ERR_NO_TMP_DIR
                         if (!$tmpUploadDir) {
                             $error = UPLOAD_ERR_NO_TMP_DIR;
-                        } // Иначе если значение границы и имя файла пустые, установить ошибку в UPLOAD_ERR_NO_FILE
-                        else if ($boundaryValue === '' && $fileName === '') {
+                        } elseif ($boundaryValue === '' && $fileName === '') {
                             $error = UPLOAD_ERR_NO_FILE;
-                        }
-                        // Иначе создать временный файл во временном каталоге для загрузки HTTP и записать в него значение границы,
-                        // если создание временного файла или запись в него не удалась, установить ошибку в UPLOAD_ERR_CANT_WRITE
-                        else {
+                        } else {
                             $tmpFile = tempnam($tmpUploadDir, 'localzet.upload.');
                             if ($tmpFile === false || false === file_put_contents($tmpFile, $boundaryValue)) {
                                 $error = UPLOAD_ERR_CANT_WRITE;

@@ -171,15 +171,13 @@ class Websocket
                 }
                 $pack = unpack('nn/ntotal_len', $buffer);
                 $dataLen = $pack['total_len'];
-            } else {
-                if ($dataLen === 127) {
-                    $headLen = 14;
-                    if ($headLen > $recvLen) {
-                        return 0;
-                    }
-                    $arr = unpack('n/N2c', $buffer);
-                    $dataLen = $arr['c1'] * 4294967296 + $arr['c2'];
+            } elseif ($dataLen === 127) {
+                $headLen = 14;
+                if ($headLen > $recvLen) {
+                    return 0;
                 }
+                $arr = unpack('n/N2c', $buffer);
+                $dataLen = $arr['c1'] * 4294967296 + $arr['c2'];
             }
 
             // Вычисляем текущую длину кадра.
@@ -414,14 +412,12 @@ class Websocket
         if ($len === 126) {
             $masks = substr($buffer, 4, 4);
             $data = substr($buffer, 8);
+        } elseif ($len === 127) {
+            $masks = substr($buffer, 10, 4);
+            $data = substr($buffer, 14);
         } else {
-            if ($len === 127) {
-                $masks = substr($buffer, 10, 4);
-                $data = substr($buffer, 14);
-            } else {
-                $masks = substr($buffer, 2, 4);
-                $data = substr($buffer, 6);
-            }
+            $masks = substr($buffer, 2, 4);
+            $data = substr($buffer, 6);
         }
         $dataLength = strlen($data);
         $masks = str_repeat($masks, (int)floor($dataLength / 4)) . substr($masks, 0, $dataLength % 4);
@@ -463,12 +459,10 @@ class Websocket
 
         if ($len <= 125) {
             $encodeBuffer = $firstByte . chr($len) . $buffer;
+        } elseif ($len <= 65535) {
+            $encodeBuffer = $firstByte . chr(126) . pack("n", $len) . $buffer;
         } else {
-            if ($len <= 65535) {
-                $encodeBuffer = $firstByte . chr(126) . pack("n", $len) . $buffer;
-            } else {
-                $encodeBuffer = $firstByte . chr(127) . pack("xxxxN", $len) . $buffer;
-            }
+            $encodeBuffer = $firstByte . chr(127) . pack("xxxxN", $len) . $buffer;
         }
 
         // Если рукопожатие еще не завершено, данные websocket временного буфера ожидают отправки.

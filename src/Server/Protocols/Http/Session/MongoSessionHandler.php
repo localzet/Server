@@ -68,11 +68,9 @@ class MongoSessionHandler implements SessionHandlerInterface
                     if (!empty($config['port'])) {
                         $host .= ':' . $config['port'];
                     }
-                } else {
+                } elseif (!str_contains((string) $host, ':') && !empty($config['port'])) {
                     // Check if we need to add a port to the host
-                    if (!str_contains((string) $host, ':') && !empty($config['port'])) {
-                        $host .= ':' . $config['port'];
-                    }
+                    $host .= ':' . $config['port'];
                 }
             }
 
