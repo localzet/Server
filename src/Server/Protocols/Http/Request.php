@@ -483,7 +483,7 @@ class Request implements Stringable
      * @param $files
      * @return int
      */
-    protected function parseUploadFile($boundary, $sectionStartOffset, &$postEncodeString, &$filesEncodeStr, &$files): int
+    protected function parseUploadFile($boundary, $sectionStartOffset, string &$postEncodeString, string &$filesEncodeStr, &$files): int
     {
         // Инициализация массива для файла
         $file = [];
