@@ -208,7 +208,7 @@ final class DriverSuspension implements Suspension
     private function formatStacktrace(array $trace): string
     {
         // Форматирование стека вызовов.
-        return implode("\n", array_map(static function ($e, $i) {
+        return implode("\n", array_map(static function ($e, $i): string {
             $line = "#$i ";
 
             if (isset($e["file"])) {

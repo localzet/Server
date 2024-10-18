@@ -11,7 +11,7 @@ return RectorConfig::configure()
         __DIR__ . '/src',
     ])
     ->withPhpSets(php81: true)
-    ->withTypeCoverageLevel(5)
+    ->withTypeCoverageLevel(36)
     ->withSets([
         LevelSetList::UP_TO_PHP_81,
         SetList::PHP_81,

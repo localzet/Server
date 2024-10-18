@@ -140,7 +140,7 @@ final class TracingDriver implements Driver
      */
     private function formatStacktrace(array $trace): string
     {
-        return implode("\n", array_map(static function (array $e, int|string $i) {
+        return implode("\n", array_map(static function (array $e, int|string $i): string {
             $line = "#$i ";
 
             if (isset($e["file"], $e['line'])) {
