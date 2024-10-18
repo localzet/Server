@@ -840,7 +840,7 @@ abstract class AbstractDriver implements Driver
     public function __debugInfo(): array
     {
         // @codeCoverageIgnoreStart
-        return array_map(fn(DriverCallback $callback) => [
+        return array_map(fn(DriverCallback $callback): array => [
             'type' => $this->getType($callback->id),
             'enabled' => $callback->enabled,
             'referenced' => $callback->referenced,

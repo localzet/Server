@@ -2064,7 +2064,7 @@ class Server
                     }
 
                     // Отправляем сигнал перезагрузки процессу, для которого reloadable равно false.
-                    array_walk($serverPidArray, static fn($pid) => posix_kill($pid, $sig));
+                    array_walk($serverPidArray, static fn($pid): bool => posix_kill($pid, $sig));
                 }
 
                 // Получаем все pid, которые ожидают перезагрузки.

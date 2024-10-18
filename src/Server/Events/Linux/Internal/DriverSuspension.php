@@ -121,7 +121,7 @@ final class DriverSuspension implements Suspension
             });
         } else {
             // Приостановить выполнение основного цикла событий.
-            ($this->interrupt)(static fn() => $value);
+            ($this->interrupt)(static fn(): mixed => $value);
         }
     }
 
