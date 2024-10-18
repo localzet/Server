@@ -310,8 +310,8 @@ final class Windows implements EventInterface
                 } catch (Throwable) {
                     // do nothing
                 }
-            } else {
-                $this->selectTimeout >= 1 && usleep($this->selectTimeout);
+            } elseif ($this->selectTimeout >= 1) {
+                usleep($this->selectTimeout);
             }
 
             if (!$this->scheduler->isEmpty()) {

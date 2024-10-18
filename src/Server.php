@@ -849,7 +849,9 @@ class Server
 
             // Получаем соответствие столбца для интерфейса пользователя.
             foreach (static::getUiColumns() as $columnName => $prop) {
-                !isset($server->$prop) && !isset($server->context->$prop) && $server->context->$prop = 'NNNN';
+                if (!isset($server->$prop) && !isset($server->context->$prop)) {
+                    $server->context->$prop = 'NNNN';
+                }
                 $propLength = strlen((string)($server->$prop ?? $server->context->$prop));
                 $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
                 static::$$key = max(static::$$key, $propLength);
@@ -950,7 +952,9 @@ class Server
         foreach (static::getUiColumns() as $columnName => $prop) {
             $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
             // Совместимость с названием слушателя
-            strtolower($columnName) === 'socket' && $columnName = 'listen';
+            if (strtolower($columnName) === 'socket') {
+                $columnName = 'listen';
+            }
             $title .= "<blue>" . strtoupper($columnName) . "</blue>" . str_pad('', static::$$key + static::UI_SAFE_LENGTH - strlen($columnName));
         }
         $title && static::safeEcho($title . PHP_EOL);
@@ -970,7 +974,9 @@ class Server
 
         // Показать последнюю строку
         $lineLast = str_pad('', static::getSingleLineTotalLength(), '-') . PHP_EOL;
-        !empty($content) && static::safeEcho($lineLast);
+        if (!empty($content)) {
+            static::safeEcho($lineLast);
+        }
 
         if (static::$daemonize) {
             static::safeEcho('Выполните "php ' . basename(static::$startFile) . ' stop" для остановки. Сервер запущен.' . "\n\n");
@@ -1013,7 +1019,9 @@ class Server
 
         // Сохранить красоту при отображении меньшего количества столбцов
         !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', 0);
-        $totalLength <= LINE_VERSION_LENGTH && $totalLength = LINE_VERSION_LENGTH;
+        if ($totalLength <= LINE_VERSION_LENGTH) {
+            $totalLength = LINE_VERSION_LENGTH;
+        }
 
         return $totalLength;
     }

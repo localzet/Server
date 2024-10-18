@@ -65,7 +65,9 @@ function localzet_start(
     null|array        $services = null,
 ): Server
 {
-    is_array($name) && extract($name);
+    if (is_array($name)) {
+        extract($name);
+    }
 
     $server ??= Server::class;
     $master = new $server($listen ?? null, $context ?? []);
