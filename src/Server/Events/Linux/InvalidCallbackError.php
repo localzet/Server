@@ -93,9 +93,6 @@ final class InvalidCallbackError extends Error
         return $this->callbackId;
     }
 
-    /**
-     * @return void
-     */
     public function addInfo(string $key, string $message): void
     {
         $this->info[$key] = $message;

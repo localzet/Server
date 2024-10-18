@@ -45,15 +45,11 @@ interface ProtocolInterface
 
     /**
      * Расшифруйте пакет и вызовите обратный вызов onMessage($message), где $message - это результат, возвращенный функцией decode.
-     *
-     * @return mixed
      */
     public static function decode(string $buffer, ConnectionInterface $connection): mixed;
 
     /**
      * Кодируйте пакет перед отправкой клиенту.
-     *
-     * @return string
      */
     public static function encode(mixed $data, ConnectionInterface $connection): string;
 }

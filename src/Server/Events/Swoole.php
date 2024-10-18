@@ -76,9 +76,6 @@ final class Swoole implements EventInterface
         return $timerId;
     }
 
-    /**
-     * @return void
-     */
     private function safeCall(callable $func, array $args = []): void
     {
         try {

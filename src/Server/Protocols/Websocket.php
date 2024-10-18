@@ -75,7 +75,6 @@ class Websocket
      * Получить или установить имя класса Request для рукопожатия.
      *
      * @param string|null $className
-     * @return string
      */
     public static function requestClass(string $className = null): string
     {
@@ -88,7 +87,6 @@ class Websocket
     /**
      * Проверка целостности пакета.
      *
-     * @return int
      * @throws Throwable
      */
     public static function input(string $buffer, TcpConnection $connection): int
@@ -303,7 +301,6 @@ class Websocket
     /**
      * Рукопожатие WebSocket.
      *
-     * @return int
      * @throws Throwable
      */
     public static function dealHandshake(string $buffer, TcpConnection $connection): int
@@ -410,8 +407,6 @@ class Websocket
 
     /**
      * Декодирование WebSocket.
-     *
-     * @return string
      */
     public static function decode(string $buffer, TcpConnection $connection): string
     {
@@ -448,7 +443,6 @@ class Websocket
     /**
      * Кодирование WebSocket.
      *
-     * @return string
      * @throws Throwable
      */
     public static function encode(mixed $buffer, TcpConnection $connection): string

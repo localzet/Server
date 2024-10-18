@@ -140,9 +140,6 @@ final class UvDriver extends AbstractDriver
         };
     }
 
-    /**
-     * @return int
-     */
     private function getStreamCallbackFlags(StreamCallback $callback): int
     {
         if ($callback instanceof StreamWritableCallback) {
@@ -156,9 +153,6 @@ final class UvDriver extends AbstractDriver
         throw new Error('Invalid callback type');
     }
 
-    /**
-     * @return bool
-     */
     public static function isSupported(): bool
     {
         return extension_loaded("uv");
@@ -277,9 +271,6 @@ final class UvDriver extends AbstractDriver
         }
     }
 
-    /**
-     * @return float
-     */
     protected function now(): float
     {
         uv_update_time($this->handle);

@@ -104,76 +104,55 @@ abstract class ConnectionInterface
 
     /**
      * Отправляет данные по соединению.
-     *
-     * @return bool|null
      */
     abstract public function send(mixed $sendBuffer, bool $raw = false): bool|null;
 
     /**
      * Получить удаленный IP-адрес.
-     *
-     * @return string
      */
     abstract public function getRemoteIp(): string;
 
     /**
      * Получить удаленный порт.
-     *
-     * @return int
      */
     abstract public function getRemotePort(): int;
 
     /**
      * Получить удаленный адрес.
-     *
-     * @return string
      */
     abstract public function getRemoteAddress(): string;
 
     /**
      * Получить локальный IP-адрес.
-     *
-     * @return string
      */
     abstract public function getLocalIp(): string;
 
     /**
      * Получить локальный порт.
-     *
-     * @return int
      */
     abstract public function getLocalPort(): int;
 
     /**
      * Получить локальный адрес.
-     *
-     * @return string
      */
     abstract public function getLocalAddress(): string;
 
     /**
      * Закрыть соединение.
-     *
-     * @return void
      */
     abstract public function close(mixed $data = null, bool $raw = false): void;
 
     /**
      * Является ли адрес IPv4.
-     *
-     * @return bool
      */
     abstract public function isIpV4(): bool;
 
     /**
      * Является ли адрес IPv6.
-     *
-     * @return bool
      */
     abstract public function isIpV6(): bool;
 
     /**
-     * @return void
      * @throws Throwable
      */
     public function error(Throwable $exception): void

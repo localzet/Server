@@ -201,8 +201,6 @@ class Session
 
     /**
      * Инициализация обработчика.
-     *
-     * @return void
      */
     protected static function initHandler(): void
     {
@@ -217,8 +215,6 @@ class Session
 
     /**
      * Инициализация.
-     *
-     * @return void
      */
     public static function init(): void
     {
@@ -246,7 +242,6 @@ class Session
      *
      * @param mixed|null $className
      * @param mixed|null $config
-     * @return string
      */
     public static function handlerClass(mixed $className = null, mixed $config = null): string
     {
@@ -261,8 +256,6 @@ class Session
 
     /**
      * Получить параметры cookie.
-     *
-     * @return array
      */
     public static function getCookieParams(): array
     {
@@ -280,7 +273,6 @@ class Session
      * Получить и удалить элемент из сессии.
      *
      * @param mixed|null $default
-     * @return mixed
      */
     public function pull(string $name, mixed $default = null): mixed
     {
@@ -293,7 +285,6 @@ class Session
      * Получить данные сессии.
      *
      * @param mixed|null $default
-     * @return mixed
      */
     public function get(string $name, mixed $default = null): mixed
     {
@@ -355,8 +346,6 @@ class Session
 
     /**
      * Получить все данные сессии.
-     *
-     * @return array
      */
     public function all(): array
     {
@@ -365,8 +354,6 @@ class Session
 
     /**
      * Удалить все данные из сессии.
-     *
-     * @return void
      */
     public function flush(): void
     {
@@ -376,8 +363,6 @@ class Session
 
     /**
      * Проверить наличие элемента в сессии.
-     *
-     * @return bool
      */
     public function has(string $name): bool
     {
@@ -386,8 +371,6 @@ class Session
 
     /**
      * Проверить наличие элемента в сессии, даже если его значение равно null.
-     *
-     * @return bool
      */
     public function exists(string $name): bool
     {
@@ -424,8 +407,6 @@ class Session
 
     /**
      * Сохранить сессию в хранилище.
-     *
-     * @return void
      */
     public function save(): void
     {
@@ -443,8 +424,6 @@ class Session
 
     /**
      * Обновить время истечения сессии.
-     *
-     * @return bool
      */
     public function refresh(): bool
     {
@@ -453,8 +432,6 @@ class Session
 
     /**
      * Получить идентификатор сессии.
-     *
-     * @return string
      */
     public function getId(): string
     {
@@ -463,8 +440,6 @@ class Session
 
     /**
      * Очистка неиспользуемых сессий.
-     *
-     * @return void
      */
     public function gc(): void
     {

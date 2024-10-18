@@ -100,9 +100,6 @@ final class EventDriver extends AbstractDriver
         };
     }
 
-    /**
-     * @return bool
-     */
     public static function isSupported(): bool
     {
         return extension_loaded("event");
@@ -270,9 +267,6 @@ final class EventDriver extends AbstractDriver
         }
     }
 
-    /**
-     * @return float
-     */
     protected function now(): float
     {
         return (float)hrtime(true) / 1_000_000_000;

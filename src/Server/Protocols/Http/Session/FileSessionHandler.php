@@ -79,7 +79,6 @@ class FileSessionHandler implements SessionHandlerInterface
      * Получение или установка пути для сохранения сессий.
      *
      * @param string $path Путь для сохранения сессий.
-     * @return string
      */
     public static function sessionSavePath(string $path): string
     {
@@ -152,7 +151,6 @@ class FileSessionHandler implements SessionHandlerInterface
      * Получение пути к файлу сессии.
      *
      * @param string $sessionId Идентификатор сессии.
-     * @return string
      */
     protected static function sessionFile(string $sessionId): string
     {
@@ -161,7 +159,6 @@ class FileSessionHandler implements SessionHandlerInterface
 
     /**
      * {@inheritdoc}
-     * @return bool
      * @throws Exception
      */
     public function write(string $sessionId, string $sessionData): bool
@@ -184,8 +181,6 @@ class FileSessionHandler implements SessionHandlerInterface
      *
      * @param string $sessionId Идентификатор сессии.
      * @param string $data Данные сессии.
-     *
-     * @return bool
      */
     public function updateTimestamp(string $sessionId, string $data = ""): bool
     {

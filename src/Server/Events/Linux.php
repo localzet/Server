@@ -101,8 +101,6 @@ final class Linux implements EventInterface
 
     /**
      * Получить драйвер цикла событий, который находится в области видимости.
-     *
-     * @return Driver
      */
     public function getDriver(): Driver
     {
@@ -166,8 +164,6 @@ final class Linux implements EventInterface
      * Возвращает объект, используемый для приостановки и возобновления выполнения текущего Fiber'а или {main}.
      *
      * Вызовы из одного и того же Fiber'а вернут один и тот же объект приостановки.
-     *
-     * @return Suspension
      */
     public function getSuspension(): Suspension
     {

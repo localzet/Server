@@ -88,7 +88,6 @@ final class DriverSuspension implements Suspension
 
     /**
      * @param mixed|null $value
-     * @return void
      */
     public function resume(mixed $value = null): void
     {
@@ -120,7 +119,6 @@ final class DriverSuspension implements Suspension
     }
 
     /**
-     * @return mixed
      * @throws Throwable
      */
     public function suspend(): mixed
@@ -195,9 +193,6 @@ final class DriverSuspension implements Suspension
         return $result();
     }
 
-    /**
-     * @return string
-     */
     private function formatStacktrace(array $trace): string
     {
         // Форматирование стека вызовов.
@@ -216,9 +211,6 @@ final class DriverSuspension implements Suspension
         }, $trace, array_keys($trace)));
     }
 
-    /**
-     * @return void
-     */
     public function throw(Throwable $throwable): void
     {
         // Ignore spurious resumes to old dead {main} suspension

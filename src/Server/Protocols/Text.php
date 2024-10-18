@@ -38,8 +38,6 @@ class Text
 {
     /**
      * Проверим целостность пакета.
-     *
-     * @return int
      */
     public static function input(string $buffer, ConnectionInterface $connection): int
     {
@@ -62,8 +60,6 @@ class Text
 
     /**
      * Кодируем данные перед отправкой.
-     *
-     * @return string
      */
     public static function encode(string $buffer): string
     {
@@ -73,8 +69,6 @@ class Text
 
     /**
      * Декодируем полученные данные.
-     *
-     * @return string
      */
     public static function decode(string $buffer): string
     {

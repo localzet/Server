@@ -71,7 +71,6 @@ interface EventInterface
      * Зарегистрировать колбэк для выполнения при возможности чтения или закрытия потока для чтения.
      * @param resource $stream Поток, для которого нужно зарегистрировать колбэк.
      * @param callable(resource): void $func Колбэк, который нужно выполнить.
-     * @return void
      */
     public function onReadable($stream, callable $func): void;
 
@@ -86,7 +85,6 @@ interface EventInterface
      * Зарегистрировать колбэк для выполнения при возможности записи или закрытия потока для записи.
      * @param resource $stream Поток, для которого нужно зарегистрировать колбэк.
      * @param callable(resource): void $func Колбэк, который нужно выполнить.
-     * @return void
      */
     public function onWritable($stream, callable $func): void;
 
@@ -101,7 +99,6 @@ interface EventInterface
      * Зарегистрировать колбэк для выполнения при получении сигнала.
      * @param int $signal Номер сигнала.
      * @param callable(int): void $func Колбэк, который нужно выполнить.
-     * @return void
      * @throws Throwable
      */
     public function onSignal(int $signal, callable $func): void;
@@ -122,20 +119,17 @@ interface EventInterface
      *
      * Этот метод не вернет управление до тех пор, пока цикл обработки событий не будет содержать каких-либо ожидающих, ссылочных обратных вызовов.
      *
-     * @return void
      * @throws Throwable
      */
     public function run(): void;
 
     /**
      * Остановить цикл событий.
-     * @return void
      */
     public function stop(): void;
 
     /**
      * Удалить все таймеры.
-     * @return void
      */
     public function deleteAllTimer(): void;
 
@@ -148,7 +142,6 @@ interface EventInterface
     /**
      * Установить обработчик ошибок.
      * @param callable(Throwable): void $errorHandler Обработчик ошибок.
-     * @return void
      */
     public function setErrorHandler(callable $errorHandler): void;
 }

@@ -44,7 +44,6 @@ use localzet\ServerAbstract;
  * @param null|class-string $server Экземпляр сервера, или его наследника
  * @param null|string $handler [ServerAbstract](\localzet\ServerAbstract)
  * @param null|array $services Массив сервисов (только listen, context, handler, constructor)
- * @return Server
  */
 function localzet_start(
     // Свойства главного сервера

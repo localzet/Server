@@ -637,7 +637,6 @@ class Server
     /**
      * Запуск всех экземпляров сервера
      *
-     * @return void
      * @throws Throwable
      */
     public static function runAll(): void
@@ -664,8 +663,6 @@ class Server
 
     /**
      * Проверка SAPI
-     *
-     * @return void
      */
     protected static function checkSapiEnv(): void
     {
@@ -713,9 +710,6 @@ class Server
         return stream_isatty(self::$outputStream);
     }
 
-    /**
-     * @return string|null
-     */
     public static function getVersion(): ?string
     {
         if (!self::$version) {
@@ -727,8 +721,6 @@ class Server
 
     /**
      * Инициализация
-     *
-     * @return void
      */
     protected static function init(): void
     {
@@ -848,8 +840,6 @@ class Server
 
     /**
      * Инициализация глобального события.
-     *
-     * @return void
      */
     protected static function initGlobalEvent(): void
     {
@@ -876,7 +866,6 @@ class Server
      * Блокировка.
      *
      * @param int $flag Флаг блокировки (по умолчанию LOCK_EX)
-     * @return void
      */
     protected static function lock(int $flag = LOCK_EX): void
     {
@@ -911,7 +900,6 @@ class Server
     /**
      * Инициализация всех экземпляров сервера.
      *
-     * @return void
      * @throws Exception
      */
     protected static function initServers(): void
@@ -969,8 +957,6 @@ class Server
 
     /**
      * Получить глобальный экземпляр цикла событий.
-     *
-     * @return EventInterface
      */
     public static function getEventLoop(): EventInterface
     {
@@ -989,8 +975,6 @@ class Server
 
     /**
      * Инициализация idMap.
-     *
-     * @return void
      */
     protected static function initId(): void
     {
@@ -1006,8 +990,6 @@ class Server
 
     /**
      * Получить имя UNIX-пользователя текущего процесса.
-     *
-     * @return string
      */
     protected static function getCurrentUser(): string
     {
@@ -1017,8 +999,6 @@ class Server
 
     /**
      * Отображение начального интерфейса пользователя.
-     *
-     * @return void
      */
     protected static function displayUI(): void
     {
@@ -1089,8 +1069,6 @@ class Server
      *
      * 1. $columnMap: ['ui_column_name' => 'clas_property_name']
      * 2. В будущем можно перенести в конфигурацию.
-     *
-     * @return array
      */
     public static function getUiColumns(): array
     {
@@ -1106,8 +1084,6 @@ class Server
 
     /**
      * Получить общую длину строки для интерфейса.
-     *
-     * @return int
      */
     public static function getSingleLineTotalLength(): int
     {
@@ -1127,8 +1103,6 @@ class Server
 
     /**
      * Разбор команды.
-     *
-     * @return void
      */
     protected static function parseCommand(): void
     {
@@ -1287,8 +1261,6 @@ class Server
 
     /**
      * Получение массива argv.
-     *
-     * @return array
      */
     public static function getArgv(): array
     {
@@ -1298,8 +1270,6 @@ class Server
 
     /**
      * Данные о состоянии
-     *
-     * @return string
      */
     protected static function formatProcessStatusData(): string
     {
@@ -1404,8 +1374,6 @@ class Server
 
     /**
      * Установить обработчик сигналов.
-     *
-     * @return void
      */
     protected static function installSignal(): void
     {
@@ -1423,7 +1391,6 @@ class Server
     /**
      * Переустановить обработчик сигнала.
      *
-     * @return void
      * @throws Throwable
      */
     protected static function reinstallSignal(): void
@@ -1510,8 +1477,6 @@ class Server
 
     /**
      * Перенаправление стандартного ввода и вывода.
-     *
-     * @return void
      */
     public static function resetStd(): void
     {
@@ -1573,8 +1538,6 @@ class Server
 
     /**
      * Получить все PID процессов сервера.
-     *
-     * @return array
      */
     protected static function getAllServerPids(): array
     {
@@ -1590,7 +1553,6 @@ class Server
     /**
      * Создать процессы для серверов.
      *
-     * @return void
      * @throws Throwable
      */
     protected static function forkServers(): void
@@ -1605,7 +1567,6 @@ class Server
     /**
      * Создать процессы для серверов (Linux).
      *
-     * @return void
      * @throws Throwable
      */
     protected static function forkServersForLinux(): void
@@ -1630,7 +1591,6 @@ class Server
     /**
      * Форкнуть несколько процессов сервера для Windows.
      *
-     * @return void
      * @throws Throwable
      */
     protected static function forkServersForWindows(): void
@@ -1701,8 +1661,6 @@ class Server
 
     /**
      * Получить файлы запуска для Windows.
-     *
-     * @return array
      */
     public static function getStartFilesForWindows(): array
     {
@@ -1739,7 +1697,6 @@ class Server
 
     /**
      * Проверка статуса сервера для Windows.
-     * @return void
      */
     public static function checkServerStatusForWindows(): void
     {
@@ -1842,8 +1799,6 @@ class Server
 
     /**
      * Установить пользовательскую группу и пользователя для текущего процесса.
-     *
-     * @return void
      */
     public function setUserAndGroup(): void
     {
@@ -1876,8 +1831,6 @@ class Server
 
     /**
      * Установка имени процесса.
-     *
-     * @return void
      */
     protected static function setProcessTitle(string $title): void
     {
@@ -1888,8 +1841,6 @@ class Server
 
     /**
      * Отправка сигнала процессу.
-     *
-     * @return void
      */
     protected static function sendSignal(int $process_id, int $signal): void
     {
@@ -1901,7 +1852,6 @@ class Server
     /**
      * Мониторинг всех дочерних процессов.
      *
-     * @return void
      * @throws Throwable
      */
     protected static function monitorServers(): void
@@ -1916,7 +1866,6 @@ class Server
     /**
      * Мониторинг всех дочерних процессов для Linux.
      *
-     * @return void
      * @throws Throwable
      */
     protected static function monitorServersForLinux(): void
@@ -1991,7 +1940,6 @@ class Server
     /**
      * Мониторинг всех дочерних процессов.
      *
-     * @return void
      * @throws Throwable
      */
     protected static function monitorServersForWindows(): void
@@ -2024,7 +1972,6 @@ class Server
     /**
      * Выполнить перезагрузку сервера.
      *
-     * @return void
      * @throws Throwable
      */
     protected static function reload(): void
@@ -2161,8 +2108,6 @@ class Server
 
     /**
      * Статус процесса.
-     *
-     * @return int
      */
     public static function getStatus(): int
     {
@@ -2171,8 +2116,6 @@ class Server
 
     /**
      * Плавная остановка.
-     *
-     * @return bool
      */
     public static function getGracefulStop(): bool
     {
@@ -2181,8 +2124,6 @@ class Server
 
     /**
      * Запись данных статистики на диск.
-     *
-     * @return void
      */
     protected static function writeStatisticsToStatusFile(): void
     {
@@ -2299,8 +2240,6 @@ class Server
 
     /**
      * Запись данных статистики соединений на диск.
-     *
-     * @return void
      */
     protected static function writeConnectionsStatisticsToStatusFile(): void
     {
@@ -2376,8 +2315,6 @@ class Server
 
     /**
      * Проверка ошибок при завершении дочернего процесса.
-     *
-     * @return void
      */
     public static function checkErrors(): void
     {
@@ -2399,8 +2336,6 @@ class Server
 
     /**
      * Сообщение об ошибке по коду ошибки.
-     *
-     * @return string
      */
     protected static function getErrorType(int $type): string
     {
@@ -2409,8 +2344,6 @@ class Server
 
     /**
      * Журналирование.
-     *
-     * @return void
      */
     public static function log(mixed $msg, bool $decorated = true): void
     {
@@ -2428,8 +2361,6 @@ class Server
 
     /**
      * Безопасный вывод.
-     *
-     * @return void
      */
     public static function safeEcho(string $msg, bool $decorated = true): void
     {
@@ -2605,8 +2536,6 @@ class Server
 
     /**
      * Отключить прослушивание.
-     *
-     * @return void
      */
     public function unlisten(): void
     {
@@ -2654,8 +2583,6 @@ class Server
 
     /**
      * Приостановить принятие новых соединений.
-     *
-     * @return void
      */
     public function pauseAccept(): void
     {
@@ -2667,8 +2594,6 @@ class Server
 
     /**
      * Возобновить прием новых соединений.
-     *
-     * @return void
      */
     public function resumeAccept(): void
     {
@@ -2685,8 +2610,6 @@ class Server
 
     /**
      * Get socket name.
-     *
-     * @return string
      */
     public function getSocketName(): string
     {
@@ -2696,7 +2619,6 @@ class Server
     /**
      * Запустить экземпляр сервера.
      *
-     * @return void
      * @throws Throwable
      */
     public function run(): void
@@ -2708,7 +2630,6 @@ class Server
     /**
      * Остановить текущий экземпляр сервера.
      *
-     * @return void
      * @throws Throwable
      */
     public function stop(): void
@@ -2743,7 +2664,6 @@ class Server
      * Принять TCP-Соединение.
      *
      * @param resource $socket
-     * @return void
      * @throws Throwable
      */
     public function acceptTcpConnection($socket): void
@@ -2784,7 +2704,6 @@ class Server
      * Принять UPD-Соединение.
      *
      * @param resource $socket
-     * @return bool
      * @throws Throwable
      */
     public function acceptUdpConnection($socket): bool
@@ -2842,8 +2761,6 @@ class Server
 
     /**
      * Проверка, жив ли мастер-процесс.
-     *
-     * @return bool
      */
     protected static function checkMasterIsAlive(int $masterPid): bool
     {

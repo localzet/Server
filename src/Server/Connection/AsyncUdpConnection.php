@@ -102,7 +102,6 @@ class AsyncUdpConnection extends UdpConnection
      * Для пакетов UDP.
      *
      * @param resource $socket
-     * @return void
      * @throws Throwable
      */
     public function baseRead($socket): void
@@ -131,7 +130,6 @@ class AsyncUdpConnection extends UdpConnection
      * Закрыть соединение.
      *
      * @param mixed|null $data
-     * @return void
      * @throws Throwable
      */
     public function close(mixed $data = null, bool $raw = false): void
@@ -156,7 +154,6 @@ class AsyncUdpConnection extends UdpConnection
     /**
      * Отправить данные по соединению.
      *
-     * @return bool|null
      * @throws Throwable
      */
     public function send(mixed $sendBuffer, bool $raw = false): bool|null
@@ -178,7 +175,6 @@ class AsyncUdpConnection extends UdpConnection
     /**
      * Установить соединение.
      *
-     * @return void
      * @throws Throwable
      */
     public function connect(): void

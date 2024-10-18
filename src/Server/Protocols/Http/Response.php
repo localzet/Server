@@ -179,8 +179,6 @@ class Response implements Stringable
 
     /**
      * Инициализация.
-     *
-     * @return void
      */
     public static function init(): void
     {
@@ -189,8 +187,6 @@ class Response implements Stringable
 
     /**
      * Инициализация карты MIME-типов.
-     *
-     * @return void
      */
     public static function initMimeTypeMap(): void
     {
@@ -210,8 +206,6 @@ class Response implements Stringable
 
     /**
      * Установить заголовок.
-     *
-     * @return Response
      */
     public function withHeader(string $name, string $value): static
     {
@@ -222,7 +216,6 @@ class Response implements Stringable
      * Установить заголовок.
      *
      * @param array|string|int $value
-     * @return Response
      */
     public function header(string $name, mixed $value): static
     {
@@ -232,8 +225,6 @@ class Response implements Stringable
 
     /**
      * Установить заголовки.
-     *
-     * @return Response
      */
     public function withHeaders(array $headers): static
     {
@@ -245,8 +236,6 @@ class Response implements Stringable
 
     /**
      * Удалить заголовок.
-     *
-     * @return Response
      */
     public function withoutHeader(string $name): static
     {
@@ -256,8 +245,6 @@ class Response implements Stringable
 
     /**
      * Получить заголовок.
-     *
-     * @return null|array|string
      */
     public function getHeader(string $name): array|string|null
     {
@@ -266,8 +253,6 @@ class Response implements Stringable
 
     /**
      * Получить заголовки.
-     *
-     * @return array
      */
     public function getHeaders(): array
     {
@@ -276,8 +261,6 @@ class Response implements Stringable
 
     /**
      * Получить код статуса.
-     *
-     * @return int
      */
     public function getStatusCode(): int
     {
@@ -286,8 +269,6 @@ class Response implements Stringable
 
     /**
      * Получить причину фразы.
-     *
-     * @return ?string
      */
     public function getReasonPhrase(): ?string
     {
@@ -296,8 +277,6 @@ class Response implements Stringable
 
     /**
      * Установить версию протокола.
-     *
-     * @return Response
      */
     public function withProtocolVersion(string $version): static
     {
@@ -307,8 +286,6 @@ class Response implements Stringable
 
     /**
      * Получить HTTP-тело в исходном виде.
-     *
-     * @return string|null
      */
     public function rawBody(): ?string
     {
@@ -317,8 +294,6 @@ class Response implements Stringable
 
     /**
      * Отправить файл.
-     *
-     * @return Response
      */
     public function withFile(string $file, int $offset = 0, int $length = 0): static
     {
@@ -331,8 +306,6 @@ class Response implements Stringable
 
     /**
      * Установить HTTP-тело.
-     *
-     * @return Response
      */
     public function withBody(?string $body): static
     {
@@ -344,7 +317,6 @@ class Response implements Stringable
      * Установить статус.
      *
      * @param string|null $reasonPhrase
-     * @return Response
      */
     public function withStatus(int $code, string $reasonPhrase = null): static
     {
@@ -356,8 +328,6 @@ class Response implements Stringable
     /**
      * Установить cookie.
      * Установить cookie.
-     *
-     * @return Response
      */
     public function cookie(string $name, string $value = '', ?int $maxAge = null, string $path = '', string $domain = '', bool $secure = false, bool $httpOnly = false, string $sameSite = ''): static
     {
@@ -373,8 +343,6 @@ class Response implements Stringable
 
     /**
      * __toString.
-     *
-     * @return string
      */
     public function __toString(): string
     {
@@ -389,8 +357,6 @@ class Response implements Stringable
 
     /**
      * Создать заголовок для файла.
-     *
-     * @return string
      */
     protected function createHeadForFile(array $fileInfo): string
     {

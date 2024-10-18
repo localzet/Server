@@ -122,7 +122,6 @@ class RedisSessionHandler implements SessionHandlerInterface
     /**
      * {@inheritdoc}
      * @param string $sessionId Идентификатор сессии.
-     * @return string
      * @throws RedisException
      * @throws Throwable
      */

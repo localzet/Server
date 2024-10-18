@@ -56,41 +56,26 @@ final class TracingDriver implements Driver
     {
     }
 
-    /**
-     * @return void
-     */
     public function run(): void
     {
         $this->driver->run();
     }
 
-    /**
-     * @return void
-     */
     public function stop(): void
     {
         $this->driver->stop();
     }
 
-    /**
-     * @return Suspension
-     */
     public function getSuspension(): Suspension
     {
         return $this->driver->getSuspension();
     }
 
-    /**
-     * @return bool
-     */
     public function isRunning(): bool
     {
         return $this->driver->isRunning();
     }
 
-    /**
-     * @return string
-     */
     public function defer(Closure $closure): string
     {
         $id = $this->driver->defer(function (...$args) use ($closure) {
@@ -104,9 +89,6 @@ final class TracingDriver implements Driver
         return $id;
     }
 
-    /**
-     * @return void
-     */
     public function cancel(string $callbackId): void
     {
         $this->driver->cancel($callbackId);
@@ -150,9 +132,6 @@ final class TracingDriver implements Driver
         }, $trace, array_keys($trace)));
     }
 
-    /**
-     * @return string
-     */
     public function delay(float $delay, Closure $closure): string
     {
         $id = $this->driver->delay($delay, function (...$args) use ($closure) {
@@ -166,9 +145,6 @@ final class TracingDriver implements Driver
         return $id;
     }
 
-    /**
-     * @return string
-     */
     public function repeat(float $interval, Closure $closure): string
     {
         $id = $this->driver->repeat($interval, $closure);
@@ -179,9 +155,6 @@ final class TracingDriver implements Driver
         return $id;
     }
 
-    /**
-     * @return string
-     */
     public function onReadable(mixed $stream, Closure $closure): string
     {
         $id = $this->driver->onReadable($stream, $closure);
@@ -192,9 +165,6 @@ final class TracingDriver implements Driver
         return $id;
     }
 
-    /**
-     * @return string
-     */
     public function onWritable(mixed $stream, Closure $closure): string
     {
         $id = $this->driver->onWritable($stream, $closure);
@@ -206,7 +176,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @return string
      * @throws UnsupportedFeatureException
      */
     public function onSignal(int $signal, Closure $closure): string
@@ -219,9 +188,6 @@ final class TracingDriver implements Driver
         return $id;
     }
 
-    /**
-     * @return string
-     */
     public function enable(string $callbackId): string
     {
         try {
@@ -237,25 +203,16 @@ final class TracingDriver implements Driver
         return $callbackId;
     }
 
-    /**
-     * @return string
-     */
     private function getCreationTrace(string $callbackId): string
     {
         return $this->creationTraces[$callbackId] ?? 'No creation trace, yet.';
     }
 
-    /**
-     * @return string
-     */
     private function getCancelTrace(string $callbackId): string
     {
         return $this->cancelTraces[$callbackId] ?? 'No cancellation trace, yet.';
     }
 
-    /**
-     * @return string
-     */
     public function disable(string $callbackId): string
     {
         $this->driver->disable($callbackId);
@@ -264,9 +221,6 @@ final class TracingDriver implements Driver
         return $callbackId;
     }
 
-    /**
-     * @return string
-     */
     public function reference(string $callbackId): string
     {
         try {
@@ -282,9 +236,6 @@ final class TracingDriver implements Driver
         return $callbackId;
     }
 
-    /**
-     * @return string
-     */
     public function unreference(string $callbackId): string
     {
         $this->driver->unreference($callbackId);
@@ -293,17 +244,11 @@ final class TracingDriver implements Driver
         return $callbackId;
     }
 
-    /**
-     * @return void
-     */
     public function setErrorHandler(?Closure $errorHandler): void
     {
         $this->driver->setErrorHandler($errorHandler);
     }
 
-    /**
-     * @return Closure|null
-     */
     public function getErrorHandler(): ?Closure
     {
         return $this->driver->getErrorHandler();
@@ -315,9 +260,6 @@ final class TracingDriver implements Driver
         return $this->driver->getHandle();
     }
 
-    /**
-     * @return string
-     */
     public function dump(): string
     {
         $dump = "Enabled, referenced callbacks keeping the loop running: ";
@@ -343,41 +285,26 @@ final class TracingDriver implements Driver
         return $this->driver->getIdentifiers();
     }
 
-    /**
-     * @return CallbackType
-     */
     public function getType(string $callbackId): CallbackType
     {
         return $this->driver->getType($callbackId);
     }
 
-    /**
-     * @return bool
-     */
     public function isEnabled(string $callbackId): bool
     {
         return $this->driver->isEnabled($callbackId);
     }
 
-    /**
-     * @return bool
-     */
     public function isReferenced(string $callbackId): bool
     {
         return $this->driver->isReferenced($callbackId);
     }
 
-    /**
-     * @return array
-     */
     public function __debugInfo(): array
     {
         return $this->driver->__debugInfo();
     }
 
-    /**
-     * @return void
-     */
     public function queue(Closure $closure, mixed ...$args): void
     {
         $this->driver->queue($closure, ...$args);

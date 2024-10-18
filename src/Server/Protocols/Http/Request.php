@@ -137,7 +137,6 @@ class Request implements Stringable
      *
      * @param string|null $name
      * @param mixed|null $default
-     * @return mixed
      */
     public function get(string $name = null, mixed $default = null): mixed
     {
@@ -152,8 +151,6 @@ class Request implements Stringable
 
     /**
      * Разобрать заголовок.
-     *
-     * @return void
      */
     protected function parseGet(): void
     {
@@ -185,8 +182,6 @@ class Request implements Stringable
 
     /**
      * Получить строку запроса.
-     *
-     * @return string
      */
     public function queryString(): string
     {
@@ -198,8 +193,6 @@ class Request implements Stringable
 
     /**
      * Получить URI.
-     *
-     * @return string
      */
     public function uri(): string
     {
@@ -211,8 +204,6 @@ class Request implements Stringable
 
     /**
      * Разобрать первую строку буфера заголовка http.
-     *
-     * @return void
      */
     protected function parseHeadFirstLine(): void
     {
@@ -227,7 +218,6 @@ class Request implements Stringable
      *
      * @param string|null $name
      * @param mixed|null $default
-     * @return mixed
      */
     public function post(string $name = null, mixed $default = null): mixed
     {
@@ -259,8 +249,6 @@ class Request implements Stringable
 
     /**
      * Получить только указанные ключи.
-     *
-     * @return array
      */
     public function only(array $keys): array
     {
@@ -300,8 +288,6 @@ class Request implements Stringable
 
     /**
      * Разбор POST.
-     *
-     * @return void
      */
     protected function parsePost(): void
     {
@@ -340,7 +326,6 @@ class Request implements Stringable
      *
      * @param string|null $name
      * @param mixed|null $default
-     * @return mixed
      */
     public function header(string $name = null, mixed $default = null): mixed
     {
@@ -359,8 +344,6 @@ class Request implements Stringable
 
     /**
      * Разбор заголовков.
-     *
-     * @return void
      */
     protected function parseHeaders(): void
     {
@@ -403,8 +386,6 @@ class Request implements Stringable
 
     /**
      * Получить сырой HTTP-заголовок.
-     *
-     * @return string
      */
     public function rawHead(): string
     {
@@ -416,8 +397,6 @@ class Request implements Stringable
 
     /**
      * Разбор загруженных файлов.
-     *
-     * @return void
      */
     protected function parseUploadFiles(string $httpPostBoundary): void
     {
@@ -473,7 +452,6 @@ class Request implements Stringable
      * @param $postEncodeString
      * @param $filesEncodeStr
      * @param $files
-     * @return int
      */
     protected function parseUploadFile($boundary, $sectionStartOffset, string &$postEncodeString, string &$filesEncodeStr, &$files): int
     {
@@ -613,8 +591,6 @@ class Request implements Stringable
 
     /**
      * Получить сырое тело HTTP.
-     *
-     * @return string
      */
     public function rawBody(): string
     {
@@ -640,8 +616,6 @@ class Request implements Stringable
 
     /**
      * Получить URL.
-     *
-     * @return string
      */
     public function url(): string
     {
@@ -651,8 +625,6 @@ class Request implements Stringable
 
     /**
      * Получить полный URL.
-     *
-     * @return string
      */
     public function fullUrl(): string
     {
@@ -662,8 +634,6 @@ class Request implements Stringable
 
     /**
      * Ожидает ли запрос JSON.
-     *
-     * @return bool
      */
     public function expectsJson(): bool
     {
@@ -672,8 +642,6 @@ class Request implements Stringable
 
     /**
      * Принимает ли запрос любой тип контента.
-     *
-     * @return bool
      */
     public function acceptsAnyContentType(): bool
     {
@@ -686,8 +654,6 @@ class Request implements Stringable
 
     /**
      * Парсит заголовок Accept.
-     *
-     * @return void
      */
     public function parseAcceptHeader(): void
     {
@@ -710,8 +676,6 @@ class Request implements Stringable
 
     /**
      * Проверяет, является ли тип контента JSON.
-     *
-     * @return bool
      */
     public function isJson(): bool
     {
@@ -721,8 +685,6 @@ class Request implements Stringable
 
     /**
      * Является ли запрос AJAX-запросом.
-     *
-     * @return bool
      */
     public function isAjax(): bool
     {
@@ -731,8 +693,6 @@ class Request implements Stringable
 
     /**
      * Является ли запрос PJAX-запросом.
-     *
-     * @return bool
      */
     public function isPjax(): bool
     {
@@ -741,8 +701,6 @@ class Request implements Stringable
 
     /**
      * Принимает ли запрос JSON.
-     *
-     * @return bool
      */
     public function acceptJson(): bool
     {
@@ -753,8 +711,6 @@ class Request implements Stringable
 
     /**
      * Получить метод.
-     *
-     * @return string
      */
     public function method(): string
     {
@@ -769,8 +725,6 @@ class Request implements Stringable
 
     /**
      * Проверяет, является ли метод запроса указанным методом.
-     *
-     * @return bool
      */
     public function isMethod(string $method): bool
     {
@@ -779,8 +733,6 @@ class Request implements Stringable
 
     /**
      * Получить версию протокола HTTP.
-     *
-     * @return string
      */
     public function protocolVersion(): string
     {
@@ -795,8 +747,6 @@ class Request implements Stringable
 
     /**
      * Разбор версии протокола.
-     *
-     * @return void
      */
     protected function parseProtocolVersion(): void
     {
@@ -812,8 +762,6 @@ class Request implements Stringable
 
     /**
      * Получить хост.
-     *
-     * @return string|null
      */
     public function host(bool $withoutPort = false): ?string
     {
@@ -826,8 +774,6 @@ class Request implements Stringable
 
     /**
      * Получить путь.
-     *
-     * @return string
      */
     public function path(): string
     {
@@ -843,7 +789,6 @@ class Request implements Stringable
     /**
      * Сгенерировать новый идентификатор сессии.
      *
-     * @return string
      * @throws Exception
      */
     public function sessionRegenerateId(bool $deleteOldSession = false): string
@@ -878,7 +823,6 @@ class Request implements Stringable
     /**
      * Получить сессию.
      *
-     * @return Session
      * @throws Exception
      */
     public function session(): Session
@@ -896,7 +840,6 @@ class Request implements Stringable
      * Получить/установить идентификатор сессии.
      *
      * @param string|null $sessionId
-     * @return string
      * @throws Exception
      */
     public function sessionId(string $sessionId = null): string
@@ -940,7 +883,6 @@ class Request implements Stringable
      *
      * @param string|null $name
      * @param mixed|null $default
-     * @return mixed
      */
     public function cookie(string $name = null, mixed $default = null): mixed
     {
@@ -957,7 +899,6 @@ class Request implements Stringable
     /**
      * Создать идентификатор сессии.
      *
-     * @return string
      * @throws Exception
      */
     public static function createSessionId(): string
@@ -968,8 +909,6 @@ class Request implements Stringable
 
     /**
      * Установить cookie с идентификатором сессии.
-     *
-     * @return void
      */
     protected function setSidCookie(string $sessionName, string $sid, array $cookieParams): void
     {
@@ -990,8 +929,6 @@ class Request implements Stringable
 
     /**
      * Получить сырой буфер.
-     *
-     * @return string
      */
     public function rawBuffer(): string
     {
@@ -1001,8 +938,6 @@ class Request implements Stringable
 
     /**
      * Получить локальный IP-адрес.
-     *
-     * @return string
      */
     public function getLocalIp(): string
     {
@@ -1012,8 +947,6 @@ class Request implements Stringable
 
     /**
      * Получить локальный порт.
-     *
-     * @return int
      */
     public function getLocalPort(): int
     {
@@ -1023,8 +956,6 @@ class Request implements Stringable
 
     /**
      * Получить удаленный IP-адрес.
-     *
-     * @return string
      */
     public function getRemoteIp(): string
     {
@@ -1034,8 +965,6 @@ class Request implements Stringable
 
     /**
      * Получить удаленный порт.
-     *
-     * @return int
      */
     public function getRemotePort(): int
     {
@@ -1045,8 +974,6 @@ class Request implements Stringable
 
     /**
      * Получить соединение.
-     *
-     * @return TcpConnection
      */
     public function getConnection(): TcpConnection
     {

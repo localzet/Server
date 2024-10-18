@@ -370,8 +370,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Получить размер очереди буфера отправки.
-     *
-     * @return integer
      */
     public function getSendBufferQueueSize(): int
     {
@@ -380,8 +378,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Получить размер очереди буфера приема.
-     *
-     * @return integer
      */
     public function getRecvBufferQueueSize(): int
     {
@@ -391,7 +387,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Основной обработчик записи.
      *
-     * @return void
      * @throws Throwable
      */
     public function baseWrite(): void
@@ -437,7 +432,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Уничтожить соединение.
      *
-     * @return void
      * @throws Throwable
      */
     public function destroy(): void
@@ -493,8 +487,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * Метод pipe() позволяет установить канал передачи данных между текущим соединением и другим соединением (dest).
      * Входящие данные из текущего соединения будут отправлены на соединение dest.
      * Этот метод используется для перенаправления данных между соединениями.
-     *
-     * @return void
      */
     public function pipe(self $dest, bool $raw = false): void
     {
@@ -609,7 +601,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Метод bufferIsFull() используется для проверки заполненности буфера отправки.
      *
-     * @return bool
      * @throws Throwable
      */
     protected function bufferIsFull(): bool
@@ -631,7 +622,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Метод checkBufferWillFull() используется для проверки заполнения буфера отправки.
      *
-     * @return void
      * @throws Throwable
      */
     protected function checkBufferWillFull(): void
@@ -675,8 +665,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Приостанавливает чтение данных. Это означает, что onMessage не будет вызван. Полезно для снижения нагрузки при загрузке данных.
-     *
-     * @return void
      */
     public function pauseRecv(): void
     {
@@ -687,7 +675,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Возобновляет чтение данных после вызова pauseRecv.
      *
-     * @return void
      * @throws Throwable
      */
     public function resumeRecv(): void
@@ -703,7 +690,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * Основной обработчик чтения.
      *
      * @param resource $socket
-     * @return void
      * @throws Throwable
      */
     public function baseRead($socket, bool $checkEof = true): void
@@ -845,7 +831,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * SSL handshake.
      *
      * @param resource $socket
-     * @return bool|int
      * @throws Throwable
      */
     public function doSslHandshake($socket): bool|int
@@ -897,8 +882,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Удаляет $length данных из буфера чтения.
-     *
-     * @return void
      */
     public function consumeRecvBuffer(int $length): void
     {
@@ -917,8 +900,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Проверяет, пустой ли буфер отправки.
-     *
-     * @return bool
      */
     public function bufferIsEmpty(): bool
     {
@@ -927,8 +908,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Получает информацию для json_encode.
-     *
-     * @return array
      */
     public function jsonSerialize(): array
     {
@@ -950,8 +929,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Получает статус.
      *
-     *
-     * @return int|string
      */
     public function getStatus(bool $rawOutput = true): int|string
     {

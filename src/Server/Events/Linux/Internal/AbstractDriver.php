@@ -180,9 +180,6 @@ abstract class AbstractDriver implements Driver
         };
     }
 
-    /**
-     * @return void
-     */
     private function createLoopFiber(): void
     {
 
@@ -217,7 +214,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Вызывает обратные вызовы
-     * @return void
      * @throws Throwable
      */
     private function invokeCallbacks(): void
@@ -255,7 +251,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Создает обратный вызов Fiber
-     * @return void
      */
     private function createCallbackFiber(): void
     {
@@ -326,7 +321,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Вызывает микрозадачи
-     * @return void
      * @throws Throwable
      */
     private function invokeMicrotasks(): void
@@ -376,8 +370,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Отменяет обратный вызов по указанному идентификатору.
-     *
-     * @return void
      */
     public function cancel(string $callbackId): void
     {
@@ -387,8 +379,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Отключает обратный вызов по указанному идентификатору.
-     *
-     * @return string
      */
     public function disable(string $callbackId): string
     {
@@ -426,8 +416,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Включает обратный вызов по указанному идентификатору.
-     *
-     * @return string
      */
     public function enable(string $callbackId): string
     {
@@ -465,7 +453,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Вызывает прерывание
-     * @return void
      * @throws Throwable
      */
     private function invokeInterrupt(): void
@@ -524,8 +511,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Добавляет обратный вызов в очередь.
-     *
-     * @return void
      */
     final protected function enqueueCallback(DriverCallback $callback): void
     {
@@ -540,8 +525,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Создает обратный вызов для ошибок.
-     *
-     * @return void
      */
     private function createErrorCallback(): void
     {
@@ -571,7 +554,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Запускает цикл событий.
      *
-     * @return void
      * @throws Throwable
      */
     public function run(): void
@@ -600,8 +582,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Проверяет, запущен ли цикл событий.
-     *
-     * @return bool
      */
     public function isRunning(): bool
     {
@@ -610,8 +590,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Останавливает цикл событий.
-     *
-     * @return void
      */
     public function stop(): void
     {
@@ -620,8 +598,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Добавляет задачу в очередь.
-     *
-     * @return void
      */
     public function queue(Closure $closure, mixed ...$args): void
     {
@@ -630,8 +606,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Откладывает выполнение задачи.
-     *
-     * @return string
      */
     public function defer(Closure $closure): string
     {
@@ -645,8 +619,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Задерживает выполнение задачи.
-     *
-     * @return string
      */
     public function delay(float $delay, Closure $closure): string
     {
@@ -664,8 +636,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Повторяет выполнение задачи с указанным интервалом.
-     *
-     * @return string
      */
     public function repeat(float $interval, Closure $closure): string
     {
@@ -683,8 +653,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Выполняет задачу при возникновении события чтения.
-     *
-     * @return string
      */
     public function onReadable(mixed $stream, Closure $closure): string
     {
@@ -700,7 +668,6 @@ abstract class AbstractDriver implements Driver
      * Выполняет задачу при возникновении события записи.
      *
      * @param $stream
-     * @return string
      */
     public function onWritable($stream, Closure $closure): string
     {
@@ -714,8 +681,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Выполняет задачу при получении сигнала.
-     *
-     * @return string
      */
     public function onSignal(int $signal, Closure $closure): string
     {
@@ -729,8 +694,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Добавляет ссылку на обратный вызов.
-     *
-     * @return string
      */
     public function reference(string $callbackId): string
     {
@@ -745,8 +708,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Удаляет ссылку на обратный вызов.
-     *
-     * @return string
      */
     public function unreference(string $callbackId): string
     {
@@ -761,8 +722,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Возвращает текущую приостановку.
-     *
-     * @return Suspension
      */
     public function getSuspension(): Suspension
     {
@@ -794,8 +753,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Возвращает обработчик ошибок.
-     *
-     * @return Closure|null
      */
     public function getErrorHandler(): ?Closure
     {
@@ -804,8 +761,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Устанавливает обработчик ошибок.
-     *
-     * @return void
      */
     public function setErrorHandler(?Closure $errorHandler): void
     {
@@ -814,8 +769,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Возвращает информацию для отладки.
-     *
-     * @return array
      */
     public function __debugInfo(): array
     {
@@ -830,8 +783,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Возвращает тип обратного вызова.
-     *
-     * @return CallbackType
      */
     public function getType(string $callbackId): CallbackType
     {
@@ -858,8 +809,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Проверяет, включен ли обратный вызов.
-     *
-     * @return bool
      */
     public function isEnabled(string $callbackId): bool
     {
@@ -870,8 +819,6 @@ abstract class AbstractDriver implements Driver
 
     /**
      * Проверяет, имеет ли обратный вызов ссылку.
-     *
-     * @return bool
      */
     public function isReferenced(string $callbackId): bool
     {

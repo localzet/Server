@@ -268,7 +268,6 @@ final class Windows implements EventInterface
     /**
      * Off except.
      * @param resource $stream
-     * @return bool
      */
     public function offExcept($stream): bool
     {
@@ -292,9 +291,6 @@ final class Windows implements EventInterface
         pcntl_signal($signal, fn() => $this->safeCall($this->signalEvents[$signal], [$signal]));
     }
 
-    /**
-     * @return void
-     */
     private function safeCall(callable $func, array $args = []): void
     {
         try {
@@ -363,7 +359,6 @@ final class Windows implements EventInterface
     /**
      * Tick for timer.
      *
-     * @return void
      * @throws Throwable
      */
     protected function tick(): void

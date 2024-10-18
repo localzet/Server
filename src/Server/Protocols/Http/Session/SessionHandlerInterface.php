@@ -144,8 +144,6 @@ interface SessionHandlerInterface
      *
      * @param string $sessionId Идентификатор сессии.
      * @param string $data Данные сессии.
-     *
-     * @return bool
      */
     public function updateTimestamp(string $sessionId, string $data = ""): bool;
 }

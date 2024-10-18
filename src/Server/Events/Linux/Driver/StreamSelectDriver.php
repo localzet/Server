@@ -155,9 +155,6 @@ final class StreamSelectDriver extends AbstractDriver
         }
     }
 
-    /**
-     * @return void
-     */
     protected function deactivate(DriverCallback $callback): void
     {
         if ($callback instanceof StreamReadableCallback) {
@@ -349,16 +346,12 @@ final class StreamSelectDriver extends AbstractDriver
         return $expiration > 0 ? $expiration : 0.0;
     }
 
-    /**
-     * @return float
-     */
     protected function now(): float
     {
         return (float)hrtime(true) / 1_000_000_000;
     }
 
     /**
-     * @return void
      * @throws UnsupportedFeatureException
      */
     protected function activate(array $callbacks): void
@@ -405,9 +398,6 @@ final class StreamSelectDriver extends AbstractDriver
         }
     }
 
-    /**
-     * @return void
-     */
     private function handleSignal(int $signal): void
     {
         // Queue signals, so we don't suspend inside pcntl_signal_dispatch, which disables signals while it runs

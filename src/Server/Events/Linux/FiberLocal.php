@@ -56,8 +56,6 @@ final class FiberLocal
 
     /**
      * Очистить локальное хранилище.
-     *
-     * @return void
      */
     public static function clear(): void
     {
@@ -86,8 +84,6 @@ final class FiberLocal
 
     /**
      * Получить локальное хранилище для текущего Fiber'а.
-     *
-     * @return WeakMap
      */
     private static function getFiberStorage(): WeakMap
     {
@@ -105,8 +101,6 @@ final class FiberLocal
 
     /**
      * Удалить значение из локального хранилища.
-     *
-     * @return void
      */
     public function unset(): void
     {

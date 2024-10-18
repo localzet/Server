@@ -214,7 +214,6 @@ class AsyncTcpConnection extends TcpConnection
     /**
      * Переподключение.
      *
-     * @return void
      * @throws Throwable
      */
     public function reconnect(int $after = 0): void
@@ -234,7 +233,6 @@ class AsyncTcpConnection extends TcpConnection
     /**
      * Подключение.
      *
-     * @return void
      * @throws Throwable
      */
     public function connect(): void
@@ -309,7 +307,6 @@ class AsyncTcpConnection extends TcpConnection
      *
      * @param int $code Код ошибки
      * @param mixed $msg Сообщение об ошибке
-     * @return void
      * @throws Throwable
      */
     protected function emitError(int $code, mixed $msg): void
@@ -338,8 +335,6 @@ class AsyncTcpConnection extends TcpConnection
 
     /**
      * Получение удаленного хоста.
-     *
-     * @return string
      */
     public function getRemoteHost(): string
     {
@@ -348,8 +343,6 @@ class AsyncTcpConnection extends TcpConnection
 
     /**
      * Получение удаленного URI.
-     *
-     * @return string
      */
     public function getRemoteURI(): string
     {
@@ -359,7 +352,6 @@ class AsyncTcpConnection extends TcpConnection
     /**
      * Проверка успешности установки соединения или ошибки.
      *
-     * @return void
      * @throws Throwable
      */
     public function checkConnection(): void

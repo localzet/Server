@@ -94,9 +94,6 @@ final class Swow implements EventInterface
         waitAll();
     }
 
-    /**
-     * @return void
-     */
     private function safeCall(callable $func, array $args = []): void
     {
         try {

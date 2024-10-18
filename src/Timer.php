@@ -84,7 +84,6 @@ class Timer
      * Инициализация
      *
      * @param EventInterface|null $event
-     * @return void
      */
     public static function init(EventInterface $event = null): void
     {
@@ -99,8 +98,6 @@ class Timer
 
     /**
      * Обработчик сигнала
-     *
-     * @return void
      */
     public static function signalHandle(): void
     {
@@ -112,8 +109,6 @@ class Timer
 
     /**
      * Тик
-     *
-     * @return void
      */
     public static function tick(): void
     {
@@ -149,8 +144,6 @@ class Timer
 
     /**
      * Coroutine sleep.
-     *
-     * @return void
      */
     public static function sleep(float $delay): void
     {
@@ -166,8 +159,6 @@ class Timer
 
     /**
      * Добавить таймер
-     *
-     * @return int
      */
     public static function add(float $timeInterval, callable $func, null|array $args = [], bool $persistent = true): int
     {
@@ -205,8 +196,6 @@ class Timer
 
     /**
      * Удалить таймер
-     *
-     * @return bool
      */
     public static function del(int $timerId): bool
     {
@@ -226,8 +215,6 @@ class Timer
 
     /**
      * Удалить все таймеры
-     *
-     * @return void
      */
     public static function delAll(): void
     {

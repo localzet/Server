@@ -272,7 +272,6 @@ class Ws
     /**
      * Рукопожатие WebSocket.
      *
-     * @return bool|int
      * @throws Throwable
      */
     public static function dealHandshake(string $buffer, AsyncTcpConnection $connection): bool|int
@@ -343,8 +342,6 @@ class Ws
 
     /**
      * Разбор ответа.
-     *
-     * @return Response
      */
     protected static function parseResponse(string $buffer): Response
     {
@@ -371,8 +368,6 @@ class Ws
 
     /**
      * Декодирование WebSocket.
-     *
-     * @return string
      */
     public static function decode(string $bytes, AsyncTcpConnection $connection): string
     {
@@ -411,7 +406,6 @@ class Ws
     /**
      * Кодирование WebSocket.
      *
-     * @return string
      * @throws Throwable
      */
     public static function encode(string $payload, AsyncTcpConnection $connection): string
@@ -479,7 +473,6 @@ class Ws
     /**
      * Отправка рукопожатия WebSocket.
      *
-     * @return void
      * @throws Throwable
      */
     public static function sendHandshake(AsyncTcpConnection $connection): void
@@ -525,7 +518,6 @@ class Ws
     /**
      * Отправка данных рукопожатия WebSocket.
      *
-     * @return void
      * @throws Throwable
      */
     public static function onConnect(AsyncTcpConnection $connection): void

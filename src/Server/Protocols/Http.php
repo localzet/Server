@@ -79,7 +79,6 @@ class Http
      * Получить или установить имя класса запроса.
      *
      * @param string|null $className
-     * @return string
      */
     public static function requestClass(string $className = null): string
     {
@@ -100,7 +99,6 @@ class Http
     /**
      * Проверить целостность пакета.
      *
-     * @return int
      * @throws Throwable
      */
     public static function input(string $buffer, TcpConnection $connection): int
@@ -164,8 +162,6 @@ class Http
 
     /**
      * Декодирование Http.
-     *
-     * @return Request
      */
     public static function decode(string $buffer, TcpConnection $connection): Request
     {
@@ -208,7 +204,6 @@ class Http
      * Кодирование Http.
      *
      * @param string|Response $response
-     * @return string
      * @throws Throwable
      */
     public static function encode(mixed $response, TcpConnection $connection): string
@@ -320,8 +315,6 @@ class Http
 
     /**
      * Установить или получить uploadTmpDir.
-     *
-     * @return string
      */
     public static function uploadTmpDir(string|null $dir = null): string
     {

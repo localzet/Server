@@ -33,9 +33,6 @@ use ReflectionFunction;
 /** @internal */
 final class ClosureHelper
 {
-    /**
-     * @return string
-     */
     public static function getDescription(Closure $closure): string
     {
         try {

@@ -87,9 +87,6 @@ final class Ev implements EventInterface
         return self::$timerId++;
     }
 
-    /**
-     * @return void
-     */
     private function safeCall(callable $func, array $args = []): void
     {
         try {

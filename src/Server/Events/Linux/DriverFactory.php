@@ -42,7 +42,6 @@ final class DriverFactory
     /**
      * Создает новый экземпляр цикла и выбирает наилучший доступный драйвер.
      *
-     * @return Driver
      *
      * @throws Error Если недействительный класс был указан через LOCALZET_LOOP_DRIVER
      */
@@ -77,8 +76,6 @@ final class DriverFactory
 
     /**
      * Создает драйвер из переменной окружения.
-     *
-     * @return Driver|null
      */
     private function createDriverFromEnv(): ?Driver
     {

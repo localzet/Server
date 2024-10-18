@@ -38,8 +38,6 @@ class Frame
 {
     /**
      * Проверка целостности пакета.
-     *
-     * @return int
      */
     public static function input(string $buffer): int
     {
@@ -55,8 +53,6 @@ class Frame
 
     /**
      * Декодирование.
-     *
-     * @return string
      */
     public static function decode(string $buffer): string
     {
@@ -66,8 +62,6 @@ class Frame
 
     /**
      * Кодирование.
-     *
-     * @return string
      */
     public static function encode(string $data): string
     {

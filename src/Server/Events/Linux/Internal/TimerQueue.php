@@ -70,9 +70,6 @@ final class TimerQueue
         }
     }
 
-    /**
-     * @return void
-     */
     private function swap(int $left, int $right): void
     {
         // Временное хранение обратного вызова слева
