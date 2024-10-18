@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Rector\CodeQuality\Rector\If_\ExplicitBoolCompareRector;
 use Rector\CodeQuality\Rector\If_\SimplifyIfElseToTernaryRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
@@ -16,11 +17,12 @@ return RectorConfig::configure()
     ->withPhpSets(php81: true)
 //    ->withTypeCoverageLevel(100)
 //    ->withDeadCodeLevel(100)
-        ->withCodeQualityLevel(18)
+        ->withCodeQualityLevel(30)
     ->withSkip([
         RemoveNullPropertyInitializationRector::class,
         RemoveUnusedPrivatePropertyRector::class,
         SimplifyIfElseToTernaryRector::class,
+        ExplicitBoolCompareRector::class
     ])
     ->withSets([
         LevelSetList::UP_TO_PHP_81,

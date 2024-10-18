@@ -60,6 +60,10 @@ use const TCP_NODELAY;
 class AsyncTcpConnection extends TcpConnection
 {
     /**
+     * @var mixed[]
+     */
+    public $socketContext;
+    /**
      * Встроенные протоколы PHP.
      *
      * @var array<string,string>

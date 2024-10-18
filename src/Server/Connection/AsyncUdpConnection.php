@@ -177,7 +177,7 @@ class AsyncUdpConnection extends UdpConnection
      */
     public function connect(): void
     {
-        if ($this->connected === true) {
+        if ($this->connected) {
             return;
         }
         if (!$this->eventLoop) {

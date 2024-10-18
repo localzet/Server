@@ -635,7 +635,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      */
     public function resumeRecv(): void
     {
-        if ($this->isPaused === true) {
+        if ($this->isPaused) {
             $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
             $this->isPaused = false;
             $this->baseRead($this->socket, false);

@@ -1059,10 +1059,8 @@ class Server
 
         // Команда "start".
         $modeStr = '';
-        if ($command === 'start') {
-            if ($mode === '-d' || static::$daemonize) {
-                $modeStr = '(daemon)';
-            }
+        if ($command === 'start' && ($mode === '-d' || static::$daemonize)) {
+            $modeStr = '(daemon)';
         }
 
         static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> $command $modeStr");
@@ -1231,7 +1229,7 @@ class Server
                 }
                 continue;
             }
-            if (preg_match('/^[0-9]+/', $value, $pidMath)) {
+            if (preg_match('/^\d+/', $value, $pidMath)) {
                 $pid = $pidMath[0];
                 $dataWaitingSort[$pid] = $value;
                 if (preg_match('/^\S+?\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?(\S+?)\s+?/', $value, $match)) {
@@ -1741,10 +1739,8 @@ class Server
         }
 
         // Установить UID и GID.
-        if ($uid !== posix_getuid() || $gid !== posix_getgid()) {
-            if (!posix_setgid($gid) || !posix_initgroups($userInfo['name'], $gid) || !posix_setuid($uid)) {
-                static::log('Внимание: Ошибка изменения GID или UID');
-            }
+        if (($uid !== posix_getuid() || $gid !== posix_getgid()) && (!posix_setgid($gid) || !posix_initgroups($userInfo['name'], $gid) || !posix_setuid($uid))) {
+            static::log('Внимание: Ошибка изменения GID или UID');
         }
     }
 
@@ -1820,7 +1816,7 @@ class Server
                         }
 
                         // onServerExit
-                        Events::emit('Server::Exit', compact('server', 'status', 'pid'));
+                        Events::emit('Server::Exit', ['server' => $server, 'status' => $status, 'pid' => $pid]);
 
                         // Для статистики.
                         static::$globalStatistics['server_exit_info'][$serverId][$status] ??= 0;
@@ -2516,7 +2512,7 @@ class Server
     public function resumeAccept(): void
     {
         // Зарегистрировать слушателя для оповещения о готовности серверного сокета к чтению.
-        if (static::$globalEvent !== null && $this->pauseAccept === true && $this->mainSocket !== null) {
+        if (static::$globalEvent !== null && $this->pauseAccept && $this->mainSocket !== null) {
             if ($this->transport !== 'udp') {
                 static::$globalEvent->onReadable($this->mainSocket, $this->acceptTcpConnection(...));
             } else {
@@ -2552,7 +2548,7 @@ class Server
      */
     public function stop(): void
     {
-        if ($this->stopping === true) {
+        if ($this->stopping) {
             return;
         }
 

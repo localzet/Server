@@ -163,7 +163,7 @@ class Http
     {
         static $requests = [];
         $cacheable = static::$enableCache && !isset($buffer[512]);
-        if (true === $cacheable && isset($requests[$buffer])) {
+        if ($cacheable && isset($requests[$buffer])) {
             $request = clone $requests[$buffer];
             $request->connection = $connection;
             $connection->request = $request;
@@ -175,7 +175,7 @@ class Http
         $request = new static::$requestClass($buffer);
         $request->connection = $connection;
         $connection->request = $request;
-        if (true === $cacheable) {
+        if ($cacheable) {
             $requests[$buffer] = $request;
             if (count($requests) > 512) {
                 unset($requests[key($requests)]);
