@@ -88,8 +88,6 @@ class Websocket
     /**
      * Проверка целостности пакета.
      *
-     * @param string $buffer
-     * @param TcpConnection $connection
      * @return int
      * @throws Throwable
      */
@@ -305,8 +303,6 @@ class Websocket
     /**
      * Рукопожатие WebSocket.
      *
-     * @param string $buffer
-     * @param TcpConnection $connection
      * @return int
      * @throws Throwable
      */
@@ -415,8 +411,6 @@ class Websocket
     /**
      * Декодирование WebSocket.
      *
-     * @param string $buffer
-     * @param TcpConnection $connection
      * @return string
      */
     public static function decode(string $buffer, TcpConnection $connection): string
@@ -454,7 +448,6 @@ class Websocket
     /**
      * Кодирование WebSocket.
      *
-     * @param TcpConnection $connection
      * @return string
      * @throws Throwable
      */

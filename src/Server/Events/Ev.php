@@ -88,8 +88,6 @@ final class Ev implements EventInterface
     }
 
     /**
-     * @param callable $func
-     * @param array $args
      * @return void
      */
     private function safeCall(callable $func, array $args = []): void

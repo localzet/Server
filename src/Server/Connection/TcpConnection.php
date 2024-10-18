@@ -332,9 +332,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Конструктор.
      *
-     * @param EventInterface $eventLoop
      * @param resource $socket
-     * @param string $remoteAddress
      */
     public function __construct(EventInterface $eventLoop, /**
      * Сокет.
@@ -364,8 +362,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Включение или отключение кэша.
-     *
-     * @param bool $value
      */
     public static function enableCache(bool $value = true): void
     {
@@ -498,8 +494,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * Входящие данные из текущего соединения будут отправлены на соединение dest.
      * Этот метод используется для перенаправления данных между соединениями.
      *
-     * @param self $dest
-     * @param bool $raw
      * @return void
      */
     public function pipe(self $dest, bool $raw = false): void
@@ -709,7 +703,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * Основной обработчик чтения.
      *
      * @param resource $socket
-     * @param bool $checkEof
      * @return void
      * @throws Throwable
      */
@@ -905,7 +898,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Удаляет $length данных из буфера чтения.
      *
-     * @param int $length
      * @return void
      */
     public function consumeRecvBuffer(int $length): void
@@ -958,7 +950,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Получает статус.
      *
-     * @param bool $rawOutput
      *
      * @return int|string
      */

@@ -39,7 +39,6 @@ class Frame
     /**
      * Проверка целостности пакета.
      *
-     * @param string $buffer
      * @return int
      */
     public static function input(string $buffer): int
@@ -57,7 +56,6 @@ class Frame
     /**
      * Декодирование.
      *
-     * @param string $buffer
      * @return string
      */
     public static function decode(string $buffer): string
@@ -69,7 +67,6 @@ class Frame
     /**
      * Кодирование.
      *
-     * @param string $data
      * @return string
      */
     public static function encode(string $data): string

@@ -156,7 +156,6 @@ final class StreamSelectDriver extends AbstractDriver
     }
 
     /**
-     * @param DriverCallback $callback
      * @return void
      */
     protected function deactivate(DriverCallback $callback): void
@@ -251,7 +250,6 @@ final class StreamSelectDriver extends AbstractDriver
     /**
      * @param array<int, resource> $read
      * @param array<int, resource> $write
-     * @param float $timeout
      * @throws Exception
      */
     private function selectStreams(array $read, array $write, float $timeout): void
@@ -360,7 +358,6 @@ final class StreamSelectDriver extends AbstractDriver
     }
 
     /**
-     * @param array $callbacks
      * @return void
      * @throws UnsupportedFeatureException
      */
@@ -409,7 +406,6 @@ final class StreamSelectDriver extends AbstractDriver
     }
 
     /**
-     * @param int $signal
      * @return void
      */
     private function handleSignal(int $signal): void

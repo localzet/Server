@@ -31,13 +31,6 @@ use Closure;
 /** @internal */
 final class TimerCallback extends DriverCallback
 {
-    /**
-     * @param string $id
-     * @param float $interval
-     * @param Closure $callback
-     * @param float $expiration
-     * @param bool $repeat
-     */
     public function __construct(
         string                $id, // Идентификатор обратного вызова
         public readonly float $interval, // Интервал

@@ -114,8 +114,6 @@ class Request implements Stringable
 
     /**
      * Конструктор запроса.
-     *
-     * @param string $buffer
      */
     public function __construct(
         /**
@@ -128,8 +126,6 @@ class Request implements Stringable
 
     /**
      * Включить или отключить кэш.
-     *
-     * @param bool $value
      */
     public static function enableCache(bool $value): void
     {
@@ -248,7 +244,6 @@ class Request implements Stringable
     /**
      * Получить ввод.
      *
-     * @param string $name
      * @param mixed|null $default
      * @return mixed|null
      */
@@ -265,7 +260,6 @@ class Request implements Stringable
     /**
      * Получить только указанные ключи.
      *
-     * @param array $keys
      * @return array
      */
     public function only(array $keys): array
@@ -293,7 +287,6 @@ class Request implements Stringable
     /**
      * Получить все данные, кроме указанных ключей.
      *
-     * @param array $keys
      * @return mixed|null
      */
     public function except(array $keys): mixed
@@ -424,7 +417,6 @@ class Request implements Stringable
     /**
      * Разбор загруженных файлов.
      *
-     * @param string $httpPostBoundary
      * @return void
      */
     protected function parseUploadFiles(string $httpPostBoundary): void
@@ -778,7 +770,6 @@ class Request implements Stringable
     /**
      * Проверяет, является ли метод запроса указанным методом.
      *
-     * @param string $method
      * @return bool
      */
     public function isMethod(string $method): bool
@@ -822,7 +813,6 @@ class Request implements Stringable
     /**
      * Получить хост.
      *
-     * @param bool $withoutPort
      * @return string|null
      */
     public function host(bool $withoutPort = false): ?string
@@ -853,7 +843,6 @@ class Request implements Stringable
     /**
      * Сгенерировать новый идентификатор сессии.
      *
-     * @param bool $deleteOldSession
      * @return string
      * @throws Exception
      */
@@ -980,9 +969,6 @@ class Request implements Stringable
     /**
      * Установить cookie с идентификатором сессии.
      *
-     * @param string $sessionName
-     * @param string $sid
-     * @param array $cookieParams
      * @return void
      */
     protected function setSidCookie(string $sessionName, string $sid, array $cookieParams): void
@@ -1113,7 +1099,6 @@ class Request implements Stringable
     /**
      * Getter.
      *
-     * @param string $name
      * @return mixed|null
      */
     public function __get(string $name)
@@ -1125,7 +1110,6 @@ class Request implements Stringable
     /**
      * Setter.
      *
-     * @param string $name
      * @return void
      */
     public function __set(string $name, mixed $value)
@@ -1137,7 +1121,6 @@ class Request implements Stringable
     /**
      * Isset.
      *
-     * @param string $name
      * @return bool
      */
     public function __isset(string $name)
@@ -1149,7 +1132,6 @@ class Request implements Stringable
     /**
      * Unset.
      *
-     * @param string $name
      * @return void
      */
     public function __unset(string $name)

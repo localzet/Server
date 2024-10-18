@@ -131,7 +131,6 @@ class AsyncUdpConnection extends UdpConnection
      * Закрыть соединение.
      *
      * @param mixed|null $data
-     * @param bool $raw
      * @return void
      * @throws Throwable
      */
@@ -157,8 +156,6 @@ class AsyncUdpConnection extends UdpConnection
     /**
      * Отправить данные по соединению.
      *
-     * @param mixed $sendBuffer
-     * @param bool $raw
      * @return bool|null
      * @throws Throwable
      */

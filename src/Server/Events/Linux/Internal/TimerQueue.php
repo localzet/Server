@@ -71,8 +71,6 @@ final class TimerQueue
     }
 
     /**
-     * @param int $left
-     * @param int $right
      * @return void
      */
     private function swap(int $left, int $right): void

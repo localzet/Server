@@ -74,12 +74,6 @@ final class DriverSuspension implements Suspension
      */
     private bool $deadMain = false;
 
-    /**
-     * @param Closure $run
-     * @param Closure $queue
-     * @param Closure $interrupt
-     * @param WeakMap $suspensions
-     */
     public function __construct(
         private readonly Closure $run,
         private readonly Closure $queue,
@@ -202,7 +196,6 @@ final class DriverSuspension implements Suspension
     }
 
     /**
-     * @param array $trace
      * @return string
      */
     private function formatStacktrace(array $trace): string
@@ -224,7 +217,6 @@ final class DriverSuspension implements Suspension
     }
 
     /**
-     * @param Throwable $throwable
      * @return void
      */
     public function throw(Throwable $throwable): void

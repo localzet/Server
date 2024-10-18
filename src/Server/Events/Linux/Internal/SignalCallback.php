@@ -31,11 +31,6 @@ use Closure;
 /** @internal */
 final class SignalCallback extends DriverCallback
 {
-    /**
-     * @param string $id
-     * @param Closure $closure
-     * @param int $signal
-     */
     public function __construct(
         string              $id, // Идентификатор обратного вызова
         Closure             $closure, // Обратный вызов

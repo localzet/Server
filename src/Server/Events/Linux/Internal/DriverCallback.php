@@ -48,11 +48,6 @@ abstract class DriverCallback
      * @var bool
      */
     public bool $referenced = true; // Является ли ссылочным
-
-    /**
-     * @param string $id
-     * @param Closure $closure
-     */
     public function __construct(
         public readonly string  $id, // Идентификатор обратного вызова
         public readonly Closure $closure // Обратный вызов
@@ -60,17 +55,11 @@ abstract class DriverCallback
     {
     }
 
-    /**
-     * @param string $property
-     */
     public function __get(string $property): never
     {
         throw new Error("Неизвестное свойство '$property'");
     }
 
-    /**
-     * @param string $property
-     */
     public function __set(string $property, mixed $value): never
     {
         throw new Error("Неизвестное свойство '$property'");

@@ -39,8 +39,6 @@ interface ProtocolInterface
      * Если длина неизвестна, верните 0, что означает ожидание дополнительных данных.
      * Если в пакете есть какие-то проблемы, верните false, и соединение будет закрыто.
      *
-     * @param string $buffer
-     * @param ConnectionInterface $connection
      * @return int|false
      */
     public static function input(string $buffer, ConnectionInterface $connection): bool|int;
@@ -48,8 +46,6 @@ interface ProtocolInterface
     /**
      * Расшифруйте пакет и вызовите обратный вызов onMessage($message), где $message - это результат, возвращенный функцией decode.
      *
-     * @param string $buffer
-     * @param ConnectionInterface $connection
      * @return mixed
      */
     public static function decode(string $buffer, ConnectionInterface $connection): mixed;
@@ -57,7 +53,6 @@ interface ProtocolInterface
     /**
      * Кодируйте пакет перед отправкой клиенту.
      *
-     * @param ConnectionInterface $connection
      * @return string
      */
     public static function encode(mixed $data, ConnectionInterface $connection): string;

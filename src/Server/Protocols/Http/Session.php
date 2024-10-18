@@ -167,8 +167,6 @@ class Session
 
     /**
      * Конструктор сессии.
-     *
-     * @param string $sessionId
      */
     public function __construct(string $sessionId)
     {
@@ -188,8 +186,6 @@ class Session
 
     /**
      * Проверка идентификатора сессии.
-     *
-     * @param string $sessionId
      */
     protected static function checkSessionId(string $sessionId): void
     {
@@ -283,7 +279,6 @@ class Session
     /**
      * Получить и удалить элемент из сессии.
      *
-     * @param string $name
      * @param mixed|null $default
      * @return mixed
      */
@@ -297,7 +292,6 @@ class Session
     /**
      * Получить данные сессии.
      *
-     * @param string $name
      * @param mixed|null $default
      * @return mixed
      */
@@ -308,8 +302,6 @@ class Session
 
     /**
      * Удалить элемент из сессии.
-     *
-     * @param string $name
      */
     public function delete(string $name): void
     {
@@ -320,7 +312,6 @@ class Session
     /**
      * Сохранить данные в сессии.
      *
-     * @param array|string $key
      * @param mixed|null $value
      */
     public function put(array|string $key, mixed $value = null): void
@@ -338,8 +329,6 @@ class Session
 
     /**
      * Сохранить данные в сессии.
-     *
-     * @param string $name
      */
     public function set(string $name, mixed $value): void
     {
@@ -349,8 +338,6 @@ class Session
 
     /**
      * Удалить данные из сессии.
-     *
-     * @param array|string $name
      */
     public function forget(array|string $name): void
     {
@@ -390,7 +377,6 @@ class Session
     /**
      * Проверить наличие элемента в сессии.
      *
-     * @param string $name
      * @return bool
      */
     public function has(string $name): bool
@@ -401,7 +387,6 @@ class Session
     /**
      * Проверить наличие элемента в сессии, даже если его значение равно null.
      *
-     * @param string $name
      * @return bool
      */
     public function exists(string $name): bool

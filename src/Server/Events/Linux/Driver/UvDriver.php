@@ -141,7 +141,6 @@ final class UvDriver extends AbstractDriver
     }
 
     /**
-     * @param StreamCallback $callback
      * @return int
      */
     private function getStreamCallbackFlags(StreamCallback $callback): int

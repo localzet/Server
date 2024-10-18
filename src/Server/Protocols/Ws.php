@@ -68,8 +68,6 @@ class Ws
     /**
      * Проверка целостности пакета.
      *
-     * @param string $buffer
-     * @param AsyncTcpConnection $connection
      * @return int|false
      * @throws Throwable
      */
@@ -274,8 +272,6 @@ class Ws
     /**
      * Рукопожатие WebSocket.
      *
-     * @param string $buffer
-     * @param AsyncTcpConnection $connection
      * @return bool|int
      * @throws Throwable
      */
@@ -348,7 +344,6 @@ class Ws
     /**
      * Разбор ответа.
      *
-     * @param string $buffer
      * @return Response
      */
     protected static function parseResponse(string $buffer): Response
@@ -377,8 +372,6 @@ class Ws
     /**
      * Декодирование WebSocket.
      *
-     * @param string $bytes
-     * @param AsyncTcpConnection $connection
      * @return string
      */
     public static function decode(string $bytes, AsyncTcpConnection $connection): string
@@ -418,8 +411,6 @@ class Ws
     /**
      * Кодирование WebSocket.
      *
-     * @param string $payload
-     * @param AsyncTcpConnection $connection
      * @return string
      * @throws Throwable
      */
@@ -488,7 +479,6 @@ class Ws
     /**
      * Отправка рукопожатия WebSocket.
      *
-     * @param AsyncTcpConnection $connection
      * @return void
      * @throws Throwable
      */
@@ -535,7 +525,6 @@ class Ws
     /**
      * Отправка данных рукопожатия WebSocket.
      *
-     * @param AsyncTcpConnection $connection
      * @return void
      * @throws Throwable
      */
@@ -546,8 +535,6 @@ class Ws
 
     /**
      * Очистка соединения при его закрытии.
-     *
-     * @param AsyncTcpConnection $connection
      */
     public static function onClose(AsyncTcpConnection $connection): void
     {

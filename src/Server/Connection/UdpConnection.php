@@ -60,7 +60,6 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
      * Конструктор.
      *
      * @param resource $socket
-     * @param string $remoteAddress
      */
     public function __construct(
         /**

@@ -161,10 +161,6 @@ class Response implements Stringable
 
     /**
      * Конструктор ответа.
-     *
-     * @param int $status
-     * @param array $headers
-     * @param string|null $body
      */
     public function __construct(
         /**
@@ -215,8 +211,6 @@ class Response implements Stringable
     /**
      * Установить заголовок.
      *
-     * @param string $name
-     * @param string $value
      * @return Response
      */
     public function withHeader(string $name, string $value): static
@@ -227,7 +221,6 @@ class Response implements Stringable
     /**
      * Установить заголовок.
      *
-     * @param string $name
      * @param array|string|int $value
      * @return Response
      */
@@ -240,7 +233,6 @@ class Response implements Stringable
     /**
      * Установить заголовки.
      *
-     * @param array $headers
      * @return Response
      */
     public function withHeaders(array $headers): static
@@ -254,7 +246,6 @@ class Response implements Stringable
     /**
      * Удалить заголовок.
      *
-     * @param string $name
      * @return Response
      */
     public function withoutHeader(string $name): static
@@ -266,7 +257,6 @@ class Response implements Stringable
     /**
      * Получить заголовок.
      *
-     * @param string $name
      * @return null|array|string
      */
     public function getHeader(string $name): array|string|null
@@ -307,7 +297,6 @@ class Response implements Stringable
     /**
      * Установить версию протокола.
      *
-     * @param string $version
      * @return Response
      */
     public function withProtocolVersion(string $version): static
@@ -329,9 +318,6 @@ class Response implements Stringable
     /**
      * Отправить файл.
      *
-     * @param string $file
-     * @param int $offset
-     * @param int $length
      * @return Response
      */
     public function withFile(string $file, int $offset = 0, int $length = 0): static
@@ -346,7 +332,6 @@ class Response implements Stringable
     /**
      * Установить HTTP-тело.
      *
-     * @param string|null $body
      * @return Response
      */
     public function withBody(?string $body): static
@@ -358,7 +343,6 @@ class Response implements Stringable
     /**
      * Установить статус.
      *
-     * @param int $code
      * @param string|null $reasonPhrase
      * @return Response
      */
@@ -373,14 +357,6 @@ class Response implements Stringable
      * Установить cookie.
      * Установить cookie.
      *
-     * @param string $name
-     * @param string $value
-     * @param int|null $maxAge
-     * @param string $path
-     * @param string $domain
-     * @param bool $secure
-     * @param bool $httpOnly
-     * @param string $sameSite
      * @return Response
      */
     public function cookie(string $name, string $value = '', ?int $maxAge = null, string $path = '', string $domain = '', bool $secure = false, bool $httpOnly = false, string $sameSite = ''): static
@@ -414,7 +390,6 @@ class Response implements Stringable
     /**
      * Создать заголовок для файла.
      *
-     * @param array $fileInfo
      * @return string
      */
     protected function createHeadForFile(array $fileInfo): string

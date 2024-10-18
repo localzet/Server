@@ -150,7 +150,6 @@ class Timer
     /**
      * Coroutine sleep.
      *
-     * @param float $delay
      * @return void
      */
     public static function sleep(float $delay): void
@@ -168,10 +167,6 @@ class Timer
     /**
      * Добавить таймер
      *
-     * @param float $timeInterval
-     * @param callable $func
-     * @param null|array $args
-     * @param bool $persistent
      * @return int
      */
     public static function add(float $timeInterval, callable $func, null|array $args = [], bool $persistent = true): int
@@ -211,7 +206,6 @@ class Timer
     /**
      * Удалить таймер
      *
-     * @param int $timerId
      * @return bool
      */
     public static function del(int $timerId): bool

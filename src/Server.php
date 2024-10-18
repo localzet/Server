@@ -1440,7 +1440,6 @@ class Server
     /**
      * Обработчик сигнала.
      *
-     * @param int $signal
      * @throws Throwable
      */
     public static function signalHandler(int $signal): void
@@ -1718,8 +1717,6 @@ class Server
 
     /**
      * Форкнуть один процесс сервера для Windows.
-     *
-     * @param string $startFile
      */
     public static function forkOneServerForWindows(string $startFile): void
     {
@@ -1761,7 +1758,6 @@ class Server
     /**
      * Создать один процесс сервера.
      *
-     * @param self $server
      * @throws Exception|RuntimeException|Throwable
      */
     protected static function forkOneServerForLinux(self $server): void
@@ -1836,8 +1832,6 @@ class Server
     /**
      * Получить идентификатор сервера.
      *
-     * @param string $serverId
-     * @param int $pid
      *
      * @return false|int|string
      */
@@ -1883,7 +1877,6 @@ class Server
     /**
      * Установка имени процесса.
      *
-     * @param string $title
      * @return void
      */
     protected static function setProcessTitle(string $title): void
@@ -1896,8 +1889,6 @@ class Server
     /**
      * Отправка сигнала процессу.
      *
-     * @param int $process_id
-     * @param int $signal
      * @return void
      */
     protected static function sendSignal(int $process_id, int $signal): void
@@ -2107,7 +2098,6 @@ class Server
     /**
      * Остановить все.
      *
-     * @param int $code
      * @throws Throwable
      */
     public static function stopAll(int $code = 0, mixed $log = ''): void
@@ -2410,7 +2400,6 @@ class Server
     /**
      * Сообщение об ошибке по коду ошибки.
      *
-     * @param int $type
      * @return string
      */
     protected static function getErrorType(int $type): string
@@ -2421,7 +2410,6 @@ class Server
     /**
      * Журналирование.
      *
-     * @param bool $decorated
      * @return void
      */
     public static function log(mixed $msg, bool $decorated = true): void
@@ -2441,8 +2429,6 @@ class Server
     /**
      * Безопасный вывод.
      *
-     * @param string $msg
-     * @param bool $decorated
      * @return void
      */
     public static function safeEcho(string $msg, bool $decorated = true): void
@@ -2501,9 +2487,6 @@ class Server
 
     /**
      * Конструктор.
-     *
-     * @param string|null $socketName
-     * @param array $socketContext
      */
     public function __construct(?string $socketName = null, array $socketContext = [])
     {
@@ -2860,7 +2843,6 @@ class Server
     /**
      * Проверка, жив ли мастер-процесс.
      *
-     * @param int $masterPid
      * @return bool
      */
     protected static function checkMasterIsAlive(int $masterPid): bool

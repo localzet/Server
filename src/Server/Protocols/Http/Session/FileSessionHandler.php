@@ -66,7 +66,6 @@ class FileSessionHandler implements SessionHandlerInterface
 
     /**
      * Конструктор FileSessionHandler.
-     * @param array $config
      */
     public function __construct(array $config = [])
     {
@@ -162,8 +161,6 @@ class FileSessionHandler implements SessionHandlerInterface
 
     /**
      * {@inheritdoc}
-     * @param string $sessionId
-     * @param string $sessionData
      * @return bool
      * @throws Exception
      */

@@ -355,7 +355,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Вызывает обработчик ошибок с указанным исключением.
      *
-     * @param Closure $closure
      * @param Throwable $exception Исключение, выброшенное из обратного вызова события.
      * @throws Throwable
      */
@@ -378,7 +377,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Отменяет обратный вызов по указанному идентификатору.
      *
-     * @param string $callbackId
      * @return void
      */
     public function cancel(string $callbackId): void
@@ -390,7 +388,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Отключает обратный вызов по указанному идентификатору.
      *
-     * @param string $callbackId
      * @return string
      */
     public function disable(string $callbackId): string
@@ -430,7 +427,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Включает обратный вызов по указанному идентификатору.
      *
-     * @param string $callbackId
      * @return string
      */
     public function enable(string $callbackId): string
@@ -529,7 +525,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Добавляет обратный вызов в очередь.
      *
-     * @param DriverCallback $callback
      * @return void
      */
     final protected function enqueueCallback(DriverCallback $callback): void
@@ -626,8 +621,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Добавляет задачу в очередь.
      *
-     * @param Closure $closure
-     * @param mixed ...$args
      * @return void
      */
     public function queue(Closure $closure, mixed ...$args): void
@@ -638,7 +631,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Откладывает выполнение задачи.
      *
-     * @param Closure $closure
      * @return string
      */
     public function defer(Closure $closure): string
@@ -654,8 +646,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Задерживает выполнение задачи.
      *
-     * @param float $delay
-     * @param Closure $closure
      * @return string
      */
     public function delay(float $delay, Closure $closure): string
@@ -675,8 +665,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Повторяет выполнение задачи с указанным интервалом.
      *
-     * @param float $interval
-     * @param Closure $closure
      * @return string
      */
     public function repeat(float $interval, Closure $closure): string
@@ -696,8 +684,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Выполняет задачу при возникновении события чтения.
      *
-     * @param mixed $stream
-     * @param Closure $closure
      * @return string
      */
     public function onReadable(mixed $stream, Closure $closure): string
@@ -714,7 +700,6 @@ abstract class AbstractDriver implements Driver
      * Выполняет задачу при возникновении события записи.
      *
      * @param $stream
-     * @param Closure $closure
      * @return string
      */
     public function onWritable($stream, Closure $closure): string
@@ -730,8 +715,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Выполняет задачу при получении сигнала.
      *
-     * @param int $signal
-     * @param Closure $closure
      * @return string
      */
     public function onSignal(int $signal, Closure $closure): string
@@ -747,7 +730,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Добавляет ссылку на обратный вызов.
      *
-     * @param string $callbackId
      * @return string
      */
     public function reference(string $callbackId): string
@@ -764,7 +746,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Удаляет ссылку на обратный вызов.
      *
-     * @param string $callbackId
      * @return string
      */
     public function unreference(string $callbackId): string
@@ -824,7 +805,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Устанавливает обработчик ошибок.
      *
-     * @param Closure|null $errorHandler
      * @return void
      */
     public function setErrorHandler(?Closure $errorHandler): void
@@ -851,7 +831,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Возвращает тип обратного вызова.
      *
-     * @param string $callbackId
      * @return CallbackType
      */
     public function getType(string $callbackId): CallbackType
@@ -880,7 +859,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Проверяет, включен ли обратный вызов.
      *
-     * @param string $callbackId
      * @return bool
      */
     public function isEnabled(string $callbackId): bool
@@ -893,7 +871,6 @@ abstract class AbstractDriver implements Driver
     /**
      * Проверяет, имеет ли обратный вызов ссылку.
      *
-     * @param string $callbackId
      * @return bool
      */
     public function isReferenced(string $callbackId): bool

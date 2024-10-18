@@ -214,7 +214,6 @@ class AsyncTcpConnection extends TcpConnection
     /**
      * Переподключение.
      *
-     * @param int $after
      * @return void
      * @throws Throwable
      */

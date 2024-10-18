@@ -105,7 +105,6 @@ abstract class ConnectionInterface
     /**
      * Отправляет данные по соединению.
      *
-     * @param bool $raw
      * @return bool|null
      */
     abstract public function send(mixed $sendBuffer, bool $raw = false): bool|null;
@@ -155,7 +154,6 @@ abstract class ConnectionInterface
     /**
      * Закрыть соединение.
      *
-     * @param bool $raw
      * @return void
      */
     abstract public function close(mixed $data = null, bool $raw = false): void;
@@ -175,7 +173,6 @@ abstract class ConnectionInterface
     abstract public function isIpV6(): bool;
 
     /**
-     * @param Throwable $exception
      * @return void
      * @throws Throwable
      */

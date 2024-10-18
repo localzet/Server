@@ -91,8 +91,6 @@ class Http
 
     /**
      * Включить или отключить кэш.
-     *
-     * @param bool $value
      */
     public static function enableCache(bool $value): void
     {
@@ -102,8 +100,6 @@ class Http
     /**
      * Проверить целостность пакета.
      *
-     * @param string $buffer
-     * @param TcpConnection $connection
      * @return int
      * @throws Throwable
      */
@@ -169,8 +165,6 @@ class Http
     /**
      * Декодирование Http.
      *
-     * @param string $buffer
-     * @param TcpConnection $connection
      * @return Request
      */
     public static function decode(string $buffer, TcpConnection $connection): Request
@@ -214,7 +208,6 @@ class Http
      * Кодирование Http.
      *
      * @param string|Response $response
-     * @param TcpConnection $connection
      * @return string
      * @throws Throwable
      */
@@ -271,10 +264,7 @@ class Http
     /**
      * Отправить остаток потока клиенту.
      *
-     * @param TcpConnection $connection
      * @param resource $handler
-     * @param int $offset
-     * @param int $length
      * @throws Throwable
      */
     protected static function sendStream(TcpConnection $connection, $handler, int $offset = 0, int $length = 0): void
@@ -331,7 +321,6 @@ class Http
     /**
      * Установить или получить uploadTmpDir.
      *
-     * @param string|null $dir
      * @return string
      */
     public static function uploadTmpDir(string|null $dir = null): string

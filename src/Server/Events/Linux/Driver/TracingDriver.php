@@ -52,9 +52,6 @@ final class TracingDriver implements Driver
     /** @var array<string, string> */
     private array $cancelTraces = [];
 
-    /**
-     * @param Driver $driver
-     */
     public function __construct(private readonly Driver $driver)
     {
     }
@@ -92,7 +89,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param Closure $closure
      * @return string
      */
     public function defer(Closure $closure): string
@@ -109,7 +105,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param string $callbackId
      * @return void
      */
     public function cancel(string $callbackId): void
@@ -156,8 +151,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param float $delay
-     * @param Closure $closure
      * @return string
      */
     public function delay(float $delay, Closure $closure): string
@@ -174,8 +167,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param float $interval
-     * @param Closure $closure
      * @return string
      */
     public function repeat(float $interval, Closure $closure): string
@@ -189,8 +180,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param mixed $stream
-     * @param Closure $closure
      * @return string
      */
     public function onReadable(mixed $stream, Closure $closure): string
@@ -204,8 +193,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param mixed $stream
-     * @param Closure $closure
      * @return string
      */
     public function onWritable(mixed $stream, Closure $closure): string
@@ -219,8 +206,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param int $signal
-     * @param Closure $closure
      * @return string
      * @throws UnsupportedFeatureException
      */
@@ -235,7 +220,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param string $callbackId
      * @return string
      */
     public function enable(string $callbackId): string
@@ -254,7 +238,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param string $callbackId
      * @return string
      */
     private function getCreationTrace(string $callbackId): string
@@ -263,7 +246,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param string $callbackId
      * @return string
      */
     private function getCancelTrace(string $callbackId): string
@@ -272,7 +254,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param string $callbackId
      * @return string
      */
     public function disable(string $callbackId): string
@@ -284,7 +265,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param string $callbackId
      * @return string
      */
     public function reference(string $callbackId): string
@@ -303,7 +283,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param string $callbackId
      * @return string
      */
     public function unreference(string $callbackId): string
@@ -315,7 +294,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param Closure|null $errorHandler
      * @return void
      */
     public function setErrorHandler(?Closure $errorHandler): void
@@ -366,7 +344,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param string $callbackId
      * @return CallbackType
      */
     public function getType(string $callbackId): CallbackType
@@ -375,7 +352,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param string $callbackId
      * @return bool
      */
     public function isEnabled(string $callbackId): bool
@@ -384,7 +360,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param string $callbackId
      * @return bool
      */
     public function isReferenced(string $callbackId): bool
@@ -401,8 +376,6 @@ final class TracingDriver implements Driver
     }
 
     /**
-     * @param Closure $closure
-     * @param mixed ...$args
      * @return void
      */
     public function queue(Closure $closure, mixed ...$args): void

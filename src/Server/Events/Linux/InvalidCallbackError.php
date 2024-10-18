@@ -94,8 +94,6 @@ final class InvalidCallbackError extends Error
     }
 
     /**
-     * @param string $key
-     * @param string $message
      * @return void
      */
     public function addInfo(string $key, string $message): void

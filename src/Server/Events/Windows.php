@@ -257,7 +257,6 @@ final class Windows implements EventInterface
     /**
      * On except.
      * @param resource $stream
-     * @param callable $func
      */
     public function onExcept($stream, callable $func): void
     {
@@ -294,8 +293,6 @@ final class Windows implements EventInterface
     }
 
     /**
-     * @param callable $func
-     * @param array $args
      * @return void
      */
     private function safeCall(callable $func, array $args = []): void

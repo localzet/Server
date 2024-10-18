@@ -263,7 +263,6 @@ final class Linux implements EventInterface
     /**
      * Отменить регистрацию и удалить обработчик события.
      * @param mixed $key Ключ обработчика.
-     * @param array $events
      * @return bool Возвращает true, если обработчик был успешно отменен и удален, иначе false.
      */
     protected function cancelAndUnset(mixed $key, array &$events): bool

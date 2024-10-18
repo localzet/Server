@@ -262,7 +262,6 @@ final class EvDriver extends AbstractDriver
     }
 
     /**
-     * @param DriverCallback $callback
      * @return void
      */
     protected function deactivate(DriverCallback $callback): void
