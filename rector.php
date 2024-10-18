@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
+use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
 use Rector\DeadCode\Rector\PropertyProperty\RemoveNullPropertyInitializationRector;
 use Rector\Set\ValueObject\LevelSetList;
 use Rector\Set\ValueObject\SetList;
@@ -12,10 +13,12 @@ return RectorConfig::configure()
         __DIR__ . '/src',
     ])
     ->withPhpSets(php81: true)
-    ->withTypeCoverageLevel(48)
-    ->withDeadCodeLevel(24)
+//    ->withTypeCoverageLevel(100)
+//    ->withDeadCodeLevel(100)
+        ->withCodeQualityLevel(14)
     ->withSkip([
         RemoveNullPropertyInitializationRector::class,
+        RemoveUnusedPrivatePropertyRector::class,
     ])
     ->withSets([
         LevelSetList::UP_TO_PHP_81,
@@ -24,12 +27,12 @@ return RectorConfig::configure()
 //        // SetList::PHP_POLYFILLS,
 //        SetList::CODE_QUALITY,
 //        SetList::CODING_STYLE,
-//        SetList::DEAD_CODE,
+        SetList::DEAD_CODE,
 //        // SetList::STRICT_BOOLEANS,
 //        // SetList::NAMING,
 //        // SetList::RECTOR_PRESET,
 //        SetList::PRIVATIZATION,
-//        SetList::TYPE_DECLARATION,
+        SetList::TYPE_DECLARATION,
 //        // SetList::EARLY_RETURN,
 //        // SetList::INSTANCEOF,
 //        // SetList::CARBON,

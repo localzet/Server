@@ -117,7 +117,7 @@ final class UvDriver extends AbstractDriver
 
                 // События объединяются с 4 для активации обратного вызова, если не указаны события (0) или при UV_DISCONNECT (4).
                 // http://docs.libuv.org/en/v1.x/poll.html
-                if (!($this->getStreamCallbackFlags($callback) & $events || ($events | 4) === 4)) {
+                if (!($this->getStreamCallbackFlags($callback) & $events) && ($events | 4) !== 4) {
                     continue;
                 }
 
