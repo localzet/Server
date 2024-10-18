@@ -306,10 +306,8 @@ class Session
             $this->delete($name);
             return;
         }
-        if (is_array($name)) {
-            foreach ($name as $key) {
-                unset($this->data[$key]);
-            }
+        foreach ($name as $key) {
+            unset($this->data[$key]);
         }
         $this->needSave = true;
     }
