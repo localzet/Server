@@ -1384,7 +1384,7 @@ class Server
         }
         $totalRequestCache = $currentTotalRequest;
         $statusStr .= str_pad('<magenta>PROCESS STATUS</magenta>', 116 + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH) . "\n";
-        $statusStr .= "<blue>Итог</blue>"
+        return $statusStr . ("<blue>Итог</blue>"
             . "\t" . str_pad('<cyan>' . $totalMemory . 'M' . '</cyan>', 7 + strlen('<cyan></cyan>'))
             . " " . str_pad('', $maxLen1)
             . " " . str_pad('', $maxLen2)
@@ -1394,8 +1394,7 @@ class Server
             . " " . str_pad('<cyan>' . $totalRequests . '</cyan>', 13 + strlen('<cyan></cyan>'))
             . " " . str_pad('<cyan>' . $totalQps . '</cyan>', 6 + strlen('<cyan></cyan>'))
             . " " . str_pad('<blue>[Итог]</blue>', 10 + strlen('<blue></blue>'))
-            . "\n";
-        return $statusStr;
+            . "\n");
     }
 
     protected static function formatConnectionStatusData(): string
