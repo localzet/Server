@@ -934,9 +934,9 @@ class Server
         }
 
         // Показать версию
-        $lineVersion = str_pad('Server version: ' . '<cyan>' . static::getVersion() . '</cyan>', 39);
-        $lineVersion .= str_pad('PHP version: ' . '<cyan>' . PHP_VERSION . '</cyan>', 35);
-        $lineVersion .= str_pad('Event-loop: ' . '<cyan>' . get_event_loop_name() . '</cyan>', 45);
+        $lineVersion = str_pad('Server version: <cyan>' . static::getVersion() . '</cyan>', 39);
+        $lineVersion .= str_pad('PHP version: <cyan>' . PHP_VERSION . '</cyan>', 35);
+        $lineVersion .= str_pad('Event-loop: <cyan>' . get_event_loop_name() . '</cyan>', 45);
         $lineVersion .= PHP_EOL;
 
         !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', strlen($lineVersion) - (strlen('<cyan></cyan>') * 3));
@@ -2070,19 +2070,19 @@ class Server
                 . "\n", FILE_APPEND);
 
             file_put_contents(static::$statisticsFile,
-                str_pad('Server version: ' . '<cyan>' . static::getVersion() . '</cyan>', 40)
-                . str_pad('PHP version: ' . '<cyan>' . PHP_VERSION . '</cyan>', 36)
-                . str_pad('Event-loop: ' . '<cyan>' . get_event_loop_name() . '</cyan>', 73)
+                str_pad('Server version: <cyan>' . static::getVersion() . '</cyan>', 40)
+                . str_pad('PHP version: <cyan>' . PHP_VERSION . '</cyan>', 36)
+                . str_pad('Event-loop: <cyan>' . get_event_loop_name() . '</cyan>', 73)
                 . "\n", FILE_APPEND);
 
             file_put_contents(static::$statisticsFile,
-                str_pad('Start time: ' . '<cyan>' . date('Y-m-d H:i:s', static::$globalStatistics['start_timestamp']) . '</cyan>', 63)
-                . str_pad('Uptime: ' . '<cyan>' . floor((time() - static::$globalStatistics['start_timestamp']) / (24 * 60 * 60)) . '</cyan>' . ' days ' . '<cyan>' . floor(((time() - static::$globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . '</cyan>' . ' hours', 86)
+                str_pad('Start time: <cyan>' . date('Y-m-d H:i:s', static::$globalStatistics['start_timestamp']) . '</cyan>', 63)
+                . str_pad('Uptime: <cyan>' . floor((time() - static::$globalStatistics['start_timestamp']) / (24 * 60 * 60)) . '</cyan>' . ' days ' . '<cyan>' . floor(((time() - static::$globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . '</cyan>' . ' hours', 86)
                 . "\n", FILE_APPEND);
 
             file_put_contents(static::$statisticsFile,
-                str_pad('Load average: ' . '<cyan>' . implode(", ", $loadavg) . '</cyan>', 63)
-                . str_pad('Started: ' . '<cyan>' . count(static::$pidMap) . '</cyan>' . ' servers ' . '<cyan>' . count(static::getAllServerPids()) . '</cyan>' . ' processes', 86)
+                str_pad('Load average: <cyan>' . implode(", ", $loadavg) . '</cyan>', 63)
+                . str_pad('Started: <cyan>' . count(static::$pidMap) . '</cyan>' . ' servers ' . '<cyan>' . count(static::getAllServerPids()) . '</cyan>' . ' processes', 86)
                 . "\n", FILE_APPEND);
 
 
@@ -2121,8 +2121,7 @@ class Server
                 . "\n", FILE_APPEND);
 
             file_put_contents(static::$statisticsFile,
-                "<blue>PID</blue>"
-                . "\t" . str_pad("<blue>MEM</blue>", 7 + strlen('<blue></blue>'))
+                '<blue>PID</blue>	' . str_pad("<blue>MEM</blue>", 7 + strlen('<blue></blue>'))
                 . " " . str_pad('<blue>LISTEN</blue>', 20 + strlen('<blue></blue>'))
                 . " " . str_pad('<blue>SERVER</blue>', 16 + strlen('<blue></blue>'))
                 . " " . str_pad("<blue>CONNECTIONS</blue>", 11 + strlen('<blue></blue>'))
