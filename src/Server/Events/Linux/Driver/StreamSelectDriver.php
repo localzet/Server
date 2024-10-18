@@ -192,9 +192,6 @@ final class StreamSelectDriver extends AbstractDriver
         return parent::onSignal($signal, $closure);
     }
 
-    /**
-     * @return null
-     */
     public function getHandle(): mixed
     {
         return null;
