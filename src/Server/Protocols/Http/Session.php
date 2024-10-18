@@ -48,64 +48,46 @@ class Session
 {
     /**
      * Имя сессии.
-     *
-     * @var string
      */
     public static string $name = 'PHPSID';
 
     /**
      * Автоматическое обновление метки времени.
-     *
-     * @var bool
      */
     public static bool $autoUpdateTimestamp = false;
 
     /**
      * Время жизни сессии.
-     *
-     * @var int
      */
     public static int $lifetime = 1440;
 
     /**
      * Время жизни cookie.
-     *
-     * @var int
      */
     public static int $cookieLifetime = 1440;
 
     /**
      * Путь к cookie сессии.
-     *
-     * @var string
      */
     public static string $cookiePath = '/';
 
     /**
      * Домен cookie сессии.
-     *
-     * @var string
      */
     public static string $domain = '';
 
     /**
      * Только HTTPS cookie.
-     *
-     * @var bool
      */
     public static bool $secure = false;
 
     /**
      * Только HTTP доступ.
-     *
-     * @var bool
      */
     public static bool $httpOnly = true;
 
     /**
      * Same-site cookies.
-     *
-     * @var string
      */
     public static string $sameSite = '';
 
@@ -118,22 +100,16 @@ class Session
 
     /**
      * Класс обработчика сессий, реализующий интерфейс SessionHandlerInterface.
-     *
-     * @var string
      */
     protected static string $handlerClass = FileSessionHandler::class;
 
     /**
      * Параметры конструктора для класса обработчика сессий.
-     *
-     * @var mixed
      */
     protected static mixed $handlerConfig = null;
 
     /**
      * Экземпляр обработчика сессий.
-     *
-     * @var ?SessionHandlerInterface
      */
     protected static ?SessionHandlerInterface $handler = null;
 
@@ -146,22 +122,16 @@ class Session
 
     /**
      * Безопасность данных.
-     *
-     * @var bool
      */
     protected bool $isSafe = true;
 
     /**
      * Флаг изменения данных сессии, требующий сохранения.
-     *
-     * @var bool
      */
     protected bool $needSave = false;
 
     /**
      * Идентификатор сессии.
-     *
-     * @var string
      */
     protected string $sessionId;
 

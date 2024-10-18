@@ -77,9 +77,6 @@ final class StreamSelectDriver extends AbstractDriver
     /** @var array<int, array<string, StreamWritableCallback>> */
     private array $writeCallbacks = [];
 
-    /**
-     * @var TimerQueue
-     */
     private readonly TimerQueue $timerQueue;
 
     /** @var array<int, array<string, SignalCallback>> */
@@ -88,19 +85,10 @@ final class StreamSelectDriver extends AbstractDriver
     /** @var SplQueue<int> */
     private readonly SplQueue $signalQueue;
 
-    /**
-     * @var bool
-     */
     private readonly bool $signalHandling;
 
-    /**
-     * @var Closure
-     */
     private readonly Closure $streamSelectErrorHandler;
 
-    /**
-     * @var bool
-     */
     private bool $streamSelectIgnoreResult = false;
 
     /**

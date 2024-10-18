@@ -51,8 +51,6 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Протокол транспортного уровня.
-     *
-     * @var string
      */
     public string $transport = 'udp';
 

@@ -38,8 +38,6 @@ final class Ev implements EventInterface
 {
     /**
      * Идентификатор таймера.
-     *
-     * @var int
      */
     private static int $timerId = 1;
     /**

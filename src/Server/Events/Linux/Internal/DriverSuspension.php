@@ -51,27 +51,15 @@ use const DEBUG_BACKTRACE_IGNORE_ARGS;
  */
 final class DriverSuspension implements Suspension
 {
-    /**
-     * @var Fiber|null
-     */
     private ?Fiber $suspendedFiber = null;
 
     /** @var WeakReference<Fiber>|null */
     private readonly ?WeakReference $fiberRef;
 
-    /**
-     * @var Error|null
-     */
     private ?Error $error = null;
 
-    /**
-     * @var bool
-     */
     private bool $pending = false;
 
-    /**
-     * @var bool
-     */
     private bool $deadMain = false;
 
     public function __construct(

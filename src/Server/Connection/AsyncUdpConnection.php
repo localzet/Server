@@ -64,8 +64,6 @@ class AsyncUdpConnection extends UdpConnection
 
     /**
      * Признак установленного соединения.
-     *
-     * @var bool
      */
     protected bool $connected = false;
 

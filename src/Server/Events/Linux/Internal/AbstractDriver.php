@@ -62,18 +62,9 @@ abstract class AbstractDriver implements Driver
     /** @var string Следующий идентификатор обратного вызова. */
     private string $nextId = "a";
 
-    /**
-     * @var Fiber
-     */
     private Fiber $fiber;
 
-    /**
-     * @var Fiber
-     */
     private Fiber $callbackFiber;
-    /**
-     * @var Closure
-     */
     private Closure $errorCallback;
 
     /** @var array<string, DriverCallback> */
@@ -91,22 +82,10 @@ abstract class AbstractDriver implements Driver
     /** @var null|Closure():mixed */
     private ?Closure $interrupt = null;
 
-    /**
-     * @var Closure
-     */
     private readonly Closure $interruptCallback;
-    /**
-     * @var Closure
-     */
     private readonly Closure $queueCallback;
-    /**
-     * @var Closure
-     */
     private readonly Closure $runCallback;
 
-    /**
-     * @var stdClass
-     */
     private readonly stdClass $internalSuspensionMarker;
 
     /** @var SplQueue<array{Closure, array}> */
@@ -115,18 +94,9 @@ abstract class AbstractDriver implements Driver
     /** @var SplQueue<DriverCallback> */
     private readonly SplQueue $callbackQueue;
 
-    /**
-     * @var bool
-     */
     private bool $idle = false;
-    /**
-     * @var bool
-     */
     private bool $stopped = false;
 
-    /**
-     * @var WeakMap
-     */
     private WeakMap $suspensions;
 
     /**

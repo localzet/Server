@@ -42,9 +42,6 @@ final class FiberLocal
     /** @var Fiber|null Фиктивный Fiber для {main} */
     private static ?Fiber $mainFiber = null;
 
-    /**
-     * @var WeakMap|null
-     */
     private static ?WeakMap $localStorage = null;
 
     /**

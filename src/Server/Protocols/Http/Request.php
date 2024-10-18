@@ -65,44 +65,30 @@ class Request implements Stringable
 {
     /**
      * Максимальное количество загружаемых файлов.
-     *
-     * @var int
      */
     public static int $maxFileUploads = 1024;
     /**
      * Включить кэш.
-     *
-     * @var bool
      */
     protected static bool $enableCache = true;
     /**
      * Соединение.
-     *
-     * @var ?TcpConnection
      */
     public ?TcpConnection $connection = null;
     /**
      * Экземпляр сессии.
-     *
-     * @var ?Session
      */
     public ?Session $session = null;
     /**
      * Свойства.
-     *
-     * @var array
      */
     public array $properties = [];
     /**
      * Данные запроса.
-     *
-     * @var array
      */
     protected array $data = [];
     /**
      * Безопасно ли.
-     *
-     * @var bool
      */
     protected bool $isSafe = true;
     /**

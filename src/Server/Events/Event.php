@@ -64,8 +64,6 @@ final class Event implements EventInterface
     protected array $eventTimer = [];
     /**
      * Идентификатор таймера.
-     *
-     * @var int
      */
     protected int $timerId = 0;
     /**
@@ -74,13 +72,7 @@ final class Event implements EventInterface
      * @var ?callable
      */
     protected $errorHandler = null;
-    /**
-     * @var EventBase
-     */
     private readonly EventBase $eventBase;
-    /**
-     * @var string
-     */
     private string $eventClassName = '';
 
     /**

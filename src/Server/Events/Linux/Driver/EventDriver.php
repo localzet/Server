@@ -52,23 +52,11 @@ final class EventDriver extends AbstractDriver
 {
     /** @var array<string, Event>|null */
     private static ?array $activeSignals = null;
-    /**
-     * @var EventBase
-     */
     private EventBase $handle;
     /** @var array<string, Event> */
     private array $events = [];
-    /**
-     * @var Closure
-     */
     private readonly Closure $ioCallback;
-    /**
-     * @var Closure
-     */
     private readonly Closure $timerCallback;
-    /**
-     * @var Closure
-     */
     private readonly Closure $signalCallback;
     /** @var array<string, Event> */
     private array $signals = [];

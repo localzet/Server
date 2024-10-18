@@ -66,8 +66,6 @@ class Websocket
 
     /**
      * Имя класса Request.
-     *
-     * @var string
      */
     protected static string $requestClass = Request::class;
 

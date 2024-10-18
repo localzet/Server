@@ -53,8 +53,6 @@ abstract class ConnectionInterface
 
     /**
      * Статистика для команды status.
-     *
-     * @var array
      */
     public static array $statistics = [
         'connection_count' => 0,
@@ -66,8 +64,6 @@ abstract class ConnectionInterface
     /**
      * Протокол прикладного уровня.
      * Формат аналогичен localzet\\Server\\Protocols\\Http.
-     *
-     * @var ?string
      */
     public ?string $protocol = null;
 
@@ -92,9 +88,6 @@ abstract class ConnectionInterface
      */
     public $onError = null;
 
-    /**
-     * @var ?EventInterface
-     */
     public ?EventInterface $eventLoop = null;
 
     /**

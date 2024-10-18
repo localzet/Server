@@ -89,62 +89,42 @@ class AsyncTcpConnection extends TcpConnection
 
     /**
      * Протокол транспортного уровня.
-     *
-     * @var string
      */
     public string $transport = 'tcp';
     /**
      * Socks5-прокси.
-     *
-     * @var string
      */
     public string $proxySocks5 = '';
     /**
      * HTTP-прокси.
-     *
-     * @var string
      */
     public string $proxyHttp = '';
     /**
      * Статус соединения.
-     *
-     * @var int
      */
     protected int $status = self::STATUS_INITIAL;
     /**
      * Удаленный хост.
-     *
-     * @var string
      */
     protected string $remoteHost = '';
     /**
      * Удаленный порт.
-     *
-     * @var int
      */
     protected int $remotePort = 80;
     /**
      * Время начала установки соединения.
-     *
-     * @var float
      */
     protected float $connectStartTime = 0;
     /**
      * Удаленный URI.
-     *
-     * @var string
      */
     protected string $remoteURI = '';
     /**
      * Опции контекста.
-     *
-     * @var array
      */
     protected array $contextOption = [];
     /**
      * Таймер переподключения.
-     *
-     * @var int
      */
     protected int $reconnectTimer = 0;
 

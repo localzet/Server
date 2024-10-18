@@ -50,22 +50,16 @@ class Timer
      *   run_time => [[$func, $args, $persistent, time_interval],[$func, $args, $persistent, time_interval],..]],
      *   run_time => [[$func, $args, $persistent, time_interval],[$func, $args, $persistent, time_interval],..]],
      * ]
-     *
-     * @var array
      */
     protected static array $tasks = [];
 
     /**
      * Событие
-     *
-     * @var ?EventInterface
      */
     protected static ?EventInterface $event = null;
 
     /**
      * ID Таймера
-     *
-     * @var int
      */
     protected static int $timerId = 0;
 
@@ -75,8 +69,6 @@ class Timer
      *   timer_id1 => bool,
      *   timer_id2 => bool,
      * ]
-     *
-     * @var array
      */
     protected static array $status = [];
 

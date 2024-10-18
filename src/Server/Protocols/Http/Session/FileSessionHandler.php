@@ -52,15 +52,11 @@ class FileSessionHandler implements SessionHandlerInterface
 {
     /**
      * Путь для сохранения сессий.
-     *
-     * @var string
      */
     protected static string $sessionSavePath;
 
     /**
      * Префикс имени файла сессии.
-     *
-     * @var string
      */
     protected static string $sessionFilePrefix = 'session_';
 

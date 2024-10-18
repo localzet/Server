@@ -214,50 +214,36 @@ class Server
 
     /**
      * ID Сервера
-     *
-     * @var int
      */
     public int $id = 0;
 
     /**
      * Название для серверных процессов
-     *
-     * @var string
      */
     public string $name = 'none';
 
     /**
      * Количество серверных процессов
-     *
-     * @var int
      */
     public int $count = 1;
 
     /**
      * Unix пользователь (нужен root)
-     *
-     * @var string
      */
     public string $user = '';
 
     /**
      * Unix группа (нужен root)
-     *
-     * @var string
      */
     public string $group = '';
 
     /**
      * Перезагружаемый экземпляр?
-     *
-     * @var bool
      */
     public bool $reloadable = true;
 
     /**
      * Повторно использовать порт?
-     *
-     * @var bool
      */
     public bool $reusePort = false;
 
@@ -333,8 +319,6 @@ class Server
 
     /**
      * Протокол транспортного уровня
-     *
-     * @var string
      */
     public string $transport = 'tcp';
 
@@ -347,29 +331,21 @@ class Server
 
     /**
      * Протокол уровня приложения
-     *
-     * @var ?string
      */
     public ?string $protocol = null;
 
     /**
      * Пауза принятия новых соединений
-     *
-     * @var bool
      */
     protected bool $pauseAccept = true;
 
     /**
      * Сервер останавливается?
-     *
-     * @var bool
      */
     public bool $stopping = false;
 
     /**
      * В режиме демона?
-     *
-     * @var bool
      */
     public static bool $daemonize = false;
 
@@ -381,36 +357,26 @@ class Server
 
     /**
      * Файл Stdout
-     *
-     * @var string
      */
     public static string $stdoutFile = '/dev/null';
 
     /**
      * Файл для хранения PID мастер-процесса
-     *
-     * @var string
      */
     public static string $pidFile;
 
     /**
      * Файл, используемый для хранения файла состояния мастер-процесса
-     *
-     * @var string
      */
     public static string $statusFile;
 
     /**
      * Файл лога
-     *
-     * @var mixed
      */
     public static mixed $logFile;
 
     /**
      * Глобальная петля событий
-     *
-     * @var ?EventInterface
      */
     public static ?EventInterface $globalEvent = null;
 
@@ -445,28 +411,21 @@ class Server
     /**
      * Таймаут после команды остановки для дочерних процессов
      * Если в течение него они не остановятся - звони киллеру
-     *
-     * @var int
      */
     public static int $stopTimeout = 2;
 
     /**
      * Команда
-     * @var string
      */
     public static string $command = '';
 
     /**
      * Версия
-     *
-     * @var string|null
      */
     protected static ?string $version = null;
 
     /**
      * PID мастер-процесса.
-     *
-     * @var int
      */
     protected static int $masterPid = 0;
 
@@ -479,8 +438,6 @@ class Server
 
     /**
      * Имя сокета. Формат: http://0.0.0.0:80 .
-     *
-     * @var string
      */
     protected string $socketName = '';
 
@@ -491,9 +448,6 @@ class Server
      */
     protected $socketContext = null;
 
-    /**
-     * @var stdClass
-     */
     protected stdClass $context;
 
     /**
@@ -506,108 +460,78 @@ class Server
     /**
      * Все PID процессов серверов.
      * Формат: [идентификатор_сервера => [pid => pid, pid => pid, ...], ...]
-     *
-     * @var array
      */
     protected static array $pidMap = [];
 
     /**
      * Все процессы серверов, ожидающие перезапуска.
      * Формат: [pid => pid, pid => pid, ...].
-     *
-     * @var array
      */
     protected static array $pidsToRestart = [];
 
     /**
      * Отображение PID на идентификатор сервера.
      * Формат: [serverId => [0 => $pid, 1 => $pid, ...], ...].
-     *
-     * @var array
      */
     protected static array $idMap = [];
 
     /**
      * Текущий статус.
-     *
-     * @var int
      */
     protected static int $status = self::STATUS_STARTING;
 
     /**
      * Максимальная длина имени сервера.
-     *
-     * @var int
      */
     protected static int $maxServerNameLength = 12;
 
     /**
      * Максимальная длина имени сокета.
-     *
-     * @var int
      */
     protected static int $maxSocketNameLength = 12;
 
     /**
      * Максимальная длина имени пользователя.
-     *
-     * @var int
      */
     protected static int $maxUserNameLength = 12;
 
     /**
      * Максимальная длина имени протокола.
-     *
-     * @var int
      */
     protected static int $maxProtoNameLength = 4;
 
     /**
      * Максимальная длина имени процесса.
-     *
-     * @var int
      */
     protected static int $maxProcessesNameLength = 9;
 
     /**
      * Максимальная длина имени состояния.
-     *
-     * @var int
      */
     protected static int $maxStateNameLength = 1;
 
     /**
      * Файл для хранения информации о статусе текущего процесса сервера.
-     *
-     * @var string
      */
     protected static string $statisticsFile;
 
     /**
      * Файл для хранения информации о соединениях.
-     *
-     * @var string
      */
     protected static string $connectionsFile;
 
     /**
      * Файл запуска.
-     *
-     * @var string
      */
     protected static string $startFile;
 
     /**
      * Процессы для операционных систем Windows.
-     *
-     * @var array
      */
     protected static array $processForWindows = [];
 
     /**
      * Информация о статусе текущего процесса сервера.
-     *
-     * @var array
      */
     protected static array $globalStatistics = [
         'start_timestamp' => 0,
@@ -616,21 +540,16 @@ class Server
 
     /**
      * Остановка сервера с грациозным завершением или нет.
-     *
-     * @var bool
      */
     protected static bool $gracefulStop = false;
 
     /**
      * Поддерживается ли у потока $outputStream декорация.
-     * @var bool
      */
     protected static bool $outputDecorated;
 
     /**
      * Хэш-идентификатор объекта сервера (уникальный идентификатор)
-     *
-     * @var ?string
      */
     protected ?string $serverId = null;
 

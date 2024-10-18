@@ -57,23 +57,11 @@ final class EvDriver extends AbstractDriver
 {
     /** @var array<string, EvSignal>|null */
     private static ?array $activeSignals = null;
-    /**
-     * @var EvLoop
-     */
     private readonly EvLoop $handle;
     /** @var array<string, EvWatcher> */
     private array $events = [];
-    /**
-     * @var Closure
-     */
     private readonly Closure $ioCallback;
-    /**
-     * @var Closure
-     */
     private readonly Closure $timerCallback;
-    /**
-     * @var Closure
-     */
     private readonly Closure $signalCallback;
     /** @var array<string, EvSignal> */
     private array $signals = [];

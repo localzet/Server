@@ -127,35 +127,26 @@ class Response implements Stringable
 
     /**
      * Карта типов Mine.
-     * @var array
      */
     protected static array $mimeTypeMap = [];
 
     /**
      * Информация о файле для отправки
-     *
-     * @var ?array
      */
     public ?array $file = null;
 
     /**
      * Данные заголовка.
-     *
-     * @var array
      */
     protected array $headers = [];
 
     /**
      * Http причина.
-     *
-     * @var ?string
      */
     protected ?string $reason = null;
 
     /**
      * Версия Http.
-     *
-     * @var string
      */
     protected string $version = '1.1';
 

@@ -45,7 +45,6 @@ final class InvalidCallbackError extends Error
      */
     public const E_INVALID_IDENTIFIER = 2;
 
-    /** @var string */
     private readonly string $rawMessage;
 
     /** @var array<string, string> */

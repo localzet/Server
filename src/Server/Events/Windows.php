@@ -42,8 +42,6 @@ final class Windows implements EventInterface
 {
     /**
      * Флаг, указывающий, работает ли событийный цикл.
-     *
-     * @var bool
      */
     protected bool $running = true;
 
@@ -100,29 +98,21 @@ final class Windows implements EventInterface
     /**
      * Планировщик таймеров.
      * {['data':timer_id, 'priority':run_timestamp], ..}
-     *
-     * @var SplPriorityQueue
      */
     protected SplPriorityQueue $scheduler;
 
     /**
      * Массив всех таймеров.
-     *
-     * @var array
      */
     protected array $eventTimer = [];
 
     /**
      * Идентификатор таймера.
-     *
-     * @var int
      */
     protected int $timerId = 1;
 
     /**
      * Таймаут события select.
-     *
-     * @var int
      */
     protected int $selectTimeout = 100000000;
 

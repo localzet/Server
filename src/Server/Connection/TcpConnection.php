@@ -127,36 +127,26 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Размер буфера отправки по умолчанию.
-     *
-     * @var int
      */
     public static int $defaultMaxSendBufferSize = 1048576;
 
     /**
      * Максимальный допустимый размер пакета по умолчанию.
-     *
-     * @var int
      */
     public static int $defaultMaxPackageSize = 10485760;
 
     /**
      * Массив всех экземпляров соединения.
-     *
-     * @var array
      */
     public static array $connections = [];
 
     /**
      * Идентификатор записывателя.
-     *
-     * @var int
      */
     protected static int $idRecorder = 1;
 
     /**
      * Кэш.
-     *
-     * @var bool
      */
     protected static bool $enableCache = true;
 
@@ -211,121 +201,87 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
     /**
      * Транспорт (tcp/udp/unix/ssl).
-     *
-     * @var string
      */
     public string $transport = 'tcp';
 
     /**
      * К какому серверу принадлежит соединение.
-     *
-     * @var ?Server
      */
     public ?Server $server = null;
 
     /**
      * Прочитанные байты.
-     *
-     * @var int
      */
     public int $bytesRead = 0;
 
     /**
      * Записанные байты.
-     *
-     * @var int
      */
     public int $bytesWritten = 0;
 
     /**
      * Идентификатор соединения.
-     *
-     * @var int
      */
     public int $id = 0;
 
     /**
      * Задает максимальный размер отправочного буфера для текущего соединения.
      * Событие onBufferFull будет возникать, когда буфер отправки будет полон.
-     *
-     * @var int
      */
     public int $maxSendBufferSize = 1048576;
 
     /**
      * Контекст.
-     *
-     * @var ?stdClass
      */
     public ?stdClass $context = null;
 
     /**
      * Заголовки.
-     *
-     * @var array
      */
     public array $headers = [];
 
     /**
      * Запрос.
-     *
-     * @var ?Request
      */
     public ?Request $request = null;
 
     /**
      * Задает максимальный допустимый размер пакета для текущего соединения.
-     *
-     * @var int
      */
     public int $maxPackageSize = 1048576;
 
     /**
      * Копия $server->id, используется для очистки соединения в $server->connections.
-     *
-     * @var int
      */
     protected int $realId = 0;
 
     /**
      * Буфер отправки.
-     *
-     * @var string
      */
     protected string $sendBuffer = '';
 
     /**
      * Буфер приема.
-     *
-     * @var string
      */
     protected string $recvBuffer = '';
 
     /**
      * Длина текущего пакета.
-     *
-     * @var int
      */
     protected int $currentPackageLength = 0;
 
     /**
      * Статус соединения.
-     *
-     * @var int
      */
     protected int $status = self::STATUS_ESTABLISHED;
 
     /**
      * Соединение приостановлено?
-     *
-     * @var bool
      */
     protected bool $isPaused = false;
 
     /**
      * SSL-рукопожатие совержено?
-     *
-     * @var bool
      */
     protected bool|int $sslHandshakeCompleted = false;
 

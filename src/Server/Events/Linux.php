@@ -49,9 +49,6 @@ use function pcntl_signal;
  */
 final class Linux implements EventInterface
 {
-    /**
-     * @var Driver
-     */
     protected Driver $driver;
 
     /**
@@ -84,8 +81,6 @@ final class Linux implements EventInterface
 
     /**
      * Идентификатор таймера.
-     *
-     * @var int
      */
     protected int $timerId = 1;
 
