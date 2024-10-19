@@ -128,7 +128,7 @@ final class EventDriver extends AbstractDriver
         // Manually free the loop handle to fully release loop resources.
         // See https://github.com/amphp/amp/issues/177.
         /** @psalm-suppress RedundantPropertyInitializationCheck */
-        if (property_exists($this, 'eventBase') && $this->eventBase !== null) {
+        if (property_exists($this, 'eventBase') && $this->eventBase instanceof EventBase) {
             $this->eventBase->free();
             unset($this->eventBase);
         }

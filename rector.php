@@ -35,7 +35,7 @@ return RectorConfig::configure()
         SetList::PRIVATIZATION,
         SetList::TYPE_DECLARATION,
         // SetList::EARLY_RETURN,
-        // SetList::INSTANCEOF,
+         SetList::INSTANCEOF,
         // SetList::CARBON,
     ])
     ->withSkip([

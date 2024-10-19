@@ -144,7 +144,7 @@ class Timer
      */
     public static function sleep(float $delay): void
     {
-        if (Server::$globalEvent && (Server::$globalEvent instanceof Linux || Server::$globalEvent instanceof Revolt)) {
+        if (Server::$globalEvent instanceof EventInterface && (Server::$globalEvent instanceof Linux || Server::$globalEvent instanceof Revolt)) {
             $suspension = Server::$globalEvent->getSuspension();
             static::add($delay, function () use ($suspension): void {
                 $suspension->resume();

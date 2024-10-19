@@ -224,7 +224,7 @@ final class StreamSelectDriver extends AbstractDriver
 
         $now = $this->now();
 
-        while ($callback = $this->timerQueue->extract($now)) {
+        while (($callback = $this->timerQueue->extract($now)) instanceof TimerCallback) {
             $this->enqueueCallback($callback);
         }
     }
