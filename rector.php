@@ -18,9 +18,23 @@ return RectorConfig::configure()
         __DIR__ . '/src',
     ])
     ->withPhpSets(php81: true)
-//    ->withTypeCoverageLevel(100)
-//    ->withDeadCodeLevel(100)
-        ->withCodeQualityLevel(100)
+    ->withSets([
+        LevelSetList::UP_TO_PHP_81,
+        SetList::PHP_81,
+
+//        // SetList::PHP_POLYFILLS,
+        SetList::CODE_QUALITY,
+//        SetList::CODING_STYLE,
+        SetList::DEAD_CODE,
+//        // SetList::STRICT_BOOLEANS,
+//        // SetList::NAMING,
+//        // SetList::RECTOR_PRESET,
+        SetList::PRIVATIZATION,
+        SetList::TYPE_DECLARATION,
+//        // SetList::EARLY_RETURN,
+//        // SetList::INSTANCEOF,
+//        // SetList::CARBON,
+    ])
     ->withSkip([
         RemoveNullPropertyInitializationRector::class,
         RemoveUnusedPrivatePropertyRector::class,
@@ -29,21 +43,4 @@ return RectorConfig::configure()
         SimplifyEmptyCheckOnEmptyArrayRector::class,
         DisallowedEmptyRuleFixerRector::class,
         LocallyCalledStaticMethodToNonStaticRector::class,
-    ])
-    ->withSets([
-        LevelSetList::UP_TO_PHP_81,
-        SetList::PHP_81,
-
-//        // SetList::PHP_POLYFILLS,
-//        SetList::CODE_QUALITY,
-//        SetList::CODING_STYLE,
-        SetList::DEAD_CODE,
-//        // SetList::STRICT_BOOLEANS,
-//        // SetList::NAMING,
-//        // SetList::RECTOR_PRESET,
-//        SetList::PRIVATIZATION,
-        SetList::TYPE_DECLARATION,
-//        // SetList::EARLY_RETURN,
-//        // SetList::INSTANCEOF,
-//        // SetList::CARBON,
     ]);

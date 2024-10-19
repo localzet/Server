@@ -45,31 +45,31 @@ final class Ev implements EventInterface
      *
      * @var array<int, EvIo>
      */
-    protected array $readEvents = [];
+    private array $readEvents = [];
     /**
      * Массив всех обработчиков событий записи.
      *
      * @var array<int, EvIo>
      */
-    protected array $writeEvents = [];
+    private array $writeEvents = [];
     /**
      * Массив всех обработчиков сигналов.
      *
      * @var array<int, EvSignal>
      */
-    protected array $eventSignal = [];
+    private array $eventSignal = [];
     /**
      * Массив всех таймеров.
      *
      * @var array<int, EvTimer>
      */
-    protected array $eventTimer = [];
+    private array $eventTimer = [];
     /**
      * Обработчик ошибок.
      *
      * @var ?callable
      */
-    protected $errorHandler = null;
+    private $errorHandler = null;
 
     /**
      * {@inheritdoc}

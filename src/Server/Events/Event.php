@@ -43,35 +43,35 @@ final class Event implements EventInterface
      *
      * @var array<int, LibEvent>
      */
-    protected array $readEvents = [];
+    private array $readEvents = [];
     /**
      * Массив всех обработчиков событий записи.
      *
      * @var array<int, LibEvent>
      */
-    protected array $writeEvents = [];
+    private array $writeEvents = [];
     /**
      * Массив всех обработчиков сигналов.
      *
      * @var array<int, LibEvent>
      */
-    protected array $eventSignal = [];
+    private array $eventSignal = [];
     /**
      * Массив всех таймеров.
      *
      * @var array<int, LibEvent>
      */
-    protected array $eventTimer = [];
+    private array $eventTimer = [];
     /**
      * Идентификатор таймера.
      */
-    protected int $timerId = 0;
+    private int $timerId = 0;
     /**
      * Обработчик ошибок.
      *
      * @var ?callable
      */
-    protected $errorHandler = null;
+    private $errorHandler = null;
     private readonly EventBase $eventBase;
     private string $eventClassName = '';
 

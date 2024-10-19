@@ -43,25 +43,25 @@ final class Swow implements EventInterface
      *
      * @var array<int, Coroutine>
      */
-    protected array $readEvents = [];
+    private array $readEvents = [];
     /**
      * Массив всех обработчиков событий записи.
      *
      * @var array<int, Coroutine>
      */
-    protected array $writeEvents = [];
+    private array $writeEvents = [];
     /**
      * Массив всех таймеров.
      *
      * @var array<int, int>
      */
-    protected array $eventTimer = [];
+    private array $eventTimer = [];
     /**
      * Обработчик ошибок.
      *
      * @var ?callable
      */
-    protected $errorHandler = null;
+    private $errorHandler = null;
     /**
      * Массив всех обработчиков сигналов.
      *

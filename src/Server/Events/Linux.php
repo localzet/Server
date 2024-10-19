@@ -49,40 +49,40 @@ use function pcntl_signal;
  */
 final class Linux implements EventInterface
 {
-    protected Driver $driver;
+    private Driver $driver;
 
     /**
      * Все обработчики события чтения.
      *
      * @var array<int, string>
      */
-    protected array $readEvents = [];
+    private array $readEvents = [];
 
     /**
      * Все обработчики события записи.
      *
      * @var array<int, string>
      */
-    protected array $writeEvents = [];
+    private array $writeEvents = [];
 
     /**
      * Обработчики событий сигналов.
      *
      * @var array<int, string>
      */
-    protected array $eventSignal = [];
+    private array $eventSignal = [];
 
     /**
      * Обработчики событий таймеров.
      *
      * @var array<int, string>
      */
-    protected array $eventTimer = [];
+    private array $eventTimer = [];
 
     /**
      * Идентификатор таймера.
      */
-    protected int $timerId = 1;
+    private int $timerId = 1;
 
     /**
      * Конструктор.
@@ -249,22 +249,6 @@ final class Linux implements EventInterface
         }
 
         $this->readEvents[$fdKey] = $this->getDriver()->onReadable($stream, static fn() => $func($stream));
-    }
-
-    /**
-     * Отменить регистрацию и удалить обработчик события.
-     * @param mixed $key Ключ обработчика.
-     * @return bool Возвращает true, если обработчик был успешно отменен и удален, иначе false.
-     */
-    protected function cancelAndUnset(mixed $key, array &$events): bool
-    {
-        $fdKey = (int)$key;
-        if (isset($events[$fdKey])) {
-            $this->getDriver()->cancel($events[$fdKey]);
-            unset($events[$fdKey]);
-            return true;
-        }
-        return false;
     }
 
     /**

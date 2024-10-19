@@ -43,49 +43,49 @@ final class Windows implements EventInterface
     /**
      * Флаг, указывающий, работает ли событийный цикл.
      */
-    protected bool $running = true;
+    private bool $running = true;
 
     /**
      * Массив всех обработчиков событий чтения.
      *
      * @var array<int, callable>
      */
-    protected array $readEvents = [];
+    private array $readEvents = [];
 
     /**
      * Массив всех обработчиков событий записи.
      *
      * @var array<int, callable>
      */
-    protected array $writeEvents = [];
+    private array $writeEvents = [];
 
     /**
      * Массив всех обработчиков событий исключений.
      *
      * @var array<int, callable>
      */
-    protected array $exceptEvents = [];
+    private array $exceptEvents = [];
 
     /**
      * Массив всех обработчиков сигналов.
      *
      * @var array<int, callable>
      */
-    protected array $signalEvents = [];
+    private array $signalEvents = [];
 
     /**
      * Массив файловых дескрипторов, ожидающих события чтения.
      *
      * @var array<int, resource>
      */
-    protected array $readFds = [];
+    private array $readFds = [];
 
     /**
      * Массив файловых дескрипторов, ожидающих события записи.
      *
      * @var array<int, resource>
      */
-    protected array $writeFds = [];
+    private array $writeFds = [];
 
     /**
      * Массив файловых дескрипторов, ожидающих исключительные события.
@@ -93,35 +93,35 @@ final class Windows implements EventInterface
      *
      * @var array<int, resource>
      */
-    protected array $exceptFds = [];
+    private array $exceptFds = [];
 
     /**
      * Планировщик таймеров.
      * {['data':timer_id, 'priority':run_timestamp], ..}
      */
-    protected SplPriorityQueue $scheduler;
+    private SplPriorityQueue $scheduler;
 
     /**
      * Массив всех таймеров.
      */
-    protected array $eventTimer = [];
+    private array $eventTimer = [];
 
     /**
      * Идентификатор таймера.
      */
-    protected int $timerId = 1;
+    private int $timerId = 1;
 
     /**
      * Таймаут события select.
      */
-    protected int $selectTimeout = 100000000;
+    private int $selectTimeout = 100000000;
 
     /**
      * Обработчик ошибок.
      *
      * @var ?callable
      */
-    protected $errorHandler = null;
+    private $errorHandler = null;
 
     /**
      * Конструктор.
@@ -351,7 +351,7 @@ final class Windows implements EventInterface
      *
      * @throws Throwable
      */
-    protected function tick(): void
+    private function tick(): void
     {
         $tasksToInsert = [];
         while (!$this->scheduler->isEmpty()) {
