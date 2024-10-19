@@ -1615,8 +1615,8 @@ class Server
             static::stopAll(250, $exception);
         });
         Timer::init(static::$globalEvent);
-        foreach ($files as $startFile) {
-            static::forkOneServerForWindows($startFile);
+        foreach ($files as $file) {
+            static::forkOneServerForWindows($file);
         }
     }
 
@@ -1662,9 +1662,9 @@ class Server
      */
     public static function checkServerStatusForWindows(): void
     {
-        foreach (static::$processForWindows as $processData) {
-            $process = $processData[0];
-            $startFile = $processData[1];
+        foreach (static::$processForWindows as $processForWindow) {
+            $process = $processForWindow[0];
+            $startFile = $processForWindow[1];
             $status = proc_get_status($process);
             if (!$status['running']) {
                 static::safeEcho("Процесс $startFile завершен и пытается перезапуститься\n");
@@ -2045,7 +2045,7 @@ class Server
         else {
             // Выполнить выход.
             $servers = array_reverse(static::$servers);
-            array_walk($servers, static fn(Server $servers) => $servers->stop());
+            array_walk($servers, static fn(Server $server) => $server->stop());
 
             if (!static::$gracefulStop || ConnectionInterface::$statistics['connection_count'] <= 0) {
                 static::$servers = [];
@@ -2664,21 +2664,21 @@ class Server
         }
 
         // TCP-Соединение.
-        $connection = new TcpConnection(static::$globalEvent, $newSocket, $remoteAddress);
-        $this->connections[$connection->id] = $connection;
-        $connection->server = $this;
-        $connection->protocol = $this->protocol;
-        $connection->transport = $this->transport;
-        $connection->onMessage = $this->onMessage;
-        $connection->onClose = $this->onClose;
-        $connection->onError = $this->onError;
-        $connection->onBufferDrain = $this->onBufferDrain;
-        $connection->onBufferFull = $this->onBufferFull;
+        $tcpConnection = new TcpConnection(static::$globalEvent, $newSocket, $remoteAddress);
+        $this->connections[$tcpConnection->id] = $tcpConnection;
+        $tcpConnection->server = $this;
+        $tcpConnection->protocol = $this->protocol;
+        $tcpConnection->transport = $this->transport;
+        $tcpConnection->onMessage = $this->onMessage;
+        $tcpConnection->onClose = $this->onClose;
+        $tcpConnection->onError = $this->onError;
+        $tcpConnection->onBufferDrain = $this->onBufferDrain;
+        $tcpConnection->onBufferFull = $this->onBufferFull;
 
         // Попытка вызвать обратный вызов onConnect.
         if ($this->onConnect) {
             try {
-                ($this->onConnect)($connection);
+                ($this->onConnect)($tcpConnection);
             } catch (Throwable $e) {
                 static::stopAll(250, $e);
             }
@@ -2702,8 +2702,8 @@ class Server
         }
 
         // UPD-Соединение.
-        $connection = new UdpConnection($socket, $remoteAddress);
-        $connection->protocol = $this->protocol;
+        $udpConnection = new UdpConnection($socket, $remoteAddress);
+        $udpConnection->protocol = $this->protocol;
         $messageCallback = $this->onMessage;
         if ($messageCallback) {
             try {
@@ -2713,31 +2713,31 @@ class Server
                     // @phpstan-ignore-next-line Left side of && is always true.
                     if ($parser && method_exists($parser, 'input')) {
                         while ($recvBuffer !== '') {
-                            $len = $parser::input($recvBuffer, $connection);
+                            $len = $parser::input($recvBuffer, $udpConnection);
                             if ($len === 0) {
                                 return true;
                             }
 
                             $package = substr($recvBuffer, 0, $len);
                             $recvBuffer = substr($recvBuffer, $len);
-                            $data = $parser::decode($package, $connection);
+                            $data = $parser::decode($package, $udpConnection);
                             if ($data === false) {
                                 continue;
                             }
 
-                            $messageCallback($connection, $data);
+                            $messageCallback($udpConnection, $data);
                         }
                     } else {
-                        $data = $parser::decode($recvBuffer, $connection);
+                        $data = $parser::decode($recvBuffer, $udpConnection);
                         // Отбрасывать плохие пакеты.
                         if ($data === false) {
                             return true;
                         }
 
-                        $messageCallback($connection, $data);
+                        $messageCallback($udpConnection, $data);
                     }
                 } else {
-                    $messageCallback($connection, $recvBuffer);
+                    $messageCallback($udpConnection, $recvBuffer);
                 }
 
                 ConnectionInterface::$statistics['total_request']++;

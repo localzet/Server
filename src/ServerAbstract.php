@@ -99,11 +99,11 @@ abstract class ServerAbstract
     /**
      * Метод, вызываемый при подключении WebSocket.
      *
-     * @param TcpConnection $connection TCP соединение.
+     * @param TcpConnection $tcpConnection TCP соединение.
      * @param Request $request HTTP запрос.
      * @return void|Response
      */
-    public function onWebSocketConnect(TcpConnection &$connection, Request $request): mixed
+    public function onWebSocketConnect(TcpConnection &$tcpConnection, Request $request): mixed
     {
     }
 

@@ -101,7 +101,7 @@ abstract class AbstractDriver implements Driver
 
     private bool $stopped = false;
 
-    private WeakMap $suspensions;
+    private WeakMap $weakMap;
 
     /**
      *
@@ -115,7 +115,7 @@ abstract class AbstractDriver implements Driver
 
         /** @psalm-suppress InvalidArgument */
         // Создание нового экземпляра WeakMap для приостановок.
-        $this->suspensions = new WeakMap();
+        $this->weakMap = new WeakMap();
 
         // Создание нового экземпляра stdClass для внутреннего маркера приостановки.
         $this->internalSuspensionMarker = new stdClass();
@@ -321,23 +321,23 @@ abstract class AbstractDriver implements Driver
     /**
      * Вызывает обработчик ошибок с указанным исключением.
      *
-     * @param Throwable $exception Исключение, выброшенное из обратного вызова события.
+     * @param Throwable $throwable Исключение, выброшенное из обратного вызова события.
      * @throws Throwable
      */
-    final protected function error(Closure $closure, Throwable $exception): void
+    final protected function error(Closure $closure, Throwable $throwable): void
     {
         if (!$this->errorHandler instanceof Closure) {
             // Явно переопределяем предыдущее прерывание, если оно существует в этом случае, скрытие исключения хуже
-            $this->interrupt = static fn() => $exception instanceof UncaughtThrowable
-                ? throw $exception
-                : throw UncaughtThrowable::throwingCallback($closure, $exception);
+            $this->interrupt = static fn() => $throwable instanceof UncaughtThrowable
+                ? throw $throwable
+                : throw UncaughtThrowable::throwingCallback($closure, $throwable);
             return;
         }
 
         $fiber = new Fiber($this->errorCallback);
 
         /** @noinspection PhpUnhandledExceptionInspection */
-        $fiber->start($this->errorHandler, $exception);
+        $fiber->start($this->errorHandler, $throwable);
     }
 
     /**
@@ -384,7 +384,7 @@ abstract class AbstractDriver implements Driver
     /**
      * Деактивирует (отключает) указанный обратный вызов.
      */
-    abstract protected function deactivate(DriverCallback $callback): void;
+    abstract protected function deactivate(DriverCallback $driverCallback): void;
 
     /**
      * Включает обратный вызов по указанному идентификатору.
@@ -484,9 +484,9 @@ abstract class AbstractDriver implements Driver
     /**
      * Добавляет обратный вызов в очередь.
      */
-    final protected function enqueueCallback(DriverCallback $callback): void
+    final protected function enqueueCallback(DriverCallback $driverCallback): void
     {
-        $this->callbackQueue->enqueue($callback);
+        $this->callbackQueue->enqueue($driverCallback);
         $this->idle = false;
     }
 
@@ -628,12 +628,12 @@ abstract class AbstractDriver implements Driver
      */
     public function onReadable(mixed $stream, Closure $closure): string
     {
-        $streamCallback = new StreamReadableCallback($this->nextId++, $closure, $stream);
+        $streamReadableCallback = new StreamReadableCallback($this->nextId++, $closure, $stream);
 
-        $this->callbacks[$streamCallback->id] = $streamCallback;
-        $this->enableQueue[$streamCallback->id] = $streamCallback;
+        $this->callbacks[$streamReadableCallback->id] = $streamReadableCallback;
+        $this->enableQueue[$streamReadableCallback->id] = $streamReadableCallback;
 
-        return $streamCallback->id;
+        return $streamReadableCallback->id;
     }
 
     /**
@@ -643,12 +643,12 @@ abstract class AbstractDriver implements Driver
      */
     public function onWritable($stream, Closure $closure): string
     {
-        $streamCallback = new StreamWritableCallback($this->nextId++, $closure, $stream);
+        $streamWritableCallback = new StreamWritableCallback($this->nextId++, $closure, $stream);
 
-        $this->callbacks[$streamCallback->id] = $streamCallback;
-        $this->enableQueue[$streamCallback->id] = $streamCallback;
+        $this->callbacks[$streamWritableCallback->id] = $streamWritableCallback;
+        $this->enableQueue[$streamWritableCallback->id] = $streamWritableCallback;
 
-        return $streamCallback->id;
+        return $streamWritableCallback->id;
     }
 
     /**
@@ -706,7 +706,7 @@ abstract class AbstractDriver implements Driver
         $key = $fiber ?? $this->queueCallback;
 
         // Используем текущий объект в случае {main}
-        $suspension = ($this->suspensions[$key] ?? null)?->get();
+        $suspension = ($this->weakMap[$key] ?? null)?->get();
         if ($suspension) {
             return $suspension;
         }
@@ -715,10 +715,10 @@ abstract class AbstractDriver implements Driver
             $this->runCallback,
             $this->queueCallback,
             $this->interruptCallback,
-            $this->suspensions,
+            $this->weakMap,
         );
 
-        $this->suspensions[$key] = WeakReference::create($suspension);
+        $this->weakMap[$key] = WeakReference::create($suspension);
 
         return $suspension;
     }
@@ -745,10 +745,10 @@ abstract class AbstractDriver implements Driver
     public function __debugInfo(): array
     {
         // @codeCoverageIgnoreStart
-        return array_map(fn(DriverCallback $callback): array => [
-            'type' => $this->getType($callback->id),
-            'enabled' => $callback->enabled,
-            'referenced' => $callback->referenced,
+        return array_map(fn(DriverCallback $driverCallback): array => [
+            'type' => $this->getType($driverCallback->id),
+            'enabled' => $driverCallback->enabled,
+            'referenced' => $driverCallback->referenced,
         ], $this->callbacks);
         // @codeCoverageIgnoreEnd
     }

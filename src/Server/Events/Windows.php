@@ -392,8 +392,8 @@ final class Windows implements EventInterface
             }
         }
 
-        foreach ($tasksToInsert as $item) {
-            $this->scheduler->insert($item[0], $item[1]);
+        foreach ($tasksToInsert as $taskToInsert) {
+            $this->scheduler->insert($taskToInsert[0], $taskToInsert[1]);
         }
 
         if (!$this->scheduler->isEmpty()) {

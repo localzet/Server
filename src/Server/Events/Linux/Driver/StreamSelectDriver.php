@@ -143,31 +143,31 @@ final class StreamSelectDriver extends AbstractDriver
         }
     }
 
-    protected function deactivate(DriverCallback $callback): void
+    protected function deactivate(DriverCallback $driverCallback): void
     {
-        if ($callback instanceof StreamReadableCallback) {
-            $streamId = (int)$callback->stream;
-            unset($this->readCallbacks[$streamId][$callback->id]);
+        if ($driverCallback instanceof StreamReadableCallback) {
+            $streamId = (int)$driverCallback->stream;
+            unset($this->readCallbacks[$streamId][$driverCallback->id]);
             if (empty($this->readCallbacks[$streamId])) {
                 unset($this->readCallbacks[$streamId], $this->readStreams[$streamId]);
             }
-        } elseif ($callback instanceof StreamWritableCallback) {
-            $streamId = (int)$callback->stream;
-            unset($this->writeCallbacks[$streamId][$callback->id]);
+        } elseif ($driverCallback instanceof StreamWritableCallback) {
+            $streamId = (int)$driverCallback->stream;
+            unset($this->writeCallbacks[$streamId][$driverCallback->id]);
             if (empty($this->writeCallbacks[$streamId])) {
                 unset($this->writeCallbacks[$streamId], $this->writeStreams[$streamId]);
             }
-        } elseif ($callback instanceof TimerCallback) {
-            $this->timerQueue->remove($callback);
-        } elseif ($callback instanceof SignalCallback) {
-            if (isset($this->signalCallbacks[$callback->signal])) {
-                unset($this->signalCallbacks[$callback->signal][$callback->id]);
+        } elseif ($driverCallback instanceof TimerCallback) {
+            $this->timerQueue->remove($driverCallback);
+        } elseif ($driverCallback instanceof SignalCallback) {
+            if (isset($this->signalCallbacks[$driverCallback->signal])) {
+                unset($this->signalCallbacks[$driverCallback->signal][$driverCallback->id]);
 
-                if (empty($this->signalCallbacks[$callback->signal])) {
-                    unset($this->signalCallbacks[$callback->signal]);
+                if (empty($this->signalCallbacks[$driverCallback->signal])) {
+                    unset($this->signalCallbacks[$driverCallback->signal]);
                     set_error_handler(static fn(): bool => true);
                     try {
-                        pcntl_signal($callback->signal, SIG_DFL);
+                        pcntl_signal($driverCallback->signal, SIG_DFL);
                     } finally {
                         restore_error_handler();
                     }

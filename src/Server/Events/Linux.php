@@ -131,7 +131,7 @@ final class Linux implements EventInterface
                     throw new Error("Невозможно отправить во время сборки мусора.");
                 }
 
-                protected function deactivate(DriverCallback $callback): void
+                protected function deactivate(DriverCallback $driverCallback): void
                 {
                     // ничего не делать
                 }

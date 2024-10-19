@@ -98,7 +98,7 @@ class Http
      *
      * @throws Throwable
      */
-    public static function input(string $buffer, TcpConnection $connection): int
+    public static function input(string $buffer, TcpConnection $tcpConnection): int
     {
         static $input = [];
         if (!isset($buffer[512]) && isset($input[$buffer])) {
@@ -109,7 +109,7 @@ class Http
         if (false === $crlfPos) {
             // Проверьте, не превышает ли длина пакета лимит.
             if (strlen($buffer) >= 16384) {
-                $connection->close(format_http_response(413), true);
+                $tcpConnection->close(format_http_response(413), true);
             }
 
             return 0;
@@ -119,14 +119,14 @@ class Http
         $firstLine = explode(" ", strstr($buffer, "\r\n", true), 3);
 
         if (!in_array($firstLine[0], ['GET', 'POST', 'OPTIONS', 'HEAD', 'DELETE', 'PUT', 'PATCH'])) {
-            $connection->close(format_http_response(400), true);
+            $tcpConnection->close(format_http_response(400), true);
             return 0;
         }
 
         $header = substr($buffer, 0, $crlfPos);
 
         if (!str_contains($header, "\r\nHost: ") && $firstLine[2] === "HTTP/1.1") {
-            $connection->close(format_http_response(400), true);
+            $tcpConnection->close(format_http_response(400), true);
             return 0;
         }
 
@@ -139,13 +139,13 @@ class Http
         } else {
             $hasContentLength = false;
             if (str_contains($header, "\r\nTransfer-Encoding:")) {
-                $connection->close(format_http_response(400), true);
+                $tcpConnection->close(format_http_response(400), true);
                 return 0;
             }
         }
 
-        if ($hasContentLength && $length > $connection->maxPackageSize) {
-            $connection->close(format_http_response(413), true);
+        if ($hasContentLength && $length > $tcpConnection->maxPackageSize) {
+            $tcpConnection->close(format_http_response(413), true);
             return 0;
         }
 
@@ -162,22 +162,22 @@ class Http
     /**
      * Декодирование Http.
      */
-    public static function decode(string $buffer, TcpConnection $connection): Request
+    public static function decode(string $buffer, TcpConnection $tcpConnection): Request
     {
         static $requests = [];
         $cacheable = static::$enableCache && !isset($buffer[512]);
         if ($cacheable && isset($requests[$buffer])) {
             $request = clone $requests[$buffer];
-            $request->connection = $connection;
-            $connection->request = $request;
+            $request->connection = $tcpConnection;
+            $tcpConnection->request = $request;
             $request->properties = [];
             return $request;
         }
 
         /** @var Request $request */
         $request = new static::$requestClass($buffer);
-        $request->connection = $connection;
-        $connection->request = $request;
+        $request->connection = $tcpConnection;
+        $tcpConnection->request = $request;
         if ($cacheable) {
             $requests[$buffer] = $request;
             if (count($requests) > 512) {
@@ -205,22 +205,22 @@ class Http
      * @param string|Response $response
      * @throws Throwable
      */
-    public static function encode(mixed $response, TcpConnection $connection): string
+    public static function encode(mixed $response, TcpConnection $tcpConnection): string
     {
-        if ($connection->request instanceof Request) {
+        if ($tcpConnection->request instanceof Request) {
             // Удаляем ссылки на запрос и соединение для предотвращения утечки памяти.
-            $request = $connection->request;
+            $request = $tcpConnection->request;
             // Очищаем свойства запроса и соединения.
-            $request->session = $request->connection = $connection->request = null;
+            $request->session = $request->connection = $tcpConnection->request = null;
         }
 
         $response = is_object($response) ? $response : new Response(200, [], (string)$response);
 
-        if ($connection->headers && method_exists($response, 'withHeaders')) {
+        if ($tcpConnection->headers && method_exists($response, 'withHeaders')) {
             // Добавляем заголовки соединения в ответ.
-            $response->withHeaders($connection->headers);
+            $response->withHeaders($tcpConnection->headers);
             // Очищаем заголовки после использования.
-            $connection->headers = [];
+            $tcpConnection->headers = [];
         }
 
         if ($response->file !== null) {
@@ -240,18 +240,18 @@ class Http
             }
 
             if ($bodyLen < 2 * 1024 * 1024) {
-                $connection->send($response . file_get_contents($file, false, null, $offset, $bodyLen), true);
+                $tcpConnection->send($response . file_get_contents($file, false, null, $offset, $bodyLen), true);
                 return '';
             }
 
             $handler = fopen($file, 'r');
             if (false === $handler) {
-                $connection->close(new Response(403, [], '403 Forbidden'));
+                $tcpConnection->close(new Response(403, [], '403 Forbidden'));
                 return '';
             }
 
-            $connection->send((string)$response, true);
-            static::sendStream($connection, $handler, $offset, $length);
+            $tcpConnection->send((string)$response, true);
+            static::sendStream($tcpConnection, $handler, $offset, $length);
             return '';
         }
 
@@ -264,11 +264,11 @@ class Http
      * @param resource $handler
      * @throws Throwable
      */
-    protected static function sendStream(TcpConnection $connection, $handler, int $offset = 0, int $length = 0): void
+    protected static function sendStream(TcpConnection $tcpConnection, $handler, int $offset = 0, int $length = 0): void
     {
         // Устанавливаем флаги состояния буфера и потока.
-        $connection->context->bufferFull = false;
-        $connection->context->streamSending = true;
+        $tcpConnection->context->bufferFull = false;
+        $tcpConnection->context->streamSending = true;
         // Если смещение не равно нулю, перемещаемся на это смещение в файле.
         if ($offset !== 0) {
             fseek($handler, $offset);
@@ -277,9 +277,9 @@ class Http
         // Конечное смещение.
         $offsetEnd = $offset + $length;
         // Читаем содержимое файла с диска по частям и отправляем клиенту.
-        $doWrite = function () use ($connection, $handler, $length, $offsetEnd): void {
+        $doWrite = function () use ($tcpConnection, $handler, $length, $offsetEnd): void {
 
-            while ($connection->context->bufferFull === false) {
+            while ($tcpConnection->context->bufferFull === false) {
 
                 $size = 1024 * 1024;
                 if ($length !== 0) {
@@ -287,7 +287,7 @@ class Http
                     $remainSize = $offsetEnd - $tell;
                     if ($remainSize <= 0) {
                         fclose($handler);
-                        $connection->onBufferDrain = null;
+                        $tcpConnection->onBufferDrain = null;
                         return;
                     }
 
@@ -298,16 +298,16 @@ class Http
 
                 if ($buffer === '' || $buffer === false) {
                     fclose($handler);
-                    $connection->onBufferDrain = null;
-                    $connection->context->streamSending = false;
+                    $tcpConnection->onBufferDrain = null;
+                    $tcpConnection->context->streamSending = false;
                     return;
                 }
 
-                $connection->send($buffer, true);
+                $tcpConnection->send($buffer, true);
             }
         };
 
-        $connection->onBufferFull = function ($connection): void {
+        $tcpConnection->onBufferFull = function ($connection): void {
             $connection->context->bufferFull = true;
         };
 

@@ -53,7 +53,7 @@ final class EventDriver extends AbstractDriver
     /** @var array<string, Event>|null */
     private static ?array $activeSignals = null;
 
-    private EventBase $handle;
+    private readonly EventBase $eventBase;
 
     /** @var array<string, Event> */
     private array $events = [];
@@ -75,22 +75,22 @@ final class EventDriver extends AbstractDriver
         parent::__construct();
 
         /** @psalm-suppress TooFewArguments https://github.com/JetBrains/phpstorm-stubs/pull/763 */
-        $this->handle = new EventBase();
+        $this->eventBase = new EventBase();
 
         if (self::$activeSignals === null) {
             self::$activeSignals = &$this->signals;
         }
 
-        $this->ioCallback = function ($resource, $what, StreamCallback $callback): void {
-            $this->enqueueCallback($callback);
+        $this->ioCallback = function ($resource, $what, StreamCallback $streamCallback): void {
+            $this->enqueueCallback($streamCallback);
         };
 
-        $this->timerCallback = function ($resource, $what, TimerCallback $callback): void {
-            $this->enqueueCallback($callback);
+        $this->timerCallback = function ($resource, $what, TimerCallback $timerCallback): void {
+            $this->enqueueCallback($timerCallback);
         };
 
-        $this->signalCallback = function ($signo, $what, SignalCallback $callback): void {
-            $this->enqueueCallback($callback);
+        $this->signalCallback = function ($signo, $what, SignalCallback $signalCallback): void {
+            $this->enqueueCallback($signalCallback);
         };
     }
 
@@ -128,9 +128,9 @@ final class EventDriver extends AbstractDriver
         // Manually free the loop handle to fully release loop resources.
         // See https://github.com/amphp/amp/issues/177.
         /** @psalm-suppress RedundantPropertyInitializationCheck */
-        if (isset($this->handle)) {
-            $this->handle->free();
-            unset($this->handle);
+        if (property_exists($this, 'eventBase') && $this->eventBase !== null) {
+            $this->eventBase->free();
+            unset($this->eventBase);
         }
     }
 
@@ -175,7 +175,7 @@ final class EventDriver extends AbstractDriver
      */
     public function stop(): void
     {
-        $this->handle->stop();
+        $this->eventBase->stop();
         parent::stop();
     }
 
@@ -184,7 +184,7 @@ final class EventDriver extends AbstractDriver
      */
     public function getHandle(): EventBase
     {
-        return $this->handle;
+        return $this->eventBase;
     }
 
     /**
@@ -192,7 +192,7 @@ final class EventDriver extends AbstractDriver
      */
     protected function dispatch(bool $blocking): void
     {
-        $this->handle->loop($blocking ? EventBase::LOOP_ONCE : EventBase::LOOP_ONCE | EventBase::LOOP_NONBLOCK);
+        $this->eventBase->loop($blocking ? EventBase::LOOP_ONCE : EventBase::LOOP_ONCE | EventBase::LOOP_NONBLOCK);
     }
 
     /**
@@ -208,7 +208,7 @@ final class EventDriver extends AbstractDriver
                     assert(is_resource($callback->stream));
 
                     $this->events[$id] = new Event(
-                        $this->handle,
+                        $this->eventBase,
                         $callback->stream,
                         Event::READ | Event::PERSIST,
                         $this->ioCallback,
@@ -218,7 +218,7 @@ final class EventDriver extends AbstractDriver
                     assert(is_resource($callback->stream));
 
                     $this->events[$id] = new Event(
-                        $this->handle,
+                        $this->eventBase,
                         $callback->stream,
                         Event::WRITE | Event::PERSIST,
                         $this->ioCallback,
@@ -226,7 +226,7 @@ final class EventDriver extends AbstractDriver
                     );
                 } elseif ($callback instanceof TimerCallback) {
                     $this->events[$id] = new Event(
-                        $this->handle,
+                        $this->eventBase,
                         -1,
                         Event::TIMEOUT,
                         $this->timerCallback,
@@ -234,7 +234,7 @@ final class EventDriver extends AbstractDriver
                     );
                 } elseif ($callback instanceof SignalCallback) {
                     $this->events[$id] = new Event(
-                        $this->handle,
+                        $this->eventBase,
                         $callback->signal,
                         Event::SIGNAL | Event::PERSIST,
                         $this->signalCallback,
@@ -269,12 +269,12 @@ final class EventDriver extends AbstractDriver
     /**
      * {@inheritdoc}
      */
-    protected function deactivate(DriverCallback $callback): void
+    protected function deactivate(DriverCallback $driverCallback): void
     {
-        if (isset($this->events[$id = $callback->id])) {
+        if (isset($this->events[$id = $driverCallback->id])) {
             $this->events[$id]->del();
 
-            if ($callback instanceof SignalCallback) {
+            if ($driverCallback instanceof SignalCallback) {
                 unset($this->signals[$id]);
             }
         }

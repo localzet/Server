@@ -37,19 +37,19 @@ final class ClosureHelper
     {
         try {
             // Создаем объект ReflectionFunction для замыкания.
-            $reflection = new ReflectionFunction($closure);
+            $reflectionFunction = new ReflectionFunction($closure);
 
             // Получаем имя замыкания.
-            $description = $reflection->name;
+            $description = $reflectionFunction->name;
 
             // Если у замыкания есть класс области видимости, добавляем его к описанию.
-            if ($scopeClass = $reflection->getClosureScopeClass()) {
+            if ($scopeClass = $reflectionFunction->getClosureScopeClass()) {
                 $description = $scopeClass->name . '::' . $description;
             }
 
             // Если у замыкания есть имя файла и номер строки начала, добавляем их к описанию.
-            if ($reflection->getFileName() && $reflection->getStartLine()) {
-                $description .= " определено в " . $reflection->getFileName() . ':' . $reflection->getStartLine();
+            if ($reflectionFunction->getFileName() && $reflectionFunction->getStartLine()) {
+                $description .= " определено в " . $reflectionFunction->getFileName() . ':' . $reflectionFunction->getStartLine();
             }
 
             return $description;

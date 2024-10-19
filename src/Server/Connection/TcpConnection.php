@@ -290,7 +290,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      *
      * @param resource $socket
      */
-    public function __construct(EventInterface   $eventLoop, /**
+    public function __construct(EventInterface   $event, /**
      * Сокет.
      */
                                 protected        $socket, /**
@@ -310,7 +310,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             stream_set_read_buffer($this->socket, 0);
         }
 
-        $this->eventLoop = $eventLoop;
+        $this->eventLoop = $event;
         $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
 
         $this->maxSendBufferSize = self::$defaultMaxSendBufferSize;

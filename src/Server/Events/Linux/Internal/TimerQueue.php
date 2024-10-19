@@ -47,13 +47,13 @@ final class TimerQueue
      *
      * Сложность по времени: O(log(n)).
      */
-    public function insert(TimerCallback $callback): void
+    public function insert(TimerCallback $timerCallback): void
     {
-        assert(!isset($this->pointers[$callback->id]));
+        assert(!isset($this->pointers[$timerCallback->id]));
 
         $node = count($this->callbacks);
-        $this->callbacks[$node] = $callback;
-        $this->pointers[$callback->id] = $node;
+        $this->callbacks[$node] = $timerCallback;
+        $this->pointers[$timerCallback->id] = $node;
 
         $this->heapifyUp($node);
     }
@@ -88,10 +88,10 @@ final class TimerQueue
      *
      * Сложность по времени: O(log(n)).
      */
-    public function remove(TimerCallback $callback): void
+    public function remove(TimerCallback $timerCallback): void
     {
         // Получаем id обратного вызова
-        $id = $callback->id;
+        $id = $timerCallback->id;
 
         // Если обратного вызова нет в очереди, то выходим
         if (!isset($this->pointers[$id])) {

@@ -147,13 +147,13 @@ final class UvDriver extends AbstractDriver
         };
     }
 
-    private function getStreamCallbackFlags(StreamCallback $callback): int
+    private function getStreamCallbackFlags(StreamCallback $streamCallback): int
     {
-        if ($callback instanceof StreamWritableCallback) {
+        if ($streamCallback instanceof StreamWritableCallback) {
             return UV::WRITABLE;
         }
 
-        if ($callback instanceof StreamReadableCallback) {
+        if ($streamCallback instanceof StreamReadableCallback) {
             return UV::READABLE;
         }
 
@@ -290,9 +290,9 @@ final class UvDriver extends AbstractDriver
     /**
      * {@inheritdoc}
      */
-    protected function deactivate(DriverCallback $callback): void
+    protected function deactivate(DriverCallback $driverCallback): void
     {
-        $id = $callback->id;
+        $id = $driverCallback->id;
 
         if (!isset($this->events[$id])) {
             return;
@@ -304,7 +304,7 @@ final class UvDriver extends AbstractDriver
             return;
         }
 
-        if ($callback instanceof StreamCallback) {
+        if ($driverCallback instanceof StreamCallback) {
             $flags = 0;
             foreach ($this->uvCallbacks[(int)$event] as $w) {
                 assert($w instanceof StreamCallback);
@@ -317,9 +317,9 @@ final class UvDriver extends AbstractDriver
             } else {
                 uv_poll_stop($event);
             }
-        } elseif ($callback instanceof TimerCallback) {
+        } elseif ($driverCallback instanceof TimerCallback) {
             uv_timer_stop($event);
-        } elseif ($callback instanceof SignalCallback) {
+        } elseif ($driverCallback instanceof SignalCallback) {
             uv_signal_stop($event);
         } else {
             // @codeCoverageIgnoreStart

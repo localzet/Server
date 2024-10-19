@@ -54,7 +54,7 @@ final class DriverSuspension implements Suspension
     private ?Fiber $suspendedFiber = null;
 
     /** @var WeakReference<Fiber>|null */
-    private readonly ?WeakReference $fiberRef;
+    private readonly ?WeakReference $weakReference;
 
     private ?Error $error = null;
 
@@ -66,12 +66,12 @@ final class DriverSuspension implements Suspension
         private readonly Closure $run,
         private readonly Closure $queue,
         private readonly Closure $interrupt,
-        private readonly WeakMap $suspensions,
+        private readonly WeakMap $weakMap,
     )
     {
         $fiber = Fiber::getCurrent();
 
-        $this->fiberRef = $fiber ? WeakReference::create($fiber) : null;
+        $this->weakReference = $fiber ? WeakReference::create($fiber) : null;
     }
 
     /**
@@ -91,7 +91,7 @@ final class DriverSuspension implements Suspension
         $this->pending = false;
 
         /** @var Fiber|null $fiber */
-        $fiber = $this->fiberRef?->get();
+        $fiber = $this->weakReference?->get();
 
         if ($fiber) {
             ($this->queue)(static function () use ($fiber, $value): void {
@@ -122,7 +122,7 @@ final class DriverSuspension implements Suspension
             throw new Error('Необходимо вызвать resume() или throw() перед повторным вызовом suspend()');
         }
 
-        $fiber = $this->fiberRef?->get();
+        $fiber = $this->weakReference?->get();
 
         if ($fiber !== Fiber::getCurrent()) {
             throw new Error('Нельзя вызывать suspend() из другого Fiber\'а');
@@ -164,10 +164,10 @@ final class DriverSuspension implements Suspension
             gc_collect_cycles(); // Сбор циклических ссылок перед выводом ожидающих приостановок.
             $info = '';
 
-            foreach ($this->suspensions as $suspensionRef) {
+            foreach ($this->weakMap as $suspensionRef) {
                 if ($suspension = $suspensionRef->get()) {
                     assert($suspension instanceof self);
-                    $fiber = $suspension->fiberRef?->get();
+                    $fiber = $suspension->weakReference?->get();
                     if ($fiber === null) {
                         continue;
                     }
@@ -216,7 +216,7 @@ final class DriverSuspension implements Suspension
         $this->pending = false;
 
         /** @var Fiber|null $fiber */
-        $fiber = $this->fiberRef?->get();
+        $fiber = $this->weakReference?->get();
 
         if ($fiber) {
             // Передать исключение в очередь.

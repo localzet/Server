@@ -154,8 +154,8 @@ class MongoSessionHandler implements SessionHandlerInterface
      */
     public function gc(int $maxLifetime): bool
     {
-        $expirationDate = new UTCDateTime(time() - $maxLifetime * 1000);
-        $this->collection->deleteMany(['updated_at' => ['$lt' => $expirationDate]]);
+        $utcDateTime = new UTCDateTime(time() - $maxLifetime * 1000);
+        $this->collection->deleteMany(['updated_at' => ['$lt' => $utcDateTime]]);
         return true;
     }
 }

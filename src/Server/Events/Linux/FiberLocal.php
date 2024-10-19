@@ -42,7 +42,7 @@ final class FiberLocal
     /** @var Fiber|null Фиктивный Fiber для {main} */
     private static ?Fiber $mainFiber = null;
 
-    private static ?WeakMap $localStorage = null;
+    private static ?WeakMap $weakMap = null;
 
     /**
      * @param Closure():T $initializer
@@ -56,7 +56,7 @@ final class FiberLocal
      */
     public static function clear(): void
     {
-        if (!self::$localStorage instanceof WeakMap) {
+        if (!self::$weakMap instanceof WeakMap) {
             return;
         }
 
@@ -66,7 +66,7 @@ final class FiberLocal
             return;
         }
 
-        unset(self::$localStorage[$fiber]);
+        unset(self::$weakMap[$fiber]);
     }
 
     /**
@@ -92,7 +92,7 @@ final class FiberLocal
             });
         }
 
-        $localStorage = self::$localStorage ??= new WeakMap();
+        $localStorage = self::$weakMap ??= new WeakMap();
         return $localStorage[$fiber] ??= new WeakMap();
     }
 
@@ -111,12 +111,12 @@ final class FiberLocal
      */
     public function get(): mixed
     {
-        $fiberStorage = self::getFiberStorage();
+        $weakMap = self::getFiberStorage();
 
-        if (!isset($fiberStorage[$this])) {
-            $fiberStorage[$this] = [($this->initializer)()];
+        if (!isset($weakMap[$this])) {
+            $weakMap[$this] = [($this->initializer)()];
         }
 
-        return $fiberStorage[$this][0];
+        return $weakMap[$this][0];
     }
 }

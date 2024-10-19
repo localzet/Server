@@ -180,8 +180,8 @@ class Response implements Stringable
     {
         $mimeFile = __DIR__ . '/mime.types';
         $items = file($mimeFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($items as $content) {
-            if (preg_match("/\s*(\S+)\s+(\S.+)/", $content, $match)) {
+        foreach ($items as $item) {
+            if (preg_match("/\s*(\S+)\s+(\S.+)/", $item, $match)) {
                 $mimeType = $match[1];
                 $extensionVar = $match[2];
                 $extensionArray = explode(' ', substr($extensionVar, 0, -1));

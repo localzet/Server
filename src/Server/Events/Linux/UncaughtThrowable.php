@@ -44,31 +44,31 @@ final class UncaughtThrowable extends Error
      *
      * @param string $message Сообщение об ошибке.
      * @param Closure $closure Замыкание, в котором произошло исключение.
-     * @param Throwable $previous Предыдущее исключение.
+     * @param Throwable $throwable Предыдущее исключение.
      */
-    private function __construct(string $message, Closure $closure, Throwable $previous)
+    private function __construct(string $message, Closure $closure, Throwable $throwable)
     {
         parent::__construct(sprintf(
             $message,
-            str_replace("\0", '@', $previous::class), // заменить NUL-байт в имени анонимного класса
+            str_replace("\0", '@', $throwable::class), // заменить NUL-байт в имени анонимного класса
             ClosureHelper::getDescription($closure),
-            $previous->getMessage() !== '' ? ': ' . $previous->getMessage() : ''
-        ), 0, $previous);
+            $throwable->getMessage() !== '' ? ': ' . $throwable->getMessage() : ''
+        ), 0, $throwable);
     }
 
     /**
      * Создать экземпляр класса для обратного вызова, выбрасывающего исключение.
      *
      * @param Closure $closure Замыкание, в котором произошло исключение.
-     * @param Throwable $previous Предыдущее исключение.
+     * @param Throwable $throwable Предыдущее исключение.
      * @return self Экземпляр класса.
      */
-    public static function throwingCallback(Closure $closure, Throwable $previous): self
+    public static function throwingCallback(Closure $closure, Throwable $throwable): self
     {
         return new self(
             'Неотловленное %s выброшено в обратном вызове цикла событий %s; используйте ' . Linux::class . '::setErrorHandler() для корректной обработки таких исключений%s',
             $closure,
-            $previous
+            $throwable
         );
     }
 
@@ -76,11 +76,11 @@ final class UncaughtThrowable extends Error
      * Создать экземпляр класса для обработчика ошибок, выбрасывающего исключение.
      *
      * @param Closure $closure Замыкание, в котором произошло исключение.
-     * @param Throwable $previous Предыдущее исключение.
+     * @param Throwable $throwable Предыдущее исключение.
      * @return self Экземпляр класса.
      */
-    public static function throwingErrorHandler(Closure $closure, Throwable $previous): self
+    public static function throwingErrorHandler(Closure $closure, Throwable $throwable): self
     {
-        return new self("Неотловленное %s выброшено в обработчике ошибок цикла событий %s%s", $closure, $previous);
+        return new self("Неотловленное %s выброшено в обработчике ошибок цикла событий %s%s", $closure, $throwable);
     }
 }
