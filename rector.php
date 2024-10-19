@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Rector\CodeQuality\Rector\ClassMethod\LocallyCalledStaticMethodToNonStaticRector;
+use Rector\CodeQuality\Rector\Empty_\SimplifyEmptyCheckOnEmptyArrayRector;
 use Rector\CodeQuality\Rector\If_\ExplicitBoolCompareRector;
 use Rector\CodeQuality\Rector\If_\SimplifyIfElseToTernaryRector;
 use Rector\Config\RectorConfig;
@@ -9,6 +11,7 @@ use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
 use Rector\DeadCode\Rector\PropertyProperty\RemoveNullPropertyInitializationRector;
 use Rector\Set\ValueObject\LevelSetList;
 use Rector\Set\ValueObject\SetList;
+use Rector\Strict\Rector\Empty_\DisallowedEmptyRuleFixerRector;
 
 return RectorConfig::configure()
     ->withPaths([
@@ -17,12 +20,15 @@ return RectorConfig::configure()
     ->withPhpSets(php81: true)
 //    ->withTypeCoverageLevel(100)
 //    ->withDeadCodeLevel(100)
-        ->withCodeQualityLevel(60)
+        ->withCodeQualityLevel(100)
     ->withSkip([
         RemoveNullPropertyInitializationRector::class,
         RemoveUnusedPrivatePropertyRector::class,
         SimplifyIfElseToTernaryRector::class,
-        ExplicitBoolCompareRector::class
+        ExplicitBoolCompareRector::class,
+        SimplifyEmptyCheckOnEmptyArrayRector::class,
+        DisallowedEmptyRuleFixerRector::class,
+        LocallyCalledStaticMethodToNonStaticRector::class,
     ])
     ->withSets([
         LevelSetList::UP_TO_PHP_81,

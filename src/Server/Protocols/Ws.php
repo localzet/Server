@@ -356,8 +356,9 @@ class Ws
         // Обработка оставшихся строк заголовка.
         $headers = [];
         foreach ($header_data as $content) {
-            if (empty($content))
-                continue; // Пропуск пустых строк.
+            if (empty($content)) {
+                continue;
+            } // Пропуск пустых строк.
             [$key, $value] = explode(':', $content, 2); // Разделение строки на ключ и значение.
             $headers[$key] = trim($value); // Удаление пробелов в начале и конце значения.
         }
