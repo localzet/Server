@@ -273,6 +273,7 @@ class Ws
             // Продолжаем чтение следующего кадра.
             return self::input(substr($buffer, $currentFrameLength), $asyncTcpConnection);
         }
+        
         return 0;
     }
 

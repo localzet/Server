@@ -15,6 +15,7 @@ use Rector\DeadCode\Rector\PropertyProperty\RemoveNullPropertyInitializationRect
 use Rector\Set\ValueObject\LevelSetList;
 use Rector\Set\ValueObject\SetList;
 use Rector\Strict\Rector\Empty_\DisallowedEmptyRuleFixerRector;
+use Rector\Strict\Rector\If_\BooleanInIfConditionRuleFixerRector;
 
 return RectorConfig::configure()
     ->withPaths([
