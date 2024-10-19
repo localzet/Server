@@ -34,9 +34,12 @@ use Error;
  */
 abstract class DriverCallback
 {
-    public bool $invokable = false; // Может ли быть вызван
-    public bool $enabled = true; // Включен ли
-    public bool $referenced = true; // Является ли ссылочным
+    public bool $invokable = false;
+     // Может ли быть вызван
+    public bool $enabled = true;
+     // Включен ли
+    public bool $referenced = true;
+     // Является ли ссылочным
     public function __construct(
         public readonly string  $id, // Идентификатор обратного вызова
         public readonly Closure $closure // Обратный вызов

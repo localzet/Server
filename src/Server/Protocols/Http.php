@@ -81,6 +81,7 @@ class Http
         if ($className !== null) {
             static::$requestClass = $className;
         }
+        
         return static::$requestClass;
     }
 
@@ -103,12 +104,14 @@ class Http
         if (!isset($buffer[512]) && isset($input[$buffer])) {
             return $input[$buffer];
         }
+        
         $crlfPos = strpos($buffer, "\r\n\r\n");
         if (false === $crlfPos) {
             // Проверьте, не превышает ли длина пакета лимит.
             if (strlen($buffer) >= 16384) {
                 $connection->close(format_http_response(413), true);
             }
+            
             return 0;
         }
 
@@ -235,15 +238,18 @@ class Http
                 $offsetEnd = $offset + $bodyLen - 1;
                 $response->header('Content-Range', "bytes $offset-$offsetEnd/$fileSize");
             }
+            
             if ($bodyLen < 2 * 1024 * 1024) {
                 $connection->send($response . file_get_contents($file, false, null, $offset, $bodyLen), true);
                 return '';
             }
+            
             $handler = fopen($file, 'r');
             if (false === $handler) {
                 $connection->close(new Response(403, [], '403 Forbidden'));
                 return '';
             }
+            
             $connection->send((string)$response, true);
             static::sendStream($connection, $handler, $offset, $length);
             return '';
@@ -267,6 +273,7 @@ class Http
         if ($offset !== 0) {
             fseek($handler, $offset);
         }
+        
         // Конечное смещение.
         $offsetEnd = $offset + $length;
         // Читаем содержимое файла с диска по частям и отправляем клиенту.
@@ -283,6 +290,7 @@ class Http
                         $connection->onBufferDrain = null;
                         return;
                     }
+                    
                     $size = min($remainSize, $size);
                 }
 
@@ -294,6 +302,7 @@ class Http
                     $connection->context->streamSending = false;
                     return;
                 }
+                
                 $connection->send($buffer, true);
             }
         };
@@ -317,6 +326,7 @@ class Http
         if (null !== $dir) {
             static::$uploadTmpDir = $dir;
         }
+        
         if (static::$uploadTmpDir === '') {
             if ($uploadTmpDir = ini_get('upload_tmp_dir')) {
                 static::$uploadTmpDir = $uploadTmpDir;
@@ -324,6 +334,7 @@ class Http
                 static::$uploadTmpDir = $uploadTmpDir;
             }
         }
+        
         return static::$uploadTmpDir;
     }
 }

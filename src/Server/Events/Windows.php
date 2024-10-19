@@ -146,6 +146,7 @@ final class Windows implements EventInterface
         if ($this->selectTimeout > $selectTimeout) {
             $this->selectTimeout = $selectTimeout;
         }
+        
         return $timerId;
     }
 
@@ -163,6 +164,7 @@ final class Windows implements EventInterface
         if ($this->selectTimeout > $selectTimeout) {
             $this->selectTimeout = $selectTimeout;
         }
+        
         return $timerId;
     }
 
@@ -183,6 +185,7 @@ final class Windows implements EventInterface
             unset($this->eventTimer[$timerId]);
             return true;
         }
+        
         return false;
     }
 
@@ -197,6 +200,7 @@ final class Windows implements EventInterface
         } elseif (!is_unix() && $count >= 256) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n");
         }
+        
         $fdKey = (int)$stream;
         $this->readEvents[$fdKey] = $func;
         $this->readFds[$fdKey] = $stream;
@@ -212,6 +216,7 @@ final class Windows implements EventInterface
             unset($this->readEvents[$fdKey], $this->readFds[$fdKey]);
             return true;
         }
+        
         return false;
     }
 
@@ -226,6 +231,7 @@ final class Windows implements EventInterface
         } elseif (!is_unix() && $count >= 256) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n");
         }
+        
         $fdKey = (int)$stream;
         $this->writeEvents[$fdKey] = $func;
         $this->writeFds[$fdKey] = $stream;
@@ -241,6 +247,7 @@ final class Windows implements EventInterface
             unset($this->writeEvents[$fdKey], $this->writeFds[$fdKey]);
             return true;
         }
+        
         return false;
     }
 
@@ -266,6 +273,7 @@ final class Windows implements EventInterface
             unset($this->exceptEvents[$fdKey], $this->exceptFds[$fdKey]);
             return true;
         }
+        
         return false;
     }
 
@@ -277,6 +285,7 @@ final class Windows implements EventInterface
         if (!function_exists('pcntl_signal')) {
             return;
         }
+        
         $this->signalEvents[$signal] = $func;
         pcntl_signal($signal, fn() => $this->safeCall($this->signalEvents[$signal], [$signal]));
     }
@@ -285,11 +294,11 @@ final class Windows implements EventInterface
     {
         try {
             $func(...$args);
-        } catch (Throwable $e) {
+        } catch (Throwable $throwable) {
             if ($this->errorHandler === null) {
-                echo $e;
+                echo $throwable;
             } else {
-                ($this->errorHandler)($e);
+                ($this->errorHandler)($throwable);
             }
         }
     }
@@ -376,14 +385,17 @@ final class Windows implements EventInterface
                 } else {
                     unset($this->eventTimer[$timerId]);
                 }
+                
                 $this->safeCall($taskData[0], $taskData[1]);
             } else {
                 break;
             }
         }
+        
         foreach ($tasksToInsert as $item) {
             $this->scheduler->insert($item[0], $item[1]);
         }
+        
         if (!$this->scheduler->isEmpty()) {
             $schedulerData = $this->scheduler->top();
             $nextRunTime = -$schedulerData['priority'];
@@ -391,6 +403,7 @@ final class Windows implements EventInterface
             $this->selectTimeout = max((int)(($nextRunTime - $timeNow) * 1000000), 0);
             return;
         }
+        
         $this->selectTimeout = 100000000;
     }
 
@@ -404,6 +417,7 @@ final class Windows implements EventInterface
         foreach (array_keys($this->signalEvents) as $signal) {
             $this->offsignal($signal);
         }
+        
         $this->readFds = [];
         $this->writeFds = [];
         $this->exceptFds = [];
@@ -420,6 +434,7 @@ final class Windows implements EventInterface
     {
         $this->scheduler = new SplPriorityQueue();
         $this->scheduler->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
+        
         $this->eventTimer = [];
     }
 
@@ -431,11 +446,13 @@ final class Windows implements EventInterface
         if (!function_exists('pcntl_signal')) {
             return false;
         }
+        
         pcntl_signal($signal, SIG_IGN);
         if (isset($this->signalEvents[$signal])) {
             unset($this->signalEvents[$signal]);
             return true;
         }
+        
         return false;
     }
 

@@ -193,11 +193,11 @@ final class TracingDriver implements Driver
         try {
             $this->driver->enable($callbackId);
             $this->enabledCallbacks[$callbackId] = true;
-        } catch (InvalidCallbackError $e) {
-            $e->addInfo("Creation trace", $this->getCreationTrace($callbackId));
-            $e->addInfo("Cancellation trace", $this->getCancelTrace($callbackId));
+        } catch (InvalidCallbackError $invalidCallbackError) {
+            $invalidCallbackError->addInfo("Creation trace", $this->getCreationTrace($callbackId));
+            $invalidCallbackError->addInfo("Cancellation trace", $this->getCancelTrace($callbackId));
 
-            throw $e;
+            throw $invalidCallbackError;
         }
 
         return $callbackId;
@@ -226,11 +226,11 @@ final class TracingDriver implements Driver
         try {
             $this->driver->reference($callbackId);
             unset($this->unreferencedCallbacks[$callbackId]);
-        } catch (InvalidCallbackError $e) {
-            $e->addInfo("Creation trace", $this->getCreationTrace($callbackId));
-            $e->addInfo("Cancellation trace", $this->getCancelTrace($callbackId));
+        } catch (InvalidCallbackError $invalidCallbackError) {
+            $invalidCallbackError->addInfo("Creation trace", $this->getCreationTrace($callbackId));
+            $invalidCallbackError->addInfo("Cancellation trace", $this->getCancelTrace($callbackId));
 
-            throw $e;
+            throw $invalidCallbackError;
         }
 
         return $callbackId;

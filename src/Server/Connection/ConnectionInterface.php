@@ -154,14 +154,16 @@ abstract class ConnectionInterface
             Server::stopAll(250, $exception);
             return;
         }
+        
         try {
             ($this->errorHandler)($exception);
-        } catch (Throwable $exception) {
+        } catch (Throwable $throwable) {
             if ($this->eventLoop instanceof Event) {
-                echo $exception;
+                echo $throwable;
                 return;
             }
-            throw $exception;
+            
+            throw $throwable;
         }
     }
 }

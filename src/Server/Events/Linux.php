@@ -190,6 +190,7 @@ final class Linux implements EventInterface
         foreach ($this->eventSignal as $cbId) {
             $this->getDriver()->cancel($cbId);
         }
+        
         $this->getDriver()->stop();
         if (function_exists('pcntl_signal')) {
             pcntl_signal(SIGINT, SIG_IGN);
@@ -262,6 +263,7 @@ final class Linux implements EventInterface
             unset($this->readEvents[$fdKey]);
             return true;
         }
+        
         return false;
     }
 
@@ -275,6 +277,7 @@ final class Linux implements EventInterface
             $this->getDriver()->cancel($this->writeEvents[$fdKey]);
             unset($this->writeEvents[$fdKey]);
         }
+        
         $this->writeEvents[$fdKey] = $this->getDriver()->onWritable($stream, static fn() => $func($stream));
     }
 
@@ -289,6 +292,7 @@ final class Linux implements EventInterface
             unset($this->writeEvents[$fdKey]);
             return true;
         }
+        
         return false;
     }
 
@@ -302,6 +306,7 @@ final class Linux implements EventInterface
             $this->getDriver()->cancel($this->eventSignal[$fdKey]);
             unset($this->eventSignal[$fdKey]);
         }
+        
         $this->eventSignal[$fdKey] = $this->getDriver()->onSignal($signal, static fn() => $func($signal));
     }
 
@@ -316,6 +321,7 @@ final class Linux implements EventInterface
             unset($this->eventSignal[$fdKey]);
             return true;
         }
+        
         return false;
     }
 
@@ -337,6 +343,7 @@ final class Linux implements EventInterface
             unset($this->eventTimer[$timerId]);
             return true;
         }
+        
         return false;
     }
 
@@ -348,6 +355,7 @@ final class Linux implements EventInterface
         foreach ($this->eventTimer as $cbId) {
             $this->getDriver()->cancel($cbId);
         }
+        
         $this->eventTimer = [];
     }
 

@@ -132,7 +132,7 @@ final class DriverSuspension implements Suspension
         $this->error = null;
 
         // Ожидание внутри Fiber'а.
-        if ($fiber) {
+        if ($fiber instanceof \Fiber) {
             $this->suspendedFiber = $fiber;
 
             try {
@@ -171,10 +171,12 @@ final class DriverSuspension implements Suspension
                     if ($fiber === null) {
                         continue;
                     }
+                    
                     $reflectionFiber = new ReflectionFiber($fiber);
                     $info .= "\n\n" . $this->formatStacktrace($reflectionFiber->getTrace(DEBUG_BACKTRACE_IGNORE_ARGS));
                 }
             }
+            
             throw new Error('Цикл событий завершился без возобновления текущей приостановки (причиной может быть либо тупик Fiber\'а, либо неправильно отмененный/нессылочный наблюдатель)');
         }
 

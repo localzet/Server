@@ -108,6 +108,7 @@ class RedisSessionHandler implements SessionHandlerInterface
         if (empty($config['prefix'])) {
             $config['prefix'] = 'redis_session_';
         }
+        
         $this->redis->setOption(Redis::OPT_PREFIX, $config['prefix']);
     }
 
@@ -130,14 +131,15 @@ class RedisSessionHandler implements SessionHandlerInterface
         try {
             // Читаем данные сессии из Redis по ключу
             return $this->redis->get($sessionId);
-        } catch (Throwable $e) {
-            $msg = strtolower($e->getMessage());
+        } catch (Throwable $throwable) {
+            $msg = strtolower($throwable->getMessage());
             // Если соединение с Redis было потеряно, восстанавливаем соединение и повторяем операцию чтения
             if ($msg === 'connection lost' || strpos($msg, 'went away')) {
                 $this->connect();
                 return $this->redis->get($sessionId);
             }
-            throw $e;
+            
+            throw $throwable;
         }
     }
 

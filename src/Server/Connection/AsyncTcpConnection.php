@@ -28,6 +28,7 @@ namespace localzet\Server\Connection;
 
 use Exception;
 use localzet\Server;
+use localzet\Server\Events\EventInterface;
 use localzet\Timer;
 use RuntimeException;
 use stdClass;
@@ -63,6 +64,7 @@ class AsyncTcpConnection extends TcpConnection
      * @var mixed[]
      */
     public $socketContext;
+    
     /**
      * Встроенные протоколы PHP.
      *
@@ -77,6 +79,7 @@ class AsyncTcpConnection extends TcpConnection
         'sslv3' => 'sslv3',
         'tls' => 'tls'
     ];
+    
     /**
      * Вызывается при успешном установлении соединения по сокету.
      *
@@ -95,38 +98,47 @@ class AsyncTcpConnection extends TcpConnection
      * Протокол транспортного уровня.
      */
     public string $transport = 'tcp';
+    
     /**
      * Socks5-прокси.
      */
     public string $proxySocks5 = '';
+    
     /**
      * HTTP-прокси.
      */
     public string $proxyHttp = '';
+    
     /**
      * Статус соединения.
      */
     protected int $status = self::STATUS_INITIAL;
+    
     /**
      * Удаленный хост.
      */
     protected string $remoteHost = '';
+    
     /**
      * Удаленный порт.
      */
     protected int $remotePort = 80;
+    
     /**
      * Время начала установки соединения.
      */
     protected float $connectStartTime = 0;
+    
     /**
      * Удаленный URI.
      */
     protected string $remoteURI = '';
+    
     /**
      * Опции контекста.
      */
     protected array $contextOption = [];
+    
     /**
      * Таймер переподключения.
      */
@@ -147,6 +159,7 @@ class AsyncTcpConnection extends TcpConnection
             if ('unix' === strtolower($scheme)) {
                 $this->remoteAddress = substr($remoteAddress, strpos($remoteAddress, '/') + 2);
             }
+            
             if (!$this->remoteAddress) {
                 throw new RuntimeException('Некорректный remoteAddress');
             }
@@ -158,6 +171,7 @@ class AsyncTcpConnection extends TcpConnection
             } else {
                 $addressInfo['query'] = '?' . $addressInfo['query'];
             }
+            
             $this->remoteHost = $addressInfo['host'];
             $this->remotePort = $addressInfo['port'];
             $this->remoteURI = "{$addressInfo['path']}{$addressInfo['query']}";
@@ -207,10 +221,12 @@ class AsyncTcpConnection extends TcpConnection
         if ($this->reconnectTimer) {
             Timer::del($this->reconnectTimer);
         }
+        
         if ($after > 0) {
             $this->reconnectTimer = Timer::add($after, $this->connect(...), null, false);
             return;
         }
+        
         $this->connect();
     }
 
@@ -226,7 +242,7 @@ class AsyncTcpConnection extends TcpConnection
             return;
         }
 
-        if (!$this->eventLoop) {
+        if (!$this->eventLoop instanceof EventInterface) {
             $this->eventLoop = Server::$globalEvent;
         }
 
@@ -237,6 +253,7 @@ class AsyncTcpConnection extends TcpConnection
                 $this->remotePort = $this->transport === 'ssl' ? 443 : 80;
                 $this->remoteAddress = $this->remoteHost . ':' . $this->remotePort;
             }
+            
             // Открыть соединение сокета асинхронно.
             if ($this->proxySocks5) {
                 $this->socketContext['ssl']['peer_name'] = $this->remoteHost;
@@ -267,17 +284,21 @@ class AsyncTcpConnection extends TcpConnection
             $this->socket = stream_socket_client("$this->transport://$this->remoteAddress", $errno, $err_str, 0,
                 STREAM_CLIENT_ASYNC_CONNECT);
         }
+        
         // В случае неудачной попытки вызвать колбэк onError.
         if (!$this->socket || !is_resource($this->socket)) {
             $this->emitError(static::CONNECT_FAIL, $err_str);
             if ($this->status === self::STATUS_CLOSING) {
                 $this->destroy();
             }
+            
             if ($this->status === self::STATUS_CLOSED) {
                 $this->onConnect = null;
             }
+            
             return;
         }
+        
         // Добавить сокет в глобальный цикл событий, ожидающий успешного подключения или ошибки.
         $this->eventLoop->onWritable($this->socket, $this->checkConnection(...));
         // Для Windows.
@@ -361,6 +382,7 @@ class AsyncTcpConnection extends TcpConnection
                 fwrite($this->socket, chr(5) . chr(1) . chr(0) . chr(3) . chr(strlen($this->remoteHost)) . $this->remoteHost . pack("n", $this->remotePort));
                 fread($this->socket, 512);
             }
+            
             if ($this->proxyHttp && $address === $this->proxyHttp) {
                 $str = "CONNECT $this->remoteHost:$this->remotePort HTTP/1.1\r\n";
                 $str .= "Host: $this->remoteHost:$this->remotePort\r\n";
@@ -383,6 +405,7 @@ class AsyncTcpConnection extends TcpConnection
                 socket_set_option($rawSocket, SOL_SOCKET, SO_KEEPALIVE, 1);
                 socket_set_option($rawSocket, SOL_TCP, TCP_NODELAY, 1);
             }
+            
             // SSL-рукопожатие.
             if ($this->transport === 'ssl') {
                 $this->sslHandshakeCompleted = $this->doSslHandshake($this->socket);
@@ -423,6 +446,7 @@ class AsyncTcpConnection extends TcpConnection
             if ($this->status === self::STATUS_CLOSING) {
                 $this->destroy();
             }
+            
             if ($this->status === self::STATUS_CLOSED) {
                 $this->onConnect = null;
             }

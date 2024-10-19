@@ -44,35 +44,42 @@ final class Event implements EventInterface
      * @var array<int, LibEvent>
      */
     private array $readEvents = [];
+    
     /**
      * Массив всех обработчиков событий записи.
      *
      * @var array<int, LibEvent>
      */
     private array $writeEvents = [];
+    
     /**
      * Массив всех обработчиков сигналов.
      *
      * @var array<int, LibEvent>
      */
     private array $eventSignal = [];
+    
     /**
      * Массив всех таймеров.
      *
      * @var array<int, LibEvent>
      */
     private array $eventTimer = [];
+    
     /**
      * Идентификатор таймера.
      */
     private int $timerId = 0;
+    
     /**
      * Обработчик ошибок.
      *
      * @var ?callable
      */
     private $errorHandler = null;
+    
     private readonly EventBase $eventBase;
+    
     private string $eventClassName = '';
 
     /**
@@ -85,12 +92,14 @@ final class Event implements EventInterface
         } else {
             $className = '\Event';
         }
+        
         $this->eventClassName = $className;
         if (class_exists('\\\\EventBase', false)) {
             $className = '\\\\EventBase';
         } else {
             $className = '\EventBase';
         }
+        
         $this->eventBase = new $className();
     }
 
@@ -108,6 +117,7 @@ final class Event implements EventInterface
         if (!$event->addTimer($delay)) {
             throw new RuntimeException("Event::addTimer($delay) failed");
         }
+        
         $this->eventTimer[$timerId] = $event;
         return $timerId;
     }
@@ -116,11 +126,11 @@ final class Event implements EventInterface
     {
         try {
             $func(...$args);
-        } catch (Throwable $e) {
+        } catch (Throwable $throwable) {
             if ($this->errorHandler === null) {
-                echo $e;
+                echo $throwable;
             } else {
-                ($this->errorHandler)($e);
+                ($this->errorHandler)($throwable);
             }
         }
     }
@@ -136,6 +146,7 @@ final class Event implements EventInterface
         if (!$event->addTimer($interval)) {
             throw new RuntimeException("Event::addTimer($interval) failed");
         }
+        
         $this->eventTimer[$timerId] = $event;
         return $timerId;
     }
@@ -158,6 +169,7 @@ final class Event implements EventInterface
             unset($this->eventTimer[$timerId]);
             return true;
         }
+        
         return false;
     }
 
@@ -185,6 +197,7 @@ final class Event implements EventInterface
             unset($this->readEvents[$fdKey]);
             return true;
         }
+        
         return false;
     }
 
@@ -212,6 +225,7 @@ final class Event implements EventInterface
             unset($this->writeEvents[$fdKey]);
             return true;
         }
+        
         return false;
     }
 
@@ -252,6 +266,7 @@ final class Event implements EventInterface
         foreach ($this->eventTimer as $event) {
             $event->del();
         }
+        
         $this->eventTimer = [];
     }
 
@@ -266,6 +281,7 @@ final class Event implements EventInterface
             unset($this->eventSignal[$fdKey]);
             return true;
         }
+        
         return false;
     }
 

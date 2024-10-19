@@ -156,12 +156,14 @@ if (!function_exists('cpu_count')) {
         if (!is_unix()) {
             return 1;
         }
+        
         $count = 4;
         if (strtolower(PHP_OS) === 'darwin') {
             $count = (int)shell_exec('sysctl -n machdep.cpu.core_count');
         } else {
             $count = (int)shell_exec('nproc');
         }
+        
         return $count > 0 ? $count : 4;
     }
 }
@@ -186,6 +188,7 @@ function get_event_loop_name(): string
     if (!is_unix()) {
         return Windows::class;
     }
+    
     if (UvDriver::isSupported()) {
         return Linux::class . ' (+Uv)';
     }

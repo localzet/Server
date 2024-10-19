@@ -28,6 +28,7 @@ namespace localzet\Server\Connection;
 
 use Exception;
 use localzet\Server;
+use localzet\Server\Events\EventInterface;
 use localzet\Server\Protocols\ProtocolInterface;
 use Throwable;
 use function class_exists;
@@ -115,6 +116,7 @@ class AsyncUdpConnection extends UdpConnection
                 $parser = $this->protocol;
                 $recvBuffer = $parser::decode($recvBuffer, $this);
             }
+            
             ++ConnectionInterface::$statistics['total_request'];
             try {
                 ($this->onMessage)($this, $recvBuffer);
@@ -135,6 +137,7 @@ class AsyncUdpConnection extends UdpConnection
         if ($data !== null) {
             $this->send($data, $raw);
         }
+        
         $this->eventLoop->offReadable($this->socket);
         fclose($this->socket);
         $this->connected = false;
@@ -146,6 +149,7 @@ class AsyncUdpConnection extends UdpConnection
                 $this->error($e);
             }
         }
+        
         $this->onConnect = $this->onMessage = $this->onClose = $this->eventLoop = $this->errorHandler = null;
     }
 
@@ -164,9 +168,11 @@ class AsyncUdpConnection extends UdpConnection
                 return null;
             }
         }
+        
         if ($this->connected === false) {
             $this->connect();
         }
+        
         return strlen((string) $sendBuffer) === stream_socket_sendto($this->socket, (string) $sendBuffer);
     }
 
@@ -180,9 +186,11 @@ class AsyncUdpConnection extends UdpConnection
         if ($this->connected) {
             return;
         }
-        if (!$this->eventLoop) {
+        
+        if (!$this->eventLoop instanceof EventInterface) {
             $this->eventLoop = Server::$globalEvent;
         }
+        
         if ($this->contextOption) {
             $context = stream_context_create($this->contextOption);
             $this->socket = stream_socket_client("udp://$this->remoteAddress", $errno, $errmsg,
@@ -201,6 +209,7 @@ class AsyncUdpConnection extends UdpConnection
         if ($this->onMessage) {
             $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
         }
+        
         $this->connected = true;
         // Попытка вызова обработчика события onConnect.
         if ($this->onConnect) {

@@ -6,6 +6,9 @@ use Rector\CodeQuality\Rector\ClassMethod\LocallyCalledStaticMethodToNonStaticRe
 use Rector\CodeQuality\Rector\Empty_\SimplifyEmptyCheckOnEmptyArrayRector;
 use Rector\CodeQuality\Rector\If_\ExplicitBoolCompareRector;
 use Rector\CodeQuality\Rector\If_\SimplifyIfElseToTernaryRector;
+use Rector\CodingStyle\Rector\Assign\SplitDoubleAssignRector;
+use Rector\CodingStyle\Rector\Encapsed\EncapsedStringsToSprintfRector;
+use Rector\CodingStyle\Rector\Encapsed\WrapEncapsedVariableInCurlyBracesRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
 use Rector\DeadCode\Rector\PropertyProperty\RemoveNullPropertyInitializationRector;
@@ -24,7 +27,7 @@ return RectorConfig::configure()
 
 //        // SetList::PHP_POLYFILLS,
         SetList::CODE_QUALITY,
-//        SetList::CODING_STYLE,
+        SetList::CODING_STYLE,
         SetList::DEAD_CODE,
 //        // SetList::STRICT_BOOLEANS,
 //        // SetList::NAMING,
@@ -43,4 +46,7 @@ return RectorConfig::configure()
         SimplifyEmptyCheckOnEmptyArrayRector::class,
         DisallowedEmptyRuleFixerRector::class,
         LocallyCalledStaticMethodToNonStaticRector::class,
+        EncapsedStringsToSprintfRector::class,
+        WrapEncapsedVariableInCurlyBracesRector::class,
+        SplitDoubleAssignRector::class,
     ]);

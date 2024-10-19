@@ -79,6 +79,7 @@ class Websocket
         if ($className !== null) {
             static::$requestClass = $className;
         }
+        
         return static::$requestClass;
     }
 
@@ -154,6 +155,7 @@ class Websocket
                     else {
                         $connection->close("\x88\x02\x03\xe8", true);
                     }
+                    
                     return 0;
                 // Неверный опкод
                 default:
@@ -169,6 +171,7 @@ class Websocket
                 if ($headLen > $recvLen) {
                     return 0;
                 }
+                
                 $pack = unpack('nn/ntotal_len', $buffer);
                 $dataLen = $pack['total_len'];
             } elseif ($dataLen === 127) {
@@ -176,6 +179,7 @@ class Websocket
                 if ($headLen > $recvLen) {
                     return 0;
                 }
+                
                 $arr = unpack('n/N2c', $buffer);
                 $dataLen = $arr['c1'] * 4294967296 + $arr['c2'];
             }
@@ -217,6 +221,7 @@ class Websocket
                             // Отправляем данные пинг-пакета обратно клиенту.
                             $connection->send($pingData);
                         }
+                        
                         // Восстанавливаем тип websocket.
                         $connection->websocketType = $tmpConnectionType;
 
@@ -224,6 +229,7 @@ class Websocket
                             return static::input(substr($buffer, $currentFrameLength), $connection);
                         }
                     }
+                    
                     return 0;
                 }
 
@@ -255,6 +261,7 @@ class Websocket
                             return static::input(substr($buffer, $currentFrameLength), $connection);
                         }
                     }
+                    
                     return 0;
                 }
 
@@ -312,6 +319,7 @@ class Websocket
             if (!$headerEndPos) {
                 return 0;
             }
+            
             $headerLength = $headerEndPos + 4;
 
             // Get Sec-WebSocket-Key.
@@ -393,6 +401,7 @@ class Websocket
             if (strlen($buffer) > $headerLength) {
                 return static::input(substr($buffer, $headerLength), $connection);
             }
+            
             return 0;
         }
 
@@ -419,6 +428,7 @@ class Websocket
             $masks = substr($buffer, 2, 4);
             $data = substr($buffer, 6);
         }
+        
         $dataLength = strlen($data);
         $masks = str_repeat($masks, (int)floor($dataLength / 4)) . substr($masks, 0, $dataLength % 4);
         $decoded = $data ^ $masks;
@@ -431,6 +441,7 @@ class Websocket
             $decoded = $connection->context->websocketDataBuffer . $decoded;
             $connection->context->websocketDataBuffer = '';
         }
+        
         return $decoded;
     }
 
@@ -480,8 +491,10 @@ class Websocket
                         Server::stopAll(250, $e);
                     }
                 }
+                
                 return '';
             }
+            
             $connection->context->tmpWebsocketData .= $encodeBuffer;
 
             // Проверяем, заполнен ли буфер.

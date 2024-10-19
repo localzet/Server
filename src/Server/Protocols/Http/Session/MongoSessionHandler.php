@@ -81,6 +81,7 @@ class MongoSessionHandler implements SessionHandlerInterface
         if (!isset($options['username']) && !empty($config['username'])) {
             $options['username'] = $config['username'];
         }
+        
         if (!isset($options['password']) && !empty($config['password'])) {
             $options['password'] = $config['password'];
         }
@@ -114,6 +115,7 @@ class MongoSessionHandler implements SessionHandlerInterface
         if ($session !== null) {
             return serialize((array)$session);
         }
+        
         return '';
     }
 

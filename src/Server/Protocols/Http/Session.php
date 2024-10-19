@@ -146,6 +146,7 @@ class Session
         if (!static::$handler instanceof SessionHandlerInterface) {
             static::initHandler();
         }
+        
         // Устанавливаем идентификатор сессии.
         $this->sessionId = $sessionId;
         // Если есть данные, читаем их из обработчика и десериализуем.
@@ -163,6 +164,7 @@ class Session
         if ($sessionId === '') {
             throw new InvalidArgumentException('Идентификатор сессии не может быть пустым.');
         }
+        
         // Если формат идентификатора сессии неверный, выбрасываем исключение.
         if (!preg_match('/^[0-9a-zA-Z,-]{22,40}$/', $sessionId)) {
             throw new InvalidArgumentException('Неверный формат идентификатора сессии.');
@@ -218,9 +220,11 @@ class Session
         if ($className) {
             static::$handlerClass = $className;
         }
+        
         if ($config) {
             static::$handlerConfig = $config;
         }
+        
         return static::$handlerClass;
     }
 
@@ -285,6 +289,7 @@ class Session
         foreach ($key as $k => $v) {
             $this->data[$k] = $v;
         }
+        
         $this->needSave = true;
     }
 
@@ -306,9 +311,11 @@ class Session
             $this->delete($name);
             return;
         }
+        
         foreach ($name as $key) {
             unset($this->data[$key]);
         }
+        
         $this->needSave = true;
     }
 
@@ -387,6 +394,7 @@ class Session
         } elseif (static::$autoUpdateTimestamp) {
             $this->refresh();
         }
+        
         $this->needSave = false;
     }
 

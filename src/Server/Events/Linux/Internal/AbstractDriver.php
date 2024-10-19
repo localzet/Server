@@ -65,6 +65,7 @@ abstract class AbstractDriver implements Driver
     private Fiber $fiber;
 
     private Fiber $callbackFiber;
+    
     private Closure $errorCallback;
 
     /** @var array<string, DriverCallback> */
@@ -83,7 +84,9 @@ abstract class AbstractDriver implements Driver
     private ?Closure $interrupt = null;
 
     private readonly Closure $interruptCallback;
+    
     private readonly Closure $queueCallback;
+    
     private readonly Closure $runCallback;
 
     private readonly stdClass $internalSuspensionMarker;
@@ -95,6 +98,7 @@ abstract class AbstractDriver implements Driver
     private readonly SplQueue $callbackQueue;
 
     private bool $idle = false;
+    
     private bool $stopped = false;
 
     private WeakMap $suspensions;
@@ -160,7 +164,7 @@ abstract class AbstractDriver implements Driver
             // Если цикл событий остановлен.
             while (!$this->stopped) {
                 // Если есть обратный вызов прерывания, вызываем его.
-                if ($this->interrupt) {
+                if ($this->interrupt instanceof \Closure) {
                     $this->invokeInterrupt();
                 }
 
@@ -196,7 +200,7 @@ abstract class AbstractDriver implements Driver
                 $this->createCallbackFiber();
             }
 
-            if ($this->interrupt) {
+            if ($this->interrupt instanceof \Closure) {
                 $this->invokeInterrupt();
             }
         }
@@ -273,7 +277,7 @@ abstract class AbstractDriver implements Driver
 
                     unset($callback);
 
-                    if ($this->interrupt) {
+                    if ($this->interrupt instanceof \Closure) {
                         /** @noinspection PhpUnhandledExceptionInspection */
                         Fiber::suspend($this->internalSuspensionMarker);
                     }
@@ -307,7 +311,7 @@ abstract class AbstractDriver implements Driver
 
             unset($callback, $args);
 
-            if ($this->interrupt) {
+            if ($this->interrupt instanceof \Closure) {
                 /** @noinspection PhpUnhandledExceptionInspection */
                 Fiber::suspend($this->internalSuspensionMarker);
             }
@@ -499,10 +503,10 @@ abstract class AbstractDriver implements Driver
         $this->errorCallback = function (Closure $errorHandler, Throwable $exception): void {
             try {
                 $errorHandler($exception);
-            } catch (Throwable $exception) {
-                $this->interrupt = static fn() => $exception instanceof UncaughtThrowable
-                    ? throw $exception
-                    : throw UncaughtThrowable::throwingErrorHandler($errorHandler, $exception);
+            } catch (Throwable $throwable) {
+                $this->interrupt = static fn() => $throwable instanceof UncaughtThrowable
+                    ? throw $throwable
+                    : throw UncaughtThrowable::throwingErrorHandler($errorHandler, $throwable);
             }
         };
     }
@@ -530,7 +534,7 @@ abstract class AbstractDriver implements Driver
             throw new Error("Цикл событий уже запущен");
         }
 
-        if (Fiber::getCurrent()) {
+        if (Fiber::getCurrent() instanceof \Fiber) {
             throw new Error(sprintf("Нельзя вызывать %s() внутри Fiber'а (т.е. вне {main})", __METHOD__));
         }
 

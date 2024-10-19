@@ -42,18 +42,21 @@ final class Swoole implements EventInterface
      * @var array<int, resource>
      */
     private array $readEvents = [];
+    
     /**
      * Массив всех обработчиков событий записи.
      *
      * @var array<int, resource>
      */
     private array $writeEvents = [];
+    
     /**
      * Массив всех таймеров.
      *
      * @var array<int, int>
      */
     private array $eventTimer = [];
+    
     /**
      * Обработчик ошибок.
      *
@@ -68,6 +71,7 @@ final class Swoole implements EventInterface
     {
         $t = (int)($delay * 1000);
         $t = max($t, 1);
+        
         $timerId = Timer::after($t, function () use ($func, $args, &$timerId): void {
             unset($this->eventTimer[$timerId]);
             $this->safeCall($func, $args);
@@ -80,11 +84,11 @@ final class Swoole implements EventInterface
     {
         try {
             $func(...$args);
-        } catch (Throwable $e) {
+        } catch (Throwable $throwable) {
             if ($this->errorHandler === null) {
-                echo $e;
+                echo $throwable;
             } else {
-                ($this->errorHandler)($e);
+                ($this->errorHandler)($throwable);
             }
         }
     }
@@ -96,6 +100,7 @@ final class Swoole implements EventInterface
     {
         $t = (int)($interval * 1000);
         $t = max($t, 1);
+        
         $timerId = Timer::tick($t, function () use ($func, $args): void {
             $this->safeCall($func, $args);
         });
@@ -121,6 +126,7 @@ final class Swoole implements EventInterface
             unset($this->eventTimer[$timerId]);
             return true;
         }
+        
         return false;
     }
 
@@ -159,11 +165,13 @@ final class Swoole implements EventInterface
         if (!isset($this->readEvents[$fd])) {
             return false;
         }
+        
         unset($this->readEvents[$fd]);
         if (!isset($this->writeEvents[$fd])) {
             Event::del($stream);
             return true;
         }
+        
         Event::set($stream, null, null, SWOOLE_EVENT_WRITE);
         return true;
     }
@@ -194,11 +202,13 @@ final class Swoole implements EventInterface
         if (!isset($this->writeEvents[$fd])) {
             return false;
         }
+        
         unset($this->writeEvents[$fd]);
         if (!isset($this->readEvents[$fd])) {
             Event::del($stream);
             return true;
         }
+        
         Event::set($stream, null, null, SWOOLE_EVENT_READ);
         return true;
     }

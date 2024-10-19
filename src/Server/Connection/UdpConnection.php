@@ -80,6 +80,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
         if ($data !== null) {
             $this->send($data, $raw);
         }
+        
         $this->eventLoop = $this->errorHandler = null;
     }
 
@@ -96,6 +97,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
                 return null;
             }
         }
+        
         return strlen((string) $sendBuffer) === stream_socket_sendto($this->socket, (string) $sendBuffer, 0, $this->isIpV6() ? '[' . $this->getRemoteIp() . ']:' . $this->getRemotePort() : $this->remoteAddress);
     }
 
@@ -108,6 +110,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
         if ($this->transport === 'unix') {
             return false;
         }
+        
         return str_contains($this->getRemoteIp(), ':');
     }
 
@@ -120,6 +123,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
         if ($pos) {
             return trim(substr($this->remoteAddress, 0, $pos), '[]');
         }
+        
         return '';
     }
 
@@ -131,6 +135,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
         if ($this->remoteAddress) {
             return (int)substr(strrchr($this->remoteAddress, ':'), 1);
         }
+        
         return 0;
     }
 
@@ -180,6 +185,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
         if (!$pos) {
             return '';
         }
+        
         return substr($address, 0, $pos);
     }
 
@@ -201,6 +207,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
         if (!$pos) {
             return 0;
         }
+        
         return (int)substr(strrchr($address, ':'), 1);
     }
 
@@ -213,6 +220,7 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
         if ($this->transport === 'unix') {
             return false;
         }
+        
         return !str_contains($this->getRemoteIp(), ':');
     }
 }

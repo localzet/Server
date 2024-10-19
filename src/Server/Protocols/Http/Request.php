@@ -67,30 +67,37 @@ class Request implements Stringable
      * Максимальное количество загружаемых файлов.
      */
     public static int $maxFileUploads = 1024;
+    
     /**
      * Включить кэш.
      */
     protected static bool $enableCache = true;
+    
     /**
      * Соединение.
      */
     public ?TcpConnection $connection = null;
+    
     /**
      * Экземпляр сессии.
      */
     public ?Session $session = null;
+    
     /**
      * Свойства.
      */
     public array $properties = [];
+    
     /**
      * Данные запроса.
      */
     protected array $data = [];
+    
     /**
      * Безопасно ли.
      */
     protected bool $isSafe = true;
+    
     /**
      * Идентификатор сессии.
      *
@@ -129,9 +136,11 @@ class Request implements Stringable
         if (!isset($this->data['get'])) {
             $this->parseGet();
         }
+        
         if (null === $name) {
             return $this->data['get'];
         }
+        
         return $this->data['get'][$name] ?? $default;
     }
 
@@ -174,6 +183,7 @@ class Request implements Stringable
         if (!isset($this->data['query_string'])) {
             $this->data['query_string'] = (string)parse_url($this->uri(), PHP_URL_QUERY);
         }
+        
         return $this->data['query_string'];
     }
 
@@ -185,6 +195,7 @@ class Request implements Stringable
         if (!isset($this->data['uri'])) {
             $this->parseHeadFirstLine();
         }
+        
         return $this->data['uri'];
     }
 
@@ -210,9 +221,11 @@ class Request implements Stringable
         if (!isset($this->data['post'])) {
             $this->parsePost();
         }
+        
         if (null === $name) {
             return $this->data['post'];
         }
+        
         return $this->data['post'][$name] ?? $default;
     }
 
@@ -229,6 +242,7 @@ class Request implements Stringable
         if (isset($post[$name])) {
             return $post[$name];
         }
+        
         $get = $this->get();
         return $get[$name] ?? $default;
     }
@@ -245,6 +259,7 @@ class Request implements Stringable
                 $result[$key] = $all[$key];
             }
         }
+        
         return $result;
     }
 
@@ -269,6 +284,7 @@ class Request implements Stringable
         foreach ($keys as $key) {
             unset($all[$key]);
         }
+        
         return $all;
     }
 
@@ -285,20 +301,24 @@ class Request implements Stringable
             $this->parseUploadFiles($httpPostBoundary);
             return;
         }
+        
         $bodyBuffer = $this->rawBody();
         if ($bodyBuffer === '') {
             return;
         }
+        
         $cacheable = static::$enableCache && !isset($bodyBuffer[1024]);
         if ($cacheable && isset($cache[$bodyBuffer])) {
             $this->data['post'] = $cache[$bodyBuffer];
             return;
         }
+        
         if (preg_match('/\bjson\b/i', (string) $contentType)) {
             $this->data['post'] = (array)json_decode($bodyBuffer, true);
         } else {
             parse_str($bodyBuffer, $this->data['post']);
         }
+        
         if ($cacheable) {
             $cache[$bodyBuffer] = $this->data['post'];
             if (count($cache) > 256) {
@@ -340,12 +360,14 @@ class Request implements Stringable
         if ($endLinePosition === false) {
             return;
         }
+        
         $headBuffer = substr($rawHead, $endLinePosition + 2);
         $cacheable = static::$enableCache && !isset($headBuffer[4096]);
         if ($cacheable && isset($cache[$headBuffer])) {
             $this->data['headers'] = $cache[$headBuffer];
             return;
         }
+        
         $headData = explode("\r\n", $headBuffer);
         foreach ($headData as $content) {
             if (str_contains($content, ':')) {
@@ -356,12 +378,14 @@ class Request implements Stringable
                 $key = strtolower($content);
                 $value = '';
             }
+            
             if (isset($this->data['headers'][$key])) {
                 $this->data['headers'][$key] .= ",$value";
             } else {
                 $this->data['headers'][$key] = $value;
             }
         }
+        
         if ($cacheable) {
             $cache[$headBuffer] = $this->data['headers'];
             if (count($cache) > 128) {
@@ -378,6 +402,7 @@ class Request implements Stringable
         if (!isset($this->data['head'])) {
             $this->data['head'] = strstr($this->buffer, "\r\n\r\n", true);
         }
+        
         return $this->data['head'];
     }
 
@@ -528,6 +553,7 @@ class Request implements Stringable
                         if (!isset($file['type'])) {
                             $file['type'] = '';
                         }
+                        
                         break;
                     }
 
@@ -840,7 +866,7 @@ class Request implements Stringable
             $sid = $sessionId ? '' : $this->cookie($sessionName);
             if ($sid === '' || $sid === null) {
                 // Если соединение не установлено, выбросить исключение
-                if (!$this->connection) {
+                if (!$this->connection instanceof \localzet\Server\Connection\TcpConnection) {
                     throw new RuntimeException('Request->session() fail, header already send');
                 }
 
@@ -895,7 +921,7 @@ class Request implements Stringable
     protected function setSidCookie(string $sessionName, string $sid, array $cookieParams): void
     {
         // Если соединение не установлено, выбросить исключение
-        if (!$this->connection) {
+        if (!$this->connection instanceof \localzet\Server\Connection\TcpConnection) {
             throw new RuntimeException('Request->setSidCookie() fail, header already send');
         }
 
@@ -984,7 +1010,7 @@ class Request implements Stringable
                 'expectsJson' => $this->expectsJson(),
             ];
 
-        if ($this->connection) {
+        if ($this->connection instanceof \localzet\Server\Connection\TcpConnection) {
             $return += [
                 'localIp' => $this->getLocalIp(),
                 'localPort' => $this->getLocalPort(),

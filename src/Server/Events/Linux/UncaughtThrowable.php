@@ -66,7 +66,7 @@ final class UncaughtThrowable extends Error
     public static function throwingCallback(Closure $closure, Throwable $previous): self
     {
         return new self(
-            "Неотловленное %s выброшено в обратном вызове цикла событий %s; используйте localzet\Server\Events\Linux::setErrorHandler() для корректной обработки таких исключений%s",
+            'Неотловленное %s выброшено в обратном вызове цикла событий %s; используйте ' . \localzet\Server\Events\Linux::class . '::setErrorHandler() для корректной обработки таких исключений%s',
             $closure,
             $previous
         );

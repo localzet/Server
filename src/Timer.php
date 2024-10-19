@@ -79,10 +79,11 @@ class Timer
      */
     public static function init(EventInterface $event = null): void
     {
-        if ($event) {
+        if ($event instanceof \localzet\Server\Events\EventInterface) {
             self::$event = $event;
             return;
         }
+        
         if (function_exists('pcntl_signal')) {
             pcntl_signal(SIGALRM, self::signalHandle(...), false);
         }
@@ -93,7 +94,7 @@ class Timer
      */
     public static function signalHandle(): void
     {
-        if (!self::$event) {
+        if (!self::$event instanceof \localzet\Server\Events\EventInterface) {
             pcntl_alarm(1);
             self::tick();
         }
@@ -108,6 +109,7 @@ class Timer
             pcntl_alarm(0);
             return;
         }
+        
         $timeNow = time();
         foreach (self::$tasks as $runTime => $taskData) {
             if ($timeNow >= $runTime) {
@@ -121,14 +123,17 @@ class Timer
                     } catch (Throwable $e) {
                         Server::safeEcho((string)$e);
                     }
+                    
                     if ($persistent && !empty(self::$status[$index])) {
                         $newRunTime = time() + $timeInterval;
                         if (!isset(self::$tasks[$newRunTime])) {
                             self::$tasks[$newRunTime] = [];
                         }
+                        
                         self::$tasks[$newRunTime][$index] = [$taskFunc, (array)$taskArgs, $persistent, $timeInterval];
                     }
                 }
+                
                 unset(self::$tasks[$runTime]);
             }
         }
@@ -146,6 +151,7 @@ class Timer
             }, null, false);
             $suspension->suspend();
         }
+        
         throw new RuntimeException('Timer::sleep() требует событийную петлю!');
     }
 
@@ -162,7 +168,7 @@ class Timer
             $args = [];
         }
 
-        if (self::$event) {
+        if (self::$event instanceof \localzet\Server\Events\EventInterface) {
             return $persistent ? self::$event->repeat($timeInterval, $func, $args) : self::$event->delay($timeInterval, $func, $args);
         }
 
@@ -191,17 +197,20 @@ class Timer
      */
     public static function del(int $timerId): bool
     {
-        if (self::$event) {
+        if (self::$event instanceof \localzet\Server\Events\EventInterface) {
             return self::$event->offDelay($timerId);
         }
+        
         foreach (self::$tasks as $runTime => $taskData) {
             if (array_key_exists($timerId, $taskData)) {
                 unset(self::$tasks[$runTime][$timerId]);
             }
         }
+        
         if (array_key_exists($timerId, self::$status)) {
             unset(self::$status[$timerId]);
         }
+        
         return true;
     }
 
@@ -214,6 +223,7 @@ class Timer
         if (function_exists('pcntl_alarm')) {
             pcntl_alarm(0);
         }
+        
         self::$event?->deleteAllTimer();
     }
 }
