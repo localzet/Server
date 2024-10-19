@@ -35,10 +35,10 @@ use Error;
 abstract class DriverCallback
 {
     public bool $invokable = false;
-    
+
     // Может ли быть вызван
     public bool $enabled = true;
-    
+
     // Включен ли
     public bool $referenced = true;
 

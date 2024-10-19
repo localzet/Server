@@ -367,7 +367,7 @@ class Ws
             if (empty($content)) {
                 continue;
             }
-            
+
             // Пропуск пустых строк.
             [$key, $value] = explode(':', $content, 2); // Разделение строки на ключ и значение.
             $headers[$key] = trim($value); // Удаление пробелов в начале и конце значения.
