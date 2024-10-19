@@ -401,7 +401,7 @@ final class Windows implements EventInterface
     {
         $this->running = false;
         $this->deleteAllTimer();
-        foreach ($this->signalEvents as $signal => $item) {
+        foreach (array_keys($this->signalEvents) as $signal) {
             $this->offsignal($signal);
         }
         $this->readFds = [];

@@ -1012,7 +1012,7 @@ class Server
     {
         $totalLength = 0;
 
-        foreach (static::getUiColumns() as $columnName => $prop) {
+        foreach (array_keys(static::getUiColumns()) as $columnName) {
             $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
             $totalLength += static::$$key + static::UI_SAFE_LENGTH;
         }
@@ -2098,7 +2098,7 @@ class Server
                 . str_pad('<blue>COUNT</blue>', 38)
                 . "\n", FILE_APPEND);
 
-            foreach (static::$pidMap as $serverId => $serverPidArray) {
+            foreach (array_keys(static::$pidMap) as $serverId) {
                 $server = static::$servers[$serverId];
                 if (isset(static::$globalStatistics['server_exit_info'][$serverId])) {
                     foreach (static::$globalStatistics['server_exit_info'][$serverId] as $serverExitStatus => $serverExitCount) {

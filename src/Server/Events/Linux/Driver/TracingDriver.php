@@ -264,7 +264,7 @@ final class TracingDriver implements Driver
     {
         $dump = "Enabled, referenced callbacks keeping the loop running: ";
 
-        foreach ($this->enabledCallbacks as $callbackId => $_) {
+        foreach (array_keys($this->enabledCallbacks) as $callbackId) {
             if (isset($this->unreferencedCallbacks[$callbackId])) {
                 continue;
             }
