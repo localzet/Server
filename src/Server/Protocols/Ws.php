@@ -248,6 +248,7 @@ class Ws
             // Устанавливаем текущую длину кадра websocket.
             $asyncTcpConnection->context->websocketCurrentFrameLength = $currentFrameLength;
         }
+        
         // Если получены только данные о длине кадра.
         if ($asyncTcpConnection->context->websocketCurrentFrameLength === $recvLen) {
             // Декодируем данные.
@@ -272,10 +273,7 @@ class Ws
             // Продолжаем чтение следующего кадра.
             return self::input(substr($buffer, $currentFrameLength), $asyncTcpConnection);
         }
-        // Если длина полученных данных меньше длины кадра, возвращаем 0.
-        else {
-            return 0;
-        }
+        return 0;
     }
 
     /**

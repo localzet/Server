@@ -905,7 +905,7 @@ class Server
         foreach (static::$servers as $serverId => $server) {
             $newIdMap = [];
             $server->count = max($server->count, 1);
-            for ($key = 0; $key < $server->count; $key++) {
+            for ($key = 0; $key < $server->count; ++$key) {
                 $newIdMap[$key] = static::$idMap[$serverId][$key] ?? 0;
             }
 
@@ -1417,6 +1417,7 @@ class Server
         if (-1 === $pid) {
             throw new RuntimeException('Ошибка форка');
         }
+        
         if ($pid > 0) {
             exit(0);
         }
@@ -1430,6 +1431,7 @@ class Server
         if (-1 === $pid) {
             throw new RuntimeException('Ошибка форка');
         }
+        
         if (0 !== $pid) {
             exit(0);
         }
@@ -1872,7 +1874,7 @@ class Server
 
                         // Для статистики.
                         static::$globalStatistics['server_exit_info'][$serverId][$status] ??= 0;
-                        static::$globalStatistics['server_exit_info'][$serverId][$status]++;
+                        ++static::$globalStatistics['server_exit_info'][$serverId][$status];
 
                         // Очищаем данные процесса.
                         unset(static::$pidMap[$serverId][$pid]);
@@ -2742,7 +2744,7 @@ class Server
                     $messageCallback($udpConnection, $recvBuffer);
                 }
 
-                ConnectionInterface::$statistics['total_request']++;
+                ++ConnectionInterface::$statistics['total_request'];
             } catch (Throwable $e) {
                 static::stopAll(250, $e);
             }

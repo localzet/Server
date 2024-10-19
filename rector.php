@@ -30,7 +30,7 @@ return RectorConfig::configure()
         SetList::DEAD_CODE,
         // SetList::STRICT_BOOLEANS,
         SetList::NAMING,
-        // SetList::RECTOR_PRESET,
+        SetList::RECTOR_PRESET,
         SetList::PRIVATIZATION,
         SetList::TYPE_DECLARATION,
         SetList::EARLY_RETURN,

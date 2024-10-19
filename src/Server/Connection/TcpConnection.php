@@ -1036,7 +1036,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     public function __destruct()
     {
         static $mod;
-        self::$statistics['connection_count']--;
+        --self::$statistics['connection_count'];
         if (Server::getGracefulStop()) {
             $mod ??= ceil((self::$statistics['connection_count'] + 1) / 3);
 

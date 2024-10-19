@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
@@ -22,7 +25,6 @@
  *
  *              For any questions, please contact <support@localzet.com>
  */
-
 namespace localzet\Server\Protocols;
 
 /**
