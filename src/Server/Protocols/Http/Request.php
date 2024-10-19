@@ -645,7 +645,10 @@ class Request implements Stringable
      */
     public function expectsJson(): bool
     {
-        return ($this->isAjax() && !$this->isPjax()) || $this->acceptJson();
+        if ($this->isAjax() && !$this->isPjax()) {
+            return true;
+        }
+        return $this->acceptJson();
     }
 
     /**

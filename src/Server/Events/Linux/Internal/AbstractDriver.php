@@ -557,7 +557,10 @@ abstract class AbstractDriver implements Driver
      */
     public function isRunning(): bool
     {
-        return $this->fiber->isRunning() || $this->fiber->isSuspended();
+        if ($this->fiber->isRunning()) {
+            return true;
+        }
+        return $this->fiber->isSuspended();
     }
 
     /**

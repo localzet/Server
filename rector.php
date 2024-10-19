@@ -25,17 +25,16 @@ return RectorConfig::configure()
         LevelSetList::UP_TO_PHP_81,
         SetList::PHP_81,
 
-        // SetList::PHP_POLYFILLS,
         SetList::CODE_QUALITY,
         SetList::CODING_STYLE,
         SetList::DEAD_CODE,
         // SetList::STRICT_BOOLEANS,
-         SetList::NAMING,
+        SetList::NAMING,
         // SetList::RECTOR_PRESET,
         SetList::PRIVATIZATION,
         SetList::TYPE_DECLARATION,
-        // SetList::EARLY_RETURN,
-         SetList::INSTANCEOF,
+        SetList::EARLY_RETURN,
+        SetList::INSTANCEOF,
         // SetList::CARBON,
     ])
     ->withSkip([

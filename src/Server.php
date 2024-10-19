@@ -1030,7 +1030,7 @@ class Server
         // Сохранить красоту при отображении меньшего количества столбцов
         !defined('LINE_VERSION_LENGTH') && define('LINE_VERSION_LENGTH', 0);
         if ($totalLength <= LINE_VERSION_LENGTH) {
-            $totalLength = LINE_VERSION_LENGTH;
+            return LINE_VERSION_LENGTH;
         }
 
         return $totalLength;
@@ -1416,7 +1416,8 @@ class Server
         $pid = pcntl_fork();
         if (-1 === $pid) {
             throw new RuntimeException('Ошибка форка');
-        } elseif ($pid > 0) {
+        }
+        if ($pid > 0) {
             exit(0);
         }
 
@@ -1428,7 +1429,8 @@ class Server
         $pid = pcntl_fork();
         if (-1 === $pid) {
             throw new RuntimeException('Ошибка форка');
-        } elseif (0 !== $pid) {
+        }
+        if (0 !== $pid) {
             exit(0);
         }
     }
