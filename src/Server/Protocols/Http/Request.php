@@ -905,8 +905,8 @@ class Request implements Stringable
             . (empty($cookieParams['lifetime']) ? '' : '; Max-Age=' . $cookieParams['lifetime'])
             . (empty($cookieParams['path']) ? '' : '; Path=' . $cookieParams['path'])
             . (empty($cookieParams['samesite']) ? '' : '; SameSite=' . $cookieParams['samesite'])
-            . (!$cookieParams['secure'] ? '' : '; Secure')
-            . (!$cookieParams['httponly'] ? '' : '; HttpOnly')];
+            . ($cookieParams['secure'] ? '; Secure' : '')
+            . ($cookieParams['httponly'] ? '; HttpOnly' : '')];
     }
 
     /**

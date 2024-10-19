@@ -231,7 +231,7 @@ function format_http_response(int $code, ?string $body = '', array $headers = []
         }
     }
 
-    $bodyLen = !empty($body) ? strlen($body) : null;
+    $bodyLen = empty($body) ? null : strlen($body);
 
     if (empty($headers['transfer-encoding']) && $bodyLen) {
         $head .= "content-length: $bodyLen\r\n";

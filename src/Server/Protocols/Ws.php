@@ -496,7 +496,7 @@ class Ws
         }
         // Формирование заголовка запроса.
         $header = 'GET ' . $connection->getRemoteURI() . " HTTP/1.1\r\n" .
-            (!preg_match("/\nHost:/i", $userHeaderStr) ? "Host: $host\r\n" : '') .
+            (preg_match("/\nHost:/i", $userHeaderStr) ? '' : "Host: $host\r\n") .
             "Connection: Upgrade\r\n" .
             "Upgrade: websocket\r\n" .
             (property_exists($connection, 'websocketOrigin') && $connection->websocketOrigin !== null ? "Origin: " . $connection->websocketOrigin . "\r\n" : '') .

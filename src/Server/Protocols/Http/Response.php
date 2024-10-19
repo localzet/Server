@@ -326,8 +326,8 @@ class Response implements Stringable
             . (empty($domain) ? '' : '; Domain=' . $domain)
             . ($maxAge === null ? '' : '; Max-Age=' . $maxAge)
             . (empty($path) ? '' : '; Path=' . $path)
-            . (!$secure ? '' : '; Secure')
-            . (!$httpOnly ? '' : '; HttpOnly')
+            . ($secure ? '; Secure' : '')
+            . ($httpOnly ? '; HttpOnly' : '')
             . (empty($sameSite) ? '' : '; SameSite=' . $sameSite));
         return $this;
     }

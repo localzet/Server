@@ -966,7 +966,7 @@ class Server
                 $propValue = (string)($server->$prop ?? $server->context->$prop);
                 $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
                 preg_match_all("/(<n>|<\/n>|<w>|<\/w>|<g>|<\/g>|<black>|<\/black>|<red>|<\/red>|<green>|<\/green>|<yellow>|<\/yellow>|<blue>|<\/blue>|<magenta>|<\/magenta>|<cyan>|<\/cyan>|<white>|<\/white>)/i", $propValue, $matches);
-                $placeHolderLength = !empty($matches) ? strlen(implode('', $matches[0])) : 0;
+                $placeHolderLength = empty($matches) ? 0 : strlen(implode('', $matches[0]));
                 $content .= str_pad($propValue, static::$$key + static::UI_SAFE_LENGTH + $placeHolderLength);
             }
             $content && static::safeEcho($content . PHP_EOL);
