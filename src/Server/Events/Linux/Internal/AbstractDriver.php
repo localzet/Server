@@ -322,7 +322,7 @@ abstract class AbstractDriver implements Driver
      */
     final protected function error(Closure $closure, Throwable $exception): void
     {
-        if ($this->errorHandler === null) {
+        if (!$this->errorHandler instanceof Closure) {
             // Явно переопределяем предыдущее прерывание, если оно существует в этом случае, скрытие исключения хуже
             $this->interrupt = static fn() => $exception instanceof UncaughtThrowable
                 ? throw $exception
@@ -425,7 +425,7 @@ abstract class AbstractDriver implements Driver
      */
     private function invokeInterrupt(): void
     {
-        assert($this->interrupt !== null);
+        assert($this->interrupt instanceof Closure);
 
         $interrupt = $this->interrupt;
         $this->interrupt = null;
@@ -514,7 +514,7 @@ abstract class AbstractDriver implements Driver
      */
     private function setInterrupt(Closure $interrupt): void
     {
-        assert($this->interrupt === null);
+        assert(!$this->interrupt instanceof Closure);
 
         $this->interrupt = $interrupt;
     }

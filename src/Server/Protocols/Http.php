@@ -204,7 +204,7 @@ class Http
      */
     public static function encode(mixed $response, TcpConnection $connection): string
     {
-        if ($connection->request !== null) {
+        if ($connection->request instanceof Request) {
             // Удаляем ссылки на запрос и соединение для предотвращения утечки памяти.
             $request = $connection->request;
             // Очищаем свойства запроса и соединения.

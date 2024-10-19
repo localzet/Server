@@ -143,7 +143,7 @@ class Session
         // Проверяем идентификатор сессии.
         static::checkSessionId($sessionId);
         // Если обработчик еще не инициализирован, инициализируем его.
-        if (static::$handler === null) {
+        if (!static::$handler instanceof SessionHandlerInterface) {
             static::initHandler();
         }
         // Устанавливаем идентификатор сессии.

@@ -56,13 +56,13 @@ final class FiberLocal
      */
     public static function clear(): void
     {
-        if (self::$localStorage === null) {
+        if (!self::$localStorage instanceof WeakMap) {
             return;
         }
 
         $fiber = Fiber::getCurrent() ?? self::$mainFiber;
 
-        if ($fiber === null) {
+        if (!$fiber instanceof Fiber) {
             return;
         }
 
@@ -86,7 +86,7 @@ final class FiberLocal
     {
         $fiber = Fiber::getCurrent();
 
-        if ($fiber === null) {
+        if (!$fiber instanceof Fiber) {
             $fiber = self::$mainFiber ??= new Fiber(static function (): void {
                 // фиктивный Fiber для main, так как нам нужен некоторый объект для WeakMap
             });

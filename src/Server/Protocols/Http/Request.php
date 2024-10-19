@@ -810,7 +810,7 @@ class Request implements Stringable
     public function session(): Session
     {
         // Если сессия не установлена, создать новую сессию с идентификатором сессии
-        if ($this->session === null) {
+        if (!$this->session instanceof Session) {
             $this->session = new Session($this->sessionId());
         }
 

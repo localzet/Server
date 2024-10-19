@@ -762,7 +762,7 @@ class Server
      */
     protected static function initGlobalEvent(): void
     {
-        if (static::$globalEvent !== null) {
+        if (static::$globalEvent instanceof EventInterface) {
             static::$eventLoopClass = static::$globalEvent::class;
             static::$globalEvent = null;
             return;
@@ -1539,7 +1539,7 @@ class Server
             register_shutdown_function(static::checkErrors(...));
 
             // Создать глобальный цикл событий.
-            if (static::$globalEvent === null) {
+            if (!static::$globalEvent instanceof EventInterface) {
                 $eventLoopClass = static::getEventLoopName();
                 static::$globalEvent = new $eventLoopClass();
                 static::$globalEvent->setErrorHandler(function ($exception): void {
@@ -1606,7 +1606,7 @@ class Server
         $pipes = [];
         $process = proc_open('"' . PHP_BINARY . '" ' . " \"$startFile\" -q", $descriptorSpec, $pipes, null, null, ['bypass_shell' => true]);
 
-        if (static::$globalEvent === null) {
+        if (!static::$globalEvent instanceof EventInterface) {
             static::$globalEvent = new Windows();
             static::$globalEvent->setErrorHandler(function ($exception): void {
                 static::stopAll(250, $exception);
@@ -1674,7 +1674,7 @@ class Server
             register_shutdown_function(static::checkErrors(...));
 
             // Создать глобальный цикл событий.
-            if (static::$globalEvent === null) {
+            if (!static::$globalEvent instanceof EventInterface) {
                 $eventLoopClass = static::getEventLoopName();
                 static::$globalEvent = new $eventLoopClass();
                 static::$globalEvent->setErrorHandler(function ($exception): void {
@@ -2505,7 +2505,7 @@ class Server
      */
     public function pauseAccept(): void
     {
-        if (static::$globalEvent !== null && $this->pauseAccept === false && $this->mainSocket !== null) {
+        if (static::$globalEvent instanceof EventInterface && $this->pauseAccept === false && $this->mainSocket !== null) {
             static::$globalEvent->offReadable($this->mainSocket);
             $this->pauseAccept = true;
         }
@@ -2517,7 +2517,7 @@ class Server
     public function resumeAccept(): void
     {
         // Зарегистрировать слушателя для оповещения о готовности серверного сокета к чтению.
-        if (static::$globalEvent !== null && $this->pauseAccept && $this->mainSocket !== null) {
+        if (static::$globalEvent instanceof EventInterface && $this->pauseAccept && $this->mainSocket !== null) {
             if ($this->transport !== 'udp') {
                 static::$globalEvent->onReadable($this->mainSocket, $this->acceptTcpConnection(...));
             } else {
