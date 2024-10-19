@@ -133,7 +133,7 @@ class Ws
                 // Закрытие
                 case 0x8:
                     // Попытка вызвать onWebSocketClose
-                    if (isset($connection->onWebSocketClose)) {
+                    if (property_exists($connection, 'onWebSocketClose') && $connection->onWebSocketClose !== null) {
                         try {
                             ($connection->onWebSocketClose)($connection);
                         } catch (Throwable $e) {
@@ -191,7 +191,7 @@ class Ws
                         // Устанавливаем тип websocket в "\x8a".
                         $connection->websocketType = "\x8a";
                         // Попытка вызвать onWebSocketPing
-                        if (isset($connection->onWebSocketPing)) {
+                        if (property_exists($connection, 'onWebSocketPing') && $connection->onWebSocketPing !== null) {
                             try {
                                 ($connection->onWebSocketPing)($connection, $pingData);
                             } catch (Throwable $e) {
@@ -220,7 +220,7 @@ class Ws
                         // Устанавливаем тип websocket в "\x8a".
                         $connection->websocketType = "\x8a";
                         // Попытка вызвать onWebSocketPong
-                        if (isset($connection->onWebSocketPong)) {
+                        if (property_exists($connection, 'onWebSocketPong') && $connection->onWebSocketPong !== null) {
                             try {
                                 ($connection->onWebSocketPong)($connection, $pongData);
                             } catch (Throwable $e) {
@@ -304,7 +304,7 @@ class Ws
             $response = static::parseResponse($buffer);
 
             // Попытка вызвать обратный вызов onWebSocketConnect.
-            if (isset($connection->onWebSocketConnect)) {
+            if ($connection->onWebSocketConnect !== null) {
                 try {
                     ($connection->onWebSocketConnect)($connection, $response);
                 } catch (Throwable $e) {
@@ -499,8 +499,8 @@ class Ws
             (!preg_match("/\nHost:/i", $userHeaderStr) ? "Host: $host\r\n" : '') .
             "Connection: Upgrade\r\n" .
             "Upgrade: websocket\r\n" .
-            (isset($connection->websocketOrigin) ? "Origin: " . $connection->websocketOrigin . "\r\n" : '') .
-            (isset($connection->websocketClientProtocol) ? "Sec-WebSocket-Protocol: " . $connection->websocketClientProtocol . "\r\n" : '') .
+            (property_exists($connection, 'websocketOrigin') && $connection->websocketOrigin !== null ? "Origin: " . $connection->websocketOrigin . "\r\n" : '') .
+            (property_exists($connection, 'websocketClientProtocol') && $connection->websocketClientProtocol !== null ? "Sec-WebSocket-Protocol: " . $connection->websocketClientProtocol . "\r\n" : '') .
             "Sec-WebSocket-Version: 13\r\n" .
             "Sec-WebSocket-Key: " . $connection->context->websocketSecKey . $userHeaderStr . "\r\n\r\n";
         // Отправка заголовка запроса.

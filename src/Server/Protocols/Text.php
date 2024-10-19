@@ -42,7 +42,7 @@ class Text
     public static function input(string $buffer, ConnectionInterface $connection): int
     {
         // Проверяем, превышает ли длина пакета установленный предел.
-        if (isset($connection->maxPackageSize) && strlen($buffer) >= $connection->maxPackageSize) {
+        if (property_exists($connection, 'maxPackageSize') && $connection->maxPackageSize !== null && strlen($buffer) >= $connection->maxPackageSize) {
             $connection->close();
             return 0;
         }

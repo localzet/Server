@@ -204,7 +204,7 @@ class Http
      */
     public static function encode(mixed $response, TcpConnection $connection): string
     {
-        if (isset($connection->request)) {
+        if ($connection->request !== null) {
             // Удаляем ссылки на запрос и соединение для предотвращения утечки памяти.
             $request = $connection->request;
             // Очищаем свойства запроса и соединения.
@@ -220,7 +220,7 @@ class Http
             $connection->headers = [];
         }
 
-        if (isset($response->file)) {
+        if ($response->file !== null) {
             $file = $response->file['file'];
             $offset = $response->file['offset'];
             $length = $response->file['length'];

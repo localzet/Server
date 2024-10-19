@@ -832,7 +832,7 @@ class Request implements Stringable
         }
 
         // Если идентификатор сессии не установлен, получить его из cookie или создать новый
-        if (!isset($this->sid)) {
+        if ($this->sid === null) {
             // Получить имя сессии
             $sessionName = Session::$name;
 

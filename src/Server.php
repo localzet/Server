@@ -2219,7 +2219,7 @@ class Server
             if (strlen($protocol) > 15) {
                 $protocol = substr($protocol, 0, 13) . '..';
             }
-            $serverName = isset($connection->server) ? $connection->server->name : $defaultServerName;
+            $serverName = $connection->server !== null ? $connection->server->name : $defaultServerName;
             if (strlen($serverName) > 14) {
                 $serverName = substr($serverName, 0, 12) . '..';
             }
