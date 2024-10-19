@@ -66,28 +66,28 @@ final class UvDriver extends AbstractDriver
 {
     /** @var resource|UVLoop Ресурс uv_loop, созданный с помощью uv_loop_new() */
     private $handle;
-    
+
     /** @var array<string, resource> Массив событий */
     private array $events = [];
-    
+
     /** @var array<int, array<array-key, DriverCallback>> Массив обратных вызовов */
     private array $uvCallbacks = [];
-    
+
     /** @var array<int, resource> Массив потоков */
     private array $streams = [];
-    
+
     /**
      * @var Closure
      * Замыкание для обратного вызова ввода-вывода
      */
     private readonly Closure $ioCallback;
-    
+
     /**
      * @var Closure
      * Замыкание для обратного вызова таймера
      */
     private readonly Closure $timerCallback;
-    
+
     /**
      * @var Closure
      * Замыкание для обратного вызова сигнала
@@ -115,7 +115,7 @@ final class UvDriver extends AbstractDriver
 
                     $flags |= $callback->invokable ? $this->getStreamCallbackFlags($callback) : 0;
                 }
-                
+
                 uv_poll_start($event, $flags, $this->ioCallback);
             }
 
@@ -246,7 +246,7 @@ final class UvDriver extends AbstractDriver
 
                     $flags |= $w->enabled ? ($this->getStreamCallbackFlags($w)) : 0;
                 }
-                
+
                 uv_poll_start($event, $flags, $this->ioCallback);
             } elseif ($callback instanceof TimerCallback) {
                 $event = $this->events[$id] ?? ($this->events[$id] = uv_timer_init($this->handle));

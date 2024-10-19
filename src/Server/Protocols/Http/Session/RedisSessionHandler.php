@@ -108,7 +108,7 @@ class RedisSessionHandler implements SessionHandlerInterface
         if (empty($config['prefix'])) {
             $config['prefix'] = 'redis_session_';
         }
-        
+
         $this->redis->setOption(Redis::OPT_PREFIX, $config['prefix']);
     }
 
@@ -138,7 +138,7 @@ class RedisSessionHandler implements SessionHandlerInterface
                 $this->connect();
                 return $this->redis->get($sessionId);
             }
-            
+
             throw $throwable;
         }
     }

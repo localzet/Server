@@ -44,28 +44,28 @@ final class Swow implements EventInterface
      * @var array<int, Coroutine>
      */
     private array $readEvents = [];
-    
+
     /**
      * Массив всех обработчиков событий записи.
      *
      * @var array<int, Coroutine>
      */
     private array $writeEvents = [];
-    
+
     /**
      * Массив всех таймеров.
      *
      * @var array<int, int>
      */
     private array $eventTimer = [];
-    
+
     /**
      * Обработчик ошибок.
      *
      * @var ?callable
      */
     private $errorHandler = null;
-    
+
     /**
      * Массив всех обработчиков сигналов.
      *
@@ -80,7 +80,7 @@ final class Swow implements EventInterface
     {
         $t = (int)($delay * 1000);
         $t = max($t, 1);
-        
+
         $coroutine = Coroutine::run(function () use ($t, $func, $args): void {
             msleep($t);
             unset($this->eventTimer[Coroutine::getCurrent()->getId()]);
@@ -119,7 +119,7 @@ final class Swow implements EventInterface
     {
         $t = (int)($interval * 1000);
         $t = max($t, 1);
-        
+
         $coroutine = Coroutine::run(function () use ($t, $func, $args): void {
             // @phpstan-ignore-next-line While loop condition is always true.
             while (true) {
@@ -153,7 +153,7 @@ final class Swow implements EventInterface
                 unset($this->eventTimer[$timerId]);
             }
         }
-        
+
         return false;
     }
 
@@ -174,7 +174,7 @@ final class Swow implements EventInterface
         if (isset($this->readEvents[$fd])) {
             $this->offReadable($stream);
         }
-        
+
         Coroutine::run(function () use ($stream, $func, $fd): void {
             try {
                 $this->readEvents[$fd] = Coroutine::getCurrent();
@@ -183,16 +183,16 @@ final class Swow implements EventInterface
                         $this->offReadable($stream);
                         break;
                     }
-                    
+
                     $rEvent = stream_poll_one($stream, STREAM_POLLIN | STREAM_POLLHUP);
                     if (!isset($this->readEvents[$fd]) || $this->readEvents[$fd] !== Coroutine::getCurrent()) {
                         break;
                     }
-                    
+
                     if ($rEvent !== STREAM_POLLNONE) {
                         $this->safeCall($func, [$stream]);
                     }
-                    
+
                     if ($rEvent !== STREAM_POLLIN) {
                         $this->offReadable($stream);
                         break;
@@ -215,7 +215,7 @@ final class Swow implements EventInterface
             unset($this->readEvents[$fd]);
             return true;
         }
-        
+
         return false;
     }
 
@@ -228,7 +228,7 @@ final class Swow implements EventInterface
         if (isset($this->writeEvents[$fd])) {
             $this->offWritable($stream);
         }
-        
+
         Coroutine::run(function () use ($stream, $func, $fd): void {
             try {
                 $this->writeEvents[$fd] = Coroutine::getCurrent();
@@ -237,11 +237,11 @@ final class Swow implements EventInterface
                     if (!isset($this->writeEvents[$fd]) || $this->writeEvents[$fd] !== Coroutine::getCurrent()) {
                         break;
                     }
-                    
+
                     if ($rEvent !== STREAM_POLLNONE) {
                         $this->safeCall($func, [$stream]);
                     }
-                    
+
                     if ($rEvent !== STREAM_POLLOUT) {
                         $this->offWritable($stream);
                         break;
@@ -263,7 +263,7 @@ final class Swow implements EventInterface
             unset($this->writeEvents[$fd]);
             return true;
         }
-        
+
         return false;
     }
 
@@ -281,7 +281,7 @@ final class Swow implements EventInterface
                         $this->signalListener[$signal] !== Coroutine::getCurrent()) {
                         break;
                     }
-                    
+
                     $this->safeCall($func, [$signal]);
                 } catch (SignalException) {
                     // do nothing
@@ -308,7 +308,7 @@ final class Swow implements EventInterface
         if (!isset($this->signalListener[$signal])) {
             return false;
         }
-        
+
         unset($this->signalListener[$signal]);
         return true;
     }

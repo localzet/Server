@@ -84,7 +84,7 @@ class FileSessionHandler implements SessionHandlerInterface
             if ($path[strlen($path) - 1] !== DIRECTORY_SEPARATOR) {
                 $path .= DIRECTORY_SEPARATOR;
             }
-            
+
             // Устанавливаем путь для сохранения сессий
             static::$sessionSavePath = $path;
             // Если директория не существует, создаем ее с правами 0777
@@ -92,7 +92,7 @@ class FileSessionHandler implements SessionHandlerInterface
                 mkdir($path, 0777, true);
             }
         }
-        
+
         return $path;
     }
 
@@ -107,7 +107,7 @@ class FileSessionHandler implements SessionHandlerInterface
         if (!$savePath || str_starts_with($savePath, 'tcp://')) {
             $savePath = sys_get_temp_dir();
         }
-        
+
         // Устанавливаем путь для сохранения сессий
         static::sessionSavePath($savePath);
     }
@@ -138,12 +138,12 @@ class FileSessionHandler implements SessionHandlerInterface
                 unlink($sessionFile);
                 return '';
             }
-            
+
             // Читаем данные из файла и возвращаем их (или пустую строку, если чтение не удалось)
             $data = file_get_contents($sessionFile);
             return $data ?: '';
         }
-        
+
         // Если файл не существует, возвращаем пустую строку
         return '';
     }
@@ -170,7 +170,7 @@ class FileSessionHandler implements SessionHandlerInterface
         if (!file_put_contents($tempFile, $sessionData)) {
             return false;
         }
-        
+
         // Переименовываем временный файл в финальное имя файла сессии
         return rename($tempFile, static::sessionFile($sessionId));
     }
@@ -192,7 +192,7 @@ class FileSessionHandler implements SessionHandlerInterface
         if (!file_exists($sessionFile)) {
             return false;
         }
-        
+
         // Устанавливаем время последнего изменения файла в текущее время
         $setModifyTime = touch($sessionFile);
         // Очищаем кэш информации о файле
@@ -220,7 +220,7 @@ class FileSessionHandler implements SessionHandlerInterface
         if (is_file($sessionFile)) {
             unlink($sessionFile);
         }
-        
+
         return true;
     }
 
@@ -239,7 +239,7 @@ class FileSessionHandler implements SessionHandlerInterface
                 unlink($file);
             }
         }
-        
+
         return true;
     }
 }

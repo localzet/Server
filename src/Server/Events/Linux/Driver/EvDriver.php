@@ -45,7 +45,6 @@ use localzet\Server\Events\Linux\Internal\{AbstractDriver,
     TimerCallback};
 use function assert;
 use function extension_loaded;
-use function get_class;
 use function hrtime;
 use function is_resource;
 use function max;
@@ -57,18 +56,18 @@ final class EvDriver extends AbstractDriver
 {
     /** @var array<string, EvSignal>|null */
     private static ?array $activeSignals = null;
-    
+
     private readonly EvLoop $handle;
-    
+
     /** @var array<string, EvWatcher> */
     private array $events = [];
-    
+
     private readonly Closure $ioCallback;
-    
+
     private readonly Closure $timerCallback;
-    
+
     private readonly Closure $signalCallback;
-    
+
     /** @var array<string, EvSignal> */
     private array $signals = [];
 

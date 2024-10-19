@@ -45,7 +45,7 @@ class Frame
         if (strlen($buffer) < 4) {
             return 0;
         }
-        
+
         // Распаковываем данные из буфера.
         $unpackData = unpack('Ntotal_length', $buffer);
         // Возвращаем общую длину.

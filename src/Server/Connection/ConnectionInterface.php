@@ -26,6 +26,7 @@
 
 namespace localzet\Server\Connection;
 
+use AllowDynamicProperties;
 use localzet\Server;
 use localzet\Server\Events\Event;
 use localzet\Server\Events\EventInterface;
@@ -34,7 +35,7 @@ use Throwable;
 /**
  * ConnectionInterface.
  */
-#[\AllowDynamicProperties]
+#[AllowDynamicProperties]
 abstract class ConnectionInterface
 {
     /**
@@ -154,7 +155,7 @@ abstract class ConnectionInterface
             Server::stopAll(250, $exception);
             return;
         }
-        
+
         try {
             ($this->errorHandler)($exception);
         } catch (Throwable $throwable) {
@@ -162,7 +163,7 @@ abstract class ConnectionInterface
                 echo $throwable;
                 return;
             }
-            
+
             throw $throwable;
         }
     }

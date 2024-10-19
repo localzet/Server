@@ -65,27 +65,27 @@ class ServerSentEvents implements Stringable
         if (isset($data[''])) {
             $buffer = ": {$data['']}\n";
         }
-        
+
         // Если в данных есть ключ 'event', добавляем его значение в буфер.
         if (isset($data['event'])) {
             $buffer .= "event: {$data['event']}\n";
         }
-        
+
         // Если в данных есть ключ 'id', добавляем его значение в буфер.
         if (isset($data['id'])) {
             $buffer .= "id: {$data['id']}\n";
         }
-        
+
         // Если в данных есть ключ 'retry', добавляем его значение в буфер.
         if (isset($data['retry'])) {
             $buffer .= "retry: {$data['retry']}\n";
         }
-        
+
         // Если в данных есть ключ 'data', добавляем его значение в буфер, заменяя все переносы строк на "\ndata: ".
         if (isset($data['data'])) {
             $buffer .= 'data: ' . str_replace("\n", "\ndata: ", $data['data']) . "\n";
         }
-        
+
         // Возвращаем буфер с дополнительным переносом строки на конце.
         return $buffer . "\n";
     }

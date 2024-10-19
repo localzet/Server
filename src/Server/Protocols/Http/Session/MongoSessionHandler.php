@@ -68,7 +68,7 @@ class MongoSessionHandler implements SessionHandlerInterface
                     if (!empty($config['port'])) {
                         $host .= ':' . $config['port'];
                     }
-                } elseif (!str_contains((string) $host, ':') && !empty($config['port'])) {
+                } elseif (!str_contains((string)$host, ':') && !empty($config['port'])) {
                     // Check if we need to add a port to the host
                     $host .= ':' . $config['port'];
                 }
@@ -81,7 +81,7 @@ class MongoSessionHandler implements SessionHandlerInterface
         if (!isset($options['username']) && !empty($config['username'])) {
             $options['username'] = $config['username'];
         }
-        
+
         if (!isset($options['password']) && !empty($config['password'])) {
             $options['password'] = $config['password'];
         }
@@ -115,7 +115,7 @@ class MongoSessionHandler implements SessionHandlerInterface
         if ($session !== null) {
             return serialize((array)$session);
         }
-        
+
         return '';
     }
 

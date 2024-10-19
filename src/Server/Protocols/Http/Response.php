@@ -26,18 +26,15 @@
 
 namespace localzet\Server\Protocols\Http;
 
-use localzet\Server;
 use Stringable;
 use function explode;
 use function file;
 use function filemtime;
 use function gmdate;
-use function is_array;
 use function is_file;
 use function pathinfo;
 use function preg_match;
 use function rawurlencode;
-use function strlen;
 use function substr;
 use const FILE_IGNORE_NEW_LINES;
 use const FILE_SKIP_EMPTY_LINES;
@@ -157,8 +154,8 @@ class Response implements Stringable
         /**
          * Http статус.
          */
-        protected int    $status = 200,
-        array $headers = [],
+        protected int     $status = 200,
+        array             $headers = [],
         /**
          * Тело Http.
          */
@@ -222,7 +219,7 @@ class Response implements Stringable
         foreach ($headers as $name => $value) {
             $this->header($name, $value);
         }
-        
+
         return $this;
     }
 
@@ -292,7 +289,7 @@ class Response implements Stringable
         if (!is_file($file)) {
             return $this->withStatus(404)->withBody('<h3>404 Не найдено</h3>');
         }
-        
+
         $this->file = ['file' => $file, 'offset' => $offset, 'length' => $length];
         return $this;
     }
@@ -376,7 +373,7 @@ class Response implements Stringable
         }
 
         // Информация о файле.
-        $fileInfo = pathinfo((string) $file);
+        $fileInfo = pathinfo((string)$file);
         // Расширение файла.
         $extension = $fileInfo['extension'] ?? '';
         // Базовое имя файла.

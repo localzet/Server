@@ -28,9 +28,9 @@ namespace localzet\Server\Events\Linux;
 
 use Closure;
 use Error;
+use localzet\Server\Events\Linux;
 use localzet\Server\Events\Linux\Internal\ClosureHelper;
 use Throwable;
-use function get_class;
 use function sprintf;
 use function str_replace;
 
@@ -66,7 +66,7 @@ final class UncaughtThrowable extends Error
     public static function throwingCallback(Closure $closure, Throwable $previous): self
     {
         return new self(
-            'Неотловленное %s выброшено в обратном вызове цикла событий %s; используйте ' . \localzet\Server\Events\Linux::class . '::setErrorHandler() для корректной обработки таких исключений%s',
+            'Неотловленное %s выброшено в обратном вызове цикла событий %s; используйте ' . Linux::class . '::setErrorHandler() для корректной обработки таких исключений%s',
             $closure,
             $previous
         );

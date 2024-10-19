@@ -26,10 +26,12 @@
 
 namespace localzet;
 
+use AllowDynamicProperties;
 use Composer\InstalledVersions;
 use Exception;
 use localzet\Server\Connection\{ConnectionInterface, TcpConnection, UdpConnection};
 use localzet\Server\Events\{EventInterface, Linux, Revolt, Windows};
+use JetBrains\PhpStorm\NoReturn;
 use localzet\Server\Protocols\ProtocolInterface;
 use Revolt\EventLoop;
 use RuntimeException;
@@ -42,7 +44,6 @@ use function fflush;
 use function floor;
 use function function_exists;
 use function fwrite;
-use function get_class;
 use function get_resource_type;
 use function is_resource;
 use function lcfirst;
@@ -102,7 +103,7 @@ use const WUNTRACED;
  * ]
  * </code>
  */
-#[\AllowDynamicProperties]
+#[AllowDynamicProperties]
 class Server
 {
     /**
@@ -703,7 +704,7 @@ class Server
                 } catch (Throwable $e) {
                     static::stopAll(250, $e);
                 }
-                
+
                 static::initId();
             }
         });
@@ -732,10 +733,10 @@ class Server
 
         if (!is_file(static::$logFile) && static::$logFile !== '/dev/null') {
             // Если папка /runtime/logs по умолчанию не существует
-            if (!is_dir(dirname((string) static::$logFile))) {
-                @mkdir(dirname((string) static::$logFile), 0777, true);
+            if (!is_dir(dirname((string)static::$logFile))) {
+                @mkdir(dirname((string)static::$logFile), 0777, true);
             }
-            
+
             touch(static::$logFile);
             chmod(static::$logFile, 0644);
         }
@@ -774,7 +775,7 @@ class Server
             if (!is_subclass_of(static::$eventLoopClass, EventInterface::class)) {
                 throw new RuntimeException(sprintf('%s::$eventLoopClass должен реализовывать %s', static::class, EventInterface::class));
             }
-            
+
             return;
         }
 
@@ -855,7 +856,7 @@ class Server
                 if (!isset($server->$prop) && !isset($server->context->$prop)) {
                     $server->context->$prop = 'NNNN';
                 }
-                
+
                 $propLength = strlen((string)($server->$prop ?? $server->context->$prop));
                 $key = 'max' . ucfirst(strtolower($columnName)) . 'NameLength';
                 static::$$key = max(static::$$key, $propLength);
@@ -907,7 +908,7 @@ class Server
             for ($key = 0; $key < $server->count; $key++) {
                 $newIdMap[$key] = static::$idMap[$serverId][$key] ?? 0;
             }
-            
+
             static::$idMap[$serverId] = $newIdMap;
         }
     }
@@ -930,7 +931,7 @@ class Server
         if (in_array('-q', $tmpArgv)) {
             return;
         }
-        
+
         if (!is_unix()) {
             static::safeEcho("---------------------------------------------- Localzet Server -----------------------------------------------\r\n");
             static::safeEcho('Server version:' . static::getVersion() . '          PHP version:' . PHP_VERSION . "\r\n");
@@ -961,10 +962,10 @@ class Server
             if (strtolower($columnName) === 'socket') {
                 $columnName = 'listen';
             }
-            
+
             $title .= "<blue>" . strtoupper($columnName) . "</blue>" . str_pad('', static::$$key + static::UI_SAFE_LENGTH - strlen($columnName));
         }
-        
+
         $title && static::safeEcho($title . PHP_EOL);
 
         // Показать содержимое
@@ -977,7 +978,7 @@ class Server
                 $placeHolderLength = empty($matches) ? 0 : strlen(implode('', $matches[0]));
                 $content .= str_pad($propValue, static::$$key + static::UI_SAFE_LENGTH + $placeHolderLength);
             }
-            
+
             $content && static::safeEcho($content . PHP_EOL);
         }
 
@@ -1063,7 +1064,7 @@ class Server
             if (!$command && in_array($value, $availableCommands)) {
                 $command = $value;
             }
-            
+
             if (!$mode && in_array($value, $availableMode)) {
                 $mode = $value;
             }
@@ -1100,7 +1101,7 @@ class Server
                 if ($mode === '-d') {
                     static::$daemonize = true;
                 }
-                
+
                 break;
             case 'status':
                 register_shutdown_function(unlink(...), static::$statisticsFile);
@@ -1121,7 +1122,7 @@ class Server
                     if ($mode !== '-d') {
                         exit(0);
                     }
-                    
+
                     static::safeEcho("\Нажмите Ctrl+C для выхода.\n\n");
                 }
             case 'connections':
@@ -1164,25 +1165,25 @@ class Server
                             static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> не остановлен!");
                             exit;
                         }
-                        
+
                         // Пауза.
                         usleep(10000);
                         continue;
                     }
-                    
+
                     // Остановка успешна.
                     static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> остановлен");
                     if ($command === 'stop') {
                         exit(0);
                     }
-                    
+
                     if ($mode === '-d') {
                         static::$daemonize = true;
                     }
-                    
+
                     break;
                 }
-                
+
                 break;
             case 'reload':
                 if ($mode === '-g') {
@@ -1217,12 +1218,12 @@ class Server
         if (!is_readable(static::$statisticsFile)) {
             return '';
         }
-        
+
         $info = file(static::$statisticsFile, FILE_IGNORE_NEW_LINES);
         if (!$info) {
             return '';
         }
-        
+
         $statusStr = '';
         $currentTotalRequest = [];
         $serverInfo = [];
@@ -1231,11 +1232,11 @@ class Server
         } catch (Throwable) {
             // :)
         }
-        
+
         if (!is_array($serverInfo)) {
             $serverInfo = [];
         }
-        
+
         ksort($serverInfo, SORT_NUMERIC);
         unset($info[0]);
         $dataWaitingSort = [];
@@ -1254,10 +1255,10 @@ class Server
                 if (preg_match('/^<blue>PID<\/blue>.*?<blue>MEM<\/blue>.*?<blue>LISTEN<\/blue>/', $value)) {
                     $readProcessStatus = true;
                 }
-                
+
                 continue;
             }
-            
+
             if (preg_match('/^\d+/', $value, $pidMath)) {
                 $pid = $pidMath[0];
                 $dataWaitingSort[$pid] = $value;
@@ -1273,13 +1274,13 @@ class Server
                 }
             }
         }
-        
+
         foreach ($serverInfo as $pid => $info) {
             if (!isset($dataWaitingSort[$pid])) {
                 $statusStr .=
                     "$pid"
                     . "\t" . str_pad('<red>N/A</red>', 7 + strlen('<red></red>'))
-                    . " " . str_pad((string) $info['listen'], $maxLen1)
+                    . " " . str_pad((string)$info['listen'], $maxLen1)
                     . " " . str_pad((string)$info['name'], $maxLen2)
                     . " " . str_pad('<red>N/A</red>', 11 + strlen('<red></red>'))
                     . " " . str_pad('<red>N/A</red>', 9 + strlen('<red></red>'))
@@ -1290,7 +1291,7 @@ class Server
                     . "\n";
                 continue;
             }
-            
+
             //$qps = isset($totalRequestCache[$pid]) ? $currentTotalRequest[$pid]
             if (!isset($totalRequestCache[$pid], $currentTotalRequest[$pid])) {
                 $qps = 0;
@@ -1298,23 +1299,23 @@ class Server
                 $qps = $currentTotalRequest[$pid] - $totalRequestCache[$pid];
                 $totalQps += $qps;
             }
-            
+
             $statusStr .= $dataWaitingSort[$pid] . " " . str_pad((string)$qps, 6) . " <green>[не занят]</green>\n";
         }
-        
+
         $totalRequestCache = $currentTotalRequest;
         $statusStr .= str_pad('<magenta>PROCESS STATUS</magenta>', 116 + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH) . "\n";
         return $statusStr . ("<blue>Итог</blue>"
-            . "\t" . str_pad('<cyan>' . $totalMemory . 'M' . '</cyan>', 7 + strlen('<cyan></cyan>'))
-            . " " . str_pad('', $maxLen1)
-            . " " . str_pad('', $maxLen2)
-            . " " . str_pad('<cyan>' . $totalConnections . '</cyan>', 11 + strlen('<cyan></cyan>'))
-            . " " . str_pad('<cyan>' . $totalFails . '</cyan>', 9 + strlen('<cyan></cyan>'))
-            . " " . str_pad('<cyan>' . $totalTimers . '</cyan>', 8 + strlen('<cyan></cyan>'))
-            . " " . str_pad('<cyan>' . $totalRequests . '</cyan>', 13 + strlen('<cyan></cyan>'))
-            . " " . str_pad('<cyan>' . $totalQps . '</cyan>', 6 + strlen('<cyan></cyan>'))
-            . " " . str_pad('<blue>[Итог]</blue>', 10 + strlen('<blue></blue>'))
-            . "\n");
+                . "\t" . str_pad('<cyan>' . $totalMemory . 'M' . '</cyan>', 7 + strlen('<cyan></cyan>'))
+                . " " . str_pad('', $maxLen1)
+                . " " . str_pad('', $maxLen2)
+                . " " . str_pad('<cyan>' . $totalConnections . '</cyan>', 11 + strlen('<cyan></cyan>'))
+                . " " . str_pad('<cyan>' . $totalFails . '</cyan>', 9 + strlen('<cyan></cyan>'))
+                . " " . str_pad('<cyan>' . $totalTimers . '</cyan>', 8 + strlen('<cyan></cyan>'))
+                . " " . str_pad('<cyan>' . $totalRequests . '</cyan>', 13 + strlen('<cyan></cyan>'))
+                . " " . str_pad('<cyan>' . $totalQps . '</cyan>', 6 + strlen('<cyan></cyan>'))
+                . " " . str_pad('<blue>[Итог]</blue>', 10 + strlen('<blue></blue>'))
+                . "\n");
     }
 
     protected static function formatConnectionStatusData(): string
@@ -1330,12 +1331,12 @@ class Server
         if (!is_unix()) {
             return;
         }
-        
+
         $signals = [SIGINT, SIGTERM, SIGHUP, SIGTSTP, SIGQUIT, SIGUSR1, SIGUSR2, SIGIOT, SIGIO];
         foreach ($signals as $signal) {
             pcntl_signal($signal, static::signalHandler(...), false);
         }
-        
+
         // - А мне ∏∅⨉ на ваш SIGPIPE!
         pcntl_signal(SIGPIPE, SIG_IGN, false);
     }
@@ -1350,7 +1351,7 @@ class Server
         if (!is_unix()) {
             return;
         }
-        
+
         $signals = [SIGINT, SIGTERM, SIGHUP, SIGTSTP, SIGQUIT, SIGUSR1, SIGUSR2, SIGIOT, SIGIO];
         foreach ($signals as $signal) {
             static::$globalEvent->onSignal($signal, static::signalHandler(...));
@@ -1384,7 +1385,7 @@ class Server
                 if (static::$status === static::STATUS_RELOADING || static::$status === static::STATUS_SHUTDOWN) {
                     return;
                 }
-                
+
                 static::$gracefulStop = $signal === SIGUSR2;
                 static::$pidsToRestart = static::getAllServerPids();
                 static::reload();
@@ -1410,7 +1411,7 @@ class Server
         if (!static::$daemonize || !is_unix()) {
             return;
         }
-        
+
         umask(0);
         $pid = pcntl_fork();
         if (-1 === $pid) {
@@ -1418,11 +1419,11 @@ class Server
         } elseif ($pid > 0) {
             exit(0);
         }
-        
+
         if (-1 === posix_setsid()) {
             throw new RuntimeException('Ошибка установки SID');
         }
-        
+
         // Fork again avoid SVR4 system regain the control of terminal.
         $pid = pcntl_fork();
         if (-1 === $pid) {
@@ -1504,7 +1505,7 @@ class Server
                 $pidArray[$serverPid] = $serverPid;
             }
         }
-        
+
         return $pidArray;
     }
 
@@ -1534,7 +1535,7 @@ class Server
                 if (empty($server->name)) {
                     $server->name = $server->getSocketName();
                 }
-                
+
                 $serverNameLength = strlen($server->name);
                 if (static::$maxServerNameLength < $serverNameLength) {
                     static::$maxServerNameLength = $serverNameLength;
@@ -1605,7 +1606,7 @@ class Server
                 static::log($err);
                 exit(250);
             }
-            
+
             exit(0);
         }
 
@@ -1630,7 +1631,7 @@ class Server
                 $files[$file] = $file;
             }
         }
-        
+
         return $files;
     }
 
@@ -1695,7 +1696,7 @@ class Server
             if (static::$status === static::STATUS_STARTING) {
                 static::resetStd();
             }
-            
+
             static::$pidsToRestart = static::$pidMap = [];
             // Удалить других слушателей.
             foreach (static::$servers as $key => $oneServer) {
@@ -1704,7 +1705,7 @@ class Server
                     unset(static::$servers[$key]);
                 }
             }
-            
+
             Timer::delAll();
 
             // Обновить состояние процесса.
@@ -1743,7 +1744,7 @@ class Server
                 static::log($err);
                 exit(250);
             }
-            
+
             exit(0);
         } else {
             throw new RuntimeException('Ошибка forkOneServer');
@@ -1772,7 +1773,7 @@ class Server
             static::log("Внимание: Пользователь $this->user не существует");
             return;
         }
-        
+
         $uid = $userInfo['uid'];
         // Получить GID.
         if ($this->group) {
@@ -1781,7 +1782,7 @@ class Server
                 static::log("Внимание: Группа $this->group не существует");
                 return;
             }
-            
+
             $gid = $groupInfo['gid'];
         } else {
             $gid = $userInfo['gid'];
@@ -1916,7 +1917,7 @@ class Server
     /**
      * Выход из текущего процесса.
      */
-    #[\JetBrains\PhpStorm\NoReturn]
+    #[NoReturn]
     protected static function exitAndClearAll(): void
     {
         foreach (static::$servers as $server) {
@@ -1927,7 +1928,7 @@ class Server
                 @unlink($address);
             }
         }
-        
+
         @unlink(static::$pidFile);
         static::log("<magenta>Localzet Server</magenta> <cyan>[" . basename(static::$startFile) . "]</cyan> был остановлен");
         Events::emit('Server::Master::Stop', null);
@@ -1978,7 +1979,7 @@ class Server
                 if (static::$status !== static::STATUS_SHUTDOWN) {
                     static::$status = static::STATUS_RUNNING;
                 }
-                
+
                 return;
             }
 
@@ -2033,12 +2034,12 @@ class Server
                 } else {
                     static::sendSignal($serverPid, $sig);
                 }
-                
+
                 if (!static::$gracefulStop) {
                     Timer::add(ceil(static::$stopTimeout), posix_kill(...), [$serverPid, SIGKILL], false);
                 }
             }
-            
+
             Timer::add(1, static::checkIfChildRunning(...));
         } // Для дочерних процессов.
         else {
@@ -2104,7 +2105,7 @@ class Server
                     $allServerInfo[$pid] = ['name' => $server->name, 'listen' => $server->getSocketName()];
                 }
             }
-            
+
             file_put_contents(static::$statisticsFile, '');
             chmod(static::$statisticsFile, 0722);
             file_put_contents(static::$statisticsFile, serialize($allServerInfo) . "\n", FILE_APPEND);
@@ -2185,7 +2186,7 @@ class Server
             foreach (static::getAllServerPids() as $serverPid) {
                 static::sendSignal($serverPid, SIGIOT);
             }
-            
+
             return;
         }
 
@@ -2221,7 +2222,7 @@ class Server
             foreach (static::getAllServerPids() as $serverPid) {
                 static::sendSignal($serverPid, SIGIO);
             }
-            
+
             return;
         }
 
@@ -2230,19 +2231,19 @@ class Server
             if ($bytes > 1024 * 1024 * 1024 * 1024) {
                 return round($bytes / (1024 * 1024 * 1024 * 1024), 1) . "TB";
             }
-            
+
             if ($bytes > 1024 * 1024 * 1024) {
                 return round($bytes / (1024 * 1024 * 1024), 1) . "GB";
             }
-            
+
             if ($bytes > 1024 * 1024) {
                 return round($bytes / (1024 * 1024), 1) . "MB";
             }
-            
+
             if ($bytes > 1024) {
                 return round($bytes / (1024), 1) . "KB";
             }
-            
+
             return $bytes . "B";
         };
 
@@ -2270,22 +2271,22 @@ class Server
             if ($pos) {
                 $protocol = substr($protocol, $pos + 1);
             }
-            
+
             if (strlen($protocol) > 15) {
                 $protocol = substr($protocol, 0, 13) . '..';
             }
-            
+
             $serverName = $connection->server !== null ? $connection->server->name : $defaultServerName;
             if (strlen($serverName) > 14) {
                 $serverName = substr($serverName, 0, 12) . '..';
             }
-            
+
             $str .= str_pad((string)$pid, 9) . str_pad($serverName, 16) . str_pad((string)$id, 10) . str_pad($transport, 8)
                 . str_pad($protocol, 16) . str_pad($ipv4, 7) . str_pad($ipv6, 7) . str_pad($recvQ, 13)
                 . str_pad($sendQ, 13) . str_pad($bytesRead, 13) . str_pad($bytesWritten, 13) . ' '
                 . str_pad($state, 14) . ' ' . str_pad($localAddress, 22) . ' ' . str_pad($remoteAddress, 22) . "\n";
         }
-        
+
         if ($str) {
             file_put_contents(static::$connectionsFile, $str, FILE_APPEND);
         }
@@ -2308,7 +2309,7 @@ class Server
             ) {
                 $errorMsg .= ' с ошибкой: ' . static::getErrorType($errors['type']) . " \"{$errors['message']} в файле {$errors['file']} на {$errors['line']} строке\"";
             }
-            
+
             static::log($errorMsg);
         }
     }
@@ -2392,7 +2393,7 @@ class Server
             fwrite(self::$outputStream, $msg);
             fflush(self::$outputStream);
         }
-        
+
         restore_error_handler();
     }
 
@@ -2489,11 +2490,11 @@ class Server
             if ($this->transport === 'ssl') {
                 stream_socket_enable_crypto($this->mainSocket, false);
             } elseif ($this->transport === 'unix') {
-                $socketFile = substr((string) $localSocket, 7);
+                $socketFile = substr((string)$localSocket, 7);
                 if ($this->user) {
                     chown($socketFile, $this->user);
                 }
-                
+
                 if ($this->group) {
                     chgrp($socketFile, $this->group);
                 }
@@ -2539,7 +2540,7 @@ class Server
         if (!$this->socketName) {
             return null;
         }
-        
+
         // Получить протокол обмена данными и адрес прослушивания.
         [$scheme, $address] = explode(':', $this->socketName, 2);
         // Проверить класс протокола обмена данными.
@@ -2552,14 +2553,14 @@ class Server
                     throw new RuntimeException("Класс \\Protocols\\$scheme не существует");
                 }
             }
-            
+
             if (!isset(self::BUILD_IN_TRANSPORTS[$this->transport])) {
                 throw new RuntimeException('Некорректное значение server->transport: ' . var_export($this->transport, true));
             }
         } elseif ($this->transport === 'tcp') {
             $this->transport = $scheme;
         }
-        
+
         // Локальный сокет
         return self::BUILD_IN_TRANSPORTS[$this->transport] . ":" . $address;
     }
@@ -2587,7 +2588,7 @@ class Server
             } else {
                 static::$globalEvent->onReadable($this->mainSocket, $this->acceptUdpConnection(...));
             }
-            
+
             $this->pauseAccept = false;
         }
     }
@@ -2716,14 +2717,14 @@ class Server
                             if ($len === 0) {
                                 return true;
                             }
-                            
+
                             $package = substr($recvBuffer, 0, $len);
                             $recvBuffer = substr($recvBuffer, $len);
                             $data = $parser::decode($package, $connection);
                             if ($data === false) {
                                 continue;
                             }
-                            
+
                             $messageCallback($connection, $data);
                         }
                     } else {
@@ -2732,19 +2733,19 @@ class Server
                         if ($data === false) {
                             return true;
                         }
-                        
+
                         $messageCallback($connection, $data);
                     }
                 } else {
                     $messageCallback($connection, $recvBuffer);
                 }
-                
+
                 ConnectionInterface::$statistics['total_request']++;
             } catch (Throwable $e) {
                 static::stopAll(250, $e);
             }
         }
-        
+
         return true;
     }
 

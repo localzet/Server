@@ -143,7 +143,7 @@ class Ws
                     else {
                         $connection->close();
                     }
-                    
+
                     return 0;
                 // Неверный опкод
                 default:
@@ -157,14 +157,14 @@ class Ws
                 if (strlen($buffer) < 4) {
                     return 0;
                 }
-                
+
                 $pack = unpack('nn/ntotal_len', $buffer);
                 $currentFrameLength = $pack['total_len'] + 4;
             } elseif ($dataLen === 127) {
                 if (strlen($buffer) < 10) {
                     return 0;
                 }
-                
+
                 $arr = unpack('n/N2c', $buffer);
                 $currentFrameLength = $arr['c1'] * 4294967296 + $arr['c2'] + 10;
             } else {
@@ -203,13 +203,13 @@ class Ws
                         } else {
                             $connection->send($pingData);
                         }
-                        
+
                         $connection->websocketType = $tmpConnectionType;
                         if ($recvLen > $currentFrameLength) {
                             return static::input(substr($buffer, $currentFrameLength), $connection);
                         }
                     }
-                    
+
                     return 0;
                 }
 
@@ -232,13 +232,13 @@ class Ws
                                 Server::stopAll(250, $e);
                             }
                         }
-                        
+
                         $connection->websocketType = $tmpConnectionType;
                         if ($recvLen > $currentFrameLength) {
                             return static::input(substr($buffer, $currentFrameLength), $connection);
                         }
                     }
-                    
+
                     return 0;
                 }
 
@@ -344,7 +344,7 @@ class Ws
                 return self::input(substr($buffer, $handshakeResponseLength), $connection);
             }
         }
-        
+
         return 0;
     }
 
@@ -367,7 +367,8 @@ class Ws
             if (empty($content)) {
                 continue;
             }
-             // Пропуск пустых строк.
+            
+            // Пропуск пустых строк.
             [$key, $value] = explode(':', $content, 2); // Разделение строки на ключ и значение.
             $headers[$key] = trim($value); // Удаление пробелов в начале и конце значения.
         }
@@ -424,7 +425,7 @@ class Ws
         if (empty($connection->websocketType)) {
             $connection->websocketType = self::BINARY_TYPE_BLOB;
         }
-        
+
         if (empty($connection->context->handshakeStep)) {
             static::sendHandshake($connection);
         }
@@ -459,7 +460,7 @@ class Ws
                         Server::stopAll(250, $e);
                     }
                 }
-                
+
                 return '';
             }
 
@@ -493,7 +494,7 @@ class Ws
         if (!empty($connection->context->handshakeStep)) {
             return;
         }
-        
+
         // Получение хоста.
         $port = $connection->getRemotePort();
         $host = $port === 80 || $port === 443 ? $connection->getRemoteHost() : $connection->getRemoteHost() . ':' . $port;
@@ -505,10 +506,10 @@ class Ws
             foreach ($userHeader as $k => $v) {
                 $userHeaderStr .= "$k: $v\r\n";
             }
-            
+
             $userHeaderStr = "\r\n" . trim($userHeaderStr);
         }
-        
+
         // Формирование заголовка запроса.
         $header = 'GET ' . $connection->getRemoteURI() . " HTTP/1.1\r\n" .
             (preg_match("/\nHost:/i", $userHeaderStr) ? '' : "Host: $host\r\n") .

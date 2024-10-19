@@ -46,7 +46,7 @@ class Text
             $connection->close();
             return 0;
         }
-        
+
         // Ищем позицию символа "\n".
         $pos = strpos($buffer, "\n");
 

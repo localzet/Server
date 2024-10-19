@@ -40,35 +40,35 @@ final class Ev implements EventInterface
      * Идентификатор таймера.
      */
     private static int $timerId = 1;
-    
+
     /**
      * Массив всех обработчиков событий чтения.
      *
      * @var array<int, EvIo>
      */
     private array $readEvents = [];
-    
+
     /**
      * Массив всех обработчиков событий записи.
      *
      * @var array<int, EvIo>
      */
     private array $writeEvents = [];
-    
+
     /**
      * Массив всех обработчиков сигналов.
      *
      * @var array<int, EvSignal>
      */
     private array $eventSignal = [];
-    
+
     /**
      * Массив всех таймеров.
      *
      * @var array<int, EvTimer>
      */
     private array $eventTimer = [];
-    
+
     /**
      * Обработчик ошибок.
      *
@@ -131,7 +131,7 @@ final class Ev implements EventInterface
             unset($this->eventTimer[$timerId]);
             return true;
         }
-        
+
         return false;
     }
 
@@ -164,7 +164,7 @@ final class Ev implements EventInterface
             unset($this->readEvents[$fdKey]);
             return true;
         }
-        
+
         return false;
     }
 
@@ -189,7 +189,7 @@ final class Ev implements EventInterface
             unset($this->writeEvents[$fdKey]);
             return true;
         }
-        
+
         return false;
     }
 
@@ -218,7 +218,7 @@ final class Ev implements EventInterface
         foreach ($this->eventTimer as $event) {
             $event->stop();
         }
-        
+
         $this->eventTimer = [];
     }
 
@@ -232,7 +232,7 @@ final class Ev implements EventInterface
             unset($this->eventSignal[$signal]);
             return true;
         }
-        
+
         return false;
     }
 

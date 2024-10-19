@@ -47,8 +47,8 @@ final class DriverFactory
      */
     public function create(): Driver
     {
-        $driver = (function (): \localzet\Server\Events\Linux\Driver|\localzet\Server\Events\Linux\Driver\UvDriver|\localzet\Server\Events\Linux\Driver\EvDriver|\localzet\Server\Events\Linux\Driver\EventDriver|\localzet\Server\Events\Linux\Driver\StreamSelectDriver {
-            if (($driver = $this->createDriverFromEnv()) instanceof \localzet\Server\Events\Linux\Driver) {
+        $driver = (function (): Driver|UvDriver|EvDriver|EventDriver|StreamSelectDriver {
+            if (($driver = $this->createDriverFromEnv()) instanceof Driver) {
                 return $driver;
             }
 
