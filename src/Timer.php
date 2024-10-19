@@ -26,13 +26,13 @@
 
 namespace localzet;
 
+use Carbon\Carbon;
 use localzet\Server\Events\{EventInterface, Linux, Revolt};
 use RuntimeException;
 use Throwable;
 use function function_exists;
 use function pcntl_alarm;
 use function pcntl_signal;
-use function time;
 use const PHP_INT_MAX;
 use const SIGALRM;
 
@@ -110,7 +110,7 @@ class Timer
             return;
         }
 
-        $timeNow = time();
+        $timeNow = Carbon::now()->timestamp;
         foreach (self::$tasks as $runTime => $taskData) {
             if ($timeNow >= $runTime) {
                 foreach ($taskData as $index => $oneTask) {
@@ -125,7 +125,7 @@ class Timer
                     }
 
                     if ($persistent && !empty(self::$status[$index])) {
-                        $newRunTime = time() + $timeInterval;
+                        $newRunTime = Carbon::now()->timestamp + $timeInterval;
                         if (!isset(self::$tasks[$newRunTime])) {
                             self::$tasks[$newRunTime] = [];
                         }
@@ -180,7 +180,7 @@ class Timer
             pcntl_alarm(1);
         }
 
-        $runTime = time() + $timeInterval;
+        $runTime = Carbon::now()->timestamp + $timeInterval;
         if (!isset(self::$tasks[$runTime])) {
             self::$tasks[$runTime] = [];
         }

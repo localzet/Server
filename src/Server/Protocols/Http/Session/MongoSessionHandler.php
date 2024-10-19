@@ -26,6 +26,7 @@
 
 namespace localzet\Server\Protocols\Http\Session;
 
+use Carbon\Carbon;
 use localzet\Server;
 use MongoDB\BSON\UTCDateTime;
 use MongoDB\Client;
@@ -154,7 +155,7 @@ class MongoSessionHandler implements SessionHandlerInterface
      */
     public function gc(int $maxLifetime): bool
     {
-        $utcDateTime = new UTCDateTime(time() - $maxLifetime * 1000);
+        $utcDateTime = new UTCDateTime(Carbon::now()->timestamp - $maxLifetime * 1000);
         $this->collection->deleteMany(['updated_at' => ['$lt' => $utcDateTime]]);
         return true;
     }

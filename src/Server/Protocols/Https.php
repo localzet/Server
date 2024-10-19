@@ -25,6 +25,7 @@ declare(strict_types=1);
  *
  *              For any questions, please contact <support@localzet.com>
  */
+
 namespace localzet\Server\Protocols;
 
 /**

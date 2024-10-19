@@ -25,6 +25,7 @@ declare(strict_types=1);
  *
  *              For any questions, please contact <creator@localzet.com>
  */
+
 namespace localzet;
 
 use localzet\Server\Connection\ConnectionInterface;

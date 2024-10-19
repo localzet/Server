@@ -27,6 +27,7 @@
 namespace localzet;
 
 use AllowDynamicProperties;
+use Carbon\Carbon;
 use Composer\InstalledVersions;
 use Exception;
 use JetBrains\PhpStorm\NoReturn;
@@ -748,7 +749,7 @@ class Server
         static::initGlobalEvent();
 
         // Для статистики
-        static::$globalStatistics['start_timestamp'] = time();
+        static::$globalStatistics['start_timestamp'] = Carbon::now()->timestamp;
 
         // Устанавливаем название процесса
         static::setProcessTitle('Localzet Server: мастер-процесс  start_file=' . static::$startFile);
@@ -1154,14 +1155,14 @@ class Server
 
                 // Тайм-аут.
                 $timeout = static::$stopTimeout + 3;
-                $startTime = time();
+                $startTime = Carbon::now()->timestamp;
 
                 // Проверка активности мастер-процесса.
                 while (1) {
                     $masterIsAlive = $masterPid && posix_kill($masterPid, 0);
                     if ($masterIsAlive) {
                         // Превышение тайм-аута?
-                        if (!static::getGracefulStop() && time() - $startTime >= $timeout) {
+                        if (!static::getGracefulStop() && Carbon::now()->timestamp - $startTime >= $timeout) {
                             static::log("<magenta>Localzet Server</magenta> <cyan>[$startFile]</cyan> не остановлен!");
                             exit;
                         }
@@ -1417,7 +1418,7 @@ class Server
         if (-1 === $pid) {
             throw new RuntimeException('Ошибка форка');
         }
-        
+
         if ($pid > 0) {
             exit(0);
         }
@@ -1431,7 +1432,7 @@ class Server
         if (-1 === $pid) {
             throw new RuntimeException('Ошибка форка');
         }
-        
+
         if (0 !== $pid) {
             exit(0);
         }
@@ -2132,7 +2133,7 @@ class Server
 
             file_put_contents(static::$statisticsFile,
                 str_pad('Start time: <cyan>' . date('Y-m-d H:i:s', static::$globalStatistics['start_timestamp']) . '</cyan>', 63)
-                . str_pad('Uptime: <cyan>' . floor((time() - static::$globalStatistics['start_timestamp']) / (24 * 60 * 60)) . '</cyan>' . ' days ' . '<cyan>' . floor(((time() - static::$globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . '</cyan>' . ' hours', 86)
+                . str_pad('Uptime: <cyan>' . floor((Carbon::now()->timestamp - static::$globalStatistics['start_timestamp']) / (24 * 60 * 60)) . '</cyan>' . ' days ' . '<cyan>' . floor(((Carbon::now()->timestamp - static::$globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . '</cyan>' . ' hours', 86)
                 . "\n", FILE_APPEND);
 
             file_put_contents(static::$statisticsFile,
@@ -2339,7 +2340,7 @@ class Server
 
         if (isset(static::$logFile)) {
             $pid = is_unix() ? posix_getpid() : 1;
-            file_put_contents(static::$logFile, sprintf("%s pid:%d %s\n", date('Y-m-d H:i:s'), $pid, $msg), FILE_APPEND | LOCK_EX);
+            file_put_contents(static::$logFile, sprintf("%s pid:%d %s\n", Carbon::now()->format('Y-m-d H:i:s'), $pid, $msg), FILE_APPEND | LOCK_EX);
         }
     }
 
