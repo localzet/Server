@@ -53,10 +53,11 @@
   },
   "autoload": {
     "psr-4": {
-      "localzet\\": "src"
+      "localzet\\": "",
+      "localzet\\Server\\": "src"
     },
     "files": [
-      "src/Helpers.php"
+      "Helpers.php"
     ]
   },
   "require-dev": {
