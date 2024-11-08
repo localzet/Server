@@ -306,9 +306,11 @@ class Response implements Stringable
     /**
      * Установить статус.
      *
+     * @param int $code
      * @param string|null $reasonPhrase
+     * @return Response
      */
-    public function withStatus(int $code, string $reasonPhrase = null): static
+    public function withStatus(int $code, ?string $reasonPhrase = null): static
     {
         $this->status = $code;
         $this->reason = $reasonPhrase;

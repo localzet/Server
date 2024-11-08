@@ -27,9 +27,8 @@
 namespace localzet\Protocols;
 
 use localzet\Connection\TcpConnection;
-use localzet\Protocols\Http\{Request};
+use localzet\Protocols\Http\Request;
 use localzet\Protocols\Http\Response;
-use Throwable;
 use function clearstatcache;
 use function count;
 use function explode;
@@ -41,7 +40,6 @@ use function ftell;
 use function in_array;
 use function ini_get;
 use function is_object;
-use function key;
 use function preg_match;
 use function strlen;
 use function strpos;
@@ -66,13 +64,6 @@ class Http
     protected static string $uploadTmpDir = '';
 
     /**
-     * Кэш.
-     *
-     * @var bool.
-     */
-    protected static bool $enableCache = true;
-
-    /**
      * Получить или установить имя класса запроса.
      *
      * @param string|null $className
@@ -87,25 +78,12 @@ class Http
     }
 
     /**
-     * Включить или отключить кэш.
-     */
-    public static function enableCache(bool $value): void
-    {
-        static::$enableCache = $value;
-    }
-
-    /**
      * Проверить целостность пакета.
      *
      * @throws Throwable
      */
     public static function input(string $buffer, TcpConnection $tcpConnection): int
     {
-        static $input = [];
-        if (!isset($buffer[512]) && isset($input[$buffer])) {
-            return $input[$buffer];
-        }
-
         $crlfPos = strpos($buffer, "\r\n\r\n");
         if (false === $crlfPos) {
             // Проверьте, не превышает ли длина пакета лимит.
@@ -117,19 +95,13 @@ class Http
         }
 
         $length = $crlfPos + 4;
-        $firstLine = explode(" ", strstr($buffer, "\r\n", true), 3);
-
-        if (!in_array($firstLine[0], ['GET', 'POST', 'OPTIONS', 'HEAD', 'DELETE', 'PUT', 'PATCH'])) {
+        $method = strstr($buffer, ' ', true);
+        if (!in_array($method, ['GET', 'POST', 'OPTIONS', 'HEAD', 'DELETE', 'PUT', 'PATCH'])) {
             $tcpConnection->close(format_http_response(400), true);
             return 0;
         }
 
         $header = substr($buffer, 0, $crlfPos);
-
-        if (!str_contains($header, "\r\nHost: ") && $firstLine[2] === "HTTP/1.1") {
-            $tcpConnection->close(format_http_response(400), true);
-            return 0;
-        }
 
         if ($pos = stripos($header, "\r\nContent-Length: ")) {
             $length += (int)substr($header, $pos + 18, 10);
@@ -150,13 +122,6 @@ class Http
             return 0;
         }
 
-        if (!isset($buffer[512])) {
-            $input[$buffer] = $length;
-            if (count($input) > 512) {
-                unset($input[key($input)]);
-            }
-        }
-
         return $length;
     }
 
@@ -166,9 +131,8 @@ class Http
     public static function decode(string $buffer, TcpConnection $tcpConnection): Request
     {
         static $requests = [];
-        $cacheable = static::$enableCache && !isset($buffer[512]);
-        if ($cacheable && isset($requests[$buffer])) {
-            $request = clone $requests[$buffer];
+        if (isset($requests[$buffer])) {
+            $request = $requests[$buffer];
             $request->connection = $tcpConnection;
             $tcpConnection->request = $request;
             $request->properties = [];
@@ -177,14 +141,16 @@ class Http
 
         /** @var Request $request */
         $request = new static::$requestClass($buffer);
-        $request->connection = $tcpConnection;
-        $tcpConnection->request = $request;
-        if ($cacheable) {
+        if (!isset($buffer[512])) {
             $requests[$buffer] = $request;
             if (count($requests) > 512) {
                 unset($requests[key($requests)]);
             }
+            $request = clone $request;
         }
+
+        $request->connection = $tcpConnection;
+        $tcpConnection->request = $request;
 
         foreach ($request->header() as $name => $value) {
             $_SERVER[strtoupper((string)$name)] = $value;

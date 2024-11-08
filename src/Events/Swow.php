@@ -31,12 +31,12 @@ use Swow\Coroutine;
 use Swow\Signal;
 use Swow\SignalException;
 use Throwable;
-use function localzet\Server\Events\msleep;
-use function localzet\Server\Events\stream_poll_one;
+use function msleep;
+use function stream_poll_one;
 use function Swow\Sync\waitAll;
-use const localzet\Server\Events\STREAM_POLLIN;
-use const localzet\Server\Events\STREAM_POLLNONE;
-use const localzet\Server\Events\STREAM_POLLOUT;
+use const STREAM_POLLIN;
+use const STREAM_POLLNONE;
+use const STREAM_POLLOUT;
 
 /**
  * Класс Windows реализует интерфейс EventInterface и представляет select event loop.

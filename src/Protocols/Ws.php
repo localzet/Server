@@ -69,15 +69,17 @@ class Ws
     /**
      * Проверка целостности пакета.
      *
-     * @return int|false
+     * @param string $buffer
+     * @param AsyncTcpConnection $asyncTcpConnection
+     * @return int
      * @throws Throwable
      */
-    public static function input(string $buffer, AsyncTcpConnection $asyncTcpConnection): bool|int
+    public static function input(string $buffer, AsyncTcpConnection $asyncTcpConnection): int
     {
         // Если шаг рукопожатия не установлен, выводим сообщение об ошибке и возвращаем false.
         if (empty($asyncTcpConnection->context->handshakeStep)) {
             Server::safeEcho("Получение данных перед рукопожатием. Буфер:" . bin2hex($buffer) . "\n");
-            return false;
+            return -1;;
         }
 
         // Если шаг рукопожатия равен 1, обрабатываем рукопожатие.

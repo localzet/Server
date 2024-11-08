@@ -117,6 +117,13 @@ final class Windows implements EventInterface
     private int $selectTimeout = 100000000;
 
     /**
+     * Следующее время срабатывания таймера.
+     *
+     * @var float
+     */
+    private float $nextTickTime = 0;
+
+    /**
      * Обработчик ошибок.
      *
      * @var ?callable
@@ -141,10 +148,8 @@ final class Windows implements EventInterface
         $runTime = microtime(true) + $delay;
         $this->scheduler->insert($timerId, -$runTime);
         $this->eventTimer[$timerId] = [$func, $args];
-        $selectTimeout = ($runTime - microtime(true)) * 1000000;
-        $selectTimeout = $selectTimeout <= 0 ? 1 : (int)$selectTimeout;
-        if ($this->selectTimeout > $selectTimeout) {
-            $this->selectTimeout = $selectTimeout;
+        if ($this->nextTickTime == 0 || $this->nextTickTime > $runTime) {
+            $this->setNextTickTime($runTime);
         }
 
         return $timerId;
@@ -159,10 +164,8 @@ final class Windows implements EventInterface
         $runTime = microtime(true) + $interval;
         $this->scheduler->insert($timerId, -$runTime);
         $this->eventTimer[$timerId] = [$func, $args, $interval];
-        $selectTimeout = ($runTime - microtime(true)) * 1000000;
-        $selectTimeout = $selectTimeout <= 0 ? 1 : (int)$selectTimeout;
-        if ($this->selectTimeout > $selectTimeout) {
-            $this->selectTimeout = $selectTimeout;
+        if ($this->nextTickTime == 0 || $this->nextTickTime > $runTime) {
+            $this->setNextTickTime($runTime);
         }
 
         return $timerId;
@@ -196,7 +199,7 @@ final class Windows implements EventInterface
     {
         $count = count($this->readFds);
         if ($count >= 1024) {
-            Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event/libevent для большего количества подключений.\n");
+            Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 1024, установите расширение event для большего количества подключений.\n");
         } elseif (!is_unix() && $count >= 256) {
             Server::safeEcho("Предупреждение: выбор системного вызова превысил максимальное количество подключений 256.\n");
         }
@@ -312,7 +315,7 @@ final class Windows implements EventInterface
             $read = $this->readFds;
             $write = $this->writeFds;
             $except = $this->exceptFds;
-            if (!empty($read) || !empty($write) || !empty($except)) {
+            if ($read || $write || $except) {
                 // Waiting read/write/signal/timeout events.
                 try {
                     @stream_select($read, $write, $except, 0, $this->selectTimeout);
@@ -321,10 +324,6 @@ final class Windows implements EventInterface
                 }
             } elseif ($this->selectTimeout >= 1) {
                 usleep($this->selectTimeout);
-            }
-
-            if (!$this->scheduler->isEmpty()) {
-                $this->tick();
             }
 
             foreach ($read as $fd) {
@@ -348,7 +347,11 @@ final class Windows implements EventInterface
                 }
             }
 
-            if (!empty($this->signalEvents)) {
+            if ($this->nextTickTime > 0 && microtime(true) >= $this->nextTickTime) {
+                $this->tick();
+            }
+
+            if ($this->signalEvents) {
                 // Calls signal handlers for pending signals
                 pcntl_signal_dispatch();
             }
@@ -399,12 +402,28 @@ final class Windows implements EventInterface
         if (!$this->scheduler->isEmpty()) {
             $schedulerData = $this->scheduler->top();
             $nextRunTime = -$schedulerData['priority'];
-            $timeNow = microtime(true);
-            $this->selectTimeout = max((int)(($nextRunTime - $timeNow) * 1000000), 0);
+            $this->setNextTickTime($nextRunTime);
             return;
         }
 
-        $this->selectTimeout = 100000000;
+        $this->setNextTickTime(0);
+    }
+
+    /**
+     * Установить время следующего тика.
+     *
+     * @param float $nextTickTime
+     * @return void
+     */
+    protected function setNextTickTime(float $nextTickTime): void
+    {
+        $this->nextTickTime = $nextTickTime;
+        if ($nextTickTime == 0) {
+            $this->selectTimeout = 10000000;
+            return;
+        }
+        $timeNow = microtime(true);
+        $this->selectTimeout = max((int)(($nextTickTime - $timeNow) * 1000000), 0);
     }
 
     /**

@@ -30,6 +30,7 @@ use Exception;
 use localzet\Connection\{ConnectionInterface};
 use localzet\Connection\TcpConnection;
 use localzet\Protocols\Http\Request;
+use localzet\Protocols\Http\Response;
 use localzet\Server;
 use Throwable;
 use function base64_encode;
@@ -331,7 +332,7 @@ class Websocket
             }
 
             // Данные ответа на рукопожатие.
-            $tcpConnection->response = new \localzet\Protocols\Http\Response(101, [
+            $tcpConnection->response = new Response(101, [
                 'Sec-WebSocket-Accept' => base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true)),
                 'Connection' => 'Upgrade',
                 'Upgrade' => 'websocket',
@@ -356,7 +357,7 @@ class Websocket
                 try {
                     $addResponse = $onWebSocketConnect($tcpConnection, $request) ?? null;
 
-                    if ($addResponse instanceof \localzet\Protocols\Http\Response) {
+                    if ($addResponse instanceof Response) {
                         if ($addResponse->getHeaders()) {
                             $tcpConnection->response->withHeaders($addResponse->getHeaders());
                         }

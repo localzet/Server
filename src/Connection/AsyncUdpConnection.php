@@ -112,9 +112,7 @@ class AsyncUdpConnection extends UdpConnection
 
         if ($this->onMessage) {
             if ($this->protocol) {
-                /** @var ProtocolInterface $parser */
-                $parser = $this->protocol;
-                $recvBuffer = $parser::decode($recvBuffer, $this);
+                $recvBuffer = $this->protocol::decode($recvBuffer, $this);
             }
 
             ++ConnectionInterface::$statistics['total_request'];
@@ -161,9 +159,7 @@ class AsyncUdpConnection extends UdpConnection
     public function send(mixed $sendBuffer, bool $raw = false): bool|null
     {
         if (false === $raw && $this->protocol) {
-            /** @var ProtocolInterface $parser */
-            $parser = $this->protocol;
-            $sendBuffer = $parser::encode($sendBuffer, $this);
+            $sendBuffer = $this->protocol::encode($sendBuffer, $this);
             if ($sendBuffer === '') {
                 return null;
             }

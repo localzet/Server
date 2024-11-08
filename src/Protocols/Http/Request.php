@@ -69,9 +69,18 @@ class Request implements Stringable
     public static int $maxFileUploads = 1024;
 
     /**
-     * Включить кэш.
+     * Максимальная длина строки для кэша
+     *
+     * @var int
      */
-    protected static bool $enableCache = true;
+    public const MAX_CACHE_STRING_LENGTH = 4096;
+
+    /**
+     * Максимальный размер кэша.
+     *
+     * @var int
+     */
+    public const MAX_CACHE_SIZE = 256;
 
     /**
      * Соединение.
@@ -118,20 +127,13 @@ class Request implements Stringable
     }
 
     /**
-     * Включить или отключить кэш.
-     */
-    public static function enableCache(bool $value): void
-    {
-        static::$enableCache = $value;
-    }
-
-    /**
      * Получить запрос.
      *
      * @param string|null $name
      * @param mixed|null $default
+     * @return mixed
      */
-    public function get(string $name = null, mixed $default = null): mixed
+    public function get(?string $name = null, mixed $default = null): mixed
     {
         if (!isset($this->data['get'])) {
             $this->parseGet();
@@ -157,7 +159,7 @@ class Request implements Stringable
         }
 
         // Проверяем, можно ли использовать кэш и не превышает ли строка запроса 1024 символа.
-        $cacheable = static::$enableCache && !isset($queryString[1024]);
+        $cacheable = !isset($headBuffer[static::MAX_CACHE_STRING_LENGTH]);
         if ($cacheable && isset($cache[$queryString])) {
             // Если условие выполняется, используем данные из кэша.
             $this->data['get'] = $cache[$queryString];
@@ -169,7 +171,7 @@ class Request implements Stringable
         if ($cacheable) {
             $cache[$queryString] = $this->data['get'];
             // Если размер кэша превышает 256, удаляем самый старый элемент кэша.
-            if (count($cache) > 256) {
+            if (count($cache) > static::MAX_CACHE_SIZE) {
                 unset($cache[key($cache)]);
             }
         }
@@ -215,8 +217,9 @@ class Request implements Stringable
      *
      * @param string|null $name
      * @param mixed|null $default
+     * @return mixed
      */
-    public function post(string $name = null, mixed $default = null): mixed
+    public function post(?string $name = null, mixed $default = null): mixed
     {
         if (!isset($this->data['post'])) {
             $this->parsePost();
@@ -307,7 +310,7 @@ class Request implements Stringable
             return;
         }
 
-        $cacheable = static::$enableCache && !isset($bodyBuffer[1024]);
+        $cacheable = !isset($bodyBuffer[static::MAX_CACHE_STRING_LENGTH]);
         if ($cacheable && isset($cache[$bodyBuffer])) {
             $this->data['post'] = $cache[$bodyBuffer];
             return;
@@ -321,7 +324,7 @@ class Request implements Stringable
 
         if ($cacheable) {
             $cache[$bodyBuffer] = $this->data['post'];
-            if (count($cache) > 256) {
+            if (count($cache) > static::MAX_CACHE_SIZE) {
                 unset($cache[key($cache)]);
             }
         }
@@ -332,8 +335,9 @@ class Request implements Stringable
      *
      * @param string|null $name
      * @param mixed|null $default
+     * @return mixed
      */
-    public function header(string $name = null, mixed $default = null): mixed
+    public function header(?string $name = null, mixed $default = null): mixed
     {
         if (!isset($this->data['headers'])) {
             $this->parseHeaders();
@@ -362,7 +366,7 @@ class Request implements Stringable
         }
 
         $headBuffer = substr($rawHead, $endLinePosition + 2);
-        $cacheable = static::$enableCache && !isset($headBuffer[4096]);
+        $cacheable = !isset($headBuffer[static::MAX_CACHE_STRING_LENGTH]);
         if ($cacheable && isset($cache[$headBuffer])) {
             $this->data['headers'] = $cache[$headBuffer];
             return;
@@ -388,7 +392,7 @@ class Request implements Stringable
 
         if ($cacheable) {
             $cache[$headBuffer] = $this->data['headers'];
-            if (count($cache) > 128) {
+            if (count($cache) > static::MAX_CACHE_SIZE) {
                 unset($cache[key($cache)]);
             }
         }

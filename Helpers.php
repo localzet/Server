@@ -50,6 +50,7 @@ use localzet\Events\Linux\Driver\EvDriver;
 use localzet\Events\Linux\Driver\EventDriver;
 use localzet\Events\Linux\Driver\UvDriver;
 use localzet\Events\Windows;
+use localzet\Protocols\Http\Response;
 use localzet\Server;
 use localzet\ServerAbstract;
 
@@ -242,7 +243,7 @@ function get_event_loop_name(): string
  */
 function format_http_response(int $code, ?string $body = '', array $headers = [], string $reason = null, string $version = '1.1'): string
 {
-    $reason ??= \localzet\Protocols\Http\Response::PHRASES[$code] ?? 'Unknown Status';
+    $reason ??= Response::PHRASES[$code] ?? 'Unknown Status';
     $head = "HTTP/$version $code $reason\r\n";
 
     $headers = array_change_key_case($headers);
@@ -251,7 +252,13 @@ function format_http_response(int $code, ?string $body = '', array $headers = []
         'connection' => $headers['connection'] ?? 'keep-alive',
         'content-type' => $headers['content-type'] ?? 'text/html;charset=utf-8',
     ];
+
     $headers = array_merge($headers, $defaultHeaders);
+    $bodyLen = empty($body) ? null : strlen($body);
+
+    if (empty($headers['transfer-encoding']) && $bodyLen) {
+        $headers['content-length'] = $bodyLen;
+    }
 
     foreach ($headers as $name => $values) {
         foreach ((array)$values as $value) {
@@ -259,12 +266,6 @@ function format_http_response(int $code, ?string $body = '', array $headers = []
                 $head .= "$name: $value\r\n";
             }
         }
-    }
-
-    $bodyLen = empty($body) ? null : strlen($body);
-
-    if (empty($headers['transfer-encoding']) && $bodyLen) {
-        $head .= "content-length: $bodyLen\r\n";
     }
 
     $head .= "\r\n";

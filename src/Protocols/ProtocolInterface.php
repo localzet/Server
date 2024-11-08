@@ -41,7 +41,7 @@ interface ProtocolInterface
      *
      * @return int|false
      */
-    public static function input(string $buffer, ConnectionInterface $connection): bool|int;
+    public static function input(string $buffer, ConnectionInterface $connection): int;
 
     /**
      * Расшифруйте пакет и вызовите обратный вызов onMessage($message), где $message - это результат, возвращенный функцией decode.

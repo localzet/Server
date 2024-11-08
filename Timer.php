@@ -29,7 +29,7 @@ namespace localzet;
 use Carbon\Carbon;
 use localzet\Events\EventInterface;
 use localzet\Events\Linux;
-use localzet\Server\Events\{Revolt};
+use localzet\Server\Events\Revolt;
 use RuntimeException;
 use Throwable;
 use function function_exists;

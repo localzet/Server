@@ -29,7 +29,6 @@ namespace localzet\Connection;
 use JsonSerializable;
 use localzet\Events\EventInterface;
 use localzet\Protocols\Http\Request;
-use localzet\Protocols\ProtocolInterface;
 use localzet\Server;
 use RuntimeException;
 use stdClass;
@@ -486,10 +485,8 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
         // Попытка вызвать protocol::encode($sendBuffer) перед отправкой.
         if (false === $raw && $this->protocol !== null) {
-            /** @var ProtocolInterface $parser */
-            $parser = $this->protocol;
             try {
-                $sendBuffer = $parser::encode($sendBuffer, $this);
+                $sendBuffer = $this->protocol::encode($sendBuffer, $this);
             } catch (Throwable $e) {
                 $this->error($e);
             }
@@ -706,11 +703,16 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                     ++self::$statistics['total_request'];
                     $request = $requests[$buffer];
                     if ($request instanceof Request) {
-                        $request = clone $request;
-                        $requests[$buffer] = $request;
                         $request->connection = $this;
                         $this->request = $request;
+                        try {
+                            ($this->onMessage)($this, $request);
+                        } catch (Throwable $e) {
+                            $this->error($e);
+                        }
                         $request->properties = [];
+                        $requests[$buffer] = clone $request;
+                        return;
                     }
 
                     try {
@@ -740,10 +742,10 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                 } else {
                     // Получить текущую длину пакета.
                     try {
-                        /** @var ProtocolInterface $parser */
-                        $parser = $this->protocol;
-                        $this->currentPackageLength = $parser::input($this->recvBuffer, $this);
-                    } catch (Throwable) {
+                        $this->currentPackageLength = $this->protocol::input($this->recvBuffer, $this);
+                    } catch (Throwable $e) {
+                        $this->currentPackageLength = -1;
+                        Server::safeEcho((string)$e);
                     }
 
                     // Длина пакета неизвестна.
@@ -779,14 +781,18 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                 $this->currentPackageLength = 0;
                 try {
                     // Декодировать буфер запроса перед вызовом обратного вызова onMessage.
-                    /** @var ProtocolInterface $parser */
-                    $parser = $this->protocol;
-                    $request = $parser::decode($oneRequestBuffer, $this);
+                    $request = $this->protocol::decode($oneRequestBuffer, $this);
                     if (static::$enableCache && (!is_object($request) || $request instanceof Request) && $one && !isset($oneRequestBuffer[512])) {
-                        $requests[$oneRequestBuffer] = $request;
+                        ($this->onMessage)($this, $request);
+                        if ($request instanceof Request) {
+                            $requests[$oneRequestBuffer] = clone $request;
+                        } else {
+                            $requests[$oneRequestBuffer] = $request;
+                        }
                         if (count($requests) > 512) {
                             unset($requests[key($requests)]);
                         }
+                        return;
                     }
 
                     ($this->onMessage)($this, $request);
