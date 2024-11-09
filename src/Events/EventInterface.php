@@ -24,9 +24,9 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events;
+namespace localzet\Server\Events;
 
-use localzet\Events\Linux\Suspension;
+use localzet\Server\Events\Linux\Suspension;
 use Throwable;
 
 /**

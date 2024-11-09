@@ -24,11 +24,11 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Protocols\Http\Session;
+namespace localzet\Server\Protocols\Http\Session;
 
 use Carbon\Carbon;
 use Exception;
-use localzet\Protocols\Http\Session;
+use localzet\Server\Protocols\Http\Session;
 use function clearstatcache;
 use function file_get_contents;
 use function file_put_contents;

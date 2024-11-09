@@ -24,7 +24,7 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Protocols\Http;
+namespace localzet\Server\Protocols\Http;
 
 use Stringable;
 

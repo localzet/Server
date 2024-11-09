@@ -24,7 +24,7 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events;
+namespace localzet\Server\Events;
 
 use RuntimeException;
 use Swow\Coroutine;

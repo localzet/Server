@@ -24,14 +24,14 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events\Linux\Driver;
+namespace localzet\Server\Events\Linux\Driver;
 
 use Closure;
-use localzet\Events\Linux\{UnsupportedFeatureException};
-use localzet\Events\Linux\CallbackType;
-use localzet\Events\Linux\Driver;
-use localzet\Events\Linux\InvalidCallbackError;
-use localzet\Events\Linux\Suspension;
+use localzet\Server\Events\Linux\{UnsupportedFeatureException};
+use localzet\Server\Events\Linux\CallbackType;
+use localzet\Server\Events\Linux\Driver;
+use localzet\Server\Events\Linux\InvalidCallbackError;
+use localzet\Server\Events\Linux\Suspension;
 use function array_keys;
 use function array_map;
 use function debug_backtrace;

@@ -24,15 +24,15 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events\Linux;
+namespace localzet\Server\Events\Linux;
 
 // @codeCoverageIgnoreStart
 use Error;
-use localzet\Events\Linux\Driver\{TracingDriver};
-use localzet\Events\Linux\Driver\EvDriver;
-use localzet\Events\Linux\Driver\EventDriver;
-use localzet\Events\Linux\Driver\StreamSelectDriver;
-use localzet\Events\Linux\Driver\UvDriver;
+use localzet\Server\Events\Linux\Driver\{TracingDriver};
+use localzet\Server\Events\Linux\Driver\EvDriver;
+use localzet\Server\Events\Linux\Driver\EventDriver;
+use localzet\Server\Events\Linux\Driver\StreamSelectDriver;
+use localzet\Server\Events\Linux\Driver\UvDriver;
 use function class_exists;
 use function getenv;
 use function is_subclass_of;

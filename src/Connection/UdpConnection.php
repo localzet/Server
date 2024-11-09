@@ -24,11 +24,11 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Connection;
+namespace localzet\Server\Connection;
 
 use JetBrains\PhpStorm\{Pure};
 use JsonSerializable;
-use localzet\Protocols\ProtocolInterface;
+use localzet\Server\Protocols\ProtocolInterface;
 use function stream_socket_get_name;
 use function stream_socket_sendto;
 use function strlen;

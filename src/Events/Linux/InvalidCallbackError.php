@@ -24,11 +24,11 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events\Linux;
+namespace localzet\Server\Events\Linux;
 
 use Closure;
 use Error;
-use localzet\Events\Linux\Internal\ClosureHelper;
+use localzet\Server\Events\Linux\Internal\ClosureHelper;
 
 /**
  * Финальный класс для обработки недействительных обратных вызовов.

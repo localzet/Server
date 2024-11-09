@@ -49,7 +49,7 @@ declare(strict_types=1);
  *              For any questions, please contact <support@localzet.com>
  */
 
-namespace localzet\Protocols;
+namespace localzet\Server\Protocols;
 
 /**
  * @uses Http

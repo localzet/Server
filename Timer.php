@@ -27,8 +27,8 @@
 namespace localzet;
 
 use Carbon\Carbon;
-use localzet\Events\EventInterface;
-use localzet\Events\Linux;
+use localzet\Server\Events\EventInterface;
+use localzet\Server\Events\Linux;
 use localzet\Server\Events\Revolt;
 use RuntimeException;
 use Throwable;

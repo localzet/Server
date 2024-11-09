@@ -45,12 +45,12 @@ declare(strict_types=1);
  *              For any questions, please contact <support@localzet.com>
  */
 
-use localzet\Events\Linux;
-use localzet\Events\Linux\Driver\EvDriver;
-use localzet\Events\Linux\Driver\EventDriver;
-use localzet\Events\Linux\Driver\UvDriver;
-use localzet\Events\Windows;
-use localzet\Protocols\Http\Response;
+use localzet\Server\Events\Linux;
+use localzet\Server\Events\Linux\Driver\EvDriver;
+use localzet\Server\Events\Linux\Driver\EventDriver;
+use localzet\Server\Events\Linux\Driver\UvDriver;
+use localzet\Server\Events\Windows;
+use localzet\Server\Protocols\Http\Response;
 use localzet\Server;
 use localzet\ServerAbstract;
 

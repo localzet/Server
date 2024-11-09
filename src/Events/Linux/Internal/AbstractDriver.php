@@ -24,17 +24,17 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events\Linux\Internal;
+namespace localzet\Server\Events\Linux\Internal;
 
 use Closure;
 use Error;
 use Fiber;
-use localzet\Events\Linux\{Driver};
-use localzet\Events\Linux\CallbackType;
-use localzet\Events\Linux\FiberLocal;
-use localzet\Events\Linux\InvalidCallbackError;
-use localzet\Events\Linux\Suspension;
-use localzet\Events\Linux\UncaughtThrowable;
+use localzet\Server\Events\Linux\{Driver};
+use localzet\Server\Events\Linux\CallbackType;
+use localzet\Server\Events\Linux\FiberLocal;
+use localzet\Server\Events\Linux\InvalidCallbackError;
+use localzet\Server\Events\Linux\Suspension;
+use localzet\Server\Events\Linux\UncaughtThrowable;
 use SplQueue;
 use stdClass;
 use Throwable;

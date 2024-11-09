@@ -24,9 +24,9 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Protocols;
+namespace localzet\Server\Protocols;
 
-use localzet\Connection\ConnectionInterface;
+use localzet\Server\Connection\ConnectionInterface;
 
 /**
  * Интерфейс протокола

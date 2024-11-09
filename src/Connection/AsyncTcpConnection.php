@@ -24,10 +24,10 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Connection;
+namespace localzet\Server\Connection;
 
 use Exception;
-use localzet\Events\EventInterface;
+use localzet\Server\Events\EventInterface;
 use localzet\Server;
 use localzet\Timer;
 use RuntimeException;

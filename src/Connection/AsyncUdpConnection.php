@@ -24,11 +24,11 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Connection;
+namespace localzet\Server\Connection;
 
 use Exception;
-use localzet\Events\EventInterface;
-use localzet\Protocols\ProtocolInterface;
+use localzet\Server\Events\EventInterface;
+use localzet\Server\Protocols\ProtocolInterface;
 use localzet\Server;
 use Throwable;
 use function class_exists;

@@ -51,10 +51,10 @@ declare(strict_types=1);
 
 namespace localzet;
 
-use localzet\Connection\ConnectionInterface;
-use localzet\Connection\TcpConnection;
-use localzet\Protocols\Http\Request;
-use localzet\Protocols\Http\Response;
+use localzet\Server\Connection\ConnectionInterface;
+use localzet\Server\Connection\TcpConnection;
+use localzet\Server\Protocols\Http\Request;
+use localzet\Server\Protocols\Http\Response;
 
 /**
  * Абстрактный класс ServerAbstract, определяющий основные методы сервера.

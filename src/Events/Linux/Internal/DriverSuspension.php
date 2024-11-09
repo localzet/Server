@@ -24,13 +24,13 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events\Linux\Internal;
+namespace localzet\Server\Events\Linux\Internal;
 
 use Closure;
 use Error;
 use Fiber;
 use FiberError;
-use localzet\Events\Linux\Suspension;
+use localzet\Server\Events\Linux\Suspension;
 use ReflectionFiber;
 use Throwable;
 use WeakMap;

@@ -24,7 +24,7 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events\Linux\Internal;
+namespace localzet\Server\Events\Linux\Internal;
 
 /** @internal */
 final class DeferCallback extends DriverCallback

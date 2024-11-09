@@ -24,11 +24,11 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Connection;
+namespace localzet\Server\Connection;
 
 use AllowDynamicProperties;
-use localzet\Events\Event;
-use localzet\Events\EventInterface;
+use localzet\Server\Events\Event;
+use localzet\Server\Events\EventInterface;
 use localzet\Server;
 use Throwable;
 

@@ -24,11 +24,11 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Connection;
+namespace localzet\Server\Connection;
 
 use JsonSerializable;
-use localzet\Events\EventInterface;
-use localzet\Protocols\Http\Request;
+use localzet\Server\Events\EventInterface;
+use localzet\Server\Protocols\Http\Request;
 use localzet\Server;
 use RuntimeException;
 use stdClass;

@@ -24,11 +24,11 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Protocols;
+namespace localzet\Server\Protocols;
 
-use localzet\Connection\{ConnectionInterface};
-use localzet\Connection\AsyncTcpConnection;
-use localzet\Protocols\Http\Response;
+use localzet\Server\Connection\{ConnectionInterface};
+use localzet\Server\Connection\AsyncTcpConnection;
+use localzet\Server\Protocols\Http\Response;
 use localzet\Server;
 use localzet\Timer;
 use Throwable;

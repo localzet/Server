@@ -24,11 +24,11 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Protocols\Http;
+namespace localzet\Server\Protocols\Http;
 
 use Exception;
-use localzet\Connection\TcpConnection;
-use localzet\Protocols\Http;
+use localzet\Server\Connection\TcpConnection;
+use localzet\Server\Protocols\Http;
 use RuntimeException;
 use Stringable;
 use function array_walk_recursive;

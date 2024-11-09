@@ -26,7 +26,7 @@
 
 /** @noinspection PhpComposerExtensionStubsInspection */
 
-namespace localzet\Events\Linux\Driver;
+namespace localzet\Server\Events\Linux\Driver;
 
 use Closure;
 use Error;
@@ -36,13 +36,13 @@ use EvLoop;
 use EvSignal;
 use EvTimer;
 use EvWatcher;
-use localzet\Events\Linux\Internal\{StreamReadableCallback};
-use localzet\Events\Linux\Internal\AbstractDriver;
-use localzet\Events\Linux\Internal\DriverCallback;
-use localzet\Events\Linux\Internal\SignalCallback;
-use localzet\Events\Linux\Internal\StreamCallback;
-use localzet\Events\Linux\Internal\StreamWritableCallback;
-use localzet\Events\Linux\Internal\TimerCallback;
+use localzet\Server\Events\Linux\Internal\{StreamReadableCallback};
+use localzet\Server\Events\Linux\Internal\AbstractDriver;
+use localzet\Server\Events\Linux\Internal\DriverCallback;
+use localzet\Server\Events\Linux\Internal\SignalCallback;
+use localzet\Server\Events\Linux\Internal\StreamCallback;
+use localzet\Server\Events\Linux\Internal\StreamWritableCallback;
+use localzet\Server\Events\Linux\Internal\TimerCallback;
 use function assert;
 use function extension_loaded;
 use function hrtime;

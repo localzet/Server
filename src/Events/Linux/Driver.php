@@ -24,7 +24,7 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events\Linux;
+namespace localzet\Server\Events\Linux;
 
 use Closure;
 use Error;

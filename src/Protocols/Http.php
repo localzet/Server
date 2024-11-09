@@ -24,11 +24,11 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Protocols;
+namespace localzet\Server\Protocols;
 
-use localzet\Connection\TcpConnection;
-use localzet\Protocols\Http\Request;
-use localzet\Protocols\Http\Response;
+use localzet\Server\Connection\TcpConnection;
+use localzet\Server\Protocols\Http\Request;
+use localzet\Server\Protocols\Http\Response;
 use function clearstatcache;
 use function count;
 use function explode;

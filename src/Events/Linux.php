@@ -24,17 +24,17 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events;
+namespace localzet\Server\Events;
 
 use Closure;
 use Error;
-use localzet\Events\Linux\{Driver};
-use localzet\Events\Linux\CallbackType;
-use localzet\Events\Linux\DriverFactory;
-use localzet\Events\Linux\Internal\AbstractDriver;
-use localzet\Events\Linux\Internal\DriverCallback;
-use localzet\Events\Linux\InvalidCallbackError;
-use localzet\Events\Linux\Suspension;
+use localzet\Server\Events\Linux\{Driver};
+use localzet\Server\Events\Linux\CallbackType;
+use localzet\Server\Events\Linux\DriverFactory;
+use localzet\Server\Events\Linux\Internal\AbstractDriver;
+use localzet\Server\Events\Linux\Internal\DriverCallback;
+use localzet\Server\Events\Linux\InvalidCallbackError;
+use localzet\Server\Events\Linux\Suspension;
 use function count;
 use function function_exists;
 use function gc_collect_cycles;

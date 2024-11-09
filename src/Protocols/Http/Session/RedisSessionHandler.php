@@ -24,9 +24,9 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Protocols\Http\Session;
+namespace localzet\Server\Protocols\Http\Session;
 
-use localzet\Protocols\Http\Session;
+use localzet\Server\Protocols\Http\Session;
 use localzet\Timer;
 use Redis;
 use RedisCluster;

@@ -24,13 +24,13 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Protocols;
+namespace localzet\Server\Protocols;
 
 use Exception;
-use localzet\Connection\{ConnectionInterface};
-use localzet\Connection\TcpConnection;
-use localzet\Protocols\Http\Request;
-use localzet\Protocols\Http\Response;
+use localzet\Server\Connection\{ConnectionInterface};
+use localzet\Server\Connection\TcpConnection;
+use localzet\Server\Protocols\Http\Request;
+use localzet\Server\Protocols\Http\Response;
 use localzet\Server;
 use Throwable;
 use function base64_encode;

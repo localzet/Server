@@ -24,12 +24,12 @@
  *              For any questions, please contact <creator@localzet.com>
  */
 
-namespace localzet\Events\Linux;
+namespace localzet\Server\Events\Linux;
 
 use Closure;
 use Error;
-use localzet\Events\Linux;
-use localzet\Events\Linux\Internal\ClosureHelper;
+use localzet\Server\Events\Linux;
+use localzet\Server\Events\Linux\Internal\ClosureHelper;
 use Throwable;
 use function sprintf;
 use function str_replace;
