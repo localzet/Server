@@ -112,7 +112,7 @@ class Request implements Stringable
      *
      * @var mixed|string
      */
-    protected mixed $sid;
+    protected mixed $sid = null;
 
     /**
      * Конструктор запроса.
@@ -856,11 +856,11 @@ class Request implements Stringable
     {
         // Если идентификатор сессии указан, удалить текущий идентификатор сессии
         if ($sessionId) {
-            unset($this->sid);
+            $this->sid = null;
         }
 
         // Если идентификатор сессии не установлен, получить его из cookie или создать новый
-        if ($this->sid === null) {
+        if (!$this->sid) {
             // Получить имя сессии
             $sessionName = Session::$name;
 
