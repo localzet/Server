@@ -134,7 +134,7 @@ class Session
     /**
      * Идентификатор сессии.
      */
-    protected string $sessionId;
+    protected ?string $sessionId = null;
 
     /**
      * Конструктор сессии.
