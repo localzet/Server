@@ -48,7 +48,7 @@ final class ClosureHelper
             }
 
             // Если у замыкания есть имя файла и номер строки начала, добавляем их к описанию.
-            if ($reflectionFunction->getFileName() && $reflectionFunction->getStartLine()) {
+            if ($reflectionFunction->getFileName() !== false && $reflectionFunction->getStartLine()) {
                 $description .= " определено в " . $reflectionFunction->getFileName() . ':' . $reflectionFunction->getStartLine();
             }
 
