@@ -129,9 +129,7 @@ class Request implements Stringable
     /**
      * Получить запрос.
      *
-     * @param string|null $name
      * @param mixed|null $default
-     * @return mixed
      */
     public function get(?string $name = null, mixed $default = null): mixed
     {
@@ -215,9 +213,7 @@ class Request implements Stringable
     /**
      * Получить POST.
      *
-     * @param string|null $name
      * @param mixed|null $default
-     * @return mixed
      */
     public function post(?string $name = null, mixed $default = null): mixed
     {
@@ -333,9 +329,7 @@ class Request implements Stringable
     /**
      * Получить элемент заголовка по имени.
      *
-     * @param string|null $name
      * @param mixed|null $default
-     * @return mixed
      */
     public function header(?string $name = null, mixed $default = null): mixed
     {

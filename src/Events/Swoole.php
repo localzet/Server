@@ -142,6 +142,7 @@ final class Swoole implements EventInterface
         foreach (Coroutine::listCoroutines() as $coroutine) {
             Coroutine::cancel($coroutine);
         }
+        
         // Дождемся завершения работы сопрограмм.
         usleep(20000);
         Event::exit();
@@ -276,9 +277,8 @@ final class Swoole implements EventInterface
 
     /**
      * @param $fd
-     * @return void
      */
-    private function callRead($fd)
+    private function callRead(int $fd): void
     {
         if (isset($this->readEvents[$fd])) {
             $this->safeCall($this->readEvents[$fd][0], $this->readEvents[$fd][1]);
@@ -287,9 +287,8 @@ final class Swoole implements EventInterface
 
     /**
      * @param $fd
-     * @return void
      */
-    private function callWrite($fd)
+    private function callWrite(int $fd): void
     {
         if (isset($this->writeEvents[$fd])) {
             $this->safeCall($this->writeEvents[$fd][0], $this->writeEvents[$fd][1]);

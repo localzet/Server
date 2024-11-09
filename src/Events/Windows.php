@@ -118,8 +118,6 @@ final class Windows implements EventInterface
 
     /**
      * Следующее время срабатывания таймера.
-     *
-     * @var float
      */
     private float $nextTickTime = 0;
 
@@ -411,17 +409,15 @@ final class Windows implements EventInterface
 
     /**
      * Установить время следующего тика.
-     *
-     * @param float $nextTickTime
-     * @return void
      */
-    protected function setNextTickTime(float $nextTickTime): void
+    private function setNextTickTime(float $nextTickTime): void
     {
         $this->nextTickTime = $nextTickTime;
         if ($nextTickTime == 0) {
             $this->selectTimeout = 10000000;
             return;
         }
+        
         $timeNow = microtime(true);
         $this->selectTimeout = max((int)(($nextTickTime - $timeNow) * 1000000), 0);
     }

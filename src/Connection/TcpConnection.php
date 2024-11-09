@@ -710,6 +710,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                         } catch (Throwable $e) {
                             $this->error($e);
                         }
+                        
                         $request->properties = [];
                         $requests[$buffer] = clone $request;
                         return;
@@ -789,9 +790,11 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                         } else {
                             $requests[$oneRequestBuffer] = $request;
                         }
+                        
                         if (count($requests) > 512) {
                             unset($requests[key($requests)]);
                         }
+                        
                         return;
                     }
 

@@ -69,9 +69,6 @@ class Ws
     /**
      * Проверка целостности пакета.
      *
-     * @param string $buffer
-     * @param AsyncTcpConnection $asyncTcpConnection
-     * @return int
      * @throws Throwable
      */
     public static function input(string $buffer, AsyncTcpConnection $asyncTcpConnection): int

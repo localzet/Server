@@ -146,6 +146,7 @@ class Http
             if (count($requests) > 512) {
                 unset($requests[key($requests)]);
             }
+            
             $request = clone $request;
         }
 
