@@ -2,7 +2,5 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/php-uv" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/swow" vcs="Git" />
   </component>
 </project>
