@@ -29,6 +29,8 @@ namespace localzet\Server\Protocols;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\Http\Response;
+use localzet\Server\Protocols\Http\ServerSentEvents;
+use Throwable;
 use function clearstatcache;
 use function count;
 use function explode;
@@ -170,7 +172,7 @@ class Http
     /**
      * Кодирование Http.
      *
-     * @param string|Response $response
+     * @param string|Response|ServerSentEvents $response
      * @throws Throwable
      */
     public static function encode(mixed $response, TcpConnection $tcpConnection): string
@@ -191,7 +193,7 @@ class Http
             $tcpConnection->headers = [];
         }
 
-        if ($response->file !== null) {
+        if (!empty($response->file)) {
             $file = $response->file['file'];
             $offset = $response->file['offset'];
             $length = $response->file['length'];
