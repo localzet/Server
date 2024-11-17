@@ -281,7 +281,7 @@ class Http
             $connection->context->bufferFull = true;
         };
 
-        $connection->onBufferDrain = function ($connection) use ($doWrite): void {
+        $tcpConnection->onBufferDrain = function ($connection) use ($doWrite): void {
             $connection->context->bufferFull = false;
             $doWrite();
         };
