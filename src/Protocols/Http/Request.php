@@ -115,6 +115,11 @@ class Request implements Stringable
     protected mixed $sid = null;
 
     /**
+     * @var bool
+     */
+    protected $isDirty = false;
+
+    /**
      * Конструктор запроса.
      */
     public function __construct(
@@ -127,7 +132,7 @@ class Request implements Stringable
     }
 
     /**
-     * Получить запрос.
+     * Получить GET.
      *
      * @param mixed|null $default
      */
@@ -142,6 +147,22 @@ class Request implements Stringable
         }
 
         return $this->data['get'][$name] ?? $default;
+    }
+
+    /**
+     * Установить GET.
+     * @param array $get
+     * @return Request
+     */
+    public function setGet(array $get): Request
+    {
+        $this->isDirty = true;
+        if (isset($this->data)) {
+            $this->data['get'] = $get;
+        } else {
+            $this->_data['get'] = $get;
+        }
+        return $this;
     }
 
     /**
@@ -228,6 +249,21 @@ class Request implements Stringable
         return $this->data['post'][$name] ?? $default;
     }
 
+    /**
+     * Установить POST.
+     * @param array $post
+     * @return Request
+     */
+    public function setPost(array $post): Request
+    {
+        $this->isDirty = true;
+        if (isset($this->data)) {
+            $this->data['post'] = $post;
+        } else {
+            $this->_data['post'] = $post;
+        }
+        return $this;
+    }
 
     /**
      * Получить ввод.
@@ -237,13 +273,7 @@ class Request implements Stringable
      */
     public function input(string $name, mixed $default = null): mixed
     {
-        $post = $this->post();
-        if (isset($post[$name])) {
-            return $post[$name];
-        }
-
-        $get = $this->get();
-        return $get[$name] ?? $default;
+        return $this->get($name, $this->post($name, $default));
     }
 
     /**
@@ -269,7 +299,7 @@ class Request implements Stringable
      */
     public function all(): mixed
     {
-        return $this->post() + $this->get();
+        return $this->get() + $this->post();
     }
 
     /**
@@ -345,6 +375,21 @@ class Request implements Stringable
         return $this->data['headers'][$name] ?? $default;
     }
 
+    /**
+     * Установить заголовки.
+     * @param array $headers
+     * @return $this
+     */
+    public function setHeaders(array $headers): Request
+    {
+        $this->isDirty = true;
+        if (isset($this->data)) {
+            $this->data['headers'] = $headers;
+        } else {
+            $this->_data['headers'] = $headers;
+        }
+        return $this;
+    }
 
     /**
      * Разбор заголовков.
@@ -643,11 +688,8 @@ class Request implements Stringable
      */
     public function expectsJson(): bool
     {
-        if ($this->isAjax() && !$this->isPjax()) {
-            return true;
-        }
-
-        return $this->acceptJson();
+        return ($this->isAjax() && !$this->isPjax())
+            || ($this->acceptJson() && !$this->isHTML());
     }
 
     /**
@@ -659,29 +701,8 @@ class Request implements Stringable
             $this->parseAcceptHeader();
         }
 
-        return array_key_exists('*/*', $this->data['accept']) || array_key_exists('*', $this->data['accept']);
-    }
-
-    /**
-     * Парсит заголовок Accept.
-     */
-    public function parseAcceptHeader(): void
-    {
-        $accepts = explode(',', (string)$this->header('Accept', ''));
-        $this->data['accept'] = [];
-
-        foreach ($accepts as $accept) {
-            $parts = explode(';', $accept);
-            $media_type = trim(array_shift($parts));
-            $params = [];
-
-            foreach ($parts as $part) {
-                [$name, $value] = explode('=', $part);
-                $params[trim($name)] = trim($value);
-            }
-
-            $this->data['accept'][$media_type] = $params;
-        }
+        return array_key_exists('*/*', $this->data['accept'])
+            || array_key_exists('*', $this->data['accept']);
     }
 
     /**
@@ -691,6 +712,15 @@ class Request implements Stringable
     {
         return str_contains((string)$this->header('Content-Type', ''), '/json')
             || str_contains((string)$this->header('Content-Type', ''), '+json');
+    }
+
+    /**
+     * Проверяет, является ли тип контента HTML.
+     */
+    public function isHTML(): bool
+    {
+        return str_contains((string)$this->header('Content-Type', ''), '/html')
+            || str_contains((string)$this->header('Content-Type', ''), '+html');
     }
 
     /**
@@ -714,9 +744,29 @@ class Request implements Stringable
      */
     public function acceptJson(): bool
     {
-        return str_contains((string)$this->header('Accept', ''), '/json')
-            || str_contains((string)$this->header('Accept', ''), '+json')
-            || $this->acceptsAnyContentType();
+        return $this->isJson() || $this->acceptsAnyContentType();
+    }
+
+    /**
+     * Парсит заголовок Accept.
+     */
+    public function parseAcceptHeader(): void
+    {
+        $accepts = explode(',', (string)$this->header('Accept', ''));
+        $this->data['accept'] = [];
+
+        foreach ($accepts as $accept) {
+            $parts = explode(';', $accept);
+            $media_type = trim(array_shift($parts));
+            $params = [];
+
+            foreach ($parts as $part) {
+                [$name, $value] = explode('=', $part);
+                $params[trim($name)] = trim($value);
+            }
+
+            $this->data['accept'][$media_type] = $params;
+        }
     }
 
     /**
@@ -1086,6 +1136,18 @@ class Request implements Stringable
     {
         // Установить безопасность в false
         $this->isSafe = false;
+    }
+
+    /**
+     * __clone.
+     *
+     * @return void
+     */
+    public function __clone()
+    {
+        if ($this->isDirty) {
+            unset($this->data['get'], $this->data['post'], $this->data['headers']);
+        }
     }
 
     /**
