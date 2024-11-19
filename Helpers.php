@@ -89,7 +89,6 @@ function localzet_start(
     null|array        $constructor = null,
     // Дополнительные сервера
     null|array        $services = null,
-    null|string       $eventLoopClass = null,
 ): Server
 {
     if (is_array($name)) {
@@ -106,7 +105,6 @@ function localzet_start(
     $master->reusePort = $reusePort ?? $master->reusePort;
     $master->transport = $transport ?? $master->transport;
     $master->protocol = $protocol ?? $master->protocol;
-    $master->eventLoopClass = $eventLoopClass ?? $master->eventLoopClass;
 
     $onServerStart = null;
     if ($handler && class_exists($handler)) {
@@ -136,7 +134,6 @@ function localzet_start(
             $server->reusePort = $reusePort ?? false;
             $server->transport = $transport ?? 'tcp';
             $server->protocol = $protocol ?? null;
-            $server->eventLoopClass = $eventLoopClass ?? null;
 
             if ($handler && class_exists($handler)) {
                 $instance = new $handler(...array_values($constructor ?? []));
