@@ -129,7 +129,7 @@ abstract class ServerAbstract
      * @param Request $request HTTP запрос.
      * @return void|Response
      */
-    public function onWebSocketConnect(TcpConnection &$tcpConnection, Request $request): mixed
+    public function onWebSocketConnect(TcpConnection &$tcpConnection, Request $request)
     {
     }
 
