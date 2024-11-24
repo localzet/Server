@@ -33,7 +33,6 @@ use localzet\Server\Protocols\Http\ServerSentEvents;
 use Throwable;
 use function clearstatcache;
 use function count;
-use function explode;
 use function filesize;
 use function fopen;
 use function fread;
@@ -137,7 +136,7 @@ class Http
             $request = $requests[$buffer];
             $request->connection = $tcpConnection;
             $tcpConnection->request = $request;
-            $request->properties = [];
+            $request->destroy();
             return $request;
         }
 
@@ -148,7 +147,7 @@ class Http
             if (count($requests) > 512) {
                 unset($requests[key($requests)]);
             }
-            
+
             $request = clone $request;
         }
 
@@ -181,7 +180,7 @@ class Http
             // Удаляем ссылки на запрос и соединение для предотвращения утечки памяти.
             $request = $tcpConnection->request;
             // Очищаем свойства запроса и соединения.
-            $request->session = $request->connection = $tcpConnection->request = null;
+            $request->connection = $tcpConnection->request = null;
         }
 
         $response = is_object($response) ? $response : new Response(200, [], (string)$response);

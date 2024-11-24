@@ -27,8 +27,8 @@
 namespace localzet\Server\Connection;
 
 use Exception;
-use localzet\Server\Events\EventInterface;
 use localzet\Server;
+use localzet\Server\Events\EventInterface;
 use localzet\Timer;
 use RuntimeException;
 use stdClass;
@@ -60,11 +60,6 @@ use const TCP_NODELAY;
  */
 class AsyncTcpConnection extends TcpConnection
 {
-    /**
-     * @var mixed[]
-     */
-    public $socketContext;
-
     /**
      * Встроенные протоколы PHP.
      *
@@ -137,7 +132,7 @@ class AsyncTcpConnection extends TcpConnection
     /**
      * Опции контекста.
      */
-    protected array $contextOption = [];
+    protected array $socketContext = [];
 
     /**
      * Таймер переподключения.
@@ -248,6 +243,7 @@ class AsyncTcpConnection extends TcpConnection
 
         $this->status = self::STATUS_CONNECTING;
         $this->connectStartTime = microtime(true);
+        set_error_handler(fn() => false);
         if ($this->transport !== 'unix') {
             if (!$this->remotePort) {
                 $this->remotePort = $this->transport === 'ssl' ? 443 : 80;
@@ -284,6 +280,7 @@ class AsyncTcpConnection extends TcpConnection
             $this->socket = stream_socket_client("$this->transport://$this->remoteAddress", $errno, $err_str, 0,
                 STREAM_CLIENT_ASYNC_CONNECT);
         }
+        restore_error_handler();
 
         // В случае неудачной попытки вызвать колбэк onError.
         if (!$this->socket || !is_resource($this->socket)) {
@@ -401,9 +398,14 @@ class AsyncTcpConnection extends TcpConnection
 
             // Попробуем открыть keepalive для tcp и отключить алгоритм Nagle.
             if (function_exists('socket_import_stream') && $this->transport === 'tcp') {
-                $rawSocket = socket_import_stream($this->socket);
-                socket_set_option($rawSocket, SOL_SOCKET, SO_KEEPALIVE, 1);
-                socket_set_option($rawSocket, SOL_TCP, TCP_NODELAY, 1);
+                $socket = socket_import_stream($this->socket);
+                socket_set_option($socket, SOL_SOCKET, SO_KEEPALIVE, 1);
+                socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
+                if (defined('TCP_KEEPIDLE') && defined('TCP_KEEPINTVL') && defined('TCP_KEEPCNT')) {
+                    socket_set_option($socket, SOL_TCP, TCP_KEEPIDLE, static::TCP_KEEPALIVE_INTERVAL);
+                    socket_set_option($socket, SOL_TCP, TCP_KEEPINTVL, static::TCP_KEEPALIVE_INTERVAL);
+                    socket_set_option($socket, SOL_TCP, TCP_KEEPCNT, 1);
+                }
             }
 
             // SSL-рукопожатие.

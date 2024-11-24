@@ -144,7 +144,7 @@ final class Swoole implements EventInterface
         }
         
         // Дождемся завершения работы сопрограмм.
-        usleep(20000);
+        usleep(200000);
         Event::exit();
     }
 

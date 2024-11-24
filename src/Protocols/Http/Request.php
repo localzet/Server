@@ -88,11 +88,6 @@ class Request implements Stringable
     public ?TcpConnection $connection = null;
 
     /**
-     * Экземпляр сессии.
-     */
-    public ?Session $session = null;
-
-    /**
      * Свойства.
      */
     public array $properties = [];
@@ -108,16 +103,17 @@ class Request implements Stringable
     protected bool $isSafe = true;
 
     /**
-     * Идентификатор сессии.
-     *
-     * @var mixed|string
-     */
-    protected mixed $sid = null;
-
-    /**
      * @var bool
      */
     protected $isDirty = false;
+
+    /**
+     * Context.
+     *
+     * @var array
+     */
+    public array $context = [];
+
 
     /**
      * Конструктор запроса.
@@ -887,13 +883,7 @@ class Request implements Stringable
      */
     public function session(): Session
     {
-        // Если сессия не установлена, создать новую сессию с идентификатором сессии
-        if (!$this->session instanceof Session) {
-            $this->session = new Session($this->sessionId());
-        }
-
-        // Вернуть сессию
-        return $this->session;
+        return $this->context['session'] ??= new Session($this->sessionId());
     }
 
     /**
@@ -906,17 +896,18 @@ class Request implements Stringable
     {
         // Если идентификатор сессии указан, удалить текущий идентификатор сессии
         if ($sessionId) {
-            $this->sid = null;
+            unset($this->context['sid']);
         }
 
         // Если идентификатор сессии не установлен, получить его из cookie или создать новый
-        if (!$this->sid) {
+        if (!isset($this->context['sid'])) {
             // Получить имя сессии
             $sessionName = Session::$name;
 
             // Получить идентификатор сессии из cookie или создать новый, если он не указан или равен пустой строке
             $sid = $sessionId ? '' : $this->cookie($sessionName);
-            if ($sid === '' || $sid === null) {
+            $sid = $this->isValidSessionId($sid) ? $sid : '';
+            if ($sid === '') {
                 // Если соединение не установлено, выбросить исключение
                 if (!$this->connection instanceof TcpConnection) {
                     throw new RuntimeException('Request->session() fail, header already send');
@@ -931,11 +922,22 @@ class Request implements Stringable
             }
 
             // Установить идентификатор сессии
-            $this->sid = $sid;
+            $this->context['sid'] = $sid;
         }
 
         // Вернуть идентификатор сессии
-        return $this->sid;
+        return $this->context['sid'];
+    }
+
+    /**
+     * Валидация ID сессии.
+     *
+     * @param mixed $sessionId
+     * @return bool
+     */
+    public function isValidSessionId(mixed $sessionId): bool
+    {
+        return is_string($sessionId) && preg_match('/^[a-zA-Z0-9"]+$/', $sessionId);
     }
 
     /**
@@ -1155,8 +1157,14 @@ class Request implements Stringable
      *
      * @return void
      */
-    public function __destruct()
+    public function destroy(): void
     {
+        if ($this->context) {
+            $this->context = [];
+        }
+        if ($this->properties) {
+            $this->properties = [];
+        }
         // Если файлы установлены и безопасность включена, очистить кэш статуса файла и удалить временные файлы
         if (isset($this->data['files']) && $this->isSafe) {
             // Очистить кэш статуса файла
@@ -1170,5 +1178,10 @@ class Request implements Stringable
                 }
             });
         }
+    }
+
+    public function __destruct()
+    {
+        $this->destroy();
     }
 }

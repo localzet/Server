@@ -125,6 +125,11 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     ];
 
     /**
+     * Интервал keepalive.
+     */
+    public const TCP_KEEPALIVE_INTERVAL = 55;
+
+    /**
      * Размер буфера отправки по умолчанию.
      */
     public static int $defaultMaxSendBufferSize = 1048576;
@@ -243,6 +248,8 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * Запрос.
      */
     public ?Request $request = null;
+
+    protected bool $isSafe = true;
 
     /**
      * Задает максимальный допустимый размер пакета для текущего соединения.
@@ -446,7 +453,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             if ($this->server instanceof Server) {
                 unset($this->server->connections[$this->realId]);
             }
-
+            $this->server = null;
             unset(static::$connections[$this->realId]);
         }
     }
@@ -710,8 +717,8 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                         } catch (Throwable $e) {
                             $this->error($e);
                         }
-                        
-                        $request->properties = [];
+
+                        $request->destroy();
                         $requests[$buffer] = clone $request;
                         return;
                     }
@@ -786,6 +793,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                     if (static::$enableCache && (!is_object($request) || $request instanceof Request) && $one && !isset($oneRequestBuffer[512])) {
                         ($this->onMessage)($this, $request);
                         if ($request instanceof Request) {
+                            $request->destroy();
                             $requests[$oneRequestBuffer] = clone $request;
                         } else {
                             $requests[$oneRequestBuffer] = $request;
@@ -927,6 +935,16 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     }
 
     /**
+     * __wakeup.
+     *
+     * @return void
+     */
+    public function __wakeup()
+    {
+        $this->isSafe = false;
+    }
+
+    /**
      * Получает статус.
      *
      */
@@ -1045,6 +1063,9 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     public function __destruct()
     {
         static $mod;
+        if (!$this->isSafe) {
+            return;
+        }
         --self::$statistics['connection_count'];
         if (Server::getGracefulStop()) {
             $mod ??= ceil((self::$statistics['connection_count'] + 1) / 3);

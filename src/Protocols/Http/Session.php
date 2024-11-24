@@ -141,8 +141,6 @@ class Session
      */
     public function __construct(string $sessionId)
     {
-        // Проверяем идентификатор сессии.
-        static::checkSessionId($sessionId);
         // Если обработчик еще не инициализирован, инициализируем его.
         if (!static::$handler instanceof SessionHandlerInterface) {
             static::initHandler();
@@ -153,22 +151,6 @@ class Session
         // Если есть данные, читаем их из обработчика и десериализуем.
         if ($data = static::$handler->read($sessionId)) {
             $this->data = unserialize($data);
-        }
-    }
-
-    /**
-     * Проверка идентификатора сессии.
-     */
-    protected static function checkSessionId(string $sessionId): void
-    {
-        // Если идентификатор сессии пуст, выбрасываем исключение.
-        if ($sessionId === '') {
-            throw new InvalidArgumentException('Идентификатор сессии не может быть пустым.');
-        }
-
-        // Если формат идентификатора сессии неверный, выбрасываем исключение.
-        if (!preg_match('/^[0-9a-zA-Z,-]{22,40}$/', $sessionId)) {
-            throw new InvalidArgumentException('Неверный формат идентификатора сессии.');
         }
     }
 

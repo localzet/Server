@@ -34,11 +34,11 @@ use JetBrains\PhpStorm\NoReturn;
 use localzet\Server\Connection\{ConnectionInterface};
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Connection\UdpConnection;
+use localzet\Server\Events\{Revolt};
 use localzet\Server\Events\EventInterface;
 use localzet\Server\Events\Linux;
 use localzet\Server\Events\Windows;
 use localzet\Server\Protocols\ProtocolInterface;
-use localzet\Server\Events\{Revolt};
 use Revolt\EventLoop;
 use RuntimeException;
 use stdClass;
@@ -572,6 +572,7 @@ class Server
             static::initStdOut();
             static::init();
             static::parseCommand();
+            static::checkPortAvailable();
             static::lock();
             static::daemonize();
             static::initServers();
@@ -595,6 +596,54 @@ class Server
         // Только для CLI и Micro
         if (!in_array(PHP_SAPI, ['cli', 'micro'])) {
             exit("Localzet Server запускается только из терминала \n");
+        }
+
+        // Проверка pcntl и posix
+        if (is_unix()) {
+            foreach (['pcntl', 'posix'] as $name) {
+                if (!extension_loaded($name)) {
+                    exit("Пожалуйста, установите расширение $name" . PHP_EOL);
+                }
+            }
+        }
+
+        // Проверка отключенных функций
+        $disabledFunctions = explode(',', ini_get('disable_functions'));
+        $disabledFunctions = array_map('trim', $disabledFunctions);
+        $functionsToCheck = [
+            'stream_socket_server',
+            'stream_socket_accept',
+            'stream_socket_client',
+            'pcntl_signal_dispatch',
+            'pcntl_signal',
+            'pcntl_alarm',
+            'pcntl_fork',
+            'pcntl_wait',
+            'posix_getuid',
+            'posix_getpwuid',
+            'posix_kill',
+            'posix_setsid',
+            'posix_getpid',
+            'posix_getpwnam',
+            'posix_getgrnam',
+            'posix_getgid',
+            'posix_setgid',
+            'posix_initgroups',
+            'posix_setuid',
+            'posix_isatty',
+            'proc_open',
+            'proc_get_status',
+            'proc_close',
+            'shell_exec',
+            'exec',
+            'putenv',
+            'getenv',
+        ];
+        $disabled = array_intersect($functionsToCheck, $disabledFunctions);
+        if (!empty($disabled)) {
+            $iniFilePath = (string)php_ini_loaded_file();
+            exit('Внимание! Функции [' . implode(',', $disabled) . "] отключены директивой disable_functions. " . PHP_EOL
+                . "Пожалуйста, уберите их из disable_functions в $iniFilePath" . PHP_EOL);
         }
     }
 
@@ -638,11 +687,7 @@ class Server
 
     public static function getVersion(): ?string
     {
-        if (!self::$version) {
-            self::$version = InstalledVersions::getPrettyVersion('localzet/server');
-        }
-
-        return self::$version;
+        return self::$version ??= InstalledVersions::getPrettyVersion('localzet/server');
     }
 
     /**
@@ -720,6 +765,8 @@ class Server
             static::safeEcho(sprintf("%s \"%s\" в файле %s на строке %d\n", static::getErrorType($code), $msg, $file, $line));
             return true;
         });
+
+        $_SERVER['SERVER_SOFTWARE'] = 'localzet/server ' . static::VERSION;
 
         // Начало
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
@@ -2442,29 +2489,6 @@ class Server
 
             $this->socketContext = stream_context_create($socketContext);
         }
-
-        // Попытка включить опцию reusePort.
-        /*if (is_unix()  // если это Linux
-            && $socketName
-            && version_compare(php_uname('r'), '3.9', 'ge') // если версия ядра >= 3.9
-            && strtolower(php_uname('s')) !== 'darwin' // если не Mac OS
-            && strpos($socketName, 'unix') !== 0 // если не unix-сокет
-            && strpos($socketName, 'udp') !== 0) { // если не udp-сокет
-
-            $address = parse_url($socketName);
-            if (isset($address['host']) && isset($address['port'])) {
-                try {
-                    set_error_handler(static fn (): bool => true);
-                    // Если адрес не используется, автоматически включаем опцию reusePort.
-                    $server = stream_socket_server("tcp://{$address['host']}:{$address['port']}");
-                    if ($server) {
-                        $this->reusePort = true;
-                        fclose($server);
-                    }
-                    restore_error_handler();
-                } catch (Throwable $e) {}
-            }
-        }*/
     }
 
     /**
@@ -2516,6 +2540,11 @@ class Server
                 $socket = socket_import_stream($this->mainSocket);
                 socket_set_option($socket, SOL_SOCKET, SO_KEEPALIVE, 1);
                 socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
+                if (defined('TCP_KEEPIDLE') && defined('TCP_KEEPINTVL') && defined('TCP_KEEPCNT')) {
+                    socket_set_option($socket, SOL_TCP, TCP_KEEPIDLE, TcpConnection::TCP_KEEPALIVE_INTERVAL);
+                    socket_set_option($socket, SOL_TCP, TCP_KEEPINTVL, TcpConnection::TCP_KEEPALIVE_INTERVAL);
+                    socket_set_option($socket, SOL_TCP, TCP_KEEPCNT, 1);
+                }
                 restore_error_handler();
             }
 
@@ -2524,6 +2553,39 @@ class Server
         }
 
         $this->resumeAccept();
+    }
+
+    /**
+     * Проверить, доступен ли порт.
+     *
+     * @return void
+     */
+    protected static function checkPortAvailable(): void
+    {
+        foreach (static::$servers as $server) {
+            $socketName = $server->getSocketName();
+            if (is_unix()
+                && static::$status === static::STATUS_STARTING
+                && $server->transport === 'tcp'
+                && !str_starts_with($socketName, 'unix')
+                && !str_starts_with($socketName, 'udp')
+            ) {
+
+                $address = parse_url($socketName);
+                if (isset($address['host']) && isset($address['port'])) {
+                    $address = "tcp://{$address['host']}:{$address['port']}";
+                    $sserver = null;
+                    set_error_handler(function ($code, $msg) {
+                        throw new RuntimeException($msg);
+                    });
+                    $sserver = stream_socket_server($address, $code, $msg);
+                    if ($sserver) {
+                        fclose($sserver);
+                    }
+                    restore_error_handler();
+                }
+            }
+        }
     }
 
     /**
