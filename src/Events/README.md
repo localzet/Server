@@ -45,7 +45,7 @@ echo "extension=event.so" | sudo tee /etc/php/8.3/cli/conf.d/20-event.ini
 ```bash
 apt-add-repository ppa:ondrej/php
 sudo apt-get update
-sudo apt install php-swoole
+sudo apt install php8.3-swoole
 ```
 
 ### Swow
