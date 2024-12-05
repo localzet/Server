@@ -26,7 +26,7 @@
 
 namespace localzet;
 
-use Carbon\Carbon;
+use DateTime;
 use localzet\Server\Events\EventInterface;
 use localzet\Server\Events\Linux;
 use localzet\Server\Events\Revolt;
@@ -112,7 +112,7 @@ class Timer
             return;
         }
 
-        $timeNow = Carbon::now()->timestamp;
+        $timeNow = (new DateTime())->getTimestamp();
         foreach (self::$tasks as $runTime => $taskData) {
             if ($timeNow >= $runTime) {
                 foreach ($taskData as $index => $oneTask) {
@@ -127,7 +127,7 @@ class Timer
                     }
 
                     if ($persistent && !empty(self::$status[$index])) {
-                        $newRunTime = Carbon::now()->timestamp + $timeInterval;
+                        $newRunTime = (new DateTime())->getTimestamp() + $timeInterval;
                         if (!isset(self::$tasks[$newRunTime])) {
                             self::$tasks[$newRunTime] = [];
                         }
@@ -182,7 +182,7 @@ class Timer
             pcntl_alarm(1);
         }
 
-        $runTime = Carbon::now()->timestamp + $timeInterval;
+        $runTime = (new DateTime())->getTimestamp() + $timeInterval;
         if (!isset(self::$tasks[$runTime])) {
             self::$tasks[$runTime] = [];
         }

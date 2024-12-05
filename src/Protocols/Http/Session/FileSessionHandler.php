@@ -26,7 +26,7 @@
 
 namespace localzet\Server\Protocols\Http\Session;
 
-use Carbon\Carbon;
+use DateTime;
 use Exception;
 use localzet\Server\Protocols\Http\Session;
 use function clearstatcache;
@@ -133,7 +133,7 @@ class FileSessionHandler implements SessionHandlerInterface
         // Если файл существует
         if (is_file($sessionFile)) {
             // Проверяем, не истекло ли время жизни сессии
-            if (Carbon::now()->timestamp - filemtime($sessionFile) > Session::$lifetime) {
+            if ((new DateTime())->getTimestamp() - filemtime($sessionFile) > Session::$lifetime) {
                 // Если истекло, удаляем файл и возвращаем пустую строку
                 unlink($sessionFile);
                 return '';
@@ -230,7 +230,7 @@ class FileSessionHandler implements SessionHandlerInterface
     public function gc(int $maxLifetime): bool
     {
         // Получаем текущее время
-        $timeNow = Carbon::now()->timestamp;
+        $timeNow = (new DateTime())->getTimestamp();
         // Проходимся по всем файлам сессий в папке сохранения сессий
         foreach (glob(static::$sessionSavePath . static::$sessionFilePrefix . '*') as $file) {
             // Если файл является обычным файлом и время последнего изменения файла превышает время жизни сессии,
