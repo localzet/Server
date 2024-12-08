@@ -2392,6 +2392,13 @@ class Server
 
         if (isset(static::$logFile)) {
             $pid = is_unix() ? posix_getpid() : 1;
+
+            $msg = str_replace([
+                '<black>', '<red>', '<green>', '<yellow>', '<blue>', '<magenta>', '<cyan>', '<white>',
+                '</black>', '</red>', '</green>', '</yellow>', '</blue>', '</magenta>', '</cyan>', '</white>',
+                '<n>', '<w>', '<g>', '</n>', '</w>', '</g>'
+            ], '', $msg);
+
             file_put_contents(static::$logFile, sprintf("%s pid:%d %s\n", (new DateTime())->format('Y-m-d H:i:s'), $pid, $msg), FILE_APPEND | LOCK_EX);
         }
     }
