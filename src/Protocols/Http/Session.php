@@ -143,6 +143,7 @@ class Session
         if (!static::$handler instanceof SessionHandlerInterface) {
             static::initHandler();
         }
+        
         // Если есть данные, читаем их из обработчика и десериализуем.
         if ($data = static::$handler->read($this->sessionId)) {
             $this->data = unserialize($data);

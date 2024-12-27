@@ -169,6 +169,7 @@ class Request implements Stringable
         if ($queryString === '') {
             return;
         }
+        
         if (isset($cache[$queryString])) {
             // Если условие выполняется, используем данные из кэша.
             $this->data['get'] = $cache[$queryString];
@@ -677,6 +678,7 @@ class Request implements Stringable
         if ($this->isAjax() && !$this->isPjax()) {
             return true;
         }
+
         return $this->acceptJson() && !$this->isHTML();
     }
 
@@ -735,6 +737,7 @@ class Request implements Stringable
         if ($this->isJson()) {
             return true;
         }
+
         return $this->acceptsAnyContentType();
     }
 
