@@ -109,8 +109,6 @@ class Request implements Stringable
 
     /**
      * Context.
-     *
-     * @var array
      */
     public array $context = [];
 
@@ -147,8 +145,6 @@ class Request implements Stringable
 
     /**
      * Установить GET.
-     * @param array $get
-     * @return Request
      */
     public function setGet(array $get): Request
     {
@@ -158,6 +154,7 @@ class Request implements Stringable
         } else {
             $this->_data['get'] = $get;
         }
+        
         return $this;
     }
 
@@ -172,10 +169,7 @@ class Request implements Stringable
         if ($queryString === '') {
             return;
         }
-
-        // Проверяем, можно ли использовать кэш и не превышает ли строка запроса 1024 символа.
-        $cacheable = !isset($headBuffer[static::MAX_CACHE_STRING_LENGTH]);
-        if ($cacheable && isset($cache[$queryString])) {
+        if (isset($cache[$queryString])) {
             // Если условие выполняется, используем данные из кэша.
             $this->data['get'] = $cache[$queryString];
             return;
@@ -183,12 +177,10 @@ class Request implements Stringable
 
         // Если нет - парсим строку запроса и сохраняем результат в кэше.
         parse_str($queryString, $this->data['get']);
-        if ($cacheable) {
-            $cache[$queryString] = $this->data['get'];
-            // Если размер кэша превышает 256, удаляем самый старый элемент кэша.
-            if (count($cache) > static::MAX_CACHE_SIZE) {
-                unset($cache[key($cache)]);
-            }
+        $cache[$queryString] = $this->data['get'];
+        // Если размер кэша превышает 256, удаляем самый старый элемент кэша.
+        if (count($cache) > static::MAX_CACHE_SIZE) {
+            unset($cache[key($cache)]);
         }
     }
 
@@ -247,8 +239,6 @@ class Request implements Stringable
 
     /**
      * Установить POST.
-     * @param array $post
-     * @return Request
      */
     public function setPost(array $post): Request
     {
@@ -258,6 +248,7 @@ class Request implements Stringable
         } else {
             $this->_data['post'] = $post;
         }
+        
         return $this;
     }
 
@@ -373,8 +364,6 @@ class Request implements Stringable
 
     /**
      * Установить заголовки.
-     * @param array $headers
-     * @return $this
      */
     public function setHeaders(array $headers): Request
     {
@@ -384,6 +373,7 @@ class Request implements Stringable
         } else {
             $this->_data['headers'] = $headers;
         }
+        
         return $this;
     }
 
@@ -480,12 +470,12 @@ class Request implements Stringable
 
         // Если есть строка кодирования POST-запроса, преобразовать ее в массив POST-запроса
         if ($postEncodeString) {
-            parse_str((string)$postEncodeString, $this->data['post']);
+            parse_str($postEncodeString, $this->data['post']);
         }
 
         // Если есть строка кодирования файлов, преобразовать ее в массив файлов
         if ($filesEncodeString) {
-            parse_str((string)$filesEncodeString, $this->data['files']);
+            parse_str($filesEncodeString, $this->data['files']);
 
             // Обновление значений массива файлов ссылками на реальные файлы
             array_walk_recursive($this->data['files'], function (&$value) use ($files): void {
@@ -684,8 +674,10 @@ class Request implements Stringable
      */
     public function expectsJson(): bool
     {
-        return ($this->isAjax() && !$this->isPjax())
-            || ($this->acceptJson() && !$this->isHTML());
+        if ($this->isAjax() && !$this->isPjax()) {
+            return true;
+        }
+        return $this->acceptJson() && !$this->isHTML();
     }
 
     /**
@@ -740,7 +732,10 @@ class Request implements Stringable
      */
     public function acceptJson(): bool
     {
-        return $this->isJson() || $this->acceptsAnyContentType();
+        if ($this->isJson()) {
+            return true;
+        }
+        return $this->acceptsAnyContentType();
     }
 
     /**
@@ -931,9 +926,6 @@ class Request implements Stringable
 
     /**
      * Валидация ID сессии.
-     *
-     * @param mixed $sessionId
-     * @return bool
      */
     public function isValidSessionId(mixed $sessionId): bool
     {
@@ -1051,6 +1043,7 @@ class Request implements Stringable
         if (is_string($ip)) {
             $ip = current(explode(',', $ip));
         }
+        
         return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : null;
     }
 
@@ -1174,17 +1167,17 @@ class Request implements Stringable
 
     /**
      * __destruct.
-     *
-     * @return void
      */
     public function destroy(): void
     {
         if ($this->context) {
             $this->context = [];
         }
+        
         if ($this->properties) {
             $this->properties = [];
         }
+        
         // Если файлы установлены и безопасность включена, очистить кэш статуса файла и удалить временные файлы
         if (isset($this->data['files']) && $this->isSafe) {
             // Очистить кэш статуса файла

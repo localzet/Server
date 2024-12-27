@@ -35,7 +35,7 @@ return RectorConfig::configure()
         SetList::TYPE_DECLARATION,
         SetList::EARLY_RETURN,
         SetList::INSTANCEOF,
-        SetList::CARBON,
+        // SetList::CARBON,
     ])
     ->withSkip([
         RemoveNullPropertyInitializationRector::class,

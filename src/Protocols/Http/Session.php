@@ -132,24 +132,19 @@ class Session
     protected bool $needSave = false;
 
     /**
-     * Идентификатор сессии.
-     */
-    protected ?string $sessionId = null;
-
-    /**
      * Конструктор сессии.
      */
-    public function __construct(string $sessionId)
+    public function __construct(/**
+     * Идентификатор сессии.
+     */
+    protected ?string $sessionId)
     {
         // Если обработчик еще не инициализирован, инициализируем его.
         if (!static::$handler instanceof SessionHandlerInterface) {
             static::initHandler();
         }
-
-        // Устанавливаем идентификатор сессии.
-        $this->sessionId = $sessionId;
         // Если есть данные, читаем их из обработчика и десериализуем.
-        if ($data = static::$handler->read($sessionId)) {
+        if ($data = static::$handler->read($this->sessionId)) {
             $this->data = unserialize($data);
         }
     }

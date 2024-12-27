@@ -130,11 +130,6 @@ class AsyncTcpConnection extends TcpConnection
     protected string $remoteURI = '';
 
     /**
-     * Опции контекста.
-     */
-    protected array $socketContext = [];
-
-    /**
      * Таймер переподключения.
      */
     protected int $reconnectTimer = 0;
@@ -146,7 +141,7 @@ class AsyncTcpConnection extends TcpConnection
      * @param array $socketContext Опции контекста
      * @throws Exception
      */
-    public function __construct(string $remoteAddress, array $socketContext = [])
+    public function __construct(string $remoteAddress, protected array $socketContext = [])
     {
         $addressInfo = parse_url($remoteAddress);
         if (!$addressInfo) {
@@ -199,7 +194,6 @@ class AsyncTcpConnection extends TcpConnection
         ++self::$statistics['connection_count'];
         $this->maxSendBufferSize = self::$defaultMaxSendBufferSize;
         $this->maxPackageSize = self::$defaultMaxPackageSize;
-        $this->socketContext = $socketContext;
         static::$connections[$this->realId] = $this;
         $this->context = new stdClass;
     }
@@ -243,7 +237,7 @@ class AsyncTcpConnection extends TcpConnection
 
         $this->status = self::STATUS_CONNECTING;
         $this->connectStartTime = microtime(true);
-        set_error_handler(fn() => false);
+        set_error_handler(fn(): bool => false);
         if ($this->transport !== 'unix') {
             if (!$this->remotePort) {
                 $this->remotePort = $this->transport === 'ssl' ? 443 : 80;
@@ -280,6 +274,7 @@ class AsyncTcpConnection extends TcpConnection
             $this->socket = stream_socket_client("$this->transport://$this->remoteAddress", $errno, $err_str, 0,
                 STREAM_CLIENT_ASYNC_CONNECT);
         }
+        
         restore_error_handler();
 
         // В случае неудачной попытки вызвать колбэк onError.

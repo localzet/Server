@@ -38,14 +38,8 @@ use MongoDB\Collection;
  */
 class MongoSessionHandler implements SessionHandlerInterface
 {
-    /**
-     * @var Client
-     */
     protected Client $client;
 
-    /**
-     * @var Collection
-     */
     protected Collection $collection;
 
     /**

@@ -453,6 +453,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             if ($this->server instanceof Server) {
                 unset($this->server->connections[$this->realId]);
             }
+            
             $this->server = null;
             unset(static::$connections[$this->realId]);
         }
@@ -1066,6 +1067,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         if (!$this->isSafe) {
             return;
         }
+        
         --self::$statistics['connection_count'];
         if (Server::getGracefulStop()) {
             $mod ??= ceil((self::$statistics['connection_count'] + 1) / 3);
