@@ -34,7 +34,7 @@ use JetBrains\PhpStorm\NoReturn;
 use localzet\Server\Connection\{ConnectionInterface};
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Connection\UdpConnection;
-use localzet\Server\Events\{Revolt};
+use localzet\Server\Events\Revolt;
 use localzet\Server\Events\EventInterface;
 use localzet\Server\Events\Linux;
 use localzet\Server\Events\Windows;
@@ -57,6 +57,7 @@ use function method_exists;
 use function register_shutdown_function;
 use function restore_error_handler;
 use function set_error_handler;
+use function str_replace;
 use function stream_socket_accept;
 use function stream_socket_recvfrom;
 use function substr;
@@ -117,7 +118,7 @@ class Server
      *
      * @var string
      */
-    final public const VERSION = '24.06.17';
+    final public const VERSION = '25.01.01';
 
     /**
      * Статус: запуск
@@ -370,17 +371,17 @@ class Server
     /**
      * Файл для хранения PID мастер-процесса
      */
-    public static string $pidFile;
+    public static string $pidFile = '';
 
     /**
      * Файл, используемый для хранения файла состояния мастер-процесса
      */
-    public static string $statusFile;
+    public static string $statusFile = '';
 
     /**
      * Файл лога
      */
-    public static mixed $logFile;
+    public static string $logFile = '';
 
     /**
      * Глобальная петля событий
@@ -520,17 +521,17 @@ class Server
     /**
      * Файл для хранения информации о статусе текущего процесса сервера.
      */
-    protected static string $statisticsFile;
+    protected static string $statisticsFile = '';
 
     /**
      * Файл для хранения информации о соединениях.
      */
-    protected static string $connectionsFile;
+    protected static string $connectionsFile = '';
 
     /**
      * Файл запуска.
      */
-    protected static string $startFile;
+    protected static string $startFile = '';
 
     /**
      * Процессы для операционных систем Windows.
@@ -767,27 +768,37 @@ class Server
         });
 
         $_SERVER['SERVER_SOFTWARE'] = 'localzet/server ' . static::VERSION;
+        $_SERVER['SERVER_START_TIME'] = time();
 
         // Начало
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-        static::$startFile ??= end($backtrace)['file'];
-        $startFilePrefix = hash('xxh64', static::$startFile);
+        static::$startFile = static::$startFile ?: end($backtrace)['file'];
+        $startFilePrefix = basename(static::$startFile);
+        $startFileDir = dirname(static::$startFile);
+
+        if (empty(static::$pidFile)) {
+            $unique_prefix = str_replace('/', '_', static::$startFile);
+            $file = __DIR__ . "/../../$unique_prefix.pid";
+            if (is_file($file)) {
+                static::$pidFile = $file;
+            }
+        }
 
         // PID-файл
-        static::$pidFile ??= sprintf('%s/localzet.%s.pid', dirname(__DIR__), $startFilePrefix);
+        static::$pidFile = static::$pidFile ?: sprintf('%s/localzet.%s.pid', $startFileDir, $startFilePrefix);
 
         // Статус-файл
-        static::$statusFile ??= sprintf('%s/localzet.%s.status', dirname(__DIR__), $startFilePrefix);
-        static::$statisticsFile ??= static::$statusFile . '.statistic';
-        static::$connectionsFile ??= static::$statusFile . '.connection';
+        static::$statusFile = static::$statusFile ?: sprintf('%s/localzet.%s.status', $startFileDir, $startFilePrefix);
+        static::$statisticsFile = static::$statisticsFile ?: (static::$statusFile . '.statistic');
+        static::$connectionsFile = static::$connectionsFile ?: (static::$statusFile . '.connection');
 
         // Лог-файл
-        static::$logFile ??= sprintf('%s/localzet.log', dirname(__DIR__, 2));
+        static::$logFile = static::$logFile ?: sprintf('%s/localzet.log', $startFileDir);
 
         if (!is_file(static::$logFile) && static::$logFile !== '/dev/null') {
             // Если папка /runtime/logs по умолчанию не существует
             if (!is_dir(dirname((string)static::$logFile))) {
-                @mkdir(dirname((string)static::$logFile), 0777, true);
+                mkdir(dirname((string)static::$logFile), 0777, true);
             }
 
             touch(static::$logFile);
@@ -811,6 +822,8 @@ class Server
 
         // Инициализируем таймер
         Timer::init();
+
+        restore_error_handler();
     }
 
     /**
@@ -1633,9 +1646,9 @@ class Server
             register_shutdown_function(static::checkErrors(...));
 
             // Создать глобальный цикл событий.
-            if (!static::$globalEvent instanceof EventInterface) {
-                $eventLoopClass = static::getEventLoopName();
-                static::$globalEvent = new $eventLoopClass();
+            if (!(static::$globalEvent instanceof EventInterface)) {
+                static::$eventLoopClass = static::getEventLoopName();
+                static::$globalEvent = new static::$eventLoopClass();
                 static::$globalEvent->setErrorHandler(function ($exception): void {
                     static::stopAll(250, $exception);
                 });
@@ -1702,7 +1715,7 @@ class Server
         $pipes = [];
         $process = proc_open('"' . PHP_BINARY . '" ' . " \"$startFile\" -q", $descriptorSpec, $pipes, null, null, ['bypass_shell' => true]);
 
-        if (!static::$globalEvent instanceof EventInterface) {
+        if (!(static::$globalEvent instanceof EventInterface)) {
             static::$globalEvent = new Windows();
             static::$globalEvent->setErrorHandler(function ($exception): void {
                 static::stopAll(250, $exception);
@@ -1772,9 +1785,9 @@ class Server
             register_shutdown_function(static::checkErrors(...));
 
             // Создать глобальный цикл событий.
-            if (!static::$globalEvent instanceof EventInterface) {
-                $eventLoopClass = static::getEventLoopName();
-                static::$globalEvent = new $eventLoopClass();
+            if (!(static::$globalEvent instanceof EventInterface)) {
+                static::$eventLoopClass = static::getEventLoopName();
+                static::$globalEvent = new static::$eventLoopClass();
                 static::$globalEvent->setErrorHandler(function ($exception): void {
                     static::stopAll(250, $exception);
                 });
@@ -1785,6 +1798,8 @@ class Server
 
             // Инициализировать таймер.
             Timer::init(static::$globalEvent);
+
+            TcpConnection::init();
 
             restore_error_handler();
 
@@ -1977,16 +1992,17 @@ class Server
     #[NoReturn]
     protected static function exitAndClearAll(): void
     {
+        clearstatcache();
         foreach (static::$servers as $server) {
             $socketName = $server->getSocketName();
             if ($server->transport === 'unix' && $socketName) {
                 [, $address] = explode(':', $socketName, 2);
                 $address = substr($address, strpos($address, '/') + 2);
-                @unlink($address);
+                if (file_exists($address)) @unlink($address);
             }
         }
 
-        @unlink(static::$pidFile);
+        if (file_exists(static::$pidFile)) @unlink(static::$pidFile);
         static::log("<magenta>Localzet Server</magenta> <cyan>[" . basename(static::$startFile) . "]</cyan> был остановлен");
         Events::emit('Server::Master::Stop', null);
         exit(0);

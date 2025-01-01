@@ -33,6 +33,7 @@ use Swoole\Timer;
 use Throwable;
 use const SWOOLE_EVENT_READ;
 use const SWOOLE_EVENT_WRITE;
+use const SWOOLE_HOOK_ALL;
 
 /**
  * Класс Windows реализует интерфейс EventInterface и представляет select event loop.
@@ -66,6 +67,14 @@ final class Swoole implements EventInterface
      * @var ?callable
      */
     private $errorHandler = null;
+
+    /**
+     * Constructor.
+     */
+    public function __construct()
+    {
+        Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
+    }
 
     /**
      * {@inheritdoc}
@@ -142,7 +151,7 @@ final class Swoole implements EventInterface
         foreach (Coroutine::listCoroutines() as $coroutine) {
             Coroutine::cancel($coroutine);
         }
-        
+
         // Дождемся завершения работы сопрограмм.
         usleep(200000);
         Event::exit();

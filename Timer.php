@@ -96,7 +96,7 @@ class Timer
      */
     public static function signalHandle(): void
     {
-        if (!self::$event instanceof EventInterface) {
+        if (!(self::$event instanceof EventInterface)) {
             pcntl_alarm(1);
             self::tick();
         }

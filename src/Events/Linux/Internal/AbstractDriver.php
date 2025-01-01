@@ -255,11 +255,11 @@ abstract class AbstractDriver implements Driver
 
                     try {
                         $result = match (true) {
-                            $callback instanceof StreamCallback => ($callback->closure)(
+                            ($callback instanceof StreamCallback) => ($callback->closure)(
                                 $callback->id,
                                 $callback->stream
                             ),
-                            $callback instanceof SignalCallback => ($callback->closure)(
+                            ($callback instanceof SignalCallback) => ($callback->closure)(
                                 $callback->id,
                                 $callback->signal
                             ),
@@ -326,9 +326,9 @@ abstract class AbstractDriver implements Driver
      */
     final protected function error(Closure $closure, Throwable $throwable): void
     {
-        if (!$this->errorHandler instanceof Closure) {
+        if (!($this->errorHandler instanceof Closure)) {
             // Явно переопределяем предыдущее прерывание, если оно существует в этом случае, скрытие исключения хуже
-            $this->interrupt = static fn() => $throwable instanceof UncaughtThrowable
+            $this->interrupt = static fn() => ($throwable instanceof UncaughtThrowable)
                 ? throw $throwable
                 : throw UncaughtThrowable::throwingCallback($closure, $throwable);
             return;
@@ -504,7 +504,7 @@ abstract class AbstractDriver implements Driver
             try {
                 $errorHandler($exception);
             } catch (Throwable $throwable) {
-                $this->interrupt = static fn() => $throwable instanceof UncaughtThrowable
+                $this->interrupt = static fn() => ($throwable instanceof UncaughtThrowable)
                     ? throw $throwable
                     : throw UncaughtThrowable::throwingErrorHandler($errorHandler, $throwable);
             }
@@ -518,7 +518,7 @@ abstract class AbstractDriver implements Driver
      */
     private function setInterrupt(Closure $interrupt): void
     {
-        assert(!$this->interrupt instanceof Closure);
+        assert(!($this->interrupt instanceof Closure));
 
         $this->interrupt = $interrupt;
     }

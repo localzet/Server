@@ -140,7 +140,7 @@ class Session
     protected ?string $sessionId)
     {
         // Если обработчик еще не инициализирован, инициализируем его.
-        if (!static::$handler instanceof SessionHandlerInterface) {
+        if (!(static::$handler instanceof SessionHandlerInterface)) {
             static::initHandler();
         }
         

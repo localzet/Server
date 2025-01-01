@@ -231,7 +231,7 @@ class AsyncTcpConnection extends TcpConnection
             return;
         }
 
-        if (!$this->eventLoop instanceof EventInterface) {
+        if (!($this->eventLoop instanceof EventInterface)) {
             $this->eventLoop = Server::$globalEvent;
         }
 

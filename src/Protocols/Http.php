@@ -38,13 +38,12 @@ use function fopen;
 use function fread;
 use function fseek;
 use function ftell;
-use function in_array;
 use function ini_get;
 use function is_object;
 use function preg_match;
+use function str_starts_with;
 use function strlen;
 use function strpos;
-use function strstr;
 use function substr;
 use function sys_get_temp_dir;
 
@@ -96,29 +95,30 @@ class Http
         }
 
         $length = $crlfPos + 4;
-        $method = strstr($buffer, ' ', true);
-        if (!in_array($method, ['GET', 'POST', 'OPTIONS', 'HEAD', 'DELETE', 'PUT', 'PATCH'])) {
+        $header = substr($buffer, 0, $crlfPos);
+
+        if (
+            !str_starts_with($header, 'GET ') &&
+            !str_starts_with($header, 'POST ') &&
+            !str_starts_with($header, 'OPTIONS ') &&
+            !str_starts_with($header, 'HEAD ') &&
+            !str_starts_with($header, 'DELETE ') &&
+            !str_starts_with($header, 'PUT ') &&
+            !str_starts_with($header, 'PATCH ')
+        ) {
             $tcpConnection->close(format_http_response(400), true);
             return 0;
         }
 
-        $header = substr($buffer, 0, $crlfPos);
-
-        if ($pos = stripos($header, "\r\nContent-Length: ")) {
-            $length += (int)substr($header, $pos + 18, 10);
-            $hasContentLength = true;
-        } elseif (preg_match("/\r\ncontent-length: ?(\d+)/i", $header, $match)) {
-            $length += (int)$match[1];
-            $hasContentLength = true;
-        } else {
-            $hasContentLength = false;
-            if (str_contains($header, "\r\nTransfer-Encoding:")) {
+        if (preg_match('/\b(?:Transfer-Encoding\b.*)|(?:Content-Length:\s*(\d+)(?!.*\bTransfer-Encoding\b))/is', $header, $matches)) {
+            if (!isset($matches[1])) {
                 $tcpConnection->close(format_http_response(400), true);
                 return 0;
             }
+            $length += (int)$matches[1];
         }
 
-        if ($hasContentLength && $length > $tcpConnection->maxPackageSize) {
+        if ($length > $tcpConnection->maxPackageSize) {
             $tcpConnection->close(format_http_response(413), true);
             return 0;
         }
@@ -142,9 +142,9 @@ class Http
 
         /** @var Request $request */
         $request = new static::$requestClass($buffer);
-        if (!isset($buffer[512])) {
+        if (!isset($buffer[TcpConnection::MAX_CACHE_STRING_LENGTH])) {
             $requests[$buffer] = $request;
-            if (count($requests) > 512) {
+            if (count($requests) > TcpConnection::MAX_CACHE_SIZE) {
                 unset($requests[key($requests)]);
             }
 

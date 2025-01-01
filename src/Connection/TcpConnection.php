@@ -27,9 +27,12 @@
 namespace localzet\Server\Connection;
 
 use JsonSerializable;
-use localzet\Server\Events\EventInterface;
-use localzet\Server\Protocols\Http\Request;
 use localzet\Server;
+use localzet\Server\Events\Ev;
+use localzet\Server\Events\Event;
+use localzet\Server\Events\EventInterface;
+use localzet\Server\Events\Linux;
+use localzet\Server\Protocols\Http\Request;
 use RuntimeException;
 use stdClass;
 use Throwable;
@@ -125,6 +128,20 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     ];
 
     /**
+     * Максимальная длина строки для кэша.
+     *
+     * @var int
+     */
+    public const MAX_CACHE_STRING_LENGTH = 2048;
+
+    /**
+     * Максимальный размер кэша.
+     *
+     * @var int
+     */
+    public const MAX_CACHE_SIZE = 512;
+
+    /**
      * Интервал keepalive.
      */
     public const TCP_KEEPALIVE_INTERVAL = 55;
@@ -145,14 +162,14 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     public static array $connections = [];
 
     /**
+     * Reuse request.
+     */
+    protected static bool $reuseRequest = false;
+
+    /**
      * Идентификатор записывателя.
      */
     protected static int $idRecorder = 1;
-
-    /**
-     * Кэш.
-     */
-    protected static bool $enableCache = true;
 
     /**
      * Событие, возникающее при успешном установлении сокетного соединения.
@@ -296,13 +313,11 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      *
      * @param resource $socket
      */
-    public function __construct(EventInterface   $event, /**
-     * Сокет.
-     */
-                                protected        $socket, /**
-         * Удаленный адрес.
-         */
-                                protected string $remoteAddress = '')
+    public function __construct(
+        EventInterface   $event,
+        protected        $socket,
+        protected string $remoteAddress = ''
+    )
     {
         ++self::$statistics['connection_count'];
         $this->id = $this->realId = self::$idRecorder++;
@@ -328,9 +343,9 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /**
      * Включение или отключение кэша.
      */
-    public static function enableCache(bool $value = true): void
+    public static function init(): void
     {
-        static::$enableCache = $value;
+        static::$reuseRequest = in_array(get_class(Server::$globalEvent), [Event::class, Linux::class, Ev::class]);
     }
 
     /**
@@ -453,7 +468,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             if ($this->server instanceof Server) {
                 unset($this->server->connections[$this->realId]);
             }
-            
+
             $this->server = null;
             unset(static::$connections[$this->realId]);
         }
@@ -707,7 +722,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         } else {
             $this->bytesRead += strlen($buffer);
             if ($this->recvBuffer === '') {
-                if (static::$enableCache && !isset($buffer[512]) && isset($requests[$buffer])) {
+                if (!isset($buffer[static::MAX_CACHE_STRING_LENGTH]) && isset($requests[$buffer])) {
                     ++self::$statistics['total_request'];
                     $request = $requests[$buffer];
                     if ($request instanceof Request) {
@@ -720,7 +735,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                         }
 
                         $request->destroy();
-                        $requests[$buffer] = clone $request;
+                        $requests[$buffer] = static::$reuseRequest ? $request : clone $request;
                         return;
                     }
 
@@ -791,7 +806,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                 try {
                     // Декодировать буфер запроса перед вызовом обратного вызова onMessage.
                     $request = $this->protocol::decode($oneRequestBuffer, $this);
-                    if (static::$enableCache && (!is_object($request) || $request instanceof Request) && $one && !isset($oneRequestBuffer[512])) {
+                    if ((!is_object($request) || $request instanceof Request) && $one && !isset($oneRequestBuffer[static::MAX_CACHE_STRING_LENGTH])) {
                         ($this->onMessage)($this, $request);
                         if ($request instanceof Request) {
                             $request->destroy();
@@ -799,11 +814,11 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                         } else {
                             $requests[$oneRequestBuffer] = $request;
                         }
-                        
-                        if (count($requests) > 512) {
+
+                        if (count($requests) > self::MAX_CACHE_SIZE) {
                             unset($requests[key($requests)]);
                         }
-                        
+
                         return;
                     }
 
@@ -1067,7 +1082,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         if (!$this->isSafe) {
             return;
         }
-        
+
         --self::$statistics['connection_count'];
         if (Server::getGracefulStop()) {
             $mod ??= ceil((self::$statistics['connection_count'] + 1) / 3);
