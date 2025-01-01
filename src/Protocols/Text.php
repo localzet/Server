@@ -34,11 +34,9 @@ use function strpos;
 /**
  * Текстовый протокол.
  */
-class Text
+class Text implements ProtocolInterface
 {
-    /**
-     * Проверим целостность пакета.
-     */
+    /** @inheritdoc */
     public static function input(string $buffer, ConnectionInterface $connection): int
     {
         // Проверяем, превышает ли длина пакета установленный предел.
@@ -59,19 +57,15 @@ class Text
         return $pos + 1;
     }
 
-    /**
-     * Кодируем данные перед отправкой.
-     */
-    public static function encode(string $buffer): string
+    /** @inheritdoc */
+    public static function encode(mixed $data, ConnectionInterface $connection): string
     {
         // Добавляем символ "\n" к данным перед отправкой.
-        return $buffer . "\n";
+        return $data . "\n";
     }
 
-    /**
-     * Декодируем полученные данные.
-     */
-    public static function decode(string $buffer): string
+    /** @inheritdoc */
+    public static function decode(string $buffer, ConnectionInterface $connection): string
     {
         // Удаляем символы "\r" и "\n" из полученных данных.
         return rtrim($buffer, "\r\n");

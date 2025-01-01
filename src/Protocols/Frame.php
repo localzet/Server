@@ -26,6 +26,7 @@
 
 namespace localzet\Server\Protocols;
 
+use localzet\Server\Connection\ConnectionInterface;
 use function pack;
 use function strlen;
 use function substr;
@@ -34,12 +35,10 @@ use function unpack;
 /**
  * Протокол Frame.
  */
-class Frame
+class Frame implements ProtocolInterface
 {
-    /**
-     * Проверка целостности пакета.
-     */
-    public static function input(string $buffer): int
+    /** @inheritdoc */
+    public static function input(string $buffer, ConnectionInterface $connection): int
     {
         // Если длина буфера меньше 4, возвращаем 0.
         if (strlen($buffer) < 4) {
@@ -52,23 +51,19 @@ class Frame
         return $unpackData['total_length'];
     }
 
-    /**
-     * Декодирование.
-     */
-    public static function decode(string $buffer): string
-    {
-        // Возвращаем подстроку буфера, начиная с 4-го символа.
-        return substr($buffer, 4);
-    }
-
-    /**
-     * Кодирование.
-     */
-    public static function encode(string $data): string
+    /** @inheritdoc */
+    public static function encode(mixed $data, ConnectionInterface $connection): string
     {
         // Общая длина равна 4 плюс длина данных.
         $totalLength = 4 + strlen($data);
         // Возвращаем упакованные данные.
         return pack('N', $totalLength) . $data;
+    }
+
+    /** @inheritdoc */
+    public static function decode(string $buffer, ConnectionInterface $connection): string
+    {
+        // Возвращаем подстроку буфера, начиная с 4-го символа.
+        return substr($buffer, 4);
     }
 }

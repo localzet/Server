@@ -54,7 +54,7 @@ namespace localzet\Server\Protocols;
 /**
  * @uses Http
  */
-class Https extends Http
+class Https extends Http implements ProtocolInterface
 {
 
 }

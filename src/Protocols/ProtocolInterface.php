@@ -27,6 +27,7 @@
 namespace localzet\Server\Protocols;
 
 use localzet\Server\Connection\ConnectionInterface;
+use Throwable;
 
 /**
  * Интерфейс протокола
@@ -39,18 +40,32 @@ interface ProtocolInterface
      * Если длина неизвестна, верните 0, что означает ожидание дополнительных данных.
      * Если в пакете есть какие-то проблемы, верните false, и соединение будет закрыто.
      *
-     * @return int|false
+     * @param string $buffer
+     * @param ConnectionInterface $connection
+     * @return int
+     * @throws Throwable
      */
     public static function input(string $buffer, ConnectionInterface $connection): int;
 
     /**
-     * Расшифруйте пакет и вызовите обратный вызов onMessage($message), где $message - это результат, возвращенный функцией decode.
-     */
-    public static function decode(string $buffer, ConnectionInterface $connection): mixed;
-
-    /**
      * Кодируйте пакет перед отправкой клиенту.
+     *
+     * @param mixed $data
+     * @param ConnectionInterface $connection
+     * @return string
+     * @throws Throwable
      */
     public static function encode(mixed $data, ConnectionInterface $connection): string;
+
+    /**
+     * Расшифруйте пакет и вызовите обратный вызов onMessage($message),
+     * где $message - это результат, возвращенный функцией decode.
+     *
+     * @param string $buffer
+     * @param ConnectionInterface $connection
+     * @return mixed
+     * @throws Throwable
+     */
+    public static function decode(string $buffer, ConnectionInterface $connection): mixed;
 }
 

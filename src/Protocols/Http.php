@@ -26,6 +26,7 @@
 
 namespace localzet\Server\Protocols;
 
+use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\Http\Response;
@@ -51,7 +52,7 @@ use function sys_get_temp_dir;
  * Класс Http.
  * @package localzet\Server\Protocols
  */
-class Http
+class Http implements ProtocolInterface
 {
     /**
      * Имя класса Request.
@@ -77,18 +78,14 @@ class Http
         return static::$requestClass;
     }
 
-    /**
-     * Проверить целостность пакета.
-     *
-     * @throws Throwable
-     */
-    public static function input(string $buffer, TcpConnection $tcpConnection): int
+    /** @inheritdoc */
+    public static function input(string $buffer, TcpConnection|ConnectionInterface $connection): int
     {
         $crlfPos = strpos($buffer, "\r\n\r\n");
         if (false === $crlfPos) {
             // Проверьте, не превышает ли длина пакета лимит.
             if (strlen($buffer) >= 16384) {
-                $tcpConnection->close(format_http_response(413), true);
+                $connection->close(format_http_response(413), true);
             }
 
             return 0;
@@ -106,36 +103,88 @@ class Http
             !str_starts_with($header, 'PUT ') &&
             !str_starts_with($header, 'PATCH ')
         ) {
-            $tcpConnection->close(format_http_response(400), true);
+            $connection->close(format_http_response(400), true);
             return 0;
         }
 
         if (preg_match('/\b(?:Transfer-Encoding\b.*)|(?:Content-Length:\s*(\d+)(?!.*\bTransfer-Encoding\b))/is', $header, $matches)) {
             if (!isset($matches[1])) {
-                $tcpConnection->close(format_http_response(400), true);
+                $connection->close(format_http_response(400), true);
                 return 0;
             }
             $length += (int)$matches[1];
         }
 
-        if ($length > $tcpConnection->maxPackageSize) {
-            $tcpConnection->close(format_http_response(413), true);
+        if ($length > $connection->maxPackageSize) {
+            $connection->close(format_http_response(413), true);
             return 0;
         }
 
         return $length;
     }
 
-    /**
-     * Декодирование Http.
-     */
-    public static function decode(string $buffer, TcpConnection $tcpConnection): Request
+    /** @inheritdoc */
+    public static function encode(mixed $data, TcpConnection|ConnectionInterface $connection): string
+    {
+        if ($connection->request instanceof Request) {
+            // Удаляем ссылки на запрос и соединение для предотвращения утечки памяти.
+            $request = $connection->request;
+            // Очищаем свойства запроса и соединения.
+            $request->connection = $connection->request = null;
+        }
+
+        $data = is_object($data) ? $data : new Response(200, [], (string)$data);
+
+        if ($connection->headers && method_exists($data, 'withHeaders')) {
+            // Добавляем заголовки соединения в ответ.
+            $data->withHeaders($connection->headers);
+            // Очищаем заголовки после использования.
+            $connection->headers = [];
+        }
+
+        if (!empty($data->file)) {
+            $file = $data->file['file'];
+            $offset = $data->file['offset'];
+            $length = $data->file['length'];
+            clearstatcache();
+            $fileSize = (int)filesize($file);
+            $bodyLen = $length > 0 ? $length : $fileSize - $offset;
+            $data->withHeaders([
+                'Content-Length' => $bodyLen,
+                'Accept-Ranges' => 'bytes',
+            ]);
+            if ($offset || $length) {
+                $offsetEnd = $offset + $bodyLen - 1;
+                $data->header('Content-Range', "bytes $offset-$offsetEnd/$fileSize");
+            }
+
+            if ($bodyLen < 2 * 1024 * 1024) {
+                $connection->send($data . file_get_contents($file, false, null, $offset, $bodyLen), true);
+                return '';
+            }
+
+            $handler = fopen($file, 'r');
+            if (false === $handler) {
+                $connection->close(new Response(403, [], '403 Forbidden'));
+                return '';
+            }
+
+            $connection->send((string)$data, true);
+            static::sendStream($connection, $handler, $offset, $length);
+            return '';
+        }
+
+        return (string)$data;
+    }
+
+    /** @inheritdoc */
+    public static function decode(string $buffer, TcpConnection|ConnectionInterface $connection): Request
     {
         static $requests = [];
         if (isset($requests[$buffer])) {
             $request = $requests[$buffer];
-            $request->connection = $tcpConnection;
-            $tcpConnection->request = $request;
+            $request->connection = $connection;
+            $connection->request = $request;
             $request->destroy();
             return $request;
         }
@@ -151,8 +200,8 @@ class Http
             $request = clone $request;
         }
 
-        $request->connection = $tcpConnection;
-        $tcpConnection->request = $request;
+        $request->connection = $connection;
+        $connection->request = $request;
 
         foreach ($request->header() as $name => $value) {
             $_SERVER[strtoupper((string)$name)] = $value;
@@ -166,65 +215,6 @@ class Http
         $_SESSION = $request->session();
 
         return $request;
-    }
-
-    /**
-     * Кодирование Http.
-     *
-     * @param string|Response|ServerSentEvents $response
-     * @throws Throwable
-     */
-    public static function encode(mixed $response, TcpConnection $tcpConnection): string
-    {
-        if ($tcpConnection->request instanceof Request) {
-            // Удаляем ссылки на запрос и соединение для предотвращения утечки памяти.
-            $request = $tcpConnection->request;
-            // Очищаем свойства запроса и соединения.
-            $request->connection = $tcpConnection->request = null;
-        }
-
-        $response = is_object($response) ? $response : new Response(200, [], (string)$response);
-
-        if ($tcpConnection->headers && method_exists($response, 'withHeaders')) {
-            // Добавляем заголовки соединения в ответ.
-            $response->withHeaders($tcpConnection->headers);
-            // Очищаем заголовки после использования.
-            $tcpConnection->headers = [];
-        }
-
-        if (!empty($response->file)) {
-            $file = $response->file['file'];
-            $offset = $response->file['offset'];
-            $length = $response->file['length'];
-            clearstatcache();
-            $fileSize = (int)filesize($file);
-            $bodyLen = $length > 0 ? $length : $fileSize - $offset;
-            $response->withHeaders([
-                'Content-Length' => $bodyLen,
-                'Accept-Ranges' => 'bytes',
-            ]);
-            if ($offset || $length) {
-                $offsetEnd = $offset + $bodyLen - 1;
-                $response->header('Content-Range', "bytes $offset-$offsetEnd/$fileSize");
-            }
-
-            if ($bodyLen < 2 * 1024 * 1024) {
-                $tcpConnection->send($response . file_get_contents($file, false, null, $offset, $bodyLen), true);
-                return '';
-            }
-
-            $handler = fopen($file, 'r');
-            if (false === $handler) {
-                $tcpConnection->close(new Response(403, [], '403 Forbidden'));
-                return '';
-            }
-
-            $tcpConnection->send((string)$response, true);
-            static::sendStream($tcpConnection, $handler, $offset, $length);
-            return '';
-        }
-
-        return (string)$response;
     }
 
     /**
