@@ -26,10 +26,10 @@
 
 namespace localzet\Server\Protocols;
 
+use localzet\Server;
 use localzet\Server\Connection\{ConnectionInterface};
 use localzet\Server\Connection\AsyncTcpConnection;
 use localzet\Server\Protocols\Http\Response;
-use localzet\Server;
 use localzet\Timer;
 use Throwable;
 use function base64_encode;
@@ -131,7 +131,7 @@ class Ws implements ProtocolInterface
                     // Попытка вызвать onWebSocketClose
                     if (property_exists($connection, 'onWebSocketClose') && $connection->onWebSocketClose !== null) {
                         try {
-                            ($connection->onWebSocketClose)($connection);
+                            ($connection->onWebSocketClose)($connection, self::decode($buffer, $connection));
                         } catch (Throwable $e) {
                             Server::stopAll(250, $e);
                         }

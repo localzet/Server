@@ -27,9 +27,8 @@
 namespace localzet\Server\Connection;
 
 use Exception;
-use localzet\Server\Events\EventInterface;
-use localzet\Server\Protocols\ProtocolInterface;
 use localzet\Server;
+use localzet\Server\Events\EventInterface;
 use Throwable;
 use function class_exists;
 use function explode;
@@ -75,9 +74,7 @@ class AsyncUdpConnection extends UdpConnection
      * @param mixed[] $contextOption
      * @throws Exception
      */
-    public function __construct($remoteAddress, /**
-     * Опции контекста.
-     */
+    public function __construct($remoteAddress,
                                 protected array $contextOption = [])
     {
         // Получаем протокол связи уровня приложения и адрес прослушивания.

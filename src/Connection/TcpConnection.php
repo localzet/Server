@@ -28,10 +28,8 @@ namespace localzet\Server\Connection;
 
 use JsonSerializable;
 use localzet\Server;
-use localzet\Server\Events\Ev;
-use localzet\Server\Events\Event;
 use localzet\Server\Events\EventInterface;
-use localzet\Server\Events\Linux;
+use localzet\Server\Protocols\Http;
 use localzet\Server\Protocols\Http\Request;
 use RuntimeException;
 use stdClass;
@@ -162,11 +160,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     public static array $connections = [];
 
     /**
-     * Reuse request.
-     */
-    protected static bool $reuseRequest = false;
-
-    /**
      * Идентификатор записывателя.
      */
     protected static int $idRecorder = 1;
@@ -184,6 +177,8 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      * @var ?callable
      */
     public $onWebSocketConnect = null;
+    public $onWebSocketConnected = null;
+    public $onWebSocketClose = null;
 
     /**
      * Событие, возникающее при получении данных.
@@ -326,10 +321,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         }
 
         stream_set_blocking($this->socket, false);
-        // Совместимость с hhvm
-        if (function_exists('stream_set_read_buffer')) {
-            stream_set_read_buffer($this->socket, 0);
-        }
+        stream_set_read_buffer($this->socket, 0);
 
         $this->eventLoop = $event;
         $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
@@ -338,14 +330,6 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         $this->maxPackageSize = self::$defaultMaxPackageSize;
         static::$connections[$this->id] = $this;
         $this->context = new stdClass();
-    }
-
-    /**
-     * Включение или отключение кэша.
-     */
-    public static function init(): void
-    {
-        static::$reuseRequest = in_array(get_class(Server::$globalEvent), [Event::class, Linux::class, Ev::class]);
     }
 
     /**
@@ -427,10 +411,12 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         }
 
         // Удалить обработчик событий.
-        $this->eventLoop->offReadable($this->socket);
-        $this->eventLoop->offWritable($this->socket);
-        if (!is_unix() && method_exists($this->eventLoop, 'offExcept')) {
-            $this->eventLoop->offExcept($this->socket);
+        if ($this->eventLoop !== null) {
+            $this->eventLoop->offReadable($this->socket);
+            $this->eventLoop->offWritable($this->socket);
+            if (!is_unix() && method_exists($this->eventLoop, 'offExcept')) {
+                $this->eventLoop->offExcept($this->socket);
+            }
         }
 
         // Закрыть сокет.
@@ -667,7 +653,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      */
     public function pauseRecv(): void
     {
-        $this->eventLoop->offReadable($this->socket);
+        if ($this->eventLoop !== null) $this->eventLoop->offReadable($this->socket);
         $this->isPaused = true;
     }
 
@@ -724,8 +710,9 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             if ($this->recvBuffer === '') {
                 if (!isset($buffer[static::MAX_CACHE_STRING_LENGTH]) && isset($requests[$buffer])) {
                     ++self::$statistics['total_request'];
-                    $request = $requests[$buffer];
-                    if ($request instanceof Request) {
+                    if ($this->protocol === Http::class) {
+                        $request = clone $requests[$buffer];
+                        $request->destroy();
                         $request->connection = $this;
                         $this->request = $request;
                         try {
@@ -733,12 +720,9 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                         } catch (Throwable $e) {
                             $this->error($e);
                         }
-
-                        $request->destroy();
-                        $requests[$buffer] = static::$reuseRequest ? $request : clone $request;
                         return;
                     }
-
+                    $request = $requests[$buffer];
                     try {
                         ($this->onMessage)($this, $request);
                     } catch (Throwable $e) {
@@ -809,8 +793,8 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                     if ((!is_object($request) || $request instanceof Request) && $one && !isset($oneRequestBuffer[static::MAX_CACHE_STRING_LENGTH])) {
                         ($this->onMessage)($this, $request);
                         if ($request instanceof Request) {
-                            $request->destroy();
                             $requests[$oneRequestBuffer] = clone $request;
+                            $requests[$oneRequestBuffer]->destroy();
                         } else {
                             $requests[$oneRequestBuffer] = $request;
                         }

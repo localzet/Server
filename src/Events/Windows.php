@@ -114,7 +114,7 @@ final class Windows implements EventInterface
     /**
      * Таймаут события select.
      */
-    private int $selectTimeout = 100000000;
+    private int $selectTimeout = self::MAX_SELECT_TIMOUT_US;
 
     /**
      * Следующее время срабатывания таймера.
@@ -127,6 +127,13 @@ final class Windows implements EventInterface
      * @var ?callable
      */
     private $errorHandler = null;
+
+    /**
+     * Select timeout.
+     *
+     * @var int
+     */
+    const MAX_SELECT_TIMOUT_US = 800000;
 
     /**
      * Конструктор.
@@ -414,10 +421,10 @@ final class Windows implements EventInterface
     {
         $this->nextTickTime = $nextTickTime;
         if ($nextTickTime == 0) {
-            $this->selectTimeout = 10000000;
+            $this->selectTimeout = self::MAX_SELECT_TIMOUT_US;
             return;
         }
-        
+
         $timeNow = microtime(true);
         $this->selectTimeout = max((int)(($nextTickTime - $timeNow) * 1000000), 0);
     }

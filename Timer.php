@@ -29,8 +29,9 @@ namespace localzet;
 use DateTime;
 use localzet\Server\Events\EventInterface;
 use localzet\Server\Events\Linux;
-use localzet\Server\Events\Revolt;
+use localzet\Server\Events\Swoole;
 use RuntimeException;
+use Swoole\Coroutine\System;
 use Throwable;
 use function function_exists;
 use function pcntl_alarm;
@@ -146,15 +147,22 @@ class Timer
      */
     public static function sleep(float $delay): void
     {
-        if (Server::$globalEvent instanceof EventInterface && (Server::$globalEvent instanceof Linux || Server::$globalEvent instanceof Revolt)) {
-            $suspension = Server::$globalEvent->getSuspension();
-            static::add($delay, function () use ($suspension): void {
-                $suspension->resume();
-            }, null, false);
-            $suspension->suspend();
+        if (Server::$globalEvent instanceof EventInterface) {
+            switch (true) {
+                case Server::$globalEvent instanceof Linux:
+                    $suspension = Server::$globalEvent->getSuspension();
+                    static::add($delay, function () use ($suspension): void {
+                        $suspension->resume();
+                    }, null, false);
+                    $suspension->suspend();
+                    return;
+                case Server::$globalEvent instanceof Swoole:
+                    System::sleep($delay);
+                    return;
+            }
         }
 
-        throw new RuntimeException('Timer::sleep() требует событийную петлю!');
+        usleep((int)($delay * 1000 * 1000));
     }
 
     /**

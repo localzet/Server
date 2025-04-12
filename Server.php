@@ -30,16 +30,18 @@ use AllowDynamicProperties;
 use Composer\InstalledVersions;
 use DateTime;
 use Exception;
+use Fiber;
 use JetBrains\PhpStorm\NoReturn;
-use localzet\Server\Connection\{ConnectionInterface};
+use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Connection\UdpConnection;
-use localzet\Server\Events\Revolt;
+use localzet\Server\Events\Event;
 use localzet\Server\Events\EventInterface;
 use localzet\Server\Events\Linux;
+use localzet\Server\Events\Swoole;
+use localzet\Server\Events\Swow;
 use localzet\Server\Events\Windows;
 use localzet\Server\Protocols\ProtocolInterface;
-use Revolt\EventLoop;
 use RuntimeException;
 use stdClass;
 use Throwable;
@@ -118,7 +120,14 @@ class Server
      *
      * @var string
      */
-    final public const VERSION = '25.01.01';
+    final public const VERSION = '501_25.01.01';
+
+    /**
+     * Status initial.
+     *
+     * @var int
+     */
+    public const STATUS_INITIAL = 0;
 
     /**
      * Статус: запуск
@@ -412,9 +421,9 @@ class Server
     /**
      * Класс событийной петли
      *
-     * @var class-string<EventInterface>
+     * @var ?class-string<EventInterface>
      */
-    public static string $eventLoopClass;
+    public static ?string $eventLoopClass = null;
 
     /**
      * Таймаут после команды остановки для дочерних процессов
@@ -486,7 +495,7 @@ class Server
     /**
      * Текущий статус.
      */
-    protected static int $status = self::STATUS_STARTING;
+    protected static int $status = self::STATUS_INITIAL;
 
     /**
      * Максимальная длина имени сервера.
@@ -846,7 +855,7 @@ class Server
         }
 
         static::$eventLoopClass = match (true) {
-            class_exists(EventLoop::class) => Revolt::class,
+            extension_loaded('event') => Event::class,
             default => is_unix() ? Linux::class : Windows::class
         };
     }
@@ -931,6 +940,7 @@ class Server
             // Начинаем прослушивание.
             if (!$server->reusePort) {
                 $server->listen();
+                $server->pauseAccept();
             }
         }
     }
@@ -1799,8 +1809,6 @@ class Server
             // Инициализировать таймер.
             Timer::init(static::$globalEvent);
 
-            TcpConnection::init();
-
             restore_error_handler();
 
             static::setProcessTitle('Localzet Server: процесс сервера ' . $server->name . ' ' . $server->getSocketName());
@@ -2118,19 +2126,31 @@ class Server
         else {
             // Выполнить выход.
             $servers = array_reverse(static::$servers);
-            array_walk($servers, static fn(Server $server) => $server->stop());
+            array_walk($servers, static fn(Server $server) => $server->stop(false));
 
-            if (!static::$gracefulStop || ConnectionInterface::$statistics['connection_count'] <= 0) {
-                static::$servers = [];
-                static::$globalEvent?->stop();
-
-                try {
-                    exit($code);
-                    /** @phpstan-ignore-next-line */
-                } catch (Exception) {
-                    // :)
+            $callback = function () use ($code, $servers) {
+                $allWorkerConnectionClosed = true;
+                if (!static::getGracefulStop()) {
+                    foreach ($servers as $server) {
+                        foreach ($server->connections as $connection) {
+                            if (!$connection->getRecvBufferQueueSize() && !isset($connection->context->closeTimer)) {
+                                $connection->context->closeTimer = Timer::delay(0.01, static fn() => $connection->close());
+                            }
+                            $allWorkerConnectionClosed = false;
+                        }
+                    }
                 }
-            }
+                if ((!static::getGracefulStop() && $allWorkerConnectionClosed) || ConnectionInterface::$statistics['connection_count'] <= 0) {
+                    static::$globalEvent?->stop();
+                    try {
+                        exit($code);
+                        /** @phpstan-ignore-next-line */
+                    } catch (Throwable) {
+                        // :)
+                    }
+                }
+            };
+            Timer::repeat(0.01, $callback);
         }
     }
 
@@ -2263,9 +2283,6 @@ class Server
             return;
         }
 
-        // Для дочерних процессов.
-        gc_collect_cycles();
-        gc_mem_caches();
         reset(static::$servers);
         /** @var static $server */
         $server = current(static::$servers);
@@ -2704,15 +2721,33 @@ class Server
     public function run(): void
     {
         $this->listen();
-        Events::emit('Server::Start', $this);
+        $callback = function () {
+            try {
+                Events::emit('Server::Start', $this);
+            } catch (Throwable $e) {
+                sleep(1);
+                static::stopAll(250, $e);
+            }
+        };
+
+        switch (Server::$eventLoopClass) {
+            case Swoole::class:
+            case Swow::class:
+            case Fiber::class:
+                Coroutine::create($callback);
+                break;
+            default:
+                (new Fiber($callback))->start();
+        }
     }
 
     /**
      * Остановить текущий экземпляр сервера.
      *
+     * @param bool $force
      * @throws Throwable
      */
-    public function stop(): void
+    public function stop(bool $force = true): void
     {
         if ($this->stopping) {
             return;
@@ -2724,7 +2759,9 @@ class Server
         // Закрыть все соединения для сервера.
         if (static::$gracefulStop) {
             foreach ($this->connections as $connection) {
-                $connection->close();
+                if ($force || !$connection->getRecvBufferQueueSize()) {
+                    $connection->close();
+                }
             }
         }
 
@@ -2870,5 +2907,10 @@ class Server
         }
 
         return str_contains($content, 'Localzet Server') || str_contains($content, 'php');
+    }
+
+    public static function isRunning(): bool
+    {
+        return Server::$status !== Server::STATUS_INITIAL;
     }
 }

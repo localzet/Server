@@ -28,13 +28,15 @@ namespace localzet\Server\Events;
 
 use Closure;
 use Error;
-use localzet\Server\Events\Linux\{Driver};
+use Fiber;
 use localzet\Server\Events\Linux\CallbackType;
+use localzet\Server\Events\Linux\Driver;
 use localzet\Server\Events\Linux\DriverFactory;
 use localzet\Server\Events\Linux\Internal\AbstractDriver;
 use localzet\Server\Events\Linux\Internal\DriverCallback;
 use localzet\Server\Events\Linux\InvalidCallbackError;
 use localzet\Server\Events\Linux\Suspension;
+use Throwable;
 use function count;
 use function function_exists;
 use function gc_collect_cycles;
@@ -220,7 +222,7 @@ final class Linux implements EventInterface
         $timerId = $this->timerId++;
         $closure = function () use ($func, $args, $timerId): void {
             unset($this->eventTimer[$timerId]);
-            $func(...$args);
+            $this->safeCall($func, ...$args);
         };
         $cbId = $this->getDriver()->delay($delay, $closure);
         $this->eventTimer[$timerId] = $cbId;
@@ -233,7 +235,7 @@ final class Linux implements EventInterface
     public function repeat(float $interval, callable $func, array $args = []): int
     {
         $timerId = $this->timerId++;
-        $cbId = $this->getDriver()->repeat($interval, static fn() => $func(...$args));
+        $cbId = $this->getDriver()->repeat($interval, fn() => $this->safeCall($func, ...$args));
         $this->eventTimer[$timerId] = $cbId;
         return $timerId;
     }
@@ -246,10 +248,9 @@ final class Linux implements EventInterface
         $fdKey = (int)$stream;
         if (isset($this->readEvents[$fdKey])) {
             $this->getDriver()->cancel($this->readEvents[$fdKey]);
-            unset($this->readEvents[$fdKey]);
         }
 
-        $this->readEvents[$fdKey] = $this->getDriver()->onReadable($stream, static fn() => $func($stream));
+        $this->readEvents[$fdKey] = $this->getDriver()->onReadable($stream, fn() => $this->safeCall($func, $stream));
     }
 
     /**
@@ -278,7 +279,7 @@ final class Linux implements EventInterface
             unset($this->writeEvents[$fdKey]);
         }
 
-        $this->writeEvents[$fdKey] = $this->getDriver()->onWritable($stream, static fn() => $func($stream));
+        $this->writeEvents[$fdKey] = $this->getDriver()->onWritable($stream, fn() => $this->safeCall($func, $stream));
     }
 
     /**
@@ -307,7 +308,7 @@ final class Linux implements EventInterface
             unset($this->eventSignal[$fdKey]);
         }
 
-        $this->eventSignal[$fdKey] = $this->getDriver()->onSignal($signal, static fn() => $func($signal));
+        $this->eventSignal[$fdKey] = $this->getDriver()->onSignal($signal, fn() => $this->safeCall($func, $signal));
     }
 
     /**
@@ -532,5 +533,16 @@ final class Linux implements EventInterface
     public function isReferenced(string $callbackId): bool
     {
         return $this->getDriver()->isReferenced($callbackId);
+    }
+
+    /**
+     * @param callable $func
+     * @param ...$args
+     * @return void
+     * @throws Throwable
+     */
+    protected function safeCall(callable $func, ...$args): void
+    {
+        (new Fiber(fn() => $func(...$args)))->start();
     }
 }

@@ -27,10 +27,10 @@
 namespace localzet\Server\Events;
 
 use RuntimeException;
+//use localzet\Coroutine\Swow as Coroutine;
 use Swow\Coroutine;
 use Swow\Signal;
 use Swow\SignalException;
-use Throwable;
 use function msleep;
 use function stream_poll_one;
 use function Swow\Sync\waitAll;
@@ -106,15 +106,17 @@ final class Swow implements EventInterface
 
     private function safeCall(callable $func, array $args = []): void
     {
-        try {
-            $func(...$args);
-        } catch (Throwable $throwable) {
-            if ($this->errorHandler === null) {
-                echo $throwable;
-            } else {
-                ($this->errorHandler)($throwable);
+        Coroutine::run(function () use ($func, $args): void {
+            try {
+                $func(...$args);
+            } catch (\Throwable $e) {
+                if ($this->errorHandler === null) {
+                    echo $e;
+                } else {
+                    ($this->errorHandler)($e);
+                }
             }
-        }
+        });
     }
 
     /**
@@ -189,7 +191,7 @@ final class Swow implements EventInterface
                         break;
                     }
 
-                    $rEvent = stream_poll_one($stream, STREAM_POLLIN | STREAM_POLLHUP);
+                    $rEvent = stream_poll_one($stream, STREAM_POLLIN | STREAM_POLLHUP, 1000);
                     if (!isset($this->readEvents[$fd]) || $this->readEvents[$fd] !== Coroutine::getCurrent()) {
                         break;
                     }
@@ -198,7 +200,7 @@ final class Swow implements EventInterface
                         $this->safeCall($func, [$stream]);
                     }
 
-                    if ($rEvent !== STREAM_POLLIN) {
+                    if ($rEvent !== STREAM_POLLIN && $rEvent !== STREAM_POLLNONE) {
                         $this->offReadable($stream);
                         break;
                     }

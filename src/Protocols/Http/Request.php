@@ -154,7 +154,7 @@ class Request implements Stringable
         } else {
             $this->_data['get'] = $get;
         }
-        
+
         return $this;
     }
 
@@ -169,7 +169,7 @@ class Request implements Stringable
         if ($queryString === '') {
             return;
         }
-        
+
         if (isset($cache[$queryString])) {
             // Если условие выполняется, используем данные из кэша.
             $this->data['get'] = $cache[$queryString];
@@ -249,7 +249,7 @@ class Request implements Stringable
         } else {
             $this->_data['post'] = $post;
         }
-        
+
         return $this;
     }
 
@@ -374,7 +374,7 @@ class Request implements Stringable
         } else {
             $this->_data['headers'] = $headers;
         }
-        
+
         return $this;
     }
 
@@ -808,10 +808,10 @@ class Request implements Stringable
         $firstLine = strstr($this->buffer, "\r\n", true);
 
         // Получить версию протокола из первой строки
-        $protocolVersion = substr(strstr($firstLine, 'HTTP/'), 5);
+        $protocolVersion = strstr($firstLine, 'HTTP/');
 
         // Установить версию протокола в данные или '1.0', если она не найдена
-        $this->data['protocolVersion'] = $protocolVersion ?: '1.0';
+        $this->data['protocolVersion'] = $protocolVersion ? substr($protocolVersion, 5) : '1.0';
     }
 
     /**
@@ -1046,7 +1046,7 @@ class Request implements Stringable
         if (is_string($ip)) {
             $ip = current(explode(',', $ip));
         }
-        
+
         return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : null;
     }
 
@@ -1176,11 +1176,11 @@ class Request implements Stringable
         if ($this->context) {
             $this->context = [];
         }
-        
+
         if ($this->properties) {
             $this->properties = [];
         }
-        
+
         // Если файлы установлены и безопасность включена, очистить кэш статуса файла и удалить временные файлы
         if (isset($this->data['files']) && $this->isSafe) {
             // Очистить кэш статуса файла

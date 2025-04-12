@@ -68,6 +68,8 @@ final class Swoole implements EventInterface
      */
     private $errorHandler = null;
 
+    private bool $stopping = false;
+
     /**
      * Constructor.
      */
@@ -94,15 +96,17 @@ final class Swoole implements EventInterface
 
     private function safeCall(callable $func, array $args = []): void
     {
-        try {
-            $func(...$args);
-        } catch (Throwable $throwable) {
-            if ($this->errorHandler === null) {
-                echo $throwable;
-            } else {
-                ($this->errorHandler)($throwable);
+        Coroutine::create(function() use ($func, $args) {
+            try {
+                $func(...$args);
+            } catch (Throwable $e) {
+                if ($this->errorHandler === null) {
+                    echo $e;
+                } else {
+                    ($this->errorHandler)($e);
+                }
             }
-        }
+        });
     }
 
     /**
@@ -147,6 +151,11 @@ final class Swoole implements EventInterface
      */
     public function stop(): void
     {
+        if ($this->stopping) {
+            return;
+        }
+        $this->stopping = true;
+
         // Отменим все сопрограммы перед Event::exit
         foreach (Coroutine::listCoroutines() as $coroutine) {
             Coroutine::cancel($coroutine);

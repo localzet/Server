@@ -1,21 +1,21 @@
 {
   "name": "localzet/server",
-  "description": "Localzet Server is an asynchronous event-based server in PHP, offering high performance and scalability using modern technologies and standards.",
-  "type": "library",
+  "description": "Localzet Server is a high-performance asynchronous event-driven server for PHP, designed for modern applications with scalability and security in mind.",
+  "type": "project",
   "keywords": [
     "asynchronous",
-    "event-based",
+    "event-driven",
     "server",
     "PHP",
     "security",
-    "localzet",
-    "AGPL",
-    "json",
+    "scalability",
+    "performance",
+    "async",
     "sockets",
     "pcntl",
     "posix",
     "psr",
-    "performance"
+    "AGPL"
   ],
   "license": "AGPL-3.0-or-later",
   "authors": [
@@ -29,10 +29,11 @@
   "support": {
     "email": "support@localzet.com",
     "issues": "https://github.com/localzet/Server/issues",
-    "source": "https://github.com/localzet/Server"
+    "source": "https://github.com/localzet/Server",
+    "docs": "https://docs.localzet.com"
   },
   "require": {
-    "php": "^8",
+    "php": "^8.1 || ^8.2",
     "ext-json": "*",
     "ext-sockets": "*",
     "ext-pcntl": "*",
@@ -40,13 +41,13 @@
     "localzet/events": "^1"
   },
   "suggest": {
-    "ext-uv": "For better performance",
-    "ext-ev": "For better performance",
-    "ext-event": "For better performance",
-    "ext-swoole": "For better performance",
-    "ext-swow": "For better performance",
-    "ext-redis": "For Redis Session Handler",
-    "mongodb/mongodb": "For Mongo Session Handler"
+    "ext-uv": "For better performance with libuv.",
+    "ext-ev": "For better performance with libev.",
+    "ext-event": "For better performance with libevent.",
+    "ext-swoole": "For enhanced async capabilities and performance.",
+    "ext-swow": "For next-gen async PHP features.",
+    "ext-redis": "For Redis Session Handler support.",
+    "mongodb/mongodb": "For MongoDB Session Handler support."
   },
   "conflict": {
     "ext-swow": "<v1.0.0"
@@ -61,6 +62,19 @@
     ]
   },
   "require-dev": {
-    "rector/rector": "*"
+    "rector/rector": "*",
+    "phpunit/phpunit": "^9 || ^10",
+    "friendsofphp/php-cs-fixer": "*",
+    "vimeo/psalm": "*"
+  },
+  "scripts": {
+    "test": "phpunit",
+    "fix-cs": "php-cs-fixer fix",
+    "analyze": "psalm"
+  },
+  "extra": {
+    "branch-alias": {
+      "dev-main": "4.5.x"
+    }
   }
 }
