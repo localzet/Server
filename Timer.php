@@ -92,6 +92,32 @@ class Timer
     }
 
     /**
+     * Repeat.
+     *
+     * @param float $timeInterval
+     * @param callable $func
+     * @param array $args
+     * @return int
+     */
+    public static function repeat(float $timeInterval, callable $func, array $args = []): int
+    {
+        return self::$event->repeat($timeInterval, $func, $args);
+    }
+
+    /**
+     * Delay.
+     *
+     * @param float $timeInterval
+     * @param callable $func
+     * @param array $args
+     * @return int
+     */
+    public static function delay(float $timeInterval, callable $func, array $args = []): int
+    {
+        return self::$event->delay($timeInterval, $func, $args);
+    }
+
+    /**
      * Обработчик сигнала
      */
     public static function signalHandle(): void
@@ -100,65 +126,6 @@ class Timer
             pcntl_alarm(1);
             self::tick();
         }
-    }
-
-    /**
-     * Тик
-     */
-    protected static function tick(): void
-    {
-        if (empty(self::$tasks)) {
-            pcntl_alarm(0);
-            return;
-        }
-
-        $timeNow = time();
-        foreach (self::$tasks as $runTime => $taskData) {
-            if ($timeNow >= $runTime) {
-                foreach ($taskData as $index => $oneTask) {
-                    [$taskFunc, $taskArgs, $persistent, $timeInterval] = $oneTask;
-                    try {
-                        $taskFunc(...$taskArgs);
-                    } catch (Throwable $e) {
-                        Server::safeEcho((string)$e);
-                    }
-
-                    if ($persistent && isset(self::$status[$index])) {
-                        $newRunTime = time() + $timeInterval;
-                        if (!isset(self::$tasks[$newRunTime])) {
-                            self::$tasks[$newRunTime] = [];
-                        }
-
-                        self::$tasks[$newRunTime][$index] = [$taskFunc, $taskArgs, $persistent, $timeInterval];
-                    }
-                }
-
-                unset(self::$tasks[$runTime]);
-            }
-        }
-    }
-
-    /**
-     * Coroutine sleep
-     */
-    public static function sleep(float $delay): void
-    {
-        if (Server::$globalEvent instanceof EventInterface) {
-            switch (true) {
-                case Server::$globalEvent instanceof Linux:
-                    $suspension = Server::$globalEvent->getSuspension();
-                    static::add($delay, function () use ($suspension): void {
-                        $suspension->resume();
-                    }, null, false);
-                    $suspension->suspend();
-                    return;
-                case Server::$globalEvent instanceof Swoole:
-                    System::sleep($delay);
-                    return;
-            }
-        }
-
-        usleep((int)($delay * 1_000_000));
     }
 
     /**
@@ -196,6 +163,63 @@ class Timer
         self::$tasks[$runTime][self::$timerId] = [$func, $args, $persistent, $timeInterval];
 
         return self::$timerId;
+    }
+
+    /**
+     * Coroutine sleep
+     */
+    public static function sleep(float $delay): void
+    {
+        switch (Server::$eventLoopClass) {
+            case Linux::class:
+                $suspension = Server::$globalEvent->getSuspension();
+                static::add($delay, function () use ($suspension): void {
+                    $suspension->resume();
+                }, null, false);
+                $suspension->suspend();
+                return;
+            case Swoole::class:
+                System::sleep($delay);
+                return;
+        }
+
+        usleep((int)($delay * 1000 * 1000));
+    }
+
+    /**
+     * Тик
+     */
+    protected static function tick(): void
+    {
+        if (empty(self::$tasks)) {
+            pcntl_alarm(0);
+            return;
+        }
+
+        $timeNow = time();
+        foreach (self::$tasks as $runTime => $taskData) {
+            if ($timeNow >= $runTime) {
+                foreach ($taskData as $index => $oneTask) {
+                    [$taskFunc, $taskArgs, $persistent, $timeInterval] = $oneTask;
+                    try {
+                        $taskFunc(...$taskArgs);
+                    } catch (Throwable $e) {
+                        Server::safeEcho((string)$e);
+                    }
+
+                    if ($persistent && !empty(self::$status[$index])) {
+                        $newRunTime = time() + $timeInterval;
+                        if (!isset(self::$tasks[$newRunTime])) {
+                            self::$tasks[$newRunTime] = [];
+                        }
+
+                        self::$tasks[$newRunTime][$index] = [$taskFunc, $taskArgs, $persistent, $timeInterval];
+                    }
+                }
+
+                unset(self::$tasks[$runTime]);
+            }
+        }
     }
 
     /**
