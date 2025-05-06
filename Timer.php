@@ -26,7 +26,6 @@
 
 namespace localzet;
 
-use DateTime;
 use localzet\Server\Events\EventInterface;
 use localzet\Server\Events\Linux;
 use localzet\Server\Events\Swoole;
@@ -48,10 +47,10 @@ use const SIGALRM;
 class Timer
 {
     /**
-     * Задачи, основанные на сигнале
+     * Задачи, основанные на сигнале ALARM
      * [
-     *   run_time => [[$func, $args, $persistent, time_interval],[$func, $args, $persistent, time_interval],..]],
-     *   run_time => [[$func, $args, $persistent, time_interval],[$func, $args, $persistent, time_interval],..]],
+     *   run_time => [[$func, $args, $persistent, time_interval], ... ],
+     *   ...
      * ]
      */
     protected static array $tasks = [];
@@ -62,15 +61,15 @@ class Timer
     protected static ?EventInterface $event = null;
 
     /**
-     * ID Таймера
+     * ID таймера
      */
     protected static int $timerId = 0;
 
     /**
-     * Статус таймера
+     * Статус таймеров
      * [
-     *   timer_id1 => bool,
-     *   timer_id2 => bool,
+     *   timer_id => bool,
+     *   ...
      * ]
      */
     protected static array $status = [];
@@ -80,9 +79,9 @@ class Timer
      *
      * @param EventInterface|null $event
      */
-    public static function init(EventInterface $event = null): void
+    public static function init(?EventInterface $event = null): void
     {
-        if ($event instanceof EventInterface) {
+        if ($event) {
             self::$event = $event;
             return;
         }
@@ -97,7 +96,7 @@ class Timer
      */
     public static function signalHandle(): void
     {
-        if (!(self::$event instanceof EventInterface)) {
+        if (!self::$event) {
             pcntl_alarm(1);
             self::tick();
         }
@@ -106,34 +105,31 @@ class Timer
     /**
      * Тик
      */
-    public static function tick(): void
+    protected static function tick(): void
     {
         if (empty(self::$tasks)) {
             pcntl_alarm(0);
             return;
         }
 
-        $timeNow = (new DateTime())->getTimestamp();
+        $timeNow = time();
         foreach (self::$tasks as $runTime => $taskData) {
             if ($timeNow >= $runTime) {
                 foreach ($taskData as $index => $oneTask) {
-                    $taskFunc = $oneTask[0];
-                    $taskArgs = $oneTask[1];
-                    $persistent = $oneTask[2];
-                    $timeInterval = $oneTask[3];
+                    [$taskFunc, $taskArgs, $persistent, $timeInterval] = $oneTask;
                     try {
                         $taskFunc(...$taskArgs);
                     } catch (Throwable $e) {
                         Server::safeEcho((string)$e);
                     }
 
-                    if ($persistent && !empty(self::$status[$index])) {
-                        $newRunTime = (new DateTime())->getTimestamp() + $timeInterval;
+                    if ($persistent && isset(self::$status[$index])) {
+                        $newRunTime = time() + $timeInterval;
                         if (!isset(self::$tasks[$newRunTime])) {
                             self::$tasks[$newRunTime] = [];
                         }
 
-                        self::$tasks[$newRunTime][$index] = [$taskFunc, (array)$taskArgs, $persistent, $timeInterval];
+                        self::$tasks[$newRunTime][$index] = [$taskFunc, $taskArgs, $persistent, $timeInterval];
                     }
                 }
 
@@ -143,7 +139,7 @@ class Timer
     }
 
     /**
-     * Coroutine sleep.
+     * Coroutine sleep
      */
     public static function sleep(float $delay): void
     {
@@ -162,24 +158,24 @@ class Timer
             }
         }
 
-        usleep((int)($delay * 1000 * 1000));
+        usleep((int)($delay * 1_000_000));
     }
 
     /**
      * Добавить таймер
      */
-    public static function add(float $timeInterval, callable $func, null|array $args = [], bool $persistent = true): int
+    public static function add(float $timeInterval, callable $func, ?array $args = [], bool $persistent = true): int
     {
         if ($timeInterval < 0) {
             throw new RuntimeException('$timeInterval не может быть меньше 0');
         }
 
-        if ($args === null) {
-            $args = [];
-        }
+        $args ??= [];
 
-        if (self::$event instanceof EventInterface) {
-            return $persistent ? self::$event->repeat($timeInterval, $func, $args) : self::$event->delay($timeInterval, $func, $args);
+        if (self::$event) {
+            return $persistent
+                ? self::$event->repeat($timeInterval, $func, $args)
+                : self::$event->delay($timeInterval, $func, $args);
         }
 
         if (!Server::getAllServers()) {
@@ -190,12 +186,12 @@ class Timer
             pcntl_alarm(1);
         }
 
-        $runTime = (new DateTime())->getTimestamp() + $timeInterval;
+        $runTime = time() + $timeInterval;
         if (!isset(self::$tasks[$runTime])) {
             self::$tasks[$runTime] = [];
         }
 
-        self::$timerId = self::$timerId == PHP_INT_MAX ? 1 : ++self::$timerId;
+        self::$timerId = self::$timerId === PHP_INT_MAX ? 1 : ++self::$timerId;
         self::$status[self::$timerId] = true;
         self::$tasks[$runTime][self::$timerId] = [$func, $args, $persistent, $timeInterval];
 
@@ -207,19 +203,17 @@ class Timer
      */
     public static function del(int $timerId): bool
     {
-        if (self::$event instanceof EventInterface) {
+        if (self::$event) {
             return self::$event->offDelay($timerId);
         }
 
         foreach (self::$tasks as $runTime => $taskData) {
-            if (array_key_exists($timerId, $taskData)) {
+            if (isset($taskData[$timerId])) {
                 unset(self::$tasks[$runTime][$timerId]);
             }
         }
 
-        if (array_key_exists($timerId, self::$status)) {
-            unset(self::$status[$timerId]);
-        }
+        unset(self::$status[$timerId]);
 
         return true;
     }
