@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -30,6 +32,7 @@ use Exception;
 use InvalidArgumentException;
 use localzet\Server\Protocols\Http\Session\{FileSessionHandler};
 use localzet\Server\Protocols\Http\Session\SessionHandlerInterface;
+
 use function array_key_exists;
 use function ini_get;
 use function is_array;
@@ -39,7 +42,6 @@ use function random_int;
 use function serialize;
 use function session_get_cookie_params;
 use function unserialize;
-
 
 /**
  * Класс Session
@@ -137,13 +139,13 @@ class Session
     public function __construct(/**
      * Идентификатор сессии.
      */
-    protected ?string $sessionId)
-    {
+        protected ?string $sessionId
+    ) {
         // Если обработчик еще не инициализирован, инициализируем его.
         if (!(static::$handler instanceof SessionHandlerInterface)) {
             static::initHandler();
         }
-        
+
         // Если есть данные, читаем их из обработчика и десериализуем.
         if ($data = static::$handler->read($this->sessionId)) {
             $this->data = unserialize($data);

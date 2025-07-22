@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -33,6 +35,7 @@ use localzet\Server\Events\Linux\Driver\EvDriver;
 use localzet\Server\Events\Linux\Driver\EventDriver;
 use localzet\Server\Events\Linux\Driver\StreamSelectDriver;
 use localzet\Server\Events\Linux\Driver\UvDriver;
+
 use function class_exists;
 use function getenv;
 use function is_subclass_of;

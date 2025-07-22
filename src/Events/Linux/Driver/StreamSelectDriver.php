@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -41,6 +43,7 @@ use localzet\Server\Events\Linux\Internal\TimerQueue;
 use localzet\Server\Events\Linux\UnsupportedFeatureException;
 use SplQueue;
 use Throwable;
+
 use function assert;
 use function extension_loaded;
 use function function_exists;
@@ -57,6 +60,7 @@ use function str_replace;
 use function stream_select;
 use function stripos;
 use function usleep;
+
 use const PHP_INT_MAX;
 use const SIG_DFL;
 
@@ -165,7 +169,7 @@ final class StreamSelectDriver extends AbstractDriver
 
                 if (empty($this->signalCallbacks[$driverCallback->signal])) {
                     unset($this->signalCallbacks[$driverCallback->signal]);
-                    set_error_handler(static fn(): bool => true);
+                    set_error_handler(static fn (): bool => true);
                     try {
                         pcntl_signal($driverCallback->signal, SIG_DFL);
                     } finally {

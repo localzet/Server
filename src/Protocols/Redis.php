@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
@@ -26,6 +28,7 @@
 namespace localzet\Server\Protocols;
 
 use localzet\Server\Connection\ConnectionInterface;
+
 use function count;
 use function is_array;
 use function strlen;

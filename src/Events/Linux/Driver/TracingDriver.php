@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -32,11 +34,13 @@ use localzet\Server\Events\Linux\CallbackType;
 use localzet\Server\Events\Linux\Driver;
 use localzet\Server\Events\Linux\InvalidCallbackError;
 use localzet\Server\Events\Linux\Suspension;
+
 use function array_keys;
 use function array_map;
 use function debug_backtrace;
 use function implode;
 use function rtrim;
+
 use const DEBUG_BACKTRACE_IGNORE_ARGS;
 
 /**

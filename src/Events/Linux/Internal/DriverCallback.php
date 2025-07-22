@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -46,8 +48,7 @@ abstract class DriverCallback
     public function __construct(
         public readonly string  $id, // Идентификатор обратного вызова
         public readonly Closure $closure // Обратный вызов
-    )
-    {
+    ) {
     }
 
     public function __get(string $property): never

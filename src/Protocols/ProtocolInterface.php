@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -68,4 +70,3 @@ interface ProtocolInterface
      */
     public static function decode(string $buffer, ConnectionInterface $connection): mixed;
 }
-

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -31,6 +33,7 @@ use Swoole\Event;
 use Swoole\Process;
 use Swoole\Timer;
 use Throwable;
+
 use const SWOOLE_EVENT_READ;
 use const SWOOLE_EVENT_WRITE;
 use const SWOOLE_HOOK_ALL;
@@ -96,7 +99,7 @@ final class Swoole implements EventInterface
 
     private function safeCall(callable $func, array $args = []): void
     {
-        Coroutine::create(function() use ($func, $args) {
+        Coroutine::create(function () use ($func, $args) {
             try {
                 $func(...$args);
             } catch (Throwable $e) {
@@ -173,11 +176,11 @@ final class Swoole implements EventInterface
     {
         $fd = (int)$stream;
         if (!isset($this->readEvents[$fd]) && !isset($this->writeEvents[$fd])) {
-            Event::add($stream, fn() => $this->callRead($fd), null, SWOOLE_EVENT_READ);
+            Event::add($stream, fn () => $this->callRead($fd), null, SWOOLE_EVENT_READ);
         } elseif (isset($this->writeEvents[$fd])) {
-            Event::set($stream, fn() => $this->callRead($fd), null, SWOOLE_EVENT_READ | SWOOLE_EVENT_WRITE);
+            Event::set($stream, fn () => $this->callRead($fd), null, SWOOLE_EVENT_READ | SWOOLE_EVENT_WRITE);
         } else {
-            Event::set($stream, fn() => $this->callRead($fd), null, SWOOLE_EVENT_READ);
+            Event::set($stream, fn () => $this->callRead($fd), null, SWOOLE_EVENT_READ);
         }
 
         $this->readEvents[$fd] = [$func, [$stream]];
@@ -210,11 +213,11 @@ final class Swoole implements EventInterface
     {
         $fd = (int)$stream;
         if (!isset($this->readEvents[$fd]) && !isset($this->writeEvents[$fd])) {
-            Event::add($stream, null, fn() => $this->callWrite($fd), SWOOLE_EVENT_WRITE);
+            Event::add($stream, null, fn () => $this->callWrite($fd), SWOOLE_EVENT_WRITE);
         } elseif (isset($this->readEvents[$fd])) {
-            Event::set($stream, null, fn() => $this->callWrite($fd), SWOOLE_EVENT_WRITE | SWOOLE_EVENT_READ);
+            Event::set($stream, null, fn () => $this->callWrite($fd), SWOOLE_EVENT_WRITE | SWOOLE_EVENT_READ);
         } else {
-            Event::set($stream, null, fn() => $this->callWrite($fd), SWOOLE_EVENT_WRITE);
+            Event::set($stream, null, fn () => $this->callWrite($fd), SWOOLE_EVENT_WRITE);
         }
 
         $this->writeEvents[$fd] = [$func, [$stream]];
@@ -245,7 +248,7 @@ final class Swoole implements EventInterface
      */
     public function onSignal(int $signal, callable $func): void
     {
-        Process::signal($signal, fn() => $this->safeCall($func, [$signal]));
+        Process::signal($signal, fn () => $this->safeCall($func, [$signal]));
     }
 
     /**
@@ -254,7 +257,7 @@ final class Swoole implements EventInterface
     public function run(): void
     {
         // Avoid process exit due to no listening
-        Timer::tick(100000000, static fn() => null);
+        Timer::tick(100000000, static fn () => null);
         Event::wait();
     }
 

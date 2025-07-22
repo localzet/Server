@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -108,7 +110,7 @@ final class Ev implements EventInterface
      */
     public function repeat(float $interval, callable $func, array $args = []): int
     {
-        $evTimer = new EvTimer($interval, $interval, fn() => $this->safeCall($func, $args));
+        $evTimer = new EvTimer($interval, $interval, fn () => $this->safeCall($func, $args));
         $this->eventTimer[self::$timerId] = $evTimer;
         return self::$timerId++;
     }
@@ -149,7 +151,7 @@ final class Ev implements EventInterface
     public function onReadable($stream, callable $func): void
     {
         $fdKey = (int)$stream;
-        $evIo = new EvIo($stream, \Ev::READ, fn() => $this->safeCall($func, [$stream]));
+        $evIo = new EvIo($stream, \Ev::READ, fn () => $this->safeCall($func, [$stream]));
         $this->readEvents[$fdKey] = $evIo;
     }
 
@@ -174,7 +176,7 @@ final class Ev implements EventInterface
     public function onWritable($stream, callable $func): void
     {
         $fdKey = (int)$stream;
-        $evIo = new EvIo($stream, \Ev::WRITE, fn() => $this->safeCall($func, [$stream]));
+        $evIo = new EvIo($stream, \Ev::WRITE, fn () => $this->safeCall($func, [$stream]));
         $this->writeEvents[$fdKey] = $evIo;
     }
 
@@ -198,7 +200,7 @@ final class Ev implements EventInterface
      */
     public function onSignal(int $signal, callable $func): void
     {
-        $evSignal = new EvSignal($signal, fn() => $this->safeCall($func, [$signal]));
+        $evSignal = new EvSignal($signal, fn () => $this->safeCall($func, [$signal]));
         $this->eventSignal[$signal] = $evSignal;
     }
 

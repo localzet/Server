@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -37,12 +39,14 @@ use localzet\Server\Events\Linux\Internal\SignalCallback;
 use localzet\Server\Events\Linux\Internal\StreamCallback;
 use localzet\Server\Events\Linux\Internal\StreamWritableCallback;
 use localzet\Server\Events\Linux\Internal\TimerCallback;
+
 use function assert;
 use function extension_loaded;
 use function hrtime;
 use function is_resource;
 use function max;
 use function min;
+
 use const PHP_INT_MAX;
 
 /**

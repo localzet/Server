@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -31,9 +33,11 @@ use RuntimeException;
 use Swow\Coroutine;
 use Swow\Signal;
 use Swow\SignalException;
+
 use function msleep;
 use function stream_poll_one;
 use function Swow\Sync\waitAll;
+
 use const STREAM_POLLIN;
 use const STREAM_POLLNONE;
 use const STREAM_POLLOUT;

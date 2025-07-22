@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -33,6 +35,7 @@ use localzet\Timer;
 use RuntimeException;
 use stdClass;
 use Throwable;
+
 use function class_exists;
 use function explode;
 use function function_exists;
@@ -48,6 +51,7 @@ use function stream_set_read_buffer;
 use function stream_socket_client;
 use function stream_socket_get_name;
 use function ucfirst;
+
 use const PHP_INT_MAX;
 use const SO_KEEPALIVE;
 use const SOL_SOCKET;
@@ -195,7 +199,7 @@ class AsyncTcpConnection extends TcpConnection
         $this->maxSendBufferSize = self::$defaultMaxSendBufferSize;
         $this->maxPackageSize = self::$defaultMaxPackageSize;
         static::$connections[$this->realId] = $this;
-        $this->context = new stdClass;
+        $this->context = new stdClass();
     }
 
     /**
@@ -237,7 +241,7 @@ class AsyncTcpConnection extends TcpConnection
 
         $this->status = self::STATUS_CONNECTING;
         $this->connectStartTime = microtime(true);
-        set_error_handler(fn(): bool => false);
+        set_error_handler(fn (): bool => false);
         if ($this->transport !== 'unix') {
             if (!$this->remotePort) {
                 $this->remotePort = $this->transport === 'ssl' ? 443 : 80;
@@ -255,15 +259,31 @@ class AsyncTcpConnection extends TcpConnection
                 $this->socket = stream_socket_client("tcp://$this->proxyHttp", $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT, $context);
             } elseif ($this->socketContext) {
                 $context = stream_context_create($this->socketContext);
-                $this->socket = stream_socket_client("tcp://$this->remoteHost:$this->remotePort",
-                    $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT, $context);
+                $this->socket = stream_socket_client(
+                    "tcp://$this->remoteHost:$this->remotePort",
+                    $errno,
+                    $err_str,
+                    0,
+                    STREAM_CLIENT_ASYNC_CONNECT,
+                    $context
+                );
             } else {
-                $this->socket = stream_socket_client("tcp://$this->remoteHost:$this->remotePort",
-                    $errno, $err_str, 0, STREAM_CLIENT_ASYNC_CONNECT);
+                $this->socket = stream_socket_client(
+                    "tcp://$this->remoteHost:$this->remotePort",
+                    $errno,
+                    $err_str,
+                    0,
+                    STREAM_CLIENT_ASYNC_CONNECT
+                );
             }
         } else {
-            $this->socket = stream_socket_client("$this->transport://$this->remoteAddress", $errno, $err_str, 0,
-                STREAM_CLIENT_ASYNC_CONNECT);
+            $this->socket = stream_socket_client(
+                "$this->transport://$this->remoteAddress",
+                $errno,
+                $err_str,
+                0,
+                STREAM_CLIENT_ASYNC_CONNECT
+            );
         }
 
         restore_error_handler();

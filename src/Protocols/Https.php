@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
@@ -56,5 +57,4 @@ namespace localzet\Server\Protocols;
  */
 class Https extends Http implements ProtocolInterface
 {
-
 }

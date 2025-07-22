@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -31,6 +33,7 @@ use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http;
 use RuntimeException;
 use Stringable;
+
 use function array_walk_recursive;
 use function bin2hex;
 use function clearstatcache;
@@ -121,8 +124,7 @@ class Request implements Stringable
          * Буфер HTTP.
          */
         protected string $buffer
-    )
-    {
+    ) {
     }
 
     /**

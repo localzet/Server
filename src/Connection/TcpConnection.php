@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -34,6 +36,7 @@ use localzet\Server\Protocols\Http\Request;
 use RuntimeException;
 use stdClass;
 use Throwable;
+
 use function ceil;
 use function count;
 use function fclose;
@@ -56,6 +59,7 @@ use function strrchr;
 use function strrpos;
 use function substr;
 use function var_export;
+
 use const PHP_INT_MAX;
 use const STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT;
 use const STREAM_CRYPTO_METHOD_TLSv1_1_SERVER;
@@ -310,10 +314,9 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      */
     public function __construct(
         EventInterface   $event,
-        protected        $socket,
+        protected $socket,
         protected string $remoteAddress = ''
-    )
-    {
+    ) {
         ++self::$statistics['connection_count'];
         $this->id = $this->realId = self::$idRecorder++;
         if (self::$idRecorder === PHP_INT_MAX) {
@@ -653,7 +656,9 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
      */
     public function pauseRecv(): void
     {
-        if ($this->eventLoop !== null) $this->eventLoop->offReadable($this->socket);
+        if ($this->eventLoop !== null) {
+            $this->eventLoop->offReadable($this->socket);
+        }
         $this->isPaused = true;
     }
 

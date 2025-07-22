@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
