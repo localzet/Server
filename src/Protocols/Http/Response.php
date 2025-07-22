@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -27,6 +29,7 @@
 namespace localzet\Server\Protocols\Http;
 
 use Stringable;
+
 use function explode;
 use function file;
 use function filemtime;
@@ -36,6 +39,7 @@ use function pathinfo;
 use function preg_match;
 use function rawurlencode;
 use function substr;
+
 use const FILE_IGNORE_NEW_LINES;
 use const FILE_SKIP_EMPTY_LINES;
 
@@ -160,8 +164,7 @@ class Response implements Stringable
          * Тело Http.
          */
         protected ?string $body = ''
-    )
-    {
+    ) {
         $this->headers = array_change_key_case($headers);
     }
 

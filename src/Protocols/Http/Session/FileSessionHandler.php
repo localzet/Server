@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -29,6 +31,7 @@ namespace localzet\Server\Protocols\Http\Session;
 use DateTime;
 use Exception;
 use localzet\Server\Protocols\Http\Session;
+
 use function clearstatcache;
 use function file_get_contents;
 use function file_put_contents;

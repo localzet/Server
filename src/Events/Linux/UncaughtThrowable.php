@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -31,6 +33,7 @@ use Error;
 use localzet\Server\Events\Linux;
 use localzet\Server\Events\Linux\Internal\ClosureHelper;
 use Throwable;
+
 use function sprintf;
 use function str_replace;
 

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -32,6 +34,7 @@ use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\Http\Response;
 use localzet\Server\Protocols\Http\ServerSentEvents;
 use Throwable;
+
 use function clearstatcache;
 use function count;
 use function filesize;

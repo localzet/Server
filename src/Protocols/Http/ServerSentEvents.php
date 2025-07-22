@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -44,8 +46,7 @@ class ServerSentEvents implements Stringable
          * Данные.
          */
         protected array $data
-    )
-    {
+    ) {
     }
 
     /**

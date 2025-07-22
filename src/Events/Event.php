@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -30,6 +32,7 @@ use Event as LibEvent;
 use EventBase;
 use RuntimeException;
 use Throwable;
+
 use function class_exists;
 use function count;
 
@@ -182,7 +185,7 @@ final class Event implements EventInterface
     {
         $className = $this->eventClassName;
         $fdKey = (int)$stream;
-        $event = new $className($this->eventBase, $stream, $className::READ | $className::PERSIST, fn() => $this->safeCall($func, [$stream]));
+        $event = new $className($this->eventBase, $stream, $className::READ | $className::PERSIST, fn () => $this->safeCall($func, [$stream]));
         if ($event->add()) {
             $this->readEvents[$fdKey] = $event;
         }
@@ -210,7 +213,7 @@ final class Event implements EventInterface
     {
         $className = $this->eventClassName;
         $fdKey = (int)$stream;
-        $event = new $className($this->eventBase, $stream, $className::WRITE | $className::PERSIST, fn() => $this->safeCall($func, [$stream]));
+        $event = new $className($this->eventBase, $stream, $className::WRITE | $className::PERSIST, fn () => $this->safeCall($func, [$stream]));
         if ($event->add()) {
             $this->writeEvents[$fdKey] = $event;
         }
@@ -238,7 +241,7 @@ final class Event implements EventInterface
     {
         $className = $this->eventClassName;
         $fdKey = $signal;
-        $event = $className::signal($this->eventBase, $signal, fn() => $this->safeCall($func, [$signal]));
+        $event = $className::signal($this->eventBase, $signal, fn () => $this->safeCall($func, [$signal]));
         if ($event->add()) {
             $this->eventSignal[$fdKey] = $event;
         }
