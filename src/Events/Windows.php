@@ -133,7 +133,7 @@ final class Windows implements EventInterface
      *
      * @var int
      */
-    const MAX_SELECT_TIMOUT_US = 800000;
+    public const MAX_SELECT_TIMOUT_US = 800000;
 
     /**
      * Конструктор.
