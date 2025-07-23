@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -29,6 +31,7 @@ namespace localzet\Server\Events;
 use localzet\Server;
 use SplPriorityQueue;
 use Throwable;
+
 use function count;
 use function max;
 use function microtime;
@@ -295,7 +298,7 @@ final class Windows implements EventInterface
         }
 
         $this->signalEvents[$signal] = $func;
-        pcntl_signal($signal, fn() => $this->safeCall($this->signalEvents[$signal], [$signal]));
+        pcntl_signal($signal, fn () => $this->safeCall($this->signalEvents[$signal], [$signal]));
     }
 
     private function safeCall(callable $func, array $args = []): void
