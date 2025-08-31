@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -30,6 +32,7 @@ use Exception;
 use localzet\Server;
 use localzet\Server\Events\EventInterface;
 use Throwable;
+
 use function class_exists;
 use function explode;
 use function fclose;
@@ -41,6 +44,7 @@ use function stream_socket_sendto;
 use function strlen;
 use function substr;
 use function ucfirst;
+
 use const STREAM_CLIENT_CONNECT;
 
 /**
@@ -74,9 +78,10 @@ class AsyncUdpConnection extends UdpConnection
      * @param mixed[] $contextOption
      * @throws Exception
      */
-    public function __construct($remoteAddress,
-                                protected array $contextOption = [])
-    {
+    public function __construct(
+        $remoteAddress,
+        protected array $contextOption = []
+    ) {
         // Получаем протокол связи уровня приложения и адрес прослушивания.
         [$scheme, $address] = explode(':', $remoteAddress, 2);
         // Проверяем класс протокола связи уровня приложения.
@@ -186,8 +191,14 @@ class AsyncUdpConnection extends UdpConnection
 
         if ($this->contextOption) {
             $context = stream_context_create($this->contextOption);
-            $this->socket = stream_socket_client("udp://$this->remoteAddress", $errno, $errmsg,
-                30, STREAM_CLIENT_CONNECT, $context);
+            $this->socket = stream_socket_client(
+                "udp://$this->remoteAddress",
+                $errno,
+                $errmsg,
+                30,
+                STREAM_CLIENT_CONNECT,
+                $context
+            );
         } else {
             $this->socket = stream_socket_client("udp://$this->remoteAddress", $errno, $errmsg);
         }

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -35,8 +37,7 @@ final class SignalCallback extends DriverCallback
         string              $id, // Идентификатор обратного вызова
         Closure             $closure, // Обратный вызов
         public readonly int $signal // Сигнал
-    )
-    {
+    ) {
         parent::__construct($id, $closure);
     }
 }

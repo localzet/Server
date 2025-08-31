@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -35,13 +37,14 @@ use ReflectionFiber;
 use Throwable;
 use WeakMap;
 use WeakReference;
+
 use function array_keys;
 use function array_map;
 use function assert;
 use function gc_collect_cycles;
 use function implode;
-use const DEBUG_BACKTRACE_IGNORE_ARGS;
 
+use const DEBUG_BACKTRACE_IGNORE_ARGS;
 
 /**
  * @internal
@@ -67,8 +70,7 @@ final class DriverSuspension implements Suspension
         private readonly Closure $queue,
         private readonly Closure $interrupt,
         private readonly WeakMap $weakMap,
-    )
-    {
+    ) {
         $fiber = Fiber::getCurrent();
 
         $this->weakReference = $fiber ? WeakReference::create($fiber) : null;
@@ -102,7 +104,7 @@ final class DriverSuspension implements Suspension
             });
         } else {
             // Приостановить выполнение основного цикла событий.
-            ($this->interrupt)(static fn(): mixed => $value);
+            ($this->interrupt)(static fn (): mixed => $value);
         }
     }
 
@@ -228,7 +230,7 @@ final class DriverSuspension implements Suspension
             });
         } else {
             // Приостановить выполнение основного цикла событий.
-            ($this->interrupt)(static fn() => throw $throwable);
+            ($this->interrupt)(static fn () => throw $throwable);
         }
     }
 }

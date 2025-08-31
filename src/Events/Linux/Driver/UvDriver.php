@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -37,6 +39,7 @@ use localzet\Server\Events\Linux\Internal\StreamWritableCallback;
 use localzet\Server\Events\Linux\Internal\TimerCallback;
 use UV;
 use UVLoop;
+
 use function assert;
 use function ceil;
 use function extension_loaded;
@@ -57,6 +60,7 @@ use function uv_timer_init;
 use function uv_timer_start;
 use function uv_timer_stop;
 use function uv_update_time;
+
 use const PHP_INT_MAX;
 
 /**

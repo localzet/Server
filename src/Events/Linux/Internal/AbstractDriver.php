@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -40,11 +42,13 @@ use stdClass;
 use Throwable;
 use WeakMap;
 use WeakReference;
+
 use function array_keys;
 use function array_map;
 use function assert;
 use function getenv;
 use function sprintf;
+
 use const PHP_VERSION_ID;
 
 /**
@@ -328,7 +332,7 @@ abstract class AbstractDriver implements Driver
     {
         if (!($this->errorHandler instanceof Closure)) {
             // Явно переопределяем предыдущее прерывание, если оно существует в этом случае, скрытие исключения хуже
-            $this->interrupt = static fn() => ($throwable instanceof UncaughtThrowable)
+            $this->interrupt = static fn () => ($throwable instanceof UncaughtThrowable)
                 ? throw $throwable
                 : throw UncaughtThrowable::throwingCallback($closure, $throwable);
             return;
@@ -504,7 +508,7 @@ abstract class AbstractDriver implements Driver
             try {
                 $errorHandler($exception);
             } catch (Throwable $throwable) {
-                $this->interrupt = static fn() => ($throwable instanceof UncaughtThrowable)
+                $this->interrupt = static fn () => ($throwable instanceof UncaughtThrowable)
                     ? throw $throwable
                     : throw UncaughtThrowable::throwingErrorHandler($errorHandler, $throwable);
             }
@@ -749,7 +753,7 @@ abstract class AbstractDriver implements Driver
     public function __debugInfo(): array
     {
         // @codeCoverageIgnoreStart
-        return array_map(fn(DriverCallback $driverCallback): array => [
+        return array_map(fn (DriverCallback $driverCallback): array => [
             'type' => $this->getType($driverCallback->id),
             'enabled' => $driverCallback->enabled,
             'referenced' => $driverCallback->referenced,

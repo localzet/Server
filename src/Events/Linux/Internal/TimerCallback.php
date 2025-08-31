@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -37,9 +39,7 @@ final class TimerCallback extends DriverCallback
         Closure               $callback, // Обратный вызов
         public float          $expiration, // Время истечения
         public readonly bool  $repeat = false // Повторять ли обратный вызов
-    )
-    {
+    ) {
         parent::__construct($id, $callback);
     }
 }
-

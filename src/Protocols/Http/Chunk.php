@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -27,6 +29,7 @@
 namespace localzet\Server\Protocols\Http;
 
 use Stringable;
+
 use function dechex;
 use function strlen;
 
@@ -46,8 +49,7 @@ class Chunk implements Stringable
          * Буфер чанка.
          */
         protected string $buffer
-    )
-    {
+    ) {
     }
 
     /**

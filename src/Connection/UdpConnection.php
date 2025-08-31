@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -29,6 +31,7 @@ namespace localzet\Server\Connection;
 use JetBrains\PhpStorm\{Pure};
 use JsonSerializable;
 use localzet\Server\Protocols\ProtocolInterface;
+
 use function stream_socket_get_name;
 use function stream_socket_sendto;
 use function strlen;
@@ -63,13 +66,12 @@ class UdpConnection extends ConnectionInterface implements JsonSerializable
         /**
          * UDP-сокет.
          */
-        protected        $socket,
+        protected $socket,
         /**
          * Удаленный адрес.
          */
         protected string $remoteAddress
-    )
-    {
+    ) {
     }
 
     /**
