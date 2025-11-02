@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -32,9 +34,11 @@ use localzet\Server\Events\Swoole;
 use RuntimeException;
 use Swoole\Coroutine\System;
 use Throwable;
+
 use function function_exists;
 use function pcntl_alarm;
 use function pcntl_signal;
+
 use const PHP_INT_MAX;
 use const SIGALRM;
 

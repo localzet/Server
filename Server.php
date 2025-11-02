@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -45,6 +47,7 @@ use localzet\Server\Protocols\ProtocolInterface;
 use RuntimeException;
 use stdClass;
 use Throwable;
+
 use function array_intersect;
 use function current;
 use function defined;
@@ -63,6 +66,7 @@ use function str_replace;
 use function stream_socket_accept;
 use function stream_socket_recvfrom;
 use function substr;
+
 use const E_COMPILE_ERROR;
 use const E_CORE_ERROR;
 use const E_ERROR;
@@ -659,7 +663,7 @@ class Server
 
     protected static function initStdOut(): void
     {
-        $defaultStream = fn() => defined('STDOUT') ? STDOUT : (@fopen('php://stdout', 'w') ?: fopen('php://output', 'w'));
+        $defaultStream = fn () => defined('STDOUT') ? STDOUT : (@fopen('php://stdout', 'w') ?: fopen('php://output', 'w'));
         static::$outputStream ??= $defaultStream(); //@phpstan-ignore-line
         if (!is_resource(self::$outputStream) || get_resource_type(self::$outputStream) !== 'stream') {
             $type = get_debug_type(self::$outputStream);
@@ -1204,6 +1208,7 @@ class Server
 
                     static::safeEcho("\Нажмите Ctrl+C для выхода.\n\n");
                 }
+                // no break
             case 'connections':
                 register_shutdown_function(unlink(...), static::$connectionsFile);
 
@@ -1453,12 +1458,12 @@ class Server
                 static::$gracefulStop = false;
                 static::stopAll();
                 break;
-            // Плавная остановка.
+                // Плавная остановка.
             case SIGQUIT:
                 static::$gracefulStop = true;
                 static::stopAll();
                 break;
-            // Перезагрузка.
+                // Перезагрузка.
             case SIGUSR2:
             case SIGUSR1:
                 if (static::$status === static::STATUS_RELOADING || static::$status === static::STATUS_SHUTDOWN) {
@@ -1469,11 +1474,11 @@ class Server
                 static::$pidsToRestart = static::getAllServerPids();
                 static::reload();
                 break;
-            // Статус.
+                // Статус.
             case SIGIOT:
                 static::writeStatisticsToStatusFile();
                 break;
-            // Текущие соединения.
+                // Текущие соединения.
             case SIGIO:
                 static::writeConnectionsStatisticsToStatusFile();
                 break;
@@ -1537,7 +1542,7 @@ class Server
             fclose(static::$outputStream);
         }
 
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
         $stdOutStream = fopen(static::$stdoutFile, 'a');
         restore_error_handler();
 
@@ -1882,7 +1887,7 @@ class Server
      */
     protected static function setProcessTitle(string $title): void
     {
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
         cli_set_process_title($title);
         restore_error_handler();
     }
@@ -1892,7 +1897,7 @@ class Server
      */
     protected static function sendSignal(int $process_id, int $signal): void
     {
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
         posix_kill($process_id, $signal);
         restore_error_handler();
     }
@@ -2009,11 +2014,15 @@ class Server
             if ($server->transport === 'unix' && $socketName) {
                 [, $address] = explode(':', $socketName, 2);
                 $address = substr($address, strpos($address, '/') + 2);
-                if (file_exists($address)) @unlink($address);
+                if (file_exists($address)) {
+                    @unlink($address);
+                }
             }
         }
 
-        if (file_exists(static::$pidFile)) @unlink(static::$pidFile);
+        if (file_exists(static::$pidFile)) {
+            @unlink(static::$pidFile);
+        }
         static::log("<magenta>Localzet Server</magenta> <cyan>[" . basename(static::$startFile) . "]</cyan> был остановлен");
         Events::emit('Server::Master::Stop', null);
         exit(0);
@@ -2051,7 +2060,7 @@ class Server
                     }
 
                     // Отправляем сигнал перезагрузки процессу, для которого reloadable равно false.
-                    array_walk($serverPidArray, static fn($pid): bool => posix_kill($pid, $sig));
+                    array_walk($serverPidArray, static fn ($pid): bool => posix_kill($pid, $sig));
                 }
 
                 // Получаем все pid, которые ожидают перезагрузки.
@@ -2129,7 +2138,7 @@ class Server
         else {
             // Выполнить выход.
             $servers = array_reverse(static::$servers);
-            array_walk($servers, static fn(Server $server) => $server->stop(false));
+            array_walk($servers, static fn (Server $server) => $server->stop(false));
 
             $callback = function () use ($code, $servers) {
                 $allWorkerConnectionClosed = true;
@@ -2137,7 +2146,7 @@ class Server
                     foreach ($servers as $server) {
                         foreach ($server->connections as $connection) {
                             if (!$connection->getRecvBufferQueueSize() && !isset($connection->context->closeTimer)) {
-                                $connection->context->closeTimer = Timer::delay(0.01, static fn() => $connection->close());
+                                $connection->context->closeTimer = Timer::delay(0.01, static fn () => $connection->close());
                             }
                             $allWorkerConnectionClosed = false;
                         }
@@ -2207,67 +2216,98 @@ class Server
             file_put_contents(static::$statisticsFile, serialize($allServerInfo) . "\n", FILE_APPEND);
             $loadavg = function_exists('sys_getloadavg') ? array_map(round(...), sys_getloadavg(), [2, 2, 2]) : ['-', '-', '-'];
 
-            file_put_contents(static::$statisticsFile,
+            file_put_contents(
+                static::$statisticsFile,
                 '<yellow>' . (static::$daemonize ? "Сервер запущен в фоновом режиме" : "Сервер запущен в режиме разработки") . '</yellow>'
-                . "\n", FILE_APPEND);
+                . "\n",
+                FILE_APPEND
+            );
 
 
-            file_put_contents(static::$statisticsFile,
+            file_put_contents(
+                static::$statisticsFile,
                 str_pad('<magenta>GLOBAL STATUS</magenta>', 116 + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH)
-                . "\n", FILE_APPEND);
+                . "\n",
+                FILE_APPEND
+            );
 
-            file_put_contents(static::$statisticsFile,
+            file_put_contents(
+                static::$statisticsFile,
                 str_pad('Server version: <cyan>' . static::getVersion() . '</cyan>', 40)
                 . str_pad('PHP version: <cyan>' . PHP_VERSION . '</cyan>', 36)
                 . str_pad('Event-loop: <cyan>' . get_event_loop_name() . '</cyan>', 73)
-                . "\n", FILE_APPEND);
+                . "\n",
+                FILE_APPEND
+            );
 
-            file_put_contents(static::$statisticsFile,
+            file_put_contents(
+                static::$statisticsFile,
                 str_pad('Start time: <cyan>' . date('Y-m-d H:i:s', static::$globalStatistics['start_timestamp']) . '</cyan>', 63)
                 . str_pad('Uptime: <cyan>' . floor(((new DateTime())->getTimestamp() - static::$globalStatistics['start_timestamp']) / (24 * 60 * 60)) . '</cyan>' . ' days ' . '<cyan>' . floor((((new DateTime())->getTimestamp() - static::$globalStatistics['start_timestamp']) % (24 * 60 * 60)) / (60 * 60)) . '</cyan>' . ' hours', 86)
-                . "\n", FILE_APPEND);
+                . "\n",
+                FILE_APPEND
+            );
 
-            file_put_contents(static::$statisticsFile,
+            file_put_contents(
+                static::$statisticsFile,
                 str_pad('Load average: <cyan>' . implode(", ", $loadavg) . '</cyan>', 63)
                 . str_pad('Started: <cyan>' . count(static::$pidMap) . '</cyan>' . ' servers ' . '<cyan>' . count(static::getAllServerPids()) . '</cyan>' . ' processes', 86)
-                . "\n", FILE_APPEND);
+                . "\n",
+                FILE_APPEND
+            );
 
 
-            file_put_contents(static::$statisticsFile,
+            file_put_contents(
+                static::$statisticsFile,
                 str_pad('<magenta>STATISTICS</magenta>', 116 + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH)
-                . "\n", FILE_APPEND);
+                . "\n",
+                FILE_APPEND
+            );
 
-            file_put_contents(static::$statisticsFile,
+            file_put_contents(
+                static::$statisticsFile,
                 str_pad('<blue>SERVER</blue>', 63)
                 . str_pad('<blue>STATUS</blue>', 38)
                 . str_pad('<blue>COUNT</blue>', 38)
-                . "\n", FILE_APPEND);
+                . "\n",
+                FILE_APPEND
+            );
 
             foreach (array_keys(static::$pidMap) as $serverId) {
                 $server = static::$servers[$serverId];
                 if (isset(static::$globalStatistics['server_exit_info'][$serverId])) {
                     foreach (static::$globalStatistics['server_exit_info'][$serverId] as $serverExitStatus => $serverExitCount) {
-                        file_put_contents(static::$statisticsFile,
+                        file_put_contents(
+                            static::$statisticsFile,
                             str_pad($server->name, 50)
                             . str_pad((string)$serverExitStatus, 25)
                             . str_pad((string)$serverExitCount, 25)
-                            . "\n", FILE_APPEND);
+                            . "\n",
+                            FILE_APPEND
+                        );
                     }
                 } else {
-                    file_put_contents(static::$statisticsFile,
+                    file_put_contents(
+                        static::$statisticsFile,
                         str_pad($server->name, 50)
                         . str_pad('0', 25)
                         . str_pad('0', 25)
-                        . "\n", FILE_APPEND);
+                        . "\n",
+                        FILE_APPEND
+                    );
                 }
             }
 
 
-            file_put_contents(static::$statisticsFile,
+            file_put_contents(
+                static::$statisticsFile,
                 str_pad('<magenta>PROCESS STATUS</magenta>', 116 + strlen('<magenta></magenta>'), '-', STR_PAD_BOTH)
-                . "\n", FILE_APPEND);
+                . "\n",
+                FILE_APPEND
+            );
 
-            file_put_contents(static::$statisticsFile,
+            file_put_contents(
+                static::$statisticsFile,
                 '<blue>PID</blue>	' . str_pad("<blue>MEM</blue>", 7 + strlen('<blue></blue>'))
                 . " " . str_pad('<blue>LISTEN</blue>', 20 + strlen('<blue></blue>'))
                 . " " . str_pad('<blue>SERVER</blue>', 16 + strlen('<blue></blue>'))
@@ -2277,7 +2317,9 @@ class Server
                 . " " . str_pad('<blue>REQUESTS</blue>', 13 + strlen('<blue></blue>'))
                 . " " . str_pad('<blue>QPS</blue>', 6 + strlen('<blue></blue>'))
                 . " " . str_pad("<blue>STATUS</blue>", 10 + strlen('<blue></blue>'))
-                . "\n", FILE_APPEND);
+                . "\n",
+                FILE_APPEND
+            );
 
             foreach (static::getAllServerPids() as $serverPid) {
                 static::sendSignal($serverPid, SIGIOT);
@@ -2289,7 +2331,8 @@ class Server
         reset(static::$servers);
         /** @var static $server */
         $server = current(static::$servers);
-        file_put_contents(static::$statisticsFile,
+        file_put_contents(
+            static::$statisticsFile,
             posix_getpid()
             . "\t" . str_pad(round(memory_get_usage() / (1024 * 1024), 2) . "M", 7)
             . " " . str_pad($server->getSocketName(), 20)
@@ -2298,7 +2341,9 @@ class Server
             . " " . str_pad((string)ConnectionInterface::$statistics['send_fail'], 9)
             . " " . str_pad((string)static::$globalEvent->getTimerCount(), 8)
             . " " . str_pad((string)ConnectionInterface::$statistics['total_request'], 13)
-            . "\n", FILE_APPEND);
+            . "\n",
+            FILE_APPEND
+        );
     }
 
     /**
@@ -2488,7 +2533,7 @@ class Server
         $msg = str_replace(['<n>', '<w>', '<g>'], [$line, $white, $green], $msg);
         $msg = str_replace(['</n>', '</w>', '</g>'], $end, $msg);
 
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
         if (!feof(self::$outputStream)) {
             fwrite(self::$outputStream, $msg);
             fflush(self::$outputStream);
@@ -2579,7 +2624,7 @@ class Server
 
             // Попытка открыть keepalive для TCP и отключить алгоритм Nagle.
             if (function_exists('socket_import_stream') && self::BUILD_IN_TRANSPORTS[$this->transport] === 'tcp') {
-                set_error_handler(static fn(): bool => true);
+                set_error_handler(static fn (): bool => true);
                 $socket = socket_import_stream($this->mainSocket);
                 socket_set_option($socket, SOL_SOCKET, SO_KEEPALIVE, 1);
                 socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
@@ -2638,7 +2683,7 @@ class Server
     {
         $this->pauseAccept();
         if ($this->mainSocket) {
-            set_error_handler(static fn(): bool => true);
+            set_error_handler(static fn (): bool => true);
             fclose($this->mainSocket);
             restore_error_handler();
             $this->mainSocket = null;
@@ -2789,7 +2834,7 @@ class Server
     public function acceptTcpConnection($socket): void
     {
         // Принять соединение на сокете сервера.
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
         $newSocket = stream_socket_accept($socket, 0, $remoteAddress);
         restore_error_handler();
 
@@ -2829,7 +2874,7 @@ class Server
     public function acceptUdpConnection($socket): bool
     {
         // Принять соединение на сокете сервера.
-        set_error_handler(static fn(): bool => true);
+        set_error_handler(static fn (): bool => true);
         $recvBuffer = stream_socket_recvfrom($socket, UdpConnection::MAX_UDP_PACKAGE_SIZE, 0, $remoteAddress);
         restore_error_handler();
         if (false === $recvBuffer || empty($remoteAddress)) {
