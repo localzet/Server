@@ -92,7 +92,22 @@ function localzet_start(
 ): Server
 {
     if (is_array($name)) {
-        extract($name);
+        // Безопасное извлечение параметров из массива
+        $config = $name;
+        $name = $config['name'] ?? $name;
+        $count = $config['count'] ?? $count;
+        $listen = $config['listen'] ?? $listen;
+        $context = $config['context'] ?? $context;
+        $user = $config['user'] ?? $user;
+        $group = $config['group'] ?? $group;
+        $reloadable = $config['reloadable'] ?? $reloadable;
+        $reusePort = $config['reusePort'] ?? $reusePort;
+        $protocol = $config['protocol'] ?? $protocol;
+        $transport = $config['transport'] ?? $transport;
+        $server = $config['server'] ?? $server;
+        $handler = $config['handler'] ?? $handler;
+        $constructor = $config['constructor'] ?? $constructor;
+        $services = $config['services'] ?? $services;
     }
 
     $server ??= Server::class;
@@ -122,25 +137,37 @@ function localzet_start(
         }
 
         foreach ($services ?? [] as $service) {
-            extract($service);
+            // Безопасное извлечение параметров сервиса
+            $serviceName = $service['name'] ?? 'none';
+            $serviceCount = $service['count'] ?? 1;
+            $serviceListen = $service['listen'] ?? null;
+            $serviceContext = $service['context'] ?? [];
+            $serviceUser = $service['user'] ?? '';
+            $serviceGroup = $service['group'] ?? '';
+            $serviceReloadable = $service['reloadable'] ?? true;
+            $serviceReusePort = $service['reusePort'] ?? false;
+            $serviceTransport = $service['transport'] ?? 'tcp';
+            $serviceProtocol = $service['protocol'] ?? null;
+            $serviceServer = $service['server'] ?? Server::class;
+            $serviceHandler = $service['handler'] ?? null;
+            $serviceConstructor = $service['constructor'] ?? null;
 
-            $server ??= Server::class;
-            $server = new $server($listen ?? null, $context ?? []);
-            $server->name = $name ?? 'none';
-            $server->count = $count ?? 1;
-            $server->user = $user ?? '';
-            $server->group = $group ?? '';
-            $server->reloadable = $reloadable ?? true;
-            $server->reusePort = $reusePort ?? false;
-            $server->transport = $transport ?? 'tcp';
-            $server->protocol = $protocol ?? null;
+            $serviceServerInstance = new $serviceServer($serviceListen, $serviceContext);
+            $serviceServerInstance->name = $serviceName;
+            $serviceServerInstance->count = $serviceCount;
+            $serviceServerInstance->user = $serviceUser;
+            $serviceServerInstance->group = $serviceGroup;
+            $serviceServerInstance->reloadable = $serviceReloadable;
+            $serviceServerInstance->reusePort = $serviceReusePort;
+            $serviceServerInstance->transport = $serviceTransport;
+            $serviceServerInstance->protocol = $serviceProtocol;
 
-            if ($handler && class_exists($handler)) {
-                $instance = new $handler(...array_values($constructor ?? []));
-                localzet_bind($server, $instance);
+            if ($serviceHandler && class_exists($serviceHandler)) {
+                $instance = new $serviceHandler(...array_values($serviceConstructor ?? []));
+                localzet_bind($serviceServerInstance, $instance);
             }
 
-            $server->listen();
+            $serviceServerInstance->listen();
         }
     };
 
@@ -235,34 +262,34 @@ function get_event_loop_name(): string
  *
  * @param int $code Код ответа.
  * @param string|null $body Тело ответа.
+ * @param array<string, string|string[]> $headers Заголовки ответа.
  * @param string|null $reason Причина ответа.
- * @param array $headers Заголовки ответа.
  * @param string $version Версия HTTP.
  *
  * @return string Форматированный HTTP-ответ.
  */
-function format_http_response(int $code, ?string $body = '', array $headers = [], string $reason = null, string $version = '1.1'): string
+function format_http_response(int $code, ?string $body = '', array $headers = [], ?string $reason = null, string $version = '1.1'): string
 {
     $reason ??= Response::PHRASES[$code] ?? 'Unknown Status';
     $head = "HTTP/$version $code $reason\r\n";
 
-    $headers = array_change_key_case($headers);
+    $headers = array_change_key_case($headers, CASE_LOWER);
     $defaultHeaders = [
         'server' => 'Localzet-Server',
         'connection' => $headers['connection'] ?? 'keep-alive',
         'content-type' => $headers['content-type'] ?? 'text/html;charset=utf-8',
     ];
 
-    $headers = array_merge($headers, $defaultHeaders);
-    $bodyLen = empty($body) ? null : strlen($body);
+    $headers = array_merge($defaultHeaders, $headers);
+    $bodyLen = ($body !== null && $body !== '') ? strlen($body) : null;
 
-    if (empty($headers['transfer-encoding']) && $bodyLen) {
-        $headers['content-length'] = $bodyLen;
+    if (empty($headers['transfer-encoding']) && $bodyLen !== null) {
+        $headers['content-length'] = (string)$bodyLen;
     }
 
     foreach ($headers as $name => $values) {
         foreach ((array)$values as $value) {
-            if ($value) {
+            if ($value !== null && $value !== '') {
                 $head .= "$name: $value\r\n";
             }
         }
@@ -272,9 +299,10 @@ function format_http_response(int $code, ?string $body = '', array $headers = []
 
     if ($version === '1.1'
         && !empty($headers['transfer-encoding'])
-        && $headers['transfer-encoding'] === 'chunked') {
-        return $bodyLen ? $head . dechex($bodyLen) . "\r\n$body\r\n" : $head;
+        && $headers['transfer-encoding'] === 'chunked'
+        && $bodyLen !== null) {
+        return $head . dechex($bodyLen) . "\r\n$body\r\n";
     }
 
-    return $head . $body;
+    return $head . ($body ?? '');
 }

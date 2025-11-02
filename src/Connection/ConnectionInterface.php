@@ -71,87 +71,118 @@ abstract class ConnectionInterface
     /**
      * Вызывается при получении данных.
      *
-     * @var ?callable
+     * @var ?callable(ConnectionInterface, mixed): void
      */
     public $onMessage = null;
 
     /**
      * Вызывается, когда другой конец сокета отправляет пакет FIN.
      *
-     * @var ?callable
+     * @var ?callable(ConnectionInterface): void
      */
     public $onClose = null;
 
     /**
      * Вызывается, когда возникает ошибка соединения.
      *
-     * @var ?callable
+     * @var ?callable(ConnectionInterface, int, string): void
      */
     public $onError = null;
 
+    /**
+     * Цикл событий для обработки асинхронных операций.
+     */
     public ?EventInterface $eventLoop = null;
 
     /**
-     * @var ?callable
+     * Обработчик ошибок для соединения.
+     *
+     * @var ?callable(Throwable): void
      */
     public $errorHandler = null;
 
     /**
      * Отправляет данные по соединению.
+     *
+     * @param mixed $sendBuffer Данные для отправки.
+     * @param bool $raw Отправлять данные в сыром виде (без кодирования протоколом).
+     * @return bool|null true в случае успеха, false в случае неудачи, null если буфер полон.
      */
     abstract public function send(mixed $sendBuffer, bool $raw = false): bool|null;
 
     /**
      * Получить удаленный IP-адрес.
+     *
+     * @return string IP-адрес клиента.
      */
     abstract public function getRemoteIp(): string;
 
     /**
      * Получить удаленный порт.
+     *
+     * @return int Порт клиента.
      */
     abstract public function getRemotePort(): int;
 
     /**
-     * Получить удаленный адрес.
+     * Получить удаленный адрес (IP:порт).
+     *
+     * @return string Полный адрес клиента в формате "IP:порт".
      */
     abstract public function getRemoteAddress(): string;
 
     /**
      * Получить локальный IP-адрес.
+     *
+     * @return string IP-адрес сервера.
      */
     abstract public function getLocalIp(): string;
 
     /**
      * Получить локальный порт.
+     *
+     * @return int Порт сервера.
      */
     abstract public function getLocalPort(): int;
 
     /**
-     * Получить локальный адрес.
+     * Получить локальный адрес (IP:порт).
+     *
+     * @return string Полный адрес сервера в формате "IP:порт".
      */
     abstract public function getLocalAddress(): string;
 
     /**
      * Закрыть соединение.
+     *
+     * @param mixed $data Опциональные данные для отправки перед закрытием.
+     * @param bool $raw Отправлять данные в сыром виде.
      */
     abstract public function close(mixed $data = null, bool $raw = false): void;
 
     /**
      * Является ли адрес IPv4.
+     *
+     * @return bool true если адрес IPv4, иначе false.
      */
     abstract public function isIpV4(): bool;
 
     /**
      * Является ли адрес IPv6.
+     *
+     * @return bool true если адрес IPv6, иначе false.
      */
     abstract public function isIpV6(): bool;
 
     /**
-     * @throws Throwable
+     * Обработать ошибку соединения.
+     *
+     * @param Throwable $exception Исключение для обработки.
+     * @throws Throwable Если обработчик ошибок не установлен или выбросил исключение в синхронном контексте.
      */
     public function error(Throwable $exception): void
     {
-        if (!$this->errorHandler) {
+        if ($this->errorHandler === null) {
             Server::stopAll(250, $exception);
             return;
         }
@@ -159,8 +190,9 @@ abstract class ConnectionInterface
         try {
             ($this->errorHandler)($exception);
         } catch (Throwable $throwable) {
+            // В асинхронном контексте просто логируем, иначе пробрасываем дальше
             if ($this->eventLoop instanceof Event) {
-                echo $throwable;
+                Server::safeEcho((string)$throwable);
                 return;
             }
 

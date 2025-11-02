@@ -55,6 +55,16 @@ use function sys_get_temp_dir;
 class Http implements ProtocolInterface
 {
     /**
+     * Максимальная длина заголовка HTTP запроса до парсинга (16KB).
+     */
+    private const MAX_HEADER_SIZE = 16384;
+
+    /**
+     * Поддерживаемые HTTP методы.
+     */
+    private const SUPPORTED_METHODS = ['GET', 'POST', 'OPTIONS', 'HEAD', 'DELETE', 'PUT', 'PATCH'];
+
+    /**
      * Имя класса Request.
      */
     protected static string $requestClass = Request::class;
@@ -83,9 +93,10 @@ class Http implements ProtocolInterface
     {
         $crlfPos = strpos($buffer, "\r\n\r\n");
         if (false === $crlfPos) {
-            // Проверьте, не превышает ли длина пакета лимит.
-            if (strlen($buffer) >= 16384) {
-                $connection->close(format_http_response(413), true);
+            // Проверьте, не превышает ли длина пакета лимит заголовка.
+            if (strlen($buffer) >= self::MAX_HEADER_SIZE) {
+                $connection->close(format_http_response(413, 'Request Header Too Large'), true);
+                return 0;
             }
 
             return 0;
@@ -94,29 +105,37 @@ class Http implements ProtocolInterface
         $length = $crlfPos + 4;
         $header = substr($buffer, 0, $crlfPos);
 
-        if (
-            !str_starts_with($header, 'GET ') &&
-            !str_starts_with($header, 'POST ') &&
-            !str_starts_with($header, 'OPTIONS ') &&
-            !str_starts_with($header, 'HEAD ') &&
-            !str_starts_with($header, 'DELETE ') &&
-            !str_starts_with($header, 'PUT ') &&
-            !str_starts_with($header, 'PATCH ')
-        ) {
-            $connection->close(format_http_response(400), true);
+        // Проверка поддерживаемых HTTP методов
+        $methodValid = false;
+        foreach (self::SUPPORTED_METHODS as $method) {
+            if (str_starts_with($header, $method . ' ')) {
+                $methodValid = true;
+                break;
+            }
+        }
+
+        if (!$methodValid) {
+            $connection->close(format_http_response(400, 'Bad Request'), true);
             return 0;
         }
 
+        // Парсинг Content-Length (игнорируем Transfer-Encoding chunked для простоты)
         if (preg_match('/\b(?:Transfer-Encoding\b.*)|(?:Content-Length:\s*(\d+)(?!.*\bTransfer-Encoding\b))/is', $header, $matches)) {
             if (!isset($matches[1])) {
-                $connection->close(format_http_response(400), true);
+                // Transfer-Encoding без chunked - не поддерживаем
+                $connection->close(format_http_response(400, 'Bad Request'), true);
                 return 0;
             }
-            $length += (int)$matches[1];
+            $contentLength = (int)$matches[1];
+            if ($contentLength < 0) {
+                $connection->close(format_http_response(400, 'Bad Request'), true);
+                return 0;
+            }
+            $length += $contentLength;
         }
 
         if ($length > $connection->maxPackageSize) {
-            $connection->close(format_http_response(413), true);
+            $connection->close(format_http_response(413, 'Payload Too Large'), true);
             return 0;
         }
 
@@ -142,29 +161,52 @@ class Http implements ProtocolInterface
             $connection->headers = [];
         }
 
-        if (!empty($data->file)) {
-            $file = $data->file['file'];
-            $offset = $data->file['offset'];
-            $length = $data->file['length'];
-            clearstatcache();
-            $fileSize = (int)filesize($file);
-            $bodyLen = $length > 0 ? $length : $fileSize - $offset;
+        if (!empty($data->file) && is_array($data->file)) {
+            $file = $data->file['file'] ?? null;
+            $offset = isset($data->file['offset']) ? (int)$data->file['offset'] : 0;
+            $length = isset($data->file['length']) ? (int)$data->file['length'] : 0;
+
+            if (!is_string($file) || !is_file($file)) {
+                $connection->close(new Response(404, [], '404 File Not Found'));
+                return '';
+            }
+
+            clearstatcache(true, $file);
+            $fileSize = filesize($file);
+            if ($fileSize === false) {
+                $connection->close(new Response(500, [], '500 Internal Server Error'));
+                return '';
+            }
+
+            $bodyLen = $length > 0 ? $length : ($fileSize - $offset);
+            if ($bodyLen <= 0 || $offset < 0 || $offset >= $fileSize) {
+                $connection->close(new Response(416, [], '416 Range Not Satisfiable'));
+                return '';
+            }
+
             $data->withHeaders([
                 'Content-Length' => $bodyLen,
                 'Accept-Ranges' => 'bytes',
             ]);
-            if ($offset || $length) {
+            if ($offset > 0 || $length > 0) {
                 $offsetEnd = $offset + $bodyLen - 1;
                 $data->header('Content-Range', "bytes $offset-$offsetEnd/$fileSize");
             }
 
+            // Для файлов меньше 2MB отправляем сразу
             if ($bodyLen < 2 * 1024 * 1024) {
-                $connection->send($data . file_get_contents($file, false, null, $offset, $bodyLen), true);
+                $fileContents = file_get_contents($file, false, null, $offset, $bodyLen);
+                if ($fileContents === false) {
+                    $connection->close(new Response(500, [], '500 Internal Server Error'));
+                    return '';
+                }
+                $connection->send((string)$data . $fileContents, true);
                 return '';
             }
 
-            $handler = fopen($file, 'r');
-            if (false === $handler) {
+            // Для больших файлов используем потоковую передачу
+            $handler = fopen($file, 'rb');
+            if ($handler === false) {
                 $connection->close(new Response(403, [], '403 Forbidden'));
                 return '';
             }

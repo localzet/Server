@@ -166,24 +166,39 @@ class Timer
     }
 
     /**
-     * Coroutine sleep
+     * Приостановить выполнение на указанное время (для корутин).
+     *
+     * @param float $delay Задержка в секундах.
+     * @throws Throwable
      */
     public static function sleep(float $delay): void
     {
+        if ($delay < 0) {
+            throw new RuntimeException('$delay не может быть меньше 0');
+        }
+
+        if ($delay === 0.0) {
+            return;
+        }
+
         switch (Server::$eventLoopClass) {
             case Linux::class:
+                if (Server::$globalEvent === null) {
+                    throw new RuntimeException('Глобальный цикл событий не инициализирован');
+                }
                 $suspension = Server::$globalEvent->getSuspension();
                 static::add($delay, function () use ($suspension): void {
                     $suspension->resume();
-                }, null, false);
+                }, [], false);
                 $suspension->suspend();
                 return;
             case Swoole::class:
                 System::sleep($delay);
                 return;
+            default:
+                usleep((int)($delay * 1000000));
+                return;
         }
-
-        usleep((int)($delay * 1000 * 1000));
     }
 
     /**

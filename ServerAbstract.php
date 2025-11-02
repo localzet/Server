@@ -102,10 +102,11 @@ abstract class ServerAbstract
      *
      * @param TcpConnection $tcpConnection TCP соединение.
      * @param Request $request HTTP запрос.
-     * @return void|Response
+     * @return Response|null Ответ для отклонения подключения, или null для принятия.
      */
-    public function onWebSocketConnect(TcpConnection &$tcpConnection, Request $request)
+    public function onWebSocketConnect(TcpConnection &$tcpConnection, Request $request): ?Response
     {
+        return null;
     }
 
     /**

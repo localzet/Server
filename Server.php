@@ -738,12 +738,15 @@ class Server
         });
 
         Events::on('Server::Exit', function (array $data = []): void {
-            extract($data);
+            $server = $data['server'] ?? null;
+            $status = $data['status'] ?? 0;
+            $pid = $data['pid'] ?? 0;
             if (static::$onServerExit) {
                 try {
                     (static::$onServerExit)($server, $status, $pid);
                 } catch (Throwable $exception) {
-                    static::log("<magenta>Localzet Server</magenta> <cyan>[$server->name]</cyan> onServerExit $exception");
+                    $serverName = ($server instanceof Server) ? $server->name : 'unknown';
+                    static::log("<magenta>Localzet Server</magenta> <cyan>[$serverName]</cyan> onServerExit $exception");
                 }
             }
         });
