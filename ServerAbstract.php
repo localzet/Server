@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -115,7 +117,7 @@ abstract class ServerAbstract
      * @param ConnectionInterface $connection Интерфейс соединения.
      * @param mixed $request Запрос.
      */
-    public abstract function onMessage(ConnectionInterface &$connection, mixed $request): void;
+    abstract public function onMessage(ConnectionInterface &$connection, mixed $request): void;
 
     /**
      * Метод, вызываемый при закрытии соединения.

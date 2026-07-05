@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
@@ -89,8 +90,7 @@ function localzet_start(
     null|array        $constructor = null,
     // Дополнительные сервера
     null|array        $services = null,
-): Server
-{
+): Server {
     if (is_array($name)) {
         // Безопасное извлечение параметров из массива
         $config = $name;
