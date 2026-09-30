@@ -153,13 +153,6 @@ The 6.4 line adds a deliberately small programmable gateway layer without coupli
 Gateway acceptance tests cover dead-first upstream failover, byte-exact L4 payloads, streaming request bodies, chunked
 requests, keep-alive and WebSocket tunneling.
 
-## Review baseline
-
-The modernization is reviewed against `localzet/Server` `main` commit `800bca935b713f2ecedf059311a910dd04600975`
-(2026-07-05), not against an intermediate generated archive. See [`BASELINE.md`](BASELINE.md) and [
-`REVIEW_NOTES.md`](REVIEW_NOTES.md). Existing method order, PHPDoc and explanatory comments are treated as
-review-sensitive source structure; unrelated reordering/reformatting is intentionally avoided.
-
 ## License and provenance
 
 Localzet Server is distributed under GNU AGPL-3.0-or-later.
