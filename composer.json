@@ -1,29 +1,23 @@
 {
   "name": "localzet/server",
-  "description": "Localzet Server is a high-performance asynchronous event-driven server for PHP, designed for modern applications with scalability and security in mind.",
-  "type": "project",
+  "description": "High-performance asynchronous event-driven server for PHP.",
+  "type": "library",
   "keywords": [
+    "event-loop",
     "asynchronous",
-    "event-driven",
     "server",
-    "PHP",
-    "security",
-    "scalability",
-    "performance",
-    "async",
-    "sockets",
-    "pcntl",
-    "posix",
-    "psr",
-    "AGPL"
+    "http",
+    "websocket",
+    "tcp",
+    "udp"
   ],
   "license": "AGPL-3.0-or-later",
   "authors": [
     {
-      "role": "Developer",
       "name": "Ivan Zorin",
       "email": "creator@localzet.com",
-      "homepage": "https://github.com/localzet"
+      "homepage": "https://github.com/localzet",
+      "role": "Developer"
     }
   ],
   "support": {
@@ -33,48 +27,67 @@
     "docs": "https://server.localzet.com"
   },
   "require": {
-    "php": "^8.1 || ^8.2",
-    "ext-json": "*",
-    "ext-sockets": "*",
-    "ext-pcntl": "*",
-    "ext-posix": "*",
-    "localzet/events": "^1"
+    "php": ">=8.1",
+    "ext-json": "*"
   },
   "suggest": {
-    "ext-uv": "For better performance with libuv.",
-    "ext-ev": "For better performance with libev.",
-    "ext-event": "For better performance with libevent.",
-    "ext-swoole": "For enhanced async capabilities and performance.",
-    "ext-swow": "For next-gen async PHP features.",
-    "ext-redis": "For Redis Session Handler support.",
-    "mongodb/mongodb": "For MongoDB Session Handler support."
-  },
-  "conflict": {
-    "ext-swow": "<v1.0.0"
+    "revolt/event-loop": "Fiber-based event loop backend and non-blocking Timer::sleep().",
+    "localzet/events": "Optional Localzet lifecycle event bus integration.",
+    "ext-event": "Native libevent backend.",
+    "ext-ev": "Native libev backend.",
+    "ext-sockets": "Socket tuning and zero-downtime hot-upgrade descriptor passing.",
+    "ext-redis": "Redis-backed HTTP sessions.",
+    "ext-pcntl": "Multi-process supervision and hot-upgrade on Unix.",
+    "ext-posix": "Unix process, signal and privilege management.",
+    "ext-swoole": "Optional native Swoole coroutine event backend.",
+    "ext-swow": "Optional native Swow coroutine event backend.",
+    "mongodb/mongodb": "MongoDB-backed HTTP sessions."
   },
   "autoload": {
     "psr-4": {
       "localzet\\": "",
-      "localzet\\Server\\": "src"
+      "localzet\\Server\\": "src/"
     },
     "files": [
       "Helpers.php"
     ]
   },
+  "autoload-dev": {
+    "psr-4": {
+      "Localzet\\Server\\Tests\\": "tests/"
+    }
+  },
   "require-dev": {
-    "rector/rector": "*",
-    "phpunit/phpunit": "^9 || ^10",
-    "friendsofphp/php-cs-fixer": "*",
-    "vimeo/psalm": "*"
+    "phpunit/phpunit": "^10.5 || ^11 || ^12",
+    "phpstan/phpstan": "^2.1",
+    "revolt/event-loop": "^1.0"
   },
   "scripts": {
-    "test": "phpunit",
-    "fix-cs": "php-cs-fixer fix",
-    "analyze": "psalm"
+    "lint": "find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l",
+    "test": "php tests/smoke.php",
+    "test:integration": "bash tests/integration.sh",
+    "analyze": "phpstan analyse --memory-limit=1G",
+    "check": [
+      "@lint",
+      "@test"
+    ],
+    "test:all": [
+      "@test",
+      "@test:gateway",
+      "@test:fuzz",
+      "@test:memory",
+      "@test:revolt",
+      "@test:integration"
+    ],
+    "test:revolt": "php tests/revolt.php",
+    "test:gateway": "php tests/gateway_smoke.php && bash tests/gateway_integration.sh",
+    "test:fuzz": "php tests/fuzz_smoke.php",
+    "test:memory": "php tests/memory_smoke.php",
+    "release:audit": "bash tests/release_audit.sh"
   },
   "extra": {
     "branch-alias": {
-      "dev-main": "4.5.x"
+      "dev-main": "7.0.x-dev"
     }
   }
 }

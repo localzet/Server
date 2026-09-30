@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,22 +28,12 @@
 
 namespace localzet\Server\Connection;
 
-use Exception;
+use JsonSerializable;
 use localzet\Server;
 use localzet\Server\Events\EventInterface;
+use RuntimeException;
+use stdClass;
 use Throwable;
-use function class_exists;
-use function explode;
-use function fclose;
-use function stream_context_create;
-use function stream_set_blocking;
-use function stream_socket_client;
-use function stream_socket_recvfrom;
-use function stream_socket_sendto;
-use function strlen;
-use function substr;
-use function ucfirst;
-use const STREAM_CLIENT_CONNECT;
 
 /**
  * Исходящее UDP-соединение.
@@ -50,171 +42,299 @@ use const STREAM_CLIENT_CONNECT;
  * connected UDP socket: ОС фиксирует peer, а sendto() вызывается без адреса.
  * Прикладной protocol scheme (например text://) при этом не влияет на транспорт.
  */
-class AsyncUdpConnection extends UdpConnection
+class AsyncUdpConnection extends ConnectionInterface implements JsonSerializable
 {
-    /**
-     * Событие вызывается, когда соединение с сокетом успешно установлено.
-     *
-     * @var ?callable
-     */
+    public const MAX_UDP_PACKAGE_SIZE = 65535;
+
+    public int $id;
+    public string $transport = 'udp';
+    public int $maxPackageSize = 65507;
+    public stdClass $context;
+
     public $onConnect = null;
 
-    /**
-     * Событие вызывается при закрытии сокета и разрыве соединения.
-     *
-     * @var ?callable
-     */
-    public $onClose = null;
+    protected string $remoteAddress;
+    protected array $contextOption = [];
 
-    /**
-     * Признак установленного соединения.
-     */
+    /** @var resource|null */
+    protected $socket = null;
     protected bool $connected = false;
+    protected bool $closed = false;
 
-    /**
-     * Конструктор.
-     *
-     * @param string $remoteAddress
-     * @param mixed[] $contextOption
-     * @throws Exception
-     */
-    public function __construct($remoteAddress,
-                                protected array $contextOption = [])
+    public function __construct(string $remoteAddress, array|EventInterface $contextOption = [], ?EventInterface $eventLoop = null)
     {
-        // Получаем протокол связи уровня приложения и адрес прослушивания.
-        [$scheme, $address] = explode(':', $remoteAddress, 2);
-        // Проверяем класс протокола связи уровня приложения.
+        // Сохраняем совместимость с промежуточным API, где вторым аргументом
+        // можно было передать EventInterface напрямую.
+        if ($contextOption instanceof EventInterface) {
+            $eventLoop = $contextOption;
+            $contextOption = [];
+        }
+
+        [$scheme, $address] = $this->parseRemoteAddress($remoteAddress);
         if ($scheme !== 'udp') {
-            $scheme = ucfirst($scheme);
-            $this->protocol = '\\Protocols\\' . $scheme;
-            if (!class_exists($this->protocol)) {
-                $this->protocol = "\\localzet\\Server\\Protocols\\$scheme";
-                if (!class_exists($this->protocol)) {
-                    throw new Exception("Класс \\Protocols\\$scheme не существует");
-                }
+            $protocolName = ucfirst($scheme);
+            if (!preg_match('/^[A-Za-z][A-Za-z0-9]*$/D', $protocolName)) {
+                throw new RuntimeException("Invalid UDP protocol scheme: $scheme");
+            }
+
+            $globalProtocol = "\\Protocols\\$protocolName";
+            $localzetProtocol = "\\localzet\\Server\\Protocols\\$protocolName";
+            if (class_exists($globalProtocol)) {
+                $this->protocol = $globalProtocol;
+            } elseif (class_exists($localzetProtocol)) {
+                $this->protocol = $localzetProtocol;
+            } else {
+                throw new RuntimeException("UDP protocol class for scheme '$scheme' not found.");
             }
         }
 
-        $this->remoteAddress = substr($address, 2);
+        $this->remoteAddress = $address;
+        $this->contextOption = $contextOption;
+        $this->eventLoop = $eventLoop;
+        $this->context = new stdClass();
+        $this->id = spl_object_id($this);
+        self::$statistics['connection_count']++;
     }
 
-    /**
-     * Для пакетов UDP.
-     *
-     * @param resource $socket
-     * @throws Throwable
-     */
-    public function baseRead($socket): void
+    public function connect(): void
     {
-        $recvBuffer = stream_socket_recvfrom($socket, static::MAX_UDP_PACKAGE_SIZE, 0, $remoteAddress);
-        if (false === $recvBuffer || empty($remoteAddress)) {
+        if ($this->connected || $this->closed) {
             return;
         }
 
-        if ($this->onMessage) {
-            if ($this->protocol) {
-                $recvBuffer = $this->protocol::decode($recvBuffer, $this);
-            }
+        $this->eventLoop ??= Server::getEventLoop();
+        $errno = 0;
+        $errstr = '';
+        $context = $this->contextOption ? stream_context_create($this->contextOption) : null;
+        $uri = 'udp://' . $this->formatSocketAddress($this->remoteAddress);
 
-            ++ConnectionInterface::$statistics['total_request'];
+        $socket = $context !== null
+            ? @stream_socket_client($uri, $errno, $errstr, 30, STREAM_CLIENT_CONNECT, $context)
+            : @stream_socket_client($uri, $errno, $errstr, 30, STREAM_CLIENT_CONNECT);
+
+        if (!is_resource($socket)) {
+            self::$statistics['send_fail']++;
+            $this->emitError(self::CONNECT_FAIL, $errstr !== '' ? $errstr : "Unable to connect UDP peer $this->remoteAddress.");
+            return;
+        }
+
+        $this->socket = $socket;
+        $this->connected = true;
+        stream_set_blocking($socket, false);
+        $this->eventLoop->onReadable($socket, $this->baseRead(...));
+
+        if ($this->onConnect !== null) {
             try {
-                ($this->onMessage)($this, $recvBuffer);
+                ($this->onConnect)($this);
             } catch (Throwable $e) {
+                self::$statistics['throw_exception']++;
                 $this->error($e);
             }
         }
     }
 
-    /**
-     * Закрыть соединение.
-     *
-     * @param mixed|null $data
-     * @throws Throwable
-     */
+    public function send(mixed $data, bool $raw = false): ?bool
+    {
+        if ($this->closed) {
+            return false;
+        }
+        if (!$this->connected) {
+            $this->connect();
+        }
+        if (!is_resource($this->socket)) {
+            return false;
+        }
+
+        try {
+            if (!$raw && $this->protocol !== null) {
+                $protocol = $this->protocol;
+                $data = $protocol::encode($data, $this);
+            }
+        } catch (Throwable $e) {
+            self::$statistics['throw_exception']++;
+            $this->error($e);
+            return false;
+        }
+
+        if ($data === null || $data === '') {
+            return null;
+        }
+        $data = (string)$data;
+        if (strlen($data) > $this->maxPackageSize) {
+            self::$statistics['send_fail']++;
+            $this->emitError(self::SEND_FAIL, 'UDP datagram exceeds maxPackageSize.');
+            return false;
+        }
+
+        // На connected UDP socket destination передавать нельзя: на BSD/macOS
+        // это, в частности, может завершиться EISCONN.
+        $written = @stream_socket_sendto($this->socket, $data);
+        if ($written !== strlen($data)) {
+            self::$statistics['send_fail']++;
+            $this->emitError(self::SEND_FAIL, 'Unable to send complete UDP datagram.');
+            return false;
+        }
+        return true;
+    }
+
+    /** @internal */
+    public function baseRead($socket): void
+    {
+        $data = @stream_socket_recvfrom($socket, min(self::MAX_UDP_PACKAGE_SIZE, $this->maxPackageSize));
+        if ($data === false || $data === '') {
+            return;
+        }
+
+        self::$statistics['total_request']++;
+        try {
+            $message = $this->protocol !== null ? ($this->protocol)::decode($data, $this) : $data;
+            if ($this->onMessage !== null && $message !== null) {
+                ($this->onMessage)($this, $message);
+            }
+        } catch (Throwable $e) {
+            self::$statistics['throw_exception']++;
+            $this->error($e);
+        }
+    }
+
     public function close(mixed $data = null, bool $raw = false): void
     {
+        if ($this->closed) {
+            return;
+        }
         if ($data !== null) {
             $this->send($data, $raw);
         }
 
-        $this->eventLoop->offReadable($this->socket);
-        fclose($this->socket);
+        $this->closed = true;
         $this->connected = false;
-        // Попытка вызова обработчика события onClose.
-        if ($this->onClose) {
+        if (is_resource($this->socket)) {
+            $this->eventLoop?->offReadable($this->socket);
+            @fclose($this->socket);
+        }
+        $this->socket = null;
+        self::$statistics['connection_count'] = max(0, self::$statistics['connection_count'] - 1);
+
+        if ($this->onClose !== null) {
             try {
                 ($this->onClose)($this);
             } catch (Throwable $e) {
+                self::$statistics['throw_exception']++;
                 $this->error($e);
             }
         }
-
-        $this->onConnect = $this->onMessage = $this->onClose = $this->eventLoop = $this->errorHandler = null;
     }
 
-    /**
-     * Отправить данные по соединению.
-     *
-     * @throws Throwable
-     */
-    public function send(mixed $sendBuffer, bool $raw = false): bool|null
+    public function getRemoteAddress(): string
     {
-        if (false === $raw && $this->protocol) {
-            $sendBuffer = $this->protocol::encode($sendBuffer, $this);
-            if ($sendBuffer === '') {
-                return null;
-            }
-        }
-
-        if ($this->connected === false) {
-            $this->connect();
-        }
-
-        return strlen((string)$sendBuffer) === stream_socket_sendto($this->socket, (string)$sendBuffer);
+        return $this->remoteAddress;
     }
 
-    /**
-     * Установить соединение.
-     *
-     * @throws Throwable
-     */
-    public function connect(): void
+    public function getRemoteIp(): string
     {
-        if ($this->connected) {
+        return $this->splitAddress($this->remoteAddress)[0];
+    }
+
+    public function getRemotePort(): int
+    {
+        return $this->splitAddress($this->remoteAddress)[1];
+    }
+
+    public function getLocalAddress(): string
+    {
+        return is_resource($this->socket) ? (string)@stream_socket_get_name($this->socket, false) : '';
+    }
+
+    public function getLocalIp(): string
+    {
+        return $this->splitAddress($this->getLocalAddress())[0];
+    }
+
+    public function getLocalPort(): int
+    {
+        return $this->splitAddress($this->getLocalAddress())[1];
+    }
+
+    public function isIpV4(): bool
+    {
+        return filter_var($this->getRemoteIp(), FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
+    }
+
+    public function isIpV6(): bool
+    {
+        return filter_var($this->getRemoteIp(), FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+    }
+
+    /** @return resource|null */
+    public function getSocket()
+    {
+        return $this->socket;
+    }
+
+    public function jsonSerialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'transport' => $this->transport,
+            'remoteAddress' => $this->getRemoteAddress(),
+            'remoteIp' => $this->getRemoteIp(),
+            'remotePort' => $this->getRemotePort(),
+            'localAddress' => $this->getLocalAddress(),
+            'localIp' => $this->getLocalIp(),
+            'localPort' => $this->getLocalPort(),
+            'connected' => $this->connected,
+        ];
+    }
+
+    /** @return array{0:string,1:string} */
+    protected function parseRemoteAddress(string $remoteAddress): array
+    {
+        if (!preg_match('~^([A-Za-z][A-Za-z0-9]*)://(.+)$~D', $remoteAddress, $match)) {
+            return ['udp', $remoteAddress];
+        }
+        return [strtolower($match[1]), $match[2]];
+    }
+
+    protected function formatSocketAddress(string $address): string
+    {
+        // IPv6 address without [] needs brackets when combined with a port.
+        [$host, $port] = $this->splitAddress($address);
+        if ($port > 0 && str_contains($host, ':') && !str_starts_with($address, '[')) {
+            return "[$host]:$port";
+        }
+        return $address;
+    }
+
+    /** @return array{0:string,1:int} */
+    protected function splitAddress(string $address): array
+    {
+        if ($address === '') {
+            return ['', 0];
+        }
+        if ($address[0] === '[' && ($end = strpos($address, ']')) !== false) {
+            return [substr($address, 1, $end - 1), (int)ltrim(substr($address, $end + 1), ':')];
+        }
+        $pos = strrpos($address, ':');
+        return $pos === false ? [$address, 0] : [substr($address, 0, $pos), (int)substr($address, $pos + 1)];
+    }
+
+    protected function emitError(int $code, string $message): void
+    {
+        if ($this->onError === null) {
             return;
         }
-
-        if (!($this->eventLoop instanceof EventInterface)) {
-            $this->eventLoop = Server::$globalEvent;
+        try {
+            ($this->onError)($this, $code, $message);
+        } catch (Throwable $e) {
+            self::$statistics['throw_exception']++;
+            $this->error($e);
         }
+    }
 
-        if ($this->contextOption) {
-            $context = stream_context_create($this->contextOption);
-            $this->socket = stream_socket_client("udp://$this->remoteAddress", $errno, $errmsg,
-                30, STREAM_CLIENT_CONNECT, $context);
-        } else {
-            $this->socket = stream_socket_client("udp://$this->remoteAddress", $errno, $errmsg);
-        }
-
-        if (!$this->socket) {
-            Server::safeEcho((string)(new Exception($errmsg)));
-            $this->eventLoop = null;
-            return;
-        }
-
-        stream_set_blocking($this->socket, false);
-        if ($this->onMessage) {
-            $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
-        }
-
-        $this->connected = true;
-        // Попытка вызова обработчика события onConnect.
-        if ($this->onConnect) {
-            try {
-                ($this->onConnect)($this);
-            } catch (Throwable $e) {
-                $this->error($e);
-            }
+    public function __destruct()
+    {
+        if (!$this->closed) {
+            $this->close();
         }
     }
 }

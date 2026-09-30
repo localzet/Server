@@ -33,110 +33,73 @@ use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\Http\Response;
 
-/**
- * Удобная объектная оболочка над callback API Server.
- */
+/** Удобная объектная оболочка над callback API Server. */
 abstract class ServerAbstract
 {
-    /**
-     * Метод, вызываемый при старте сервера.
-     *
-     * @param Server $server Экземпляр сервера.
-     */
-    public function onServerStart(Server &$server): void {}
+    public function onServerStart(Server &$server): void
+    {
+    }
 
+    public function onServerStop(Server &$server): void
+    {
+    }
 
-    /**
-     * Метод, вызываемый при остановке сервера.
-     *
-     * @param Server $server Экземпляр сервера.
-     */
-    public function onServerStop(Server &$server): void {}
+    public function onServerReload(Server &$server): void
+    {
+    }
 
+    public function onServerExit(Server $server, int $signal, int $pid): void
+    {
+    }
 
-    /**
-     * Метод, вызываемый при перезагрузке сервера.
-     *
-     * @param Server $server Экземпляр сервера.
-     */
-    public function onServerReload(Server &$server): void {}
+    public function onMasterReload(): void
+    {
+    }
 
+    public function onMasterStop(): void
+    {
+    }
 
-    /**
-     * Метод, вызываемый при выходе сервера.
-     *
-     * @param Server $server Экземпляр сервера.
-     * @param int $signal Сигнал выхода.
-     * @param int $pid PID процесса.
-     */
-    public function onServerExit(Server $server, int $signal, int $pid): void {}
+    public function onConnect(ConnectionInterface &$connection): void
+    {
+    }
 
-
-    /**
-     * Метод, вызываемый при перезагрузке мастера.
-     */
-    public function onMasterReload(): void {}
-
-    /**
-     * Метод, вызываемый при остановке мастера.
-     */
-    public function onMasterStop(): void {}
-
-    /**
-     * Метод, вызываемый при подключении.
-     *
-     * @param ConnectionInterface $connection Интерфейс соединения.
-     */
-    public function onConnect(ConnectionInterface &$connection): void {}
-
-
-    /**
-     * Метод, вызываемый при подключении WebSocket.
-     *
-     * @param TcpConnection $tcpConnection TCP соединение.
-     * @param Request $request HTTP запрос.
-     * @return Response|null Ответ для отклонения подключения, или null для принятия.
-     */
-    public function onWebSocketConnect(TcpConnection &$tcpConnection, Request $request): ?Response
+    public function onWebSocketConnect(TcpConnection &$connection, Request $request): ?Response
     {
         return null;
     }
 
-    /**
-     * Метод, вызываемый при получении сообщения.
-     *
-     * @param ConnectionInterface $connection Интерфейс соединения.
-     * @param mixed $request Запрос.
-     */
+    public function onWebSocketConnected(TcpConnection &$connection, mixed $request = null): void
+    {
+    }
+
+    public function onWebSocketClose(TcpConnection &$connection, int $code, string $reason): void
+    {
+    }
+
+    public function onWebSocketPing(TcpConnection &$connection, string $payload): void
+    {
+    }
+
+    public function onWebSocketPong(TcpConnection &$connection, string $payload): void
+    {
+    }
+
     abstract public function onMessage(ConnectionInterface &$connection, mixed $request): void;
 
-    /**
-     * Метод, вызываемый при закрытии соединения.
-     *
-     * @param ConnectionInterface $connection Интерфейс соединения.
-     */
-    public function onClose(ConnectionInterface &$connection): void {}
+    public function onClose(ConnectionInterface &$connection): void
+    {
+    }
 
-    /**
-     * Метод, вызываемый при ошибке.
-     *
-     * @param ConnectionInterface $connection Интерфейс соединения.
-     * @param int $code Код ошибки.
-     * @param string $reason Причина ошибки.
-     */
-    public function onError(ConnectionInterface &$connection, int $code, string $reason): void {}
+    public function onError(ConnectionInterface &$connection, int $code, string $reason): void
+    {
+    }
 
-    /**
-     * Метод, вызываемый при заполнении буфера.
-     *
-     * @param ConnectionInterface $connection Интерфейс соединения.
-     */
-    public function onBufferFull(ConnectionInterface &$connection): void {}
+    public function onBufferFull(ConnectionInterface &$connection): void
+    {
+    }
 
-    /**
-     * Метод, вызываемый при освобождении буфера.
-     *
-     * @param ConnectionInterface $connection Интерфейс соединения.
-     */
-    public function onBufferDrain(ConnectionInterface &$connection): void {}
+    public function onBufferDrain(ConnectionInterface &$connection): void
+    {
+    }
 }

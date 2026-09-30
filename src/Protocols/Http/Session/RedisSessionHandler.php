@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,167 +28,83 @@
 
 namespace localzet\Server\Protocols\Http\Session;
 
-use localzet\Server\Protocols\Http\Session;
-use localzet\Timer;
-use Redis;
-use RedisCluster;
-use RedisException;
-use RuntimeException;
-use Throwable;
-
-/**
- * Class RedisSessionHandler
- * @package localzet\Server\Protocols\Http\Session
- */
+/** Redis session storage через ext-redis. */
 class RedisSessionHandler implements SessionHandlerInterface
 {
-    /**
-     * @var Redis|RedisCluster Расширение Redis или RedisCluster для взаимодействия с Redis-сервером.
-     */
-    protected Redis|RedisCluster $redis;
+    protected \Redis $redis;
+    protected string $prefix;
+    protected int $lifetime;
 
-    /**
-     * @var array Конфигурация Redis-сервера и сессий.
-     */
-    protected array $config;
-
-    /**
-     * Конструктор RedisSessionHandler.
-     *
-     * @param array $config Конфигурация Redis-сервера и сессий.
-     *
-     * @throws RedisException
-     */
-    public function __construct(array $config)
+    public function __construct(array $config = [])
     {
-        // Проверяем, установлено ли расширение Redis
-        if (false === extension_loaded('redis')) {
-            throw new RuntimeException('Пожалуйста, установите расширение redis.');
+        if (!class_exists(\Redis::class)) {
+            throw new \RuntimeException('ext-redis is required for RedisSessionHandler.');
         }
 
-        // Устанавливаем значение по умолчанию, если параметр timeout не указан в конфигурации
-        if (!isset($config['timeout'])) {
-            $config['timeout'] = 2;
+        $this->redis = new \Redis();
+        $host = (string)($config['host'] ?? '127.0.0.1');
+        $port = (int)($config['port'] ?? 6379);
+        $timeout = (float)($config['timeout'] ?? 2.0);
+        $persistent = (bool)($config['persistent'] ?? false);
+        $connected = $persistent
+            ? $this->redis->pconnect($host, $port, $timeout)
+            : $this->redis->connect($host, $port, $timeout);
+        if (!$connected) {
+            throw new \RuntimeException("Unable to connect to Redis {$host}:{$port}");
         }
 
-        $this->config = $config;
+        if (array_key_exists('auth', $config) && $config['auth'] !== '' && $config['auth'] !== null) {
+            if (!$this->redis->auth($config['auth'])) {
+                throw new \RuntimeException('Redis authentication failed.');
+            }
+        }
+        if (isset($config['database']) && !$this->redis->select((int)$config['database'])) {
+            throw new \RuntimeException('Unable to select Redis database.');
+        }
 
-        // Устанавливаем соединение с Redis-сервером
-        $this->connect();
-
-        // Устанавливаем таймер для отправки команды ping на Redis-сервер
-        Timer::add($config['ping'] ?? 55, function (): void {
-            $this->redis->get('ping');
-        });
+        $this->prefix = (string)($config['prefix'] ?? 'localzet:session:');
+        $this->lifetime = max(1, (int)($config['lifetime'] ?? 1440));
     }
 
-    /**
-     * Устанавливает соединение с Redis-сервером.
-     *
-     * @throws RedisException
-     */
-    public function connect(): void
-    {
-        $config = $this->config;
-
-        $this->redis = new Redis();
-        if (false === $this->redis->connect($config['host'], $config['port'], $config['timeout'])) {
-            throw new RuntimeException("Не удалось подключиться к Redis-серверу {$config['host']}:{$config['port']}.");
-        }
-
-        // Аутентификация, если указан пароль
-        if (!empty($config['auth'])) {
-            $this->redis->auth($config['auth']);
-        }
-
-        // Выбор базы данных, если указан номер базы данных
-        if (!empty($config['database'])) {
-            $this->redis->select($config['database']);
-        }
-
-        // Установка префикса для ключей сессий в Redis
-        if (empty($config['prefix'])) {
-            $config['prefix'] = 'redis_session_';
-        }
-
-        $this->redis->setOption(Redis::OPT_PREFIX, $config['prefix']);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function open(string $savePath, string $name): bool
     {
         return true;
     }
 
-    /**
-     * {@inheritdoc}
-     * @param string $sessionId Идентификатор сессии.
-     * @throws RedisException
-     * @throws Throwable
-     */
-    public function read(string $sessionId): string
-    {
-        try {
-            // Читаем данные сессии из Redis по ключу
-            return $this->redis->get($sessionId);
-        } catch (Throwable $throwable) {
-            $msg = strtolower($throwable->getMessage());
-            // Если соединение с Redis было потеряно, восстанавливаем соединение и повторяем операцию чтения
-            if ($msg === 'connection lost' || strpos($msg, 'went away')) {
-                $this->connect();
-                return $this->redis->get($sessionId);
-            }
-
-            throw $throwable;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     * @throws RedisException
-     */
-    public function write(string $sessionId, string $sessionData): bool
-    {
-        // Записываем данные сессии в Redis с установленным временем жизни
-        return true === $this->redis->setex($sessionId, Session::$lifetime, $sessionData);
-    }
-
-    /**
-     * {@inheritdoc}
-     * @throws RedisException
-     */
-    public function updateTimestamp(string $sessionId, string $data = ""): bool
-    {
-        // Обновляем время жизни ключа сессии в Redis
-        return true === $this->redis->expire($sessionId, Session::$lifetime);
-    }
-
-    /**
-     * {@inheritdoc}
-     * @throws RedisException
-     */
-    public function destroy(string $sessionId): bool
-    {
-        // Удаляем ключ сессии из Redis
-        $this->redis->del($sessionId);
-        return true;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function close(): bool
     {
         return true;
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    public function read(string $sessionId): string|false
+    {
+        $value = $this->redis->get($this->key($sessionId));
+        return $value === false ? false : (string)$value;
+    }
+
+    public function write(string $sessionId, string $sessionData): bool
+    {
+        return (bool)$this->redis->setex($this->key($sessionId), $this->lifetime, $sessionData);
+    }
+
+    public function updateTimestamp(string $sessionId, string $data = ''): bool
+    {
+        return (bool)$this->redis->expire($this->key($sessionId), $this->lifetime);
+    }
+
+    public function destroy(string $sessionId): bool
+    {
+        return $this->redis->del($this->key($sessionId)) >= 0;
+    }
+
     public function gc(int $maxLifetime): bool
     {
+        // Redis TTL сам удаляет устаревшие ключи.
         return true;
+    }
+
+    protected function key(string $sessionId): string
+    {
+        return $this->prefix . $sessionId;
     }
 }

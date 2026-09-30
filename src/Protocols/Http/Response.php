@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -27,276 +29,160 @@
 namespace localzet\Server\Protocols\Http;
 
 use Stringable;
-use function explode;
-use function file;
-use function filemtime;
-use function gmdate;
-use function is_file;
-use function pathinfo;
-use function preg_match;
-use function rawurlencode;
-use function substr;
-use const FILE_IGNORE_NEW_LINES;
-use const FILE_SKIP_EMPTY_LINES;
 
 /**
- * Class Response
- * @package localzet\Server\Protocols\Http
+ * HTTP/1.x response value object.
+ *
+ * Методы сохраняют mutable-style API исторического Localzet Server:
+ * `withHeader()` и `withStatus()` меняют текущий объект и возвращают `$this`.
  */
 class Response implements Stringable
 {
-    /**
-     * Phrases.
-     *
-     * @var array<int,string>
-     *
-     * @link https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
-     */
     public const PHRASES = [
-        100 => 'Continue',
-        101 => 'Switching Protocols',
-        102 => 'Processing', // WebDAV; RFC 2518
-        103 => 'Early Hints', // RFC 8297
-
-        200 => 'OK',
-        201 => 'Created',
-        202 => 'Accepted',
-        203 => 'Non-Authoritative Information', // since HTTP/1.1
-        204 => 'No Content',
-        205 => 'Reset Content',
-        206 => 'Partial Content', // RFC 7233
-        207 => 'Multi-Status', // WebDAV; RFC 4918
-        208 => 'Already Reported', // WebDAV; RFC 5842
-        226 => 'IM Used', // RFC 3229
-
-        300 => 'Multiple Choices',
-        301 => 'Moved Permanently',
-        302 => 'Found', // Previously "Moved temporarily"
-        303 => 'See Other', // since HTTP/1.1
-        304 => 'Not Modified', // RFC 7232
-        305 => 'Use Proxy', // since HTTP/1.1
-        306 => 'Switch Proxy',
-        307 => 'Temporary Redirect', // since HTTP/1.1
-        308 => 'Permanent Redirect', // RFC 7538
-
-        400 => 'Bad Request',
-        401 => 'Unauthorized', // RFC 7235
-        402 => 'Payment Required',
-        403 => 'Forbidden',
-        404 => 'Not Found',
-        405 => 'Method Not Allowed',
-        406 => 'Not Acceptable',
-        407 => 'Proxy Authentication Required', // RFC 7235
-        408 => 'Request Timeout',
-        409 => 'Conflict',
-        410 => 'Gone',
-        411 => 'Length Required',
-        412 => 'Precondition Failed', // RFC 7232
-        413 => 'Payload Too Large', // RFC 7231
-        414 => 'URI Too Long', // RFC 7231
-        415 => 'Unsupported Media Type', // RFC 7231
-        416 => 'Range Not Satisfiable', // RFC 7233
-        417 => 'Expectation Failed',
-        418 => "I'm a teapot", // RFC 2324, RFC 7168
-        421 => 'Misdirected Request', // RFC 7540
-        422 => 'Unprocessable Entity', // WebDAV; RFC 4918
-        423 => 'Locked', // WebDAV; RFC 4918
-        424 => 'Failed Dependency', // WebDAV; RFC 4918
-        425 => 'Too Early', // RFC 8470
-        426 => 'Upgrade Required',
-        428 => 'Precondition Required', // RFC 6585
-        429 => 'Too Many Requests', // RFC 6585
-        431 => 'Request Header Fields Too Large', // RFC 6585
-        451 => 'Unavailable For Legal Reasons', // RFC 7725
-
-        500 => 'Internal Server Error',
-        501 => 'Not Implemented',
-        502 => 'Bad Gateway',
-        503 => 'Service Unavailable',
-        504 => 'Gateway Timeout',
-        505 => 'HTTP Version Not Supported',
-        506 => 'Variant Also Negotiates', // RFC 2295
-        507 => 'Insufficient Storage', // WebDAV; RFC 4918
-        508 => 'Loop Detected', // WebDAV; RFC 5842
-        510 => 'Not Extended', // RFC 2774
-        511 => 'Network Authentication Required', // RFC 6585
+        100 => 'Continue', 101 => 'Switching Protocols', 102 => 'Processing', 103 => 'Early Hints',
+        200 => 'OK', 201 => 'Created', 202 => 'Accepted', 203 => 'Non-Authoritative Information',
+        204 => 'No Content', 205 => 'Reset Content', 206 => 'Partial Content',
+        207 => 'Multi-Status', 208 => 'Already Reported', 226 => 'IM Used',
+        300 => 'Multiple Choices', 301 => 'Moved Permanently', 302 => 'Found',
+        303 => 'See Other', 304 => 'Not Modified', 307 => 'Temporary Redirect',
+        308 => 'Permanent Redirect',
+        400 => 'Bad Request', 401 => 'Unauthorized', 402 => 'Payment Required', 403 => 'Forbidden',
+        404 => 'Not Found', 405 => 'Method Not Allowed', 406 => 'Not Acceptable', 407 => 'Proxy Authentication Required', 408 => 'Request Timeout',
+        409 => 'Conflict', 410 => 'Gone', 411 => 'Length Required',
+        412 => 'Precondition Failed', 413 => 'Payload Too Large',
+        414 => 'URI Too Long', 415 => 'Unsupported Media Type',
+        416 => 'Range Not Satisfiable', 417 => 'Expectation Failed',
+        418 => "I'm a teapot", 421 => 'Misdirected Request',
+        422 => 'Unprocessable Entity', 423 => 'Locked', 424 => 'Failed Dependency', 425 => 'Too Early', 426 => 'Upgrade Required',
+        428 => 'Precondition Required', 429 => 'Too Many Requests',
+        431 => 'Request Header Fields Too Large',
+        451 => 'Unavailable For Legal Reasons',
+        500 => 'Internal Server Error', 501 => 'Not Implemented',
+        502 => 'Bad Gateway', 503 => 'Service Unavailable',
+        504 => 'Gateway Timeout', 505 => 'HTTP Version Not Supported', 506 => 'Variant Also Negotiates',
+        507 => 'Insufficient Storage', 508 => 'Loop Detected', 510 => 'Not Extended', 511 => 'Network Authentication Required',
     ];
 
-    /**
-     * Карта типов Mine.
-     */
-    protected static array $mimeTypeMap = [];
+    protected static array $mimeTypeMap = [
+        'html' => 'text/html; charset=utf-8', 'htm' => 'text/html; charset=utf-8',
+        'css' => 'text/css; charset=utf-8', 'txt' => 'text/plain; charset=utf-8',
+        'xml' => 'application/xml', 'json' => 'application/json',
+        'js' => 'application/javascript', 'mjs' => 'application/javascript',
+        'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif', 'webp' => 'image/webp', 'avif' => 'image/avif',
+        'svg' => 'image/svg+xml', 'ico' => 'image/x-icon',
+        'pdf' => 'application/pdf', 'zip' => 'application/zip',
+        'wasm' => 'application/wasm', 'mp3' => 'audio/mpeg', 'ogg' => 'audio/ogg',
+        'mp4' => 'video/mp4', 'webm' => 'video/webm',
+        'woff' => 'font/woff', 'woff2' => 'font/woff2', 'ttf' => 'font/ttf',
+    ];
 
-    /**
-     * Информация о файле для отправки
-     */
-    public ?array $file = null;
-
-    /**
-     * Данные заголовка.
-     */
-    protected array $headers = [];
-
-    /**
-     * Http причина.
-     */
     protected ?string $reason = null;
-
-    /**
-     * Версия Http.
-     */
     protected string $version = '1.1';
+    public ?array $file = null;
+    protected bool $suppressBody = false;
 
-    /**
-     * Конструктор ответа.
-     */
     public function __construct(
-        /**
-         * Http статус.
-         */
         protected int     $status = 200,
-        array             $headers = [],
-        /**
-         * Тело Http.
-         */
+        protected array   $headers = [],
         protected ?string $body = ''
     )
     {
-        $this->headers = array_change_key_case($headers);
     }
 
-    /**
-     * Инициализация.
-     */
+    /** Исторический entrypoint; MIME map теперь встроен и не требует eager init. */
     public static function init(): void
     {
         static::initMimeTypeMap();
     }
 
     /**
-     * Инициализация карты MIME-типов.
+     * Сохраняется для API compatibility. Базовая карта MIME уже загружена в class,
+     * поэтому метод намеренно идемпотентен.
      */
     public static function initMimeTypeMap(): void
     {
-        $mimeFile = __DIR__ . '/mime.types';
-        $items = file($mimeFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($items as $item) {
-            if (preg_match("/\s*(\S+)\s+(\S.+)/", $item, $match)) {
-                $mimeType = $match[1];
-                $extensionVar = $match[2];
-                $extensionArray = explode(' ', substr($extensionVar, 0, -1));
-                foreach ($extensionArray as $fileExtension) {
-                    static::$mimeTypeMap[$fileExtension] = $mimeType;
-                }
-            }
-        }
+        // no-op: built-in map is ready without filesystem I/O
     }
 
-    /**
-     * Установить заголовок.
-     */
-    public function withHeader(string $name, string $value): static
+    public function header(string $name, mixed $value): static
+    {
+        $this->headers[$name] = $value;
+        return $this;
+    }
+
+    public function withHeader(string $name, mixed $value): static
     {
         return $this->header($name, $value);
     }
 
-    /**
-     * Установить заголовок.
-     *
-     * @param array|string|int $value
-     */
-    public function header(string $name, mixed $value): static
-    {
-        $this->headers[strtolower($name)] = $value;
-        return $this;
-    }
-
-    /**
-     * Установить заголовки.
-     */
     public function withHeaders(array $headers): static
     {
         foreach ($headers as $name => $value) {
-            $this->header($name, $value);
+            $this->headers[$name] = $value;
         }
-
         return $this;
     }
 
-    /**
-     * Удалить заголовок.
-     */
     public function withoutHeader(string $name): static
     {
-        unset($this->headers[strtolower($name)]);
+        foreach (array_keys($this->headers) as $key) {
+            if (strcasecmp((string)$key, $name) === 0) {
+                unset($this->headers[$key]);
+            }
+        }
         return $this;
     }
 
-    /**
-     * Получить заголовок.
-     */
-    public function getHeader(string $name): array|string|null
+    public function getHeader(string $name): array|string|int|null
     {
-        return $this->headers[strtolower($name)] ?? null;
+        foreach ($this->headers as $key => $value) {
+            if (strcasecmp((string)$key, $name) === 0) {
+                return $value;
+            }
+        }
+        return null;
     }
 
-    /**
-     * Получить заголовки.
-     */
     public function getHeaders(): array
     {
         return $this->headers;
     }
 
-    /**
-     * Получить код статуса.
-     */
+    public function getMimeType(string $extension): string
+    {
+        return self::$mimeTypeMap[strtolower($extension)] ?? 'application/octet-stream';
+    }
+
+    public function withStatus(int $code, ?string $reasonPhrase = null): static
+    {
+        if ($code < 100 || $code > 599) {
+            throw new \InvalidArgumentException('HTTP status code must be between 100 and 599.');
+        }
+        $this->status = $code;
+        $this->reason = $reasonPhrase === null ? null : str_replace(["\r", "\n"], '', $reasonPhrase);
+        return $this;
+    }
+
     public function getStatusCode(): int
     {
         return $this->status;
     }
 
-    /**
-     * Получить причину фразы.
-     */
     public function getReasonPhrase(): ?string
     {
         return $this->reason;
     }
 
-    /**
-     * Установить версию протокола.
-     */
     public function withProtocolVersion(string $version): static
     {
+        if (!preg_match('/^1\.[01]$/', $version)) {
+            throw new \InvalidArgumentException('Only HTTP/1.0 and HTTP/1.1 are supported.');
+        }
         $this->version = $version;
         return $this;
     }
 
-    /**
-     * Получить HTTP-тело в исходном виде.
-     */
-    public function rawBody(): ?string
-    {
-        return $this->body;
-    }
-
-    /**
-     * Отправить файл.
-     */
-    public function withFile(string $file, int $offset = 0, int $length = 0): static
-    {
-        if (!is_file($file)) {
-            return $this->withStatus(404)->withBody('<h3>404 Не найдено</h3>');
-        }
-
-        $this->file = ['file' => $file, 'offset' => $offset, 'length' => $length];
-        return $this;
-    }
-
-    /**
-     * Установить HTTP-тело.
-     */
     public function withBody(?string $body): static
     {
         $this->body = $body;
@@ -304,100 +190,451 @@ class Response implements Stringable
     }
 
     /**
-     * Установить статус.
+     * Готовит headers для application-managed HTTP/1.1 chunked stream.
+     *
+     * После отправки response приложение может слать `new Chunk($data)` обычным
+     * `send()` и завершить поток пустым Chunk. Тогда HTTP codec сам увидит финальный
+     * zero-chunk и корректно выполнит отложенный `Connection: close`.
+     * Raw-режим остаётся совместимым, но lifecycle в нём контролирует приложение.
      */
-    public function withStatus(int $code, ?string $reasonPhrase = null): static
+    public function withChunkedTransfer(): static
     {
-        $this->status = $code;
-        $this->reason = $reasonPhrase;
+        $this->withoutHeader('Content-Length');
+        $this->headers['Transfer-Encoding'] = 'chunked';
+        $this->body = '';
+        return $this;
+    }
+
+    public function rawBody(): ?string
+    {
+        return $this->body;
+    }
+
+    /**
+     * Не отправляет body, сохраняя Content-Length исходного representation.
+     * Используется для HEAD и может быть полезен application adapters.
+     */
+    public function withoutBody(bool $preserveContentLength = true): static
+    {
+        if ($preserveContentLength && $this->file === null && $this->getHeader('Content-Length') === null) {
+            $this->headers['Content-Length'] = (string)strlen($this->body ?? '');
+        }
+        $this->suppressBody = true;
+        return $this;
+    }
+
+    public function isBodySuppressed(): bool
+    {
+        return $this->suppressBody;
+    }
+
+    /**
+     * Сжимает in-memory representation для конкретного HTTP-запроса, если клиент
+     * разрешает gzip и сжатие действительно уменьшает payload.
+     *
+     * Метод намеренно opt-in: автоматическое HTTP compression может быть опасно
+     * для ответов, где секретные данные смешиваются с отражённым пользовательским
+     * вводом (класс атак BREACH). Решение о включении остаётся за приложением.
+     *
+     * File/range/chunked/already encoded responses не изменяются. `no-transform`
+     * также запрещает преобразование representation. Для HEAD рассчитывается
+     * Content-Length gzip representation, но тело в wire response не отправляется.
+     *
+     * @param Request $request Запрос, для которого формируется ответ.
+     * @param int $minBytes Минимальный размер тела, начиная с которого пробуем gzip.
+     * @param int $level Уровень zlib от -1 до 9.
+     */
+    public function withCompressionForRequest(Request $request, int $minBytes = 1024, int $level = -1): static
+    {
+        if ($minBytes < 0) {
+            throw new \InvalidArgumentException('Compression minimum size must be >= 0.');
+        }
+        if ($level < -1 || $level > 9) {
+            throw new \InvalidArgumentException('Gzip level must be between -1 and 9.');
+        }
+        if (!function_exists('gzencode')
+            || $this->file !== null
+            || $this->body === null
+            || strlen($this->body) < $minBytes
+            || $this->getHeader('Content-Encoding') !== null
+            || $this->getHeader('Transfer-Encoding') !== null
+            || $request->header('range') !== null
+            || !self::requestAcceptsGzip($request)) {
+            return $this;
+        }
+
+        $cacheControl = strtolower(implode(',', (array)($this->getHeader('Cache-Control') ?? '')));
+        if (preg_match('/(?:^|,)\s*no-transform\s*(?:,|$)/', $cacheControl)) {
+            return $this;
+        }
+
+        // 1xx, 204 и 304 не содержат message body по HTTP semantics.
+        if (($this->status >= 100 && $this->status < 200) || $this->status === 204 || $this->status === 304) {
+            return $this;
+        }
+
+        $compressed = gzencode($this->body, $level, ZLIB_ENCODING_GZIP);
+        if (!is_string($compressed) || strlen($compressed) >= strlen($this->body)) {
+            return $this;
+        }
+
+        $this->body = $compressed;
+        $this->headers['Content-Encoding'] = 'gzip';
+        $this->headers['Content-Length'] = (string)strlen($compressed);
+        $this->appendVary('Accept-Encoding');
+
+        if ($request->isMethod('HEAD')) {
+            $this->suppressBody = true;
+        }
+
         return $this;
     }
 
     /**
-     * Установить cookie.
-     * Установить cookie.
+     * Готовит file response. Реальная потоковая отправка выполняется Http::encode().
      */
-    public function cookie(string $name, string $value = '', ?int $maxAge = null, string $path = '', string $domain = '', bool $secure = false, bool $httpOnly = false, string $sameSite = ''): static
+    public function withFile(string $file, int $offset = 0, int $length = 0): static
     {
-        $this->header('set-cookie', $name . '=' . rawurlencode($value)
-            . (empty($domain) ? '' : '; Domain=' . $domain)
-            . ($maxAge === null ? '' : '; Max-Age=' . $maxAge)
-            . (empty($path) ? '' : '; Path=' . $path)
-            . ($secure ? '; Secure' : '')
-            . ($httpOnly ? '; HttpOnly' : '')
-            . (empty($sameSite) ? '' : '; SameSite=' . $sameSite));
+        $this->file = null;
+        if (!is_file($file) || !is_readable($file)) {
+            return $this->withStatus(404)->withBody('404 Not Found');
+        }
+        if ($offset < 0 || $length < 0) {
+            throw new \InvalidArgumentException('File offset/length must be >= 0.');
+        }
+
+        clearstatcache(true, $file);
+        $size = filesize($file);
+        $mtime = filemtime($file);
+        if ($size === false || $mtime === false) {
+            return $this->withStatus(404)->withBody('404 Not Found');
+        }
+
+        $this->file = [
+            'file' => $file,
+            'offset' => $offset,
+            'length' => $length,
+            'size' => $size,
+            'mtime' => $mtime,
+        ];
+        $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        $this->headers['Content-Type'] ??= $this->getMimeType($extension);
+        $this->headers['Last-Modified'] ??= gmdate('D, d M Y H:i:s', $mtime) . ' GMT';
+        $this->headers['ETag'] ??= sprintf('"%x-%x"', $mtime, $size);
+        $this->headers['Accept-Ranges'] ??= 'bytes';
         return $this;
     }
 
     /**
-     * __toString.
+     * HTTP-aware file response: conditional GET/HEAD + single byte range.
+     *
+     * Multiple ranges intentionally fall back to a full 200 response instead of
+     * building multipart/byteranges. Это RFC-compatible server choice и не требует
+     * держать сложный multipart streaming path внутри базового runtime.
      */
+    public function withFileForRequest(Request $request, string $file): static
+    {
+        $this->withFile($file);
+        if ($this->file === null) {
+            return $this;
+        }
+
+        $size = (int)$this->file['size'];
+        $mtime = (int)$this->file['mtime'];
+        $etag = (string)$this->getHeader('ETag');
+        $method = $request->method();
+        $isReadMethod = $method === 'GET' || $method === 'HEAD';
+
+        if ($isReadMethod && $this->preconditionFailed($request, $etag, $mtime)) {
+            $this->file = null;
+            $this->body = '';
+            $this->suppressBody = true;
+            return $this->withStatus(412)->withHeader('Content-Length', '0');
+        }
+
+        if ($isReadMethod && $this->isNotModified($request, $etag, $mtime)) {
+            $this->file = null;
+            $this->body = '';
+            $this->suppressBody = true;
+            $this->withoutHeader('Content-Length');
+            return $this->withStatus(304);
+        }
+
+        if ($isReadMethod) {
+            $range = trim((string)$request->header('range', ''));
+            if ($range !== '' && $this->ifRangeAllowsRange($request, $etag, $mtime)) {
+                $parsed = $this->parseSingleByteRange($range, $size);
+                if ($parsed === false) {
+                    $this->file = null;
+                    $this->body = '';
+                    $this->suppressBody = true;
+                    $this->withStatus(416)->withHeader('Content-Range', 'bytes */' . $size);
+                } elseif ($parsed !== null) {
+                    [$offset, $length] = $parsed;
+                    $this->file['offset'] = $offset;
+                    $this->file['length'] = $length;
+                }
+            }
+        }
+
+        if ($method === 'HEAD') {
+            $this->suppressBody = true;
+        }
+        return $this;
+    }
+
+    protected function preconditionFailed(Request $request, string $etag, int $mtime): bool
+    {
+        $ifMatch = trim((string)$request->header('if-match', ''));
+        if ($ifMatch !== '') {
+            if ($ifMatch === '*') {
+                return false; // Resource exists: withFile() already resolved it.
+            }
+
+            $matched = false;
+            foreach (explode(',', $ifMatch) as $candidate) {
+                $candidate = trim($candidate);
+                // If-Match uses strong comparison: weak validators never satisfy it.
+                if (!str_starts_with($candidate, 'W/') && hash_equals($etag, $candidate)) {
+                    $matched = true;
+                    break;
+                }
+            }
+            return !$matched;
+        }
+
+        // RFC precedence: If-Unmodified-Since is ignored when If-Match is present.
+        $ifUnmodifiedSince = trim((string)$request->header('if-unmodified-since', ''));
+        if ($ifUnmodifiedSince === '') {
+            return false;
+        }
+        $time = strtotime($ifUnmodifiedSince);
+        return $time !== false && $mtime > $time;
+    }
+
+    protected function isNotModified(Request $request, string $etag, int $mtime): bool
+    {
+        $ifNoneMatch = trim((string)$request->header('if-none-match', ''));
+        if ($ifNoneMatch !== '') {
+            if ($ifNoneMatch === '*') {
+                return true;
+            }
+            $target = preg_replace('/^W\//i', '', $etag);
+            foreach (explode(',', $ifNoneMatch) as $candidate) {
+                $candidate = trim($candidate);
+                if (preg_replace('/^W\//i', '', $candidate) === $target) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        $ifModifiedSince = trim((string)$request->header('if-modified-since', ''));
+        if ($ifModifiedSince === '') {
+            return false;
+        }
+        $time = strtotime($ifModifiedSince);
+        return $time !== false && $mtime <= $time;
+    }
+
+    protected function ifRangeAllowsRange(Request $request, string $etag, int $mtime): bool
+    {
+        $ifRange = trim((string)$request->header('if-range', ''));
+        if ($ifRange === '') {
+            return true;
+        }
+        if (str_starts_with($ifRange, 'W/')) {
+            return false;
+        }
+        if (str_starts_with($ifRange, '"')) {
+            return hash_equals($etag, $ifRange);
+        }
+        $time = strtotime($ifRange);
+        return $time !== false && $mtime <= $time;
+    }
+
+    /** @return null|false|array{0:int,1:int} null=ignore unsupported multi-range */
+    protected function parseSingleByteRange(string $range, int $size): array|false|null
+    {
+        if (!str_starts_with(strtolower($range), 'bytes=')) {
+            return null;
+        }
+        $spec = trim(substr($range, 6));
+        if ($spec === '' || str_contains($spec, ',')) {
+            return $spec === '' ? false : null;
+        }
+        if (!preg_match('/^(\d*)-(\d*)$/D', $spec, $match)) {
+            return false;
+        }
+
+        $startText = $match[1];
+        $endText = $match[2];
+        if ($startText === '' && $endText === '') {
+            return false;
+        }
+        if ($size <= 0) {
+            return false;
+        }
+
+        if ($startText === '') {
+            $suffix = (int)$endText;
+            if ($suffix <= 0) {
+                return false;
+            }
+            $length = min($suffix, $size);
+            return [$size - $length, $length];
+        }
+
+        $start = (int)$startText;
+        if ($start >= $size) {
+            return false;
+        }
+        $end = $endText === '' ? $size - 1 : min((int)$endText, $size - 1);
+        if ($end < $start) {
+            return false;
+        }
+        return [$start, $end - $start + 1];
+    }
+
+    public function cookie(
+        string $name,
+        string $value = '',
+        ?int   $maxAge = null,
+        string $path = '',
+        string $domain = '',
+        bool   $secure = false,
+        bool   $httpOnly = false,
+        string $sameSite = ''
+    ): static
+    {
+        $cookie = rawurlencode($name) . '=' . rawurlencode($value);
+        if ($maxAge !== null) {
+            $cookie .= '; Max-Age=' . $maxAge;
+        }
+        if ($path !== '') {
+            $cookie .= '; Path=' . $path;
+        }
+        if ($domain !== '') {
+            $cookie .= '; Domain=' . $domain;
+        }
+        if ($secure) {
+            $cookie .= '; Secure';
+        }
+        if ($httpOnly) {
+            $cookie .= '; HttpOnly';
+        }
+        if ($sameSite !== '') {
+            $cookie .= '; SameSite=' . $sameSite;
+        }
+
+        $existing = $this->getHeader('Set-Cookie');
+        if ($existing === null) {
+            $this->headers['Set-Cookie'] = [$cookie];
+        } elseif (is_array($existing)) {
+            $this->withoutHeader('Set-Cookie');
+            $this->headers['Set-Cookie'] = [...$existing, $cookie];
+        } else {
+            $this->withoutHeader('Set-Cookie');
+            $this->headers['Set-Cookie'] = [$existing, $cookie];
+        }
+        return $this;
+    }
+
     public function __toString(): string
     {
-        // Если файл установлен, создаем заголовок для файла.
-        if ($this->file) {
-            return $this->createHeadForFile($this->file);
+        $reason = $this->reason ?? self::PHRASES[$this->status] ?? 'Unknown';
+        $headers = $this->headers;
+        $headers['Server'] ??= 'Localzet-Server';
+        $headers['Date'] ??= gmdate('D, d M Y H:i:s') . ' GMT';
+
+        $statusWithoutBody = ($this->status >= 100 && $this->status < 200)
+            || $this->status === 204
+            || $this->status === 304;
+
+        if (!$statusWithoutBody
+            && $this->file === null
+            && $this->getHeaderFrom($headers, 'Content-Length') === null
+            && $this->getHeaderFrom($headers, 'Transfer-Encoding') === null) {
+            $headers['Content-Length'] = (string)strlen($this->body ?? '');
         }
 
-        return format_http_response($this->status, $this->body, $this->headers, $this->reason, $this->version);
+        $head = "HTTP/{$this->version} {$this->status} {$reason}\r\n";
+        foreach ($headers as $name => $value) {
+            foreach ((array)$value as $item) {
+                $safeName = str_replace(["\r", "\n"], '', (string)$name);
+                $safeValue = str_replace(["\r", "\n"], '', (string)$item);
+                $head .= $safeName . ': ' . $safeValue . "\r\n";
+            }
+        }
+
+        return $head . "\r\n" . (($statusWithoutBody || $this->suppressBody) ? '' : ($this->body ?? ''));
     }
 
-
-    /**
-     * Создать заголовок для файла.
-     */
-    protected function createHeadForFile(array $fileInfo): string
+    /** Проверяет Accept-Encoding с учётом q-values и wildcard. */
+    protected static function requestAcceptsGzip(Request $request): bool
     {
-        $file = $fileInfo['file'];
+        $header = strtolower((string)$request->header('accept-encoding', ''));
+        if ($header === '') {
+            return false;
+        }
 
-        // Получаем причину, если она не указана
-        $reason ??= static::PHRASES[$this->status] ?? 'Unknown Status';
+        $gzipQ = null;
+        $wildcardQ = null;
+        foreach (explode(',', $header) as $item) {
+            $parts = array_map('trim', explode(';', $item));
+            $encoding = strtolower((string)array_shift($parts));
+            if ($encoding === '') {
+                continue;
+            }
 
-        // Формируем начальную строку заголовка
-        $head = "HTTP/$this->version $this->status $reason\r\n";
+            $quality = 1.0;
+            foreach ($parts as $parameter) {
+                if (!str_contains($parameter, '=')) {
+                    continue;
+                }
+                [$name, $value] = array_map('trim', explode('=', $parameter, 2));
+                if (strtolower($name) !== 'q') {
+                    continue;
+                }
+                if (!is_numeric($value)) {
+                    $quality = 0.0;
+                    break;
+                }
+                $quality = max(0.0, min(1.0, (float)$value));
+            }
 
-        // Объединяем заголовки, добавляя стандартные значения
-        $defaultHeaders = [
-            'Server' => 'Localzet-Server',
-            'Connection' => $this->headers['Connection'] ?? 'keep-alive',
-        ];
-        $headers = array_merge($defaultHeaders, $this->headers);
-
-        // Формируем строку заголовков
-        foreach ($headers as $name => $values) {
-            foreach ((array)$values as $value) {
-                $head .= "$name: $value\r\n";
+            if ($encoding === 'gzip' || $encoding === 'x-gzip') {
+                $gzipQ = $quality;
+            } elseif ($encoding === '*') {
+                $wildcardQ = $quality;
             }
         }
 
-        // Информация о файле.
-        $fileInfo = pathinfo((string)$file);
-        // Расширение файла.
-        $extension = $fileInfo['extension'] ?? '';
-        // Базовое имя файла.
-        $baseName = $fileInfo['basename'] ?: 'unknown';
-        if (!$this->getHeader('content-type')) {
-            if (isset(self::$mimeTypeMap[$extension])) {
-                // Тип контента.
-                $head .= "Content-Type: " . self::$mimeTypeMap[$extension] . "\r\n";
-            } else {
-                // Тип контента.
-                $head .= "Content-Type: application/octet-stream\r\n";
+        return ($gzipQ ?? $wildcardQ ?? 0.0) > 0.0;
+    }
+
+    /** Добавляет token в Vary, не создавая дубликатов. */
+    protected function appendVary(string $token): void
+    {
+        $existing = implode(',', (array)($this->getHeader('Vary') ?? ''));
+        $tokens = array_values(array_filter(array_map('trim', explode(',', $existing))));
+        foreach ($tokens as $existingToken) {
+            if (strcasecmp($existingToken, $token) === 0) {
+                return;
             }
         }
+        $tokens[] = $token;
+        $this->withoutHeader('Vary');
+        $this->headers['Vary'] = implode(', ', $tokens);
+    }
 
-        if (!$this->getHeader('content-disposition') && !isset(self::$mimeTypeMap[$extension])) {
-            // Расположение контента.
-            $head .= "Content-Disposition: attachment; filename=\"$baseName\"\r\n";
+    protected function getHeaderFrom(array $headers, string $name): mixed
+    {
+        foreach ($headers as $key => $value) {
+            if (strcasecmp((string)$key, $name) === 0) {
+                return $value;
+            }
         }
-
-        if (!$this->getHeader('last-modified') && $mtime = filemtime($file)) {
-            // Последнее изменение.
-            $head .= 'Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT' . "\r\n";
-        }
-
-        return "$head\r\n";
+        return null;
     }
 }
-
-Response::init();

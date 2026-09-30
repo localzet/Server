@@ -29,9 +29,8 @@ declare(strict_types=1);
 namespace localzet\Server\Connection;
 
 use AllowDynamicProperties;
-use localzet\Server\Events\Event;
-use localzet\Server\Events\EventInterface;
 use localzet\Server;
+use localzet\Server\Events\EventInterface;
 use Throwable;
 
 /**
@@ -62,130 +61,53 @@ abstract class ConnectionInterface
      * Статистика соединений текущего процесса.
      */
     public static array $statistics = [
-        'connection_count' => 0,
+        'connection_count' => 0,   // currently open
+        'connection_total' => 0,   // created during this worker lifetime
+        'connection_rejected' => 0,
         'total_request' => 0,
         'throw_exception' => 0,
         'send_fail' => 0,
+        'timeout' => 0,
+        'bytes_read' => 0,
+        'bytes_written' => 0,
     ];
 
-    /**
-     * Протокол прикладного уровня.
-     * Формат аналогичен localzet\\Server\\Protocols\\Http.
-     */
+    /** @var ?class-string Прикладной протокол. */
     public ?string $protocol = null;
 
-    /**
-     * Вызывается при получении данных.
-     *
-     * @var ?callable(ConnectionInterface, mixed): void
-     */
     public $onMessage = null;
-
-    /**
-     * Вызывается, когда другой конец сокета отправляет пакет FIN.
-     *
-     * @var ?callable(ConnectionInterface): void
-     */
     public $onClose = null;
-
-    /**
-     * Вызывается, когда возникает ошибка соединения.
-     *
-     * @var ?callable(ConnectionInterface, int, string): void
-     */
     public $onError = null;
 
-    /**
-     * Event loop, обслуживающая конкретное соединение.
-     */
+    /** Event loop, обслуживающая конкретное соединение. */
     public ?EventInterface $eventLoop = null;
 
-    /**
-     * Пользовательский обработчик исключений connection layer.
-     *
-     * @var ?callable(Throwable): void
-     */
+    /** Пользовательский обработчик исключений connection layer. */
     public $errorHandler = null;
 
-    /**
-     * Отправляет данные по соединению.
-     *
-     * @param mixed $sendBuffer Данные для отправки.
-     * @param bool $raw Отправлять данные в сыром виде (без кодирования протоколом).
-     * @return bool|null true в случае успеха, false в случае неудачи, null если буфер полон.
-     */
     abstract public function send(mixed $sendBuffer, bool $raw = false): bool|null;
 
-    /**
-     * Получить удаленный IP-адрес.
-     *
-     * @return string IP-адрес клиента.
-     */
-    abstract public function getRemoteIp(): string;
-
-    /**
-     * Получить удаленный порт.
-     *
-     * @return int Порт клиента.
-     */
-    abstract public function getRemotePort(): int;
-
-    /**
-     * Получить удаленный адрес (IP:порт).
-     *
-     * @return string Полный адрес клиента в формате "IP:порт".
-     */
-    abstract public function getRemoteAddress(): string;
-
-    /**
-     * Получить локальный IP-адрес.
-     *
-     * @return string IP-адрес сервера.
-     */
-    abstract public function getLocalIp(): string;
-
-    /**
-     * Получить локальный порт.
-     *
-     * @return int Порт сервера.
-     */
-    abstract public function getLocalPort(): int;
-
-    /**
-     * Получить локальный адрес (IP:порт).
-     *
-     * @return string Полный адрес сервера в формате "IP:порт".
-     */
-    abstract public function getLocalAddress(): string;
-
-    /**
-     * Закрыть соединение.
-     *
-     * @param mixed $data Опциональные данные для отправки перед закрытием.
-     * @param bool $raw Отправлять данные в сыром виде.
-     */
     abstract public function close(mixed $data = null, bool $raw = false): void;
 
-    /**
-     * Является ли адрес IPv4.
-     *
-     * @return bool true если адрес IPv4, иначе false.
-     */
+    abstract public function getRemoteIp(): string;
+
+    abstract public function getRemotePort(): int;
+
+    abstract public function getRemoteAddress(): string;
+
+    abstract public function getLocalIp(): string;
+
+    abstract public function getLocalPort(): int;
+
+    abstract public function getLocalAddress(): string;
+
     abstract public function isIpV4(): bool;
 
-    /**
-     * Является ли адрес IPv6.
-     *
-     * @return bool true если адрес IPv6, иначе false.
-     */
     abstract public function isIpV6(): bool;
 
     /**
      * Передаёт исключение пользовательскому error handler либо останавливает
      * процесс с кодом 250, если обработчик отсутствует/сам выбросил исключение.
-     *
-     * @param Throwable $exception Исключение для обработки.
-     * @throws Throwable Если обработчик ошибок не установлен или выбросил исключение в синхронном контексте.
      */
     public function error(Throwable $exception): void
     {
@@ -196,14 +118,8 @@ abstract class ConnectionInterface
 
         try {
             ($this->errorHandler)($exception);
-        } catch (Throwable $throwable) {
-            // В асинхронном контексте просто логируем, иначе пробрасываем дальше
-            if ($this->eventLoop instanceof Event) {
-                Server::safeEcho((string)$throwable);
-                return;
-            }
-
-            throw $throwable;
+        } catch (Throwable $handlerException) {
+            Server::stopAll(250, $handlerException);
         }
     }
 }

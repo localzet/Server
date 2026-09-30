@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,229 +28,188 @@
 
 namespace localzet\Server\Events;
 
-use EvIo;
-use EvSignal;
-use EvTimer;
+use RuntimeException;
 use Throwable;
 
 /**
- * Класс Windows реализует интерфейс EventInterface и представляет select event loop.
+ * Native event loop на PECL ext-ev/libev.
  */
 final class Ev implements EventInterface
 {
-    /**
-     * Идентификатор таймера.
-     */
-    private static int $timerId = 1;
-
-    /**
-     * Массив всех обработчиков событий чтения.
-     *
-     * @var array<int, EvIo>
-     */
+    /** @var array<int,\EvIo> */
     private array $readEvents = [];
 
-    /**
-     * Массив всех обработчиков событий записи.
-     *
-     * @var array<int, EvIo>
-     */
+    /** @var array<int,\EvIo> */
     private array $writeEvents = [];
 
-    /**
-     * Массив всех обработчиков сигналов.
-     *
-     * @var array<int, EvSignal>
-     */
-    private array $eventSignal = [];
+    /** @var array<int,\EvSignal> */
+    private array $signalEvents = [];
 
-    /**
-     * Массив всех таймеров.
-     *
-     * @var array<int, EvTimer>
-     */
-    private array $eventTimer = [];
+    /** @var array<int,\EvTimer> */
+    private array $timerEvents = [];
 
-    /**
-     * Обработчик ошибок.
-     *
-     * @var ?callable
-     */
+    private int $nextTimerId = 1;
+
+    /** @var null|callable(Throwable):void */
     private $errorHandler = null;
 
-    /**
-     * {@inheritdoc}
-     */
-    public function delay(float $delay, callable $func, array $args = []): int
+    public function __construct()
     {
-        $timerId = self::$timerId;
-        $evTimer = new EvTimer($delay, 0, function () use ($func, $args, $timerId): void {
-            unset($this->eventTimer[$timerId]);
-            $this->safeCall($func, $args);
-        });
-        $this->eventTimer[self::$timerId] = $evTimer;
-        return self::$timerId++;
-    }
-
-    private function safeCall(callable $func, array $args = []): void
-    {
-        try {
-            $func(...$args);
-        } catch (Throwable $throwable) {
-            if ($this->errorHandler === null) {
-                echo $throwable;
-            } else {
-                ($this->errorHandler)($throwable);
-            }
+        if (!class_exists(\Ev::class)) {
+            throw new RuntimeException('ext-ev is required for the Localzet ev backend.');
         }
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function repeat(float $interval, callable $func, array $args = []): int
-    {
-        $evTimer = new EvTimer($interval, $interval, fn() => $this->safeCall($func, $args));
-        $this->eventTimer[self::$timerId] = $evTimer;
-        return self::$timerId++;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offRepeat(int $timerId): bool
-    {
-        return $this->offDelay($timerId);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offDelay(int $timerId): bool
-    {
-        if (isset($this->eventTimer[$timerId])) {
-            $this->eventTimer[$timerId]->stop();
-            unset($this->eventTimer[$timerId]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function stop(): void
-    {
-        \Ev::stop();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onReadable($stream, callable $func): void
-    {
-        $fdKey = (int)$stream;
-        $evIo = new EvIo($stream, \Ev::READ, fn() => $this->safeCall($func, [$stream]));
-        $this->readEvents[$fdKey] = $evIo;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offReadable($stream): bool
-    {
-        $fdKey = (int)$stream;
-        if (isset($this->readEvents[$fdKey])) {
-            $this->readEvents[$fdKey]->stop();
-            unset($this->readEvents[$fdKey]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onWritable($stream, callable $func): void
-    {
-        $fdKey = (int)$stream;
-        $evIo = new EvIo($stream, \Ev::WRITE, fn() => $this->safeCall($func, [$stream]));
-        $this->writeEvents[$fdKey] = $evIo;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offWritable($stream): bool
-    {
-        $fdKey = (int)$stream;
-        if (isset($this->writeEvents[$fdKey])) {
-            $this->writeEvents[$fdKey]->stop();
-            unset($this->writeEvents[$fdKey]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onSignal(int $signal, callable $func): void
-    {
-        $evSignal = new EvSignal($signal, fn() => $this->safeCall($func, [$signal]));
-        $this->eventSignal[$signal] = $evSignal;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function run(): void
     {
         \Ev::run();
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    public function stop(): void
+    {
+        \Ev::stop();
+    }
+
+    public function delay(float $delay, callable $callback, array $args = []): int
+    {
+        if ($delay < 0) {
+            throw new \InvalidArgumentException('Timer delay must be >= 0.');
+        }
+
+        $timerId = $this->nextTimerId++;
+        $this->timerEvents[$timerId] = new \EvTimer(
+            max($delay, 0.000001),
+            0.0,
+            function () use ($timerId, $callback, $args): void {
+                unset($this->timerEvents[$timerId]);
+                $this->safeCall($callback, ...$args);
+            }
+        );
+        return $timerId;
+    }
+
+    public function repeat(float $interval, callable $callback, array $args = []): int
+    {
+        if ($interval < 0) {
+            throw new \InvalidArgumentException('Timer interval must be >= 0.');
+        }
+
+        $interval = max($interval, 0.000001);
+        $timerId = $this->nextTimerId++;
+        $this->timerEvents[$timerId] = new \EvTimer(
+            $interval,
+            $interval,
+            fn() => $this->safeCall($callback, ...$args)
+        );
+        return $timerId;
+    }
+
+    public function offDelay(int $timerId): bool
+    {
+        if (!isset($this->timerEvents[$timerId])) {
+            return false;
+        }
+        $this->timerEvents[$timerId]->stop();
+        unset($this->timerEvents[$timerId]);
+        return true;
+    }
+
+    public function offRepeat(int $timerId): bool
+    {
+        return $this->offDelay($timerId);
+    }
+
     public function deleteAllTimer(): void
     {
-        foreach ($this->eventTimer as $event) {
+        foreach ($this->timerEvents as $event) {
             $event->stop();
         }
-
-        $this->eventTimer = [];
+        $this->timerEvents = [];
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function offSignal(int $signal): bool
-    {
-        if (isset($this->eventSignal[$signal])) {
-            $this->eventSignal[$signal]->stop();
-            unset($this->eventSignal[$signal]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function getTimerCount(): int
     {
-        return count($this->eventTimer);
+        return count($this->timerEvents);
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    public function onReadable($stream, callable $callback): void
+    {
+        $id = (int)$stream;
+        $this->offReadable($stream);
+        $this->readEvents[$id] = new \EvIo(
+            $stream,
+            \Ev::READ,
+            fn() => $this->safeCall($callback, $stream)
+        );
+    }
+
+    public function offReadable($stream): bool
+    {
+        $id = (int)$stream;
+        if (!isset($this->readEvents[$id])) {
+            return false;
+        }
+        $this->readEvents[$id]->stop();
+        unset($this->readEvents[$id]);
+        return true;
+    }
+
+    public function onWritable($stream, callable $callback): void
+    {
+        $id = (int)$stream;
+        $this->offWritable($stream);
+        $this->writeEvents[$id] = new \EvIo(
+            $stream,
+            \Ev::WRITE,
+            fn() => $this->safeCall($callback, $stream)
+        );
+    }
+
+    public function offWritable($stream): bool
+    {
+        $id = (int)$stream;
+        if (!isset($this->writeEvents[$id])) {
+            return false;
+        }
+        $this->writeEvents[$id]->stop();
+        unset($this->writeEvents[$id]);
+        return true;
+    }
+
+    public function onSignal(int $signal, callable $callback): void
+    {
+        $this->offSignal($signal);
+        $this->signalEvents[$signal] = new \EvSignal(
+            $signal,
+            fn() => $this->safeCall($callback, $signal)
+        );
+    }
+
+    public function offSignal(int $signal): bool
+    {
+        if (!isset($this->signalEvents[$signal])) {
+            return false;
+        }
+        $this->signalEvents[$signal]->stop();
+        unset($this->signalEvents[$signal]);
+        return true;
+    }
+
     public function setErrorHandler(callable $errorHandler): void
     {
         $this->errorHandler = $errorHandler;
+    }
+
+    private function safeCall(callable $callback, mixed ...$args): void
+    {
+        try {
+            $callback(...$args);
+        } catch (Throwable $e) {
+            if ($this->errorHandler !== null) {
+                ($this->errorHandler)($e);
+                return;
+            }
+            throw $e;
+        }
     }
 }

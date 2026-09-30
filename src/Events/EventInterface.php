@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,122 +28,124 @@
 
 namespace localzet\Server\Events;
 
-use localzet\Server\Events\Linux\Suspension;
 use Throwable;
 
 /**
- * Класс предоставляет интерфейс для работы с событиями в сервере Localzet.
- * Он позволяет отложить выполнение колбэка, повторно выполнять колбэк, регистрировать обратные вызовы при чтении/записи потоков
- * и обрабатывать сигналы.
+ * Интерфейс событийной петли Localzet Server.
+ *
+ * Контракт намеренно остаётся небольшим: таймеры, I/O watchers, signals и
+ * обработка исключений. Благодаря этому Connection/Protocol слой не зависит
+ * от конкретной реализации event loop, а backend можно выбирать во время запуска.
  */
 interface EventInterface
 {
     /**
-     * Задержать выполнение колбэка на указанное время.
+     * Задержать выполнение callback на указанное время.
+     *
      * @param float $delay Задержка в секундах.
-     * @param callable(mixed...): void $func Колбэк, который нужно выполнить.
-     * @param array $args Аргументы, передаваемые в колбэк.
+     * @param callable(mixed...): void $func Callback, который нужно выполнить.
+     * @param array $args Аргументы, передаваемые в callback.
      * @return int Идентификатор таймера.
      */
     public function delay(float $delay, callable $func, array $args = []): int;
 
     /**
      * Отменить таймер задержки.
+     *
      * @param int $timerId Идентификатор таймера.
-     * @return bool Возвращает true, если таймер был успешно отменен, иначе false.
+     * @return bool true, если таймер существовал и был отменён.
      */
     public function offDelay(int $timerId): bool;
 
     /**
-     * Повторно выполнять колбэк через указанный интервал времени.
+     * Повторно выполнять callback через указанный интервал времени.
+     *
      * @param float $interval Интервал в секундах.
-     * @param callable(mixed...): void $func Колбэк, который нужно выполнить.
-     * @param array $args Аргументы, передаваемые в колбэк.
+     * @param callable(mixed...): void $func Callback, который нужно выполнить.
+     * @param array $args Аргументы, передаваемые в callback.
      * @return int Идентификатор таймера.
      */
     public function repeat(float $interval, callable $func, array $args = []): int;
 
     /**
-     * Отменить повторение таймера.
+     * Отменить повторяющийся таймер.
+     *
      * @param int $timerId Идентификатор таймера.
-     * @return bool Возвращает true, если таймер был успешно отменен, иначе false.
+     * @return bool true, если таймер существовал и был отменён.
      */
     public function offRepeat(int $timerId): bool;
 
     /**
-     * Зарегистрировать колбэк для выполнения при возможности чтения или закрытия потока для чтения.
-     * @param resource $stream Поток, для которого нужно зарегистрировать колбэк.
-     * @param callable(resource): void $func Колбэк, который нужно выполнить.
+     * Зарегистрировать callback при готовности потока к чтению или его закрытии.
+     *
+     * @param resource $stream Поток для наблюдения.
+     * @param callable(resource): void $func Callback чтения.
      */
     public function onReadable($stream, callable $func): void;
 
     /**
-     * Отменить регистрацию колбэка для чтения потока.
-     * @param resource $stream Поток, для которого нужно отменить регистрацию колбэка.
-     * @return bool Возвращает true, если колбэк был успешно отменен, иначе false.
+     * Удалить watcher чтения.
+     *
+     * @param resource $stream Поток.
+     * @return bool true, если watcher существовал.
      */
     public function offReadable($stream): bool;
 
     /**
-     * Зарегистрировать колбэк для выполнения при возможности записи или закрытия потока для записи.
-     * @param resource $stream Поток, для которого нужно зарегистрировать колбэк.
-     * @param callable(resource): void $func Колбэк, который нужно выполнить.
+     * Зарегистрировать callback при готовности потока к записи или его закрытии.
+     *
+     * @param resource $stream Поток для наблюдения.
+     * @param callable(resource): void $func Callback записи.
      */
     public function onWritable($stream, callable $func): void;
 
     /**
-     * Отменить регистрацию колбэка для записи потока.
-     * @param resource $stream Поток, для которого нужно отменить регистрацию колбэка.
-     * @return bool Возвращает true, если колбэк был успешно отменен, иначе false.
+     * Удалить watcher записи.
+     *
+     * @param resource $stream Поток.
+     * @return bool true, если watcher существовал.
      */
     public function offWritable($stream): bool;
 
     /**
-     * Зарегистрировать колбэк для выполнения при получении сигнала.
+     * Зарегистрировать callback системного сигнала.
+     *
      * @param int $signal Номер сигнала.
-     * @param callable(int): void $func Колбэк, который нужно выполнить.
+     * @param callable(int): void $func Callback сигнала.
      * @throws Throwable
      */
     public function onSignal(int $signal, callable $func): void;
 
     /**
-     * Отменить регистрацию колбэка для сигнала.
+     * Удалить watcher системного сигнала.
+     *
      * @param int $signal Номер сигнала.
-     * @return bool Возвращает true, если колбэк был успешно отменен, иначе false.
+     * @return bool true, если watcher существовал.
      */
     public function offSignal(int $signal): bool;
 
     /**
      * Запустить цикл обработки событий.
      *
-     * Эту функцию можно вызывать только из {main}, то есть не внутри Fiber'а.
-     *
-     * Библиотеки должны использовать API {@link Suspension} вместо вызова этого метода.
-     *
-     * Этот метод не вернет управление до тех пор, пока цикл обработки событий не будет содержать каких-либо ожидающих, ссылочных обратных вызовов.
+     * Метод блокирует текущий main context до stop() либо до естественного
+     * завершения выбранного backend'а.
      *
      * @throws Throwable
      */
     public function run(): void;
 
-    /**
-     * Остановить цикл событий.
-     */
+    /** Остановить цикл событий. */
     public function stop(): void;
 
-    /**
-     * Удалить все таймеры.
-     */
+    /** Удалить все зарегистрированные таймеры. */
     public function deleteAllTimer(): void;
 
-    /**
-     * Получить количество таймеров.
-     * @return int Количество таймеров.
-     */
+    /** @return int Количество активных таймеров. */
     public function getTimerCount(): int;
 
     /**
-     * Установить обработчик ошибок.
+     * Установить обработчик исключений из event callbacks.
+     *
      * @param callable(Throwable): void $errorHandler Обработчик ошибок.
      */
     public function setErrorHandler(callable $errorHandler): void;

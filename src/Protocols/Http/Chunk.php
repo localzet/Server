@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -27,38 +29,16 @@
 namespace localzet\Server\Protocols\Http;
 
 use Stringable;
-use function dechex;
-use function strlen;
 
-/**
- * Класс Chunk
- * @package localzet\Server\Protocols\Http
- */
-class Chunk implements Stringable
+/** Готовый chunk для chunked HTTP response. */
+final class Chunk implements Stringable
 {
-    /**
-     * Конструктор Chunk.
-     *
-     * @param string $buffer Буфер, передаваемый в чанк.
-     */
-    public function __construct(
-        /**
-         * Буфер чанка.
-         */
-        protected string $buffer
-    )
+    public function __construct(public string $buffer)
     {
     }
 
-    /**
-     * __toString
-     *
-     * Возвращает строковое представление чанка.
-     *
-     * @return string Строковое представление чанка.
-     */
     public function __toString(): string
     {
-        return dechex(strlen($this->buffer)) . "\r\n$this->buffer\r\n";
+        return dechex(strlen($this->buffer)) . "\r\n" . $this->buffer . "\r\n";
     }
 }

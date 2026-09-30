@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -27,47 +29,23 @@
 namespace localzet\Server\Protocols;
 
 use localzet\Server\Connection\ConnectionInterface;
-use function rtrim;
-use function strlen;
-use function strpos;
 
-/**
- * Текстовый протокол.
- */
-class Text implements ProtocolInterface
+/** Строковый протокол: одно сообщение = одна строка с \n. */
+final class Text implements ProtocolInterface
 {
-    /** @inheritdoc */
     public static function input(string $buffer, ConnectionInterface $connection): int
     {
-        // Проверяем, превышает ли длина пакета установленный предел.
-        if (property_exists($connection, 'maxPackageSize') && $connection->maxPackageSize !== null && strlen($buffer) >= $connection->maxPackageSize) {
-            $connection->close();
-            return 0;
-        }
-
-        // Ищем позицию символа "\n".
         $pos = strpos($buffer, "\n");
-
-        // Если "\n" не найден, длина пакета неизвестна, продолжаем ожидать данные, поэтому возвращаем 0.
-        if ($pos === false) {
-            return 0;
-        }
-
-        // Возвращаем текущую длину пакета.
-        return $pos + 1;
+        return $pos === false ? 0 : $pos + 1;
     }
 
-    /** @inheritdoc */
-    public static function encode(mixed $data, ConnectionInterface $connection): string
-    {
-        // Добавляем символ "\n" к данным перед отправкой.
-        return $data . "\n";
-    }
-
-    /** @inheritdoc */
     public static function decode(string $buffer, ConnectionInterface $connection): string
     {
-        // Удаляем символы "\r" и "\n" из полученных данных.
         return rtrim($buffer, "\r\n");
+    }
+
+    public static function encode(mixed $data, ConnectionInterface $connection): string
+    {
+        return (string)$data . "\n";
     }
 }

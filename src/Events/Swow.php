@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -27,312 +29,247 @@
 namespace localzet\Server\Events;
 
 use RuntimeException;
-//use localzet\Coroutine\Swow as Coroutine;
 use Swow\Coroutine;
 use Swow\Signal;
-use Swow\SignalException;
-use function msleep;
-use function stream_poll_one;
+use Throwable;
+
+use function Swow\stream_poll_one;
 use function Swow\Sync\waitAll;
-use const STREAM_POLLIN;
-use const STREAM_POLLNONE;
-use const STREAM_POLLOUT;
 
 /**
- * Класс Windows реализует интерфейс EventInterface и представляет select event loop.
+ * Native Swow coroutine backend.
+ *
+ * Каждый watcher живёт в собственной Swow coroutine и ждёт готовность stream
+ * через stream_poll_one(). Это позволяет Localzet сохранить общий EventInterface,
+ * не подменяя Swow обычным stream_select fallback'ом.
  */
-final class Swow implements EventInterface
+final class Swow implements EventInterface, SuspensionCapableInterface
 {
-    /**
-     * Массив всех обработчиков событий чтения.
-     *
-     * @var array<int, Coroutine>
-     */
+    /** @var array<int,Coroutine> */
     private array $readEvents = [];
 
-    /**
-     * Массив всех обработчиков событий записи.
-     *
-     * @var array<int, Coroutine>
-     */
+    /** @var array<int,Coroutine> */
     private array $writeEvents = [];
 
-    /**
-     * Массив всех таймеров.
-     *
-     * @var array<int, int>
-     */
-    private array $eventTimer = [];
+    /** @var array<int,Coroutine> */
+    private array $signalEvents = [];
 
-    /**
-     * Обработчик ошибок.
-     *
-     * @var ?callable
-     */
+    /** @var array<int,Coroutine> */
+    private array $timerEvents = [];
+
+    /** @var null|callable(Throwable):void */
     private $errorHandler = null;
 
-    /**
-     * Массив всех обработчиков сигналов.
-     *
-     * @var array<int, Coroutine>
-     */
-    private array $signalListener = [];
-
-    /**
-     * {@inheritdoc}
-     */
-    public function delay(float $delay, callable $func, array $args = []): int
+    public function __construct()
     {
-        $t = (int)($delay * 1000);
-        $t = max($t, 1);
-
-        $coroutine = Coroutine::run(function () use ($t, $func, $args): void {
-            msleep($t);
-            unset($this->eventTimer[Coroutine::getCurrent()->getId()]);
-            $this->safeCall($func, $args);
-        });
-        $timerId = $coroutine->getId();
-        $this->eventTimer[$timerId] = $timerId;
-        return $timerId;
+        if (!extension_loaded('swow') || !class_exists(Coroutine::class)) {
+            throw new RuntimeException('ext-swow is required for the Localzet swow backend.');
+        }
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function run(): void
     {
         waitAll();
     }
 
-    private function safeCall(callable $func, array $args = []): void
+    public function stop(): void
     {
-        Coroutine::run(function () use ($func, $args): void {
-            try {
-                $func(...$args);
-            } catch (\Throwable $e) {
-                if ($this->errorHandler === null) {
-                    echo $e;
-                } else {
-                    ($this->errorHandler)($e);
+        $this->deleteAllTimer();
+        foreach ([$this->readEvents, $this->writeEvents, $this->signalEvents] as $events) {
+            foreach ($events as $coroutine) {
+                if ($coroutine->isAvailable()) {
+                    $coroutine->kill();
                 }
             }
-        });
+        }
+        $this->readEvents = $this->writeEvents = $this->signalEvents = [];
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function repeat(float $interval, callable $func, array $args = []): int
+    public function delay(float $delay, callable $callback, array $args = []): int
     {
-        $t = (int)($interval * 1000);
-        $t = max($t, 1);
+        if ($delay < 0) {
+            throw new \InvalidArgumentException('Timer delay must be >= 0.');
+        }
+        $milliseconds = max(1, (int)round($delay * 1000));
+        $coroutine = Coroutine::run(function () use ($milliseconds, $callback, $args): void {
+            usleep($milliseconds * 1000);
+            $id = Coroutine::getCurrent()->getId();
+            unset($this->timerEvents[$id]);
+            $this->safeCall($callback, ...$args);
+        });
+        $id = $coroutine->getId();
+        $this->timerEvents[$id] = $coroutine;
+        return $id;
+    }
 
-        $coroutine = Coroutine::run(function () use ($t, $func, $args): void {
-            // @phpstan-ignore-next-line While loop condition is always true.
+    public function repeat(float $interval, callable $callback, array $args = []): int
+    {
+        if ($interval < 0) {
+            throw new \InvalidArgumentException('Timer interval must be >= 0.');
+        }
+        $microseconds = max(1, (int)round($interval * 1_000_000));
+        $coroutine = Coroutine::run(function () use ($microseconds, $callback, $args): void {
             while (true) {
-                msleep($t);
-                $this->safeCall($func, $args);
+                usleep($microseconds);
+                $this->safeCall($callback, ...$args);
             }
         });
-        $timerId = $coroutine->getId();
-        $this->eventTimer[$timerId] = $timerId;
-        return $timerId;
+        $id = $coroutine->getId();
+        $this->timerEvents[$id] = $coroutine;
+        return $id;
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    public function offDelay(int $timerId): bool
+    {
+        if (!isset($this->timerEvents[$timerId])) {
+            return false;
+        }
+        $coroutine = $this->timerEvents[$timerId];
+        unset($this->timerEvents[$timerId]);
+        if ($coroutine->isAvailable()) {
+            $coroutine->kill();
+        }
+        return true;
+    }
+
     public function offRepeat(int $timerId): bool
     {
         return $this->offDelay($timerId);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function offDelay(int $timerId): bool
-    {
-        if (isset($this->eventTimer[$timerId])) {
-            try {
-                (Coroutine::getAll()[$timerId])->kill();
-                return true;
-            } finally {
-                unset($this->eventTimer[$timerId]);
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function stop(): void
-    {
-        Coroutine::killAll();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onReadable($stream, callable $func): void
-    {
-        $fd = (int)$stream;
-        if (isset($this->readEvents[$fd])) {
-            $this->offReadable($stream);
-        }
-
-        Coroutine::run(function () use ($stream, $func, $fd): void {
-            try {
-                $this->readEvents[$fd] = Coroutine::getCurrent();
-                while (true) {
-                    if (!is_resource($stream)) {
-                        $this->offReadable($stream);
-                        break;
-                    }
-
-                    $rEvent = stream_poll_one($stream, STREAM_POLLIN | STREAM_POLLHUP, 1000);
-                    if (!isset($this->readEvents[$fd]) || $this->readEvents[$fd] !== Coroutine::getCurrent()) {
-                        break;
-                    }
-
-                    if ($rEvent !== STREAM_POLLNONE) {
-                        $this->safeCall($func, [$stream]);
-                    }
-
-                    if ($rEvent !== STREAM_POLLIN && $rEvent !== STREAM_POLLNONE) {
-                        $this->offReadable($stream);
-                        break;
-                    }
-                }
-            } catch (RuntimeException) {
-                $this->offReadable($stream);
-            }
-        });
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offReadable($stream): bool
-    {
-        // 在当前协程执行 $coroutine->kill() 会导致不可预知问题，所以没有使用$coroutine->kill()
-        $fd = (int)$stream;
-        if (isset($this->readEvents[$fd])) {
-            unset($this->readEvents[$fd]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onWritable($stream, callable $func): void
-    {
-        $fd = (int)$stream;
-        if (isset($this->writeEvents[$fd])) {
-            $this->offWritable($stream);
-        }
-
-        Coroutine::run(function () use ($stream, $func, $fd): void {
-            try {
-                $this->writeEvents[$fd] = Coroutine::getCurrent();
-                while (true) {
-                    $rEvent = stream_poll_one($stream, STREAM_POLLOUT | STREAM_POLLHUP);
-                    if (!isset($this->writeEvents[$fd]) || $this->writeEvents[$fd] !== Coroutine::getCurrent()) {
-                        break;
-                    }
-
-                    if ($rEvent !== STREAM_POLLNONE) {
-                        $this->safeCall($func, [$stream]);
-                    }
-
-                    if ($rEvent !== STREAM_POLLOUT) {
-                        $this->offWritable($stream);
-                        break;
-                    }
-                }
-            } catch (RuntimeException) {
-                $this->offWritable($stream);
-            }
-        });
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offWritable($stream): bool
-    {
-        $fd = (int)$stream;
-        if (isset($this->writeEvents[$fd])) {
-            unset($this->writeEvents[$fd]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onSignal(int $signal, callable $func): void
-    {
-        Coroutine::run(function () use ($signal, $func): void {
-            $this->signalListener[$signal] = Coroutine::getCurrent();
-            while (1) {
-                try {
-                    Signal::wait($signal);
-                    if (!isset($this->signalListener[$signal]) ||
-                        $this->signalListener[$signal] !== Coroutine::getCurrent()) {
-                        break;
-                    }
-
-                    $this->safeCall($func, [$signal]);
-                } catch (SignalException) {
-                    // do nothing
-                }
-            }
-        });
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function deleteAllTimer(): void
     {
-        foreach ($this->eventTimer as $timerId) {
+        foreach (array_keys($this->timerEvents) as $timerId) {
             $this->offDelay($timerId);
         }
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function offSignal(int $signal): bool
+    public function getTimerCount(): int
     {
-        if (!isset($this->signalListener[$signal])) {
+        return count($this->timerEvents);
+    }
+
+    public function onReadable($stream, callable $callback): void
+    {
+        $id = (int)$stream;
+        $this->offReadable($stream);
+        $this->readEvents[$id] = Coroutine::run(function () use ($stream, $callback, $id): void {
+            try {
+                while (isset($this->readEvents[$id]) && is_resource($stream)) {
+                    $events = stream_poll_one($stream, STREAM_POLLIN | STREAM_POLLHUP, 1000);
+                    if (($events & STREAM_POLLIN) !== 0) {
+                        $this->safeCall($callback, $stream);
+                    }
+                    if (($events & STREAM_POLLHUP) !== 0) {
+                        break;
+                    }
+                }
+            } finally {
+                unset($this->readEvents[$id]);
+            }
+        });
+    }
+
+    public function offReadable($stream): bool
+    {
+        $id = (int)$stream;
+        if (!isset($this->readEvents[$id])) {
             return false;
         }
-
-        unset($this->signalListener[$signal]);
+        $coroutine = $this->readEvents[$id];
+        unset($this->readEvents[$id]);
+        if ($coroutine !== Coroutine::getCurrent() && $coroutine->isAvailable()) {
+            $coroutine->kill();
+        }
         return true;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getTimerCount(): int
+    public function onWritable($stream, callable $callback): void
     {
-        return count($this->eventTimer);
+        $id = (int)$stream;
+        $this->offWritable($stream);
+        $this->writeEvents[$id] = Coroutine::run(function () use ($stream, $callback, $id): void {
+            try {
+                while (isset($this->writeEvents[$id]) && is_resource($stream)) {
+                    $events = stream_poll_one($stream, STREAM_POLLOUT | STREAM_POLLHUP, 1000);
+                    if (($events & STREAM_POLLOUT) !== 0) {
+                        $this->safeCall($callback, $stream);
+                    }
+                    if (($events & STREAM_POLLHUP) !== 0) {
+                        break;
+                    }
+                }
+            } finally {
+                unset($this->writeEvents[$id]);
+            }
+        });
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    public function offWritable($stream): bool
+    {
+        $id = (int)$stream;
+        if (!isset($this->writeEvents[$id])) {
+            return false;
+        }
+        $coroutine = $this->writeEvents[$id];
+        unset($this->writeEvents[$id]);
+        if ($coroutine !== Coroutine::getCurrent() && $coroutine->isAvailable()) {
+            $coroutine->kill();
+        }
+        return true;
+    }
+
+    public function onSignal(int $signal, callable $callback): void
+    {
+        $this->offSignal($signal);
+        $this->signalEvents[$signal] = Coroutine::run(function () use ($signal, $callback): void {
+            while (isset($this->signalEvents[$signal])) {
+                Signal::wait($signal);
+                if (isset($this->signalEvents[$signal])) {
+                    $this->safeCall($callback, $signal);
+                }
+            }
+        });
+    }
+
+    public function offSignal(int $signal): bool
+    {
+        if (!isset($this->signalEvents[$signal])) {
+            return false;
+        }
+        $coroutine = $this->signalEvents[$signal];
+        unset($this->signalEvents[$signal]);
+        if ($coroutine !== Coroutine::getCurrent() && $coroutine->isAvailable()) {
+            $coroutine->kill();
+        }
+        return true;
+    }
+
     public function setErrorHandler(callable $errorHandler): void
     {
         $this->errorHandler = $errorHandler;
+    }
+
+    public function sleep(float $delay): void
+    {
+        if ($delay > 0) {
+            // ext-swow hooks usleep() and yields only the current coroutine.
+            usleep((int)round($delay * 1_000_000));
+        }
+    }
+
+    private function safeCall(callable $callback, mixed ...$args): void
+    {
+        Coroutine::run(function () use ($callback, $args): void {
+            try {
+                $callback(...$args);
+            } catch (Throwable $e) {
+                if ($this->errorHandler !== null) {
+                    ($this->errorHandler)($e);
+                    return;
+                }
+                throw $e;
+            }
+        });
     }
 }

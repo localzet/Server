@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,481 +28,561 @@
 
 namespace localzet\Server\Protocols;
 
-use Exception;
-use localzet\Server\Connection\{ConnectionInterface};
+use localzet\Server\Connection\ConnectionInterface;
 use localzet\Server\Connection\TcpConnection;
 use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\Http\Response;
-use localzet\Server;
-use Throwable;
-use function base64_encode;
-use function chr;
-use function floor;
-use function gettype;
-use function is_scalar;
-use function ord;
-use function pack;
-use function sha1;
-use function str_repeat;
-use function strlen;
-use function strpos;
-use function substr;
-use function unpack;
+use RuntimeException;
 
 /**
- * Протокол WebSocket.
+ * RFC 6455 WebSocket server protocol.
+ *
+ * Клиентские frames обязаны быть masked. Control frames проверяются отдельно:
+ * FIN=1, payload <=125, корректные close codes и автоматический pong по умолчанию.
  */
 class Websocket implements ProtocolInterface
 {
-    /**
-     * Тип BLOB для WebSocket.
-     *
-     * @var string
-     */
+    // Исторически Localzet хранит здесь первый байт WebSocket frame.
     public const BINARY_TYPE_BLOB = "\x81";
-
-    /**
-     * Тип ArrayBuffer для WebSocket.
-     *
-     * @var string
-     */
     public const BINARY_TYPE_ARRAYBUFFER = "\x82";
 
-    /**
-     * Имя класса Request.
-     */
-    protected static string $requestClass = Request::class;
-
-    /** @inheritdoc */
-    public static function input(string $buffer, TcpConnection|ConnectionInterface $connection): int
+    public static function input(string $buffer, ConnectionInterface $connection): int
     {
-        // Получаем длину полученных данных.
-        $recvLen = strlen($buffer);
-        // Если длина данных меньше 6, возвращаем 0.
-        if ($recvLen < 6) {
+        if (!$connection instanceof TcpConnection) {
+            throw new \InvalidArgumentException('WebSocket requires TcpConnection.');
+        }
+
+        if (!($connection->context->websocketHandshake ?? false)) {
+            return static::handshake($buffer, $connection);
+        }
+
+        if (strlen($buffer) < 2) {
             return 0;
         }
 
-        // Если рукопожатие еще не завершено, обрабатываем его.
-        if (empty($connection->context->websocketHandshake)) {
-            return static::dealHandshake($buffer, $connection);
+        $first = ord($buffer[0]);
+        $second = ord($buffer[1]);
+        $fin = ($first & 0x80) !== 0;
+        $rsv = $first & 0x70;
+        $opcode = $first & 0x0f;
+        $masked = ($second & 0x80) !== 0;
+        $payloadCode = $second & 0x7f;
+
+        if ($rsv !== 0 || !$masked || !in_array($opcode, [0x0, 0x1, 0x2, 0x8, 0x9, 0xA], true)) {
+            static::protocolClose($connection, 1002, 'Protocol error');
+            return 0;
         }
 
-        // Буферизовать данные кадра веб-сокета.
-        if ($connection->context->websocketCurrentFrameLength) {
-            // Нам нужно больше данных кадра.
-            if ($connection->context->websocketCurrentFrameLength > $recvLen) {
-                // Вернуть 0, потому что неясна полная длина пакета, ожидание кадра fin=1.
+        $offset = 2;
+        if ($payloadCode === 126) {
+            if (strlen($buffer) < 4) return 0;
+            $payloadLength = unpack('n', substr($buffer, 2, 2))[1];
+            if ($payloadLength < 126) {
+                static::protocolClose($connection, 1002, 'Non-minimal length');
                 return 0;
             }
+            $offset = 4;
+        } elseif ($payloadCode === 127) {
+            if (strlen($buffer) < 10) return 0;
+            $parts = unpack('Nhigh/Nlow', substr($buffer, 2, 8));
+            if (($parts['high'] & 0x80000000) !== 0) {
+                static::protocolClose($connection, 1002, 'Invalid 64-bit length');
+                return 0;
+            }
+            $payloadLength = $parts['high'] * 4294967296 + $parts['low'];
+            if ($payloadLength < 65536 || $payloadLength > PHP_INT_MAX) {
+                static::protocolClose($connection, 1002, 'Invalid payload length');
+                return 0;
+            }
+            $payloadLength = (int)$payloadLength;
+            $offset = 10;
         } else {
-            // Получаем первый и второй байты данных.
-            $firstByte = ord($buffer[0]);
-            $secondByte = ord($buffer[1]);
-            // Извлекаем длину данных.
-            $dataLen = $secondByte & 127;
-            // Проверяем, является ли кадр финальным.
-            $isFinFrame = $firstByte >> 7;
-            // Проверяем, замаскированы ли данные.
-            $masked = $secondByte >> 7;
-
-            // Если данные не замаскированы, выводим сообщение об ошибке и закрываем соединение.
-            if (!$masked) {
-                Server::safeEcho("Кадр не замаскирован, закрываю соединение\n");
-                $connection->close();
-                return 0;
-            }
-
-            // Получаем код операции.
-            $opcode = $firstByte & 0xf;
-
-            switch ($opcode) {
-                case 0x0:
-                    // BLOB
-                case 0x1:
-                    // Массив
-                case 0x2:
-                    // Пинг-пакет
-                case 0x9:
-                    // Понг-пакет
-                case 0xa:
-                    break;
-                // Закрытие
-                case 0x8:
-                    // Попытка вызвать onWebSocketClose
-                    $closeCb = $connection->onWebSocketClose ?? $connection->server->onWebSocketClose ?? false;
-                    if ($closeCb) {
-                        try {
-                            $closeCb($connection);
-                        } catch (Throwable $e) {
-                            Server::stopAll(250, $e);
-                        }
-                    } // Закрытие соединения
-                    else {
-                        $connection->close("\x88\x02\x03\xe8", true);
-                    }
-
-                    return 0;
-                // Неверный опкод
-                default:
-                    Server::safeEcho("Ошибка опкода $opcode и закрытие WebSocket соединения. Буфер:" . $buffer . "\n");
-                    $connection->close();
-                    return 0;
-            }
-
-            // Рассчитать длину пакета
-            $headLen = 6;
-            if ($dataLen === 126) {
-                $headLen = 8;
-                if ($headLen > $recvLen) {
-                    return 0;
-                }
-
-                $pack = unpack('nn/ntotal_len', $buffer);
-                $dataLen = $pack['total_len'];
-            } elseif ($dataLen === 127) {
-                $headLen = 14;
-                if ($headLen > $recvLen) {
-                    return 0;
-                }
-
-                $arr = unpack('n/N2c', $buffer);
-                $dataLen = $arr['c1'] * 4294967296 + $arr['c2'];
-            }
-
-            // Вычисляем текущую длину кадра.
-            $currentFrameLength = $headLen + $dataLen;
-
-            // Вычисляем общий размер пакета.
-            $totalPackageSize = strlen($connection->context->websocketDataBuffer) + $currentFrameLength;
-
-            // Если общий размер пакета превышает максимально допустимый размер пакета, выводим сообщение об ошибке и закрываем соединение.
-            if ($totalPackageSize > $connection->maxPackageSize) {
-                Server::safeEcho("Ошибка пакета. package_length=$totalPackageSize\n");
-                $connection->close();
-                return 0;
-            }
-
-            if ($isFinFrame) {
-                // Если код операции равен 0x9 (пинг-пакет).
-                if ($opcode === 0x9) {
-                    if ($recvLen >= $currentFrameLength) {
-                        // Декодируем данные пинг-пакета.
-                        $pingData = static::decode(substr($buffer, 0, $currentFrameLength), $connection);
-                        // Удаляем данные пинг-пакета из буфера.
-                        $connection->consumeRecvBuffer($currentFrameLength);
-                        // Сохраняем текущий тип websocket.
-                        $tmpConnectionType = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
-                        // Устанавливаем тип websocket в "\x8a".
-                        $connection->websocketType = "\x8a";
-                        // Попытка вызвать onWebSocketPing
-                        $pingCb = $connection->onWebSocketPing ?? $connection->server->onWebSocketPing ?? false;
-                        if ($pingCb) {
-                            try {
-                                $pingCb($connection, $pingData);
-                            } catch (Throwable $e) {
-                                Server::stopAll(250, $e);
-                            }
-                        } else {
-                            // Отправляем данные пинг-пакета обратно клиенту.
-                            $connection->send($pingData);
-                        }
-
-                        // Восстанавливаем тип websocket.
-                        $connection->websocketType = $tmpConnectionType;
-
-                        if ($recvLen > $currentFrameLength) {
-                            return static::input(substr($buffer, $currentFrameLength), $connection);
-                        }
-                    }
-
-                    return 0;
-                }
-
-                // Если код операции равен 0xa (понг-пакет).
-                if ($opcode === 0xa) {
-                    if ($recvLen >= $currentFrameLength) {
-                        // Декодируем данные понг-пакета.
-                        $pongData = static::decode(substr($buffer, 0, $currentFrameLength), $connection);
-                        // Удаляем данные понг-пакета из буфера.
-                        $connection->consumeRecvBuffer($currentFrameLength);
-                        // Сохраняем текущий тип websocket.
-                        $tmpConnectionType = $connection->websocketType ?? static::BINARY_TYPE_BLOB;
-                        // Устанавливаем тип websocket в "\x8a".
-                        $connection->websocketType = "\x8a";
-                        // Попытка вызвать onWebSocketPong
-                        $pongCb = $connection->onWebSocketPong ?? $connection->server->onWebSocketPong ?? false;
-                        if ($pongCb) {
-                            try {
-                                $pongCb($connection, $pongData);
-                            } catch (Throwable $e) {
-                                Server::stopAll(250, $e);
-                            }
-                        }
-
-                        // Восстанавливаем тип websocket.
-                        $connection->websocketType = $tmpConnectionType;
-
-                        if ($recvLen > $currentFrameLength) {
-                            return static::input(substr($buffer, $currentFrameLength), $connection);
-                        }
-                    }
-
-                    return 0;
-                }
-
-                return $currentFrameLength;
-            }
-
-            // Устанавливаем текущую длину кадра websocket.
-            $connection->context->websocketCurrentFrameLength = $currentFrameLength;
+            $payloadLength = $payloadCode;
         }
 
-        // Если получены только данные о длине кадра.
-        if ($connection->context->websocketCurrentFrameLength === $recvLen) {
-            // Декодируем данные.
-            static::decode($buffer, $connection);
-            // Удаляем декодированные данные из буфера.
-            $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
-            // Устанавливаем текущую длину кадра websocket в 0.
-            $connection->context->websocketCurrentFrameLength = 0;
+        $isControl = $opcode >= 0x8;
+        if ($isControl && (!$fin || $payloadLength > 125)) {
+            static::protocolClose($connection, 1002, 'Invalid control frame');
+            return 0;
+        }
+        if ($payloadLength > $connection->maxPackageSize) {
+            static::protocolClose($connection, 1009, 'Message too big');
             return 0;
         }
 
-        // Если длина полученных данных больше длины кадра.
-        if ($connection->context->websocketCurrentFrameLength < $recvLen) {
-            // Декодируем данные текущего кадра.
-            static::decode(substr($buffer, 0, $connection->context->websocketCurrentFrameLength), $connection);
-            // Удаляем декодированные данные из буфера.
-            $connection->consumeRecvBuffer($connection->context->websocketCurrentFrameLength);
-            // Сохраняем текущую длину кадра.
-            $currentFrameLength = $connection->context->websocketCurrentFrameLength;
-            // Устанавливаем текущую длину кадра websocket в 0.
-            $connection->context->websocketCurrentFrameLength = 0;
-            // Продолжаем чтение следующего кадра.
-            return static::input(substr($buffer, $currentFrameLength), $connection);
-        }
-
-        // Если длина полученных данных меньше длины кадра, возвращаем 0.
-        return 0;
+        $total = $offset + 4 + $payloadLength;
+        return strlen($buffer) >= $total ? $total : 0;
     }
 
-    /** @inheritdoc */
-    public static function encode(mixed $data, TcpConnection|ConnectionInterface $connection): string
+    public static function decode(string $buffer, ConnectionInterface $connection): mixed
     {
-        // Если буфер не является скалярным значением, выбрасываем исключение.
-        if (!is_scalar($data)) {
-            throw new Exception("Вы не можете отправить (" . gettype($data) . ") клиенту, конвертируйте это в строку.");
+        // Handshake header является самостоятельным transport frame и не должен
+        // попадать в onMessage как WebSocket payload.
+        if (str_starts_with($buffer, 'GET ')) {
+            return null;
+        }
+        if (!$connection instanceof TcpConnection) {
+            throw new \InvalidArgumentException('WebSocket requires TcpConnection.');
         }
 
-        // Получаем длину буфера.
-        $len = strlen($data);
+        $first = ord($buffer[0]);
+        $second = ord($buffer[1]);
+        $fin = ($first & 0x80) !== 0;
+        $opcode = $first & 0x0f;
+        $lengthCode = $second & 0x7f;
+        $offset = 2;
 
-        // Если тип websocket не установлен, устанавливаем его в BINARY_TYPE_BLOB.
-        if (empty($connection->websocketType)) {
-            $connection->websocketType = static::BINARY_TYPE_BLOB;
-        }
-
-        // Устанавливаем первый байт в тип websocket.
-        $firstByte = $connection->websocketType;
-
-        if ($len <= 125) {
-            $encodeBuffer = $firstByte . chr($len) . $data;
-        } elseif ($len <= 65535) {
-            $encodeBuffer = $firstByte . chr(126) . pack("n", $len) . $data;
+        if ($lengthCode === 126) {
+            $length = unpack('n', substr($buffer, 2, 2))[1];
+            $offset = 4;
+        } elseif ($lengthCode === 127) {
+            $parts = unpack('Nhigh/Nlow', substr($buffer, 2, 8));
+            $length = (int)($parts['high'] * 4294967296 + $parts['low']);
+            $offset = 10;
         } else {
-            $encodeBuffer = $firstByte . chr(127) . pack("xxxxN", $len) . $data;
+            $length = $lengthCode;
         }
 
-        // Если рукопожатие еще не завершено, данные websocket временного буфера ожидают отправки.
-        if (empty($connection->context->websocketHandshake)) {
-            if (empty($connection->context->tmpWebsocketData)) {
-                $connection->context->tmpWebsocketData = '';
+        $mask = substr($buffer, $offset, 4);
+        $payload = substr($buffer, $offset + 4, $length);
+        $payload = static::mask($payload, $mask);
+
+        if ($opcode === 0x8) {
+            if (strlen($payload) === 1) {
+                static::protocolClose($connection, 1002, 'Invalid close payload');
+                return null;
+            }
+            $code = strlen($payload) >= 2 ? unpack('n', substr($payload, 0, 2))[1] : 1000;
+            $reason = strlen($payload) > 2 ? substr($payload, 2) : '';
+            if (!static::isValidCloseCode($code) || ($reason !== '' && !static::isValidUtf8($reason))) {
+                static::protocolClose($connection, 1002, 'Invalid close frame');
+                return null;
+            }
+            if ($connection->onWebSocketClose !== null) {
+                ($connection->onWebSocketClose)($connection, $code, $reason);
             }
 
-            // Если буфер уже заполнен, отбрасываем текущий пакет.
-            if (strlen($connection->context->tmpWebsocketData) > $connection->maxSendBufferSize) {
-                if ($connection->onError) {
-                    try {
-                        ($connection->onError)($connection, ConnectionInterface::SEND_FAIL, 'отправить полный буфер и удалить пакет');
-                    } catch (Throwable $e) {
-                        Server::stopAll(250, $e);
-                    }
-                }
+            $alreadySent = (bool)($connection->context->wsCloseSent ?? false);
+            static::cancelGracefulCloseTimer($connection);
+            if (!$alreadySent) {
+                $connection->context->wsCloseSent = true;
+                $connection->send(static::frame(pack('n', $code) . $reason, 0x8), true);
+            }
+            // После обмена Close frames завершаем TCP только после flush.
+            $connection->end();
+            return null;
+        }
 
+        if ($opcode === 0x9) {
+            if ($connection->onWebSocketPing !== null) {
+                ($connection->onWebSocketPing)($connection, $payload);
+            } else {
+                $connection->send(static::frame($payload, 0xA), true);
+            }
+            return null;
+        }
+
+        if ($opcode === 0xA) {
+            if ($connection->onWebSocketPong !== null) {
+                ($connection->onWebSocketPong)($connection, $payload);
+            }
+            return null;
+        }
+
+        // Fragmentation: накапливаем payload до FIN и возвращаем приложению только complete message.
+        if ($opcode === 0x1 || $opcode === 0x2) {
+            if (($connection->context->wsFragmentOpcode ?? null) !== null) {
+                static::protocolClose($connection, 1002, 'Unexpected new data frame during fragmentation');
+                return null;
+            }
+            if (!$fin) {
+                $connection->context->wsFragmentOpcode = $opcode;
+                $connection->context->wsFragmentBuffer = $payload;
+                return null;
+            }
+            if ($opcode === 0x1 && !static::isValidUtf8($payload)) {
+                static::protocolClose($connection, 1007, 'Invalid UTF-8');
+                return null;
+            }
+            return $payload;
+        }
+
+        if ($opcode === 0x0) {
+            $fragmentOpcode = $connection->context->wsFragmentOpcode ?? null;
+            if ($fragmentOpcode === null) {
+                static::protocolClose($connection, 1002, 'Unexpected continuation frame');
+                return null;
+            }
+            $connection->context->wsFragmentBuffer .= $payload;
+            if (strlen($connection->context->wsFragmentBuffer) > $connection->maxPackageSize) {
+                static::protocolClose($connection, 1009, 'Message too big');
+                return null;
+            }
+            if (!$fin) {
+                return null;
+            }
+            $message = $connection->context->wsFragmentBuffer;
+            unset($connection->context->wsFragmentBuffer, $connection->context->wsFragmentOpcode);
+            if ($fragmentOpcode === 0x1 && !static::isValidUtf8($message)) {
+                static::protocolClose($connection, 1007, 'Invalid UTF-8');
+                return null;
+            }
+            return $message;
+        }
+
+        return null;
+    }
+
+    public static function encode(mixed $data, ConnectionInterface $connection): string
+    {
+        if (!$connection instanceof TcpConnection) {
+            throw new \InvalidArgumentException('WebSocket requires TcpConnection.');
+        }
+        if (!is_scalar($data) && !$data instanceof \Stringable) {
+            $encoded = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($encoded === false) {
+                throw new RuntimeException('Unable to JSON-encode WebSocket payload.');
+            }
+            $data = $encoded;
+        }
+
+        $type = $connection->context->websocketType ?? ($connection->websocketType ?? static::BINARY_TYPE_BLOB);
+        if (is_string($type) && strlen($type) === 1) {
+            $firstByte = ord($type);
+            $opcode = $firstByte & 0x0f;
+        } else {
+            $opcode = in_array($type, ['binary', 'arraybuffer'], true) ? 0x2 : 0x1;
+        }
+        $frame = static::frame((string)$data, $opcode);
+
+        // Пользователь может вызвать send() из onConnect до завершения HTTP Upgrade.
+        // Frame нельзя выпускать в сеть раньше 101, поэтому временно держим его отдельно.
+        if (!($connection->context->websocketHandshake ?? false)) {
+            $pending = (string)($connection->context->tmpWebsocketData ?? '');
+            if (strlen($pending) + strlen($frame) > $connection->maxSendBufferSize) {
+                if ($connection->onError !== null) {
+                    ($connection->onError)($connection, ConnectionInterface::SEND_FAIL, 'WebSocket pre-handshake buffer is full.');
+                }
                 return '';
             }
-
-            $connection->context->tmpWebsocketData .= $encodeBuffer;
-
-            // Проверяем, заполнен ли буфер.
-            if ($connection->onBufferFull && $connection->maxSendBufferSize <= strlen($connection->context->tmpWebsocketData)) {
-                try {
-                    ($connection->onBufferFull)($connection);
-                } catch (Throwable $e) {
-                    Server::stopAll(250, $e);
-                }
+            $connection->context->tmpWebsocketData = $pending . $frame;
+            if (strlen($connection->context->tmpWebsocketData) >= $connection->maxSendBufferSize
+                && $connection->onBufferFull !== null) {
+                ($connection->onBufferFull)($connection);
             }
-
             return '';
         }
-
-        return $encodeBuffer;
+        return $frame;
     }
 
-    /** @inheritdoc */
-    public static function decode(string $buffer, TcpConnection|ConnectionInterface $connection): string
+    protected static function handshake(string $buffer, TcpConnection $connection): int
     {
-        $firstByte = ord($buffer[1]);
-        $len = $firstByte & 127;
-
-        if ($len === 126) {
-            $masks = substr($buffer, 4, 4);
-            $data = substr($buffer, 8);
-        } elseif ($len === 127) {
-            $masks = substr($buffer, 10, 4);
-            $data = substr($buffer, 14);
-        } else {
-            $masks = substr($buffer, 2, 4);
-            $data = substr($buffer, 6);
-        }
-
-        $dataLength = strlen($data);
-        $masks = str_repeat($masks, (int)floor($dataLength / 4)) . substr($masks, 0, $dataLength % 4);
-        $decoded = $data ^ $masks;
-        if ($connection->context->websocketCurrentFrameLength) {
-            $connection->context->websocketDataBuffer .= $decoded;
-            return $connection->context->websocketDataBuffer;
-        }
-
-        if ($connection->context->websocketDataBuffer !== '') {
-            $decoded = $connection->context->websocketDataBuffer . $decoded;
-            $connection->context->websocketDataBuffer = '';
-        }
-
-        return $decoded;
-    }
-
-    /**
-     * Получить или установить имя класса Request для рукопожатия.
-     *
-     * @param string|null $className
-     */
-    public static function requestClass(string $className = null): string
-    {
-        if ($className !== null) {
-            static::$requestClass = $className;
-        }
-
-        return static::$requestClass;
-    }
-
-    /**
-     * Рукопожатие WebSocket.
-     *
-     * @throws Throwable
-     */
-    public static function dealHandshake(string $buffer, TcpConnection $tcpConnection): int
-    {
-        /** @var Request $request */
-        $request = new static::$requestClass($buffer);
-        $request->connection = $tcpConnection;
-        $tcpConnection->request = $request;
-
-        // Протокол HTTP.
-        if ($request->isMethod('GET')) {
-            $headerEndPos = strpos($buffer, "\r\n\r\n");
-            if (!$headerEndPos) {
-                return 0;
+        $end = strpos($buffer, "\r\n\r\n");
+        if ($end === false) {
+            if (strlen($buffer) >= Http::maxHeaderLength()) {
+                $connection->close(
+                    "HTTP/1.1 431 Request Header Fields Too Large\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
+                    true
+                );
             }
-
-            $headerLength = $headerEndPos + 4;
-
-            // Get Sec-WebSocket-Key.
-            $SecWebSocketKey = $request->header('Sec-WebSocket-Key');
-            if (!$SecWebSocketKey) {
-                $tcpConnection->close(format_http_response(400), true);
-                return 0;
-            }
-
-            // Данные ответа на рукопожатие.
-            $tcpConnection->response = new Response(101, [
-                'Sec-WebSocket-Accept' => base64_encode(sha1($SecWebSocketKey . "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", true)),
-                'Connection' => 'Upgrade',
-                'Upgrade' => 'websocket',
-                'Sec-WebSocket-Version' => 13,
-            ], null);
-
-            // Буфер данных websocket.
-            $tcpConnection->context->websocketDataBuffer = '';
-
-            // Текущая длина кадра websocket.
-            $tcpConnection->context->websocketCurrentFrameLength = 0;
-
-            // Текущие данные кадра websocket.
-            $tcpConnection->context->websocketCurrentFrameBuffer = '';
-
-            // Разбор данных рукопожатия.
-            $tcpConnection->consumeRecvBuffer($headerLength);
-
-            // Попытка вызвать обратный вызов onWebSocketConnect.
-            $onWebSocketConnect = $tcpConnection->onWebSocketConnect ?? $tcpConnection->server->onWebSocketConnect ?? false;
-            if ($onWebSocketConnect) {
-                try {
-                    $addResponse = $onWebSocketConnect($tcpConnection, $request) ?? null;
-
-                    if ($addResponse instanceof Response) {
-                        if ($addResponse->getHeaders()) {
-                            $tcpConnection->response->withHeaders($addResponse->getHeaders());
-                        }
-
-                        if ($addResponse->getStatusCode() >= 400) {
-                            $tcpConnection->response->withStatus($addResponse->getStatusCode());
-
-                            if (!empty($addResponse->rawBody())) {
-                                $tcpConnection->response->withBody($addResponse->rawBody());
-                            }
-
-                            $tcpConnection->close((string)$tcpConnection->response, true);
-                            return 0;
-                        }
-                    }
-                } catch (Throwable $e) {
-                    Server::stopAll(250, $e);
-                }
-            }
-
-            // blob или arraybuffer
-            if (empty($tcpConnection->websocketType)) {
-                $tcpConnection->websocketType = static::BINARY_TYPE_BLOB;
-            }
-
-            if ($tcpConnection->headers) {
-                $tcpConnection->response->withHeaders($tcpConnection->headers);
-            }
-
-            // Отправить ответ на рукопожатие.
-            $tcpConnection->send((string)$tcpConnection->response, true);
-            // Пометить рукопожатие как завершенное.
-            $tcpConnection->context->websocketHandshake = true;
-
-            // Есть данные, ожидающие отправки.
-            if (!empty($tcpConnection->context->tmpWebsocketData)) {
-                // Отправка временных данных websocket.
-                $tcpConnection->send($tcpConnection->context->tmpWebsocketData, true);
-                // Очистка временных данных websocket.
-                $tcpConnection->context->tmpWebsocketData = '';
-            }
-
-            if (strlen($buffer) > $headerLength) {
-                return static::input(substr($buffer, $headerLength), $tcpConnection);
-            }
-
             return 0;
         }
 
-        // Неверный запрос рукопожатия через веб-сокет.
-        $tcpConnection->close(format_http_response(400), true);
-        return 0;
+        if ($end >= Http::maxHeaderLength()) {
+            $connection->close(
+                "HTTP/1.1 431 Request Header Fields Too Large\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
+                true
+            );
+            return 0;
+        }
+
+        $head = substr($buffer, 0, $end + 4);
+        $rawHead = substr($buffer, 0, $end);
+        $firstLineEnd = strpos($rawHead, "\r\n");
+        if ($firstLineEnd === false) {
+            static::rejectHandshake($connection, 400, 'Bad Request');
+            return 0;
+        }
+
+        // RFC 6455 opening handshake — HTTP/1.1 Upgrade request.
+        $requestLine = substr($rawHead, 0, $firstLineEnd);
+        if (!preg_match('~^GET ([^\x00-\x20\x7f]+) HTTP/1\.1$~D', $requestLine)) {
+            static::rejectHandshake($connection, 400, 'Bad Request');
+            return 0;
+        }
+
+        $headerLines = substr($rawHead, $firstLineEnd + 2);
+        $lines = $headerLines === '' ? [] : explode("\r\n", $headerLines);
+        if (count($lines) > Http::maxHeaderCount()) {
+            static::rejectHandshake($connection, 431, 'Request Header Fields Too Large');
+            return 0;
+        }
+
+        /** @var array<string,list<string>> $headers */
+        $headers = [];
+        foreach ($lines as $line) {
+            if ($line === '' || $line[0] === ' ' || $line[0] === "\t") {
+                static::rejectHandshake($connection, 400, 'Bad Request');
+                return 0;
+            }
+
+            $parts = explode(':', $line, 2);
+            if (count($parts) !== 2
+                || !preg_match("/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/D", $parts[0])) {
+                static::rejectHandshake($connection, 400, 'Bad Request');
+                return 0;
+            }
+
+            $value = trim($parts[1], " \t");
+            if (str_contains($value, "\0")) {
+                static::rejectHandshake($connection, 400, 'Bad Request');
+                return 0;
+            }
+            $headers[strtolower($parts[0])][] = $value;
+        }
+
+        $host = $headers['host'] ?? [];
+        $upgrade = $headers['upgrade'] ?? [];
+        $connectionHeaders = $headers['connection'] ?? [];
+        $keys = $headers['sec-websocket-key'] ?? [];
+        $versions = $headers['sec-websocket-version'] ?? [];
+
+        // Security-sensitive opening-handshake fields are deliberately singular.
+        // Duplicate Host/Key/Version/Upgrade often indicate parser ambiguity.
+        if (count($host) !== 1
+            || count($upgrade) !== 1
+            || count($keys) !== 1
+            || count($versions) !== 1
+            || isset($headers['transfer-encoding'])
+            || isset($headers['content-length'])) {
+            static::rejectHandshake($connection, 400, 'Bad Request');
+            return 0;
+        }
+
+        if (!static::validHost($host[0])) {
+            static::rejectHandshake($connection, 400, 'Bad Request');
+            return 0;
+        }
+
+        $connectionTokens = [];
+        foreach ($connectionHeaders as $value) {
+            foreach (explode(',', strtolower($value)) as $token) {
+                $token = trim($token);
+                if ($token !== '') {
+                    $connectionTokens[] = $token;
+                }
+            }
+        }
+
+        $key = trim($keys[0]);
+        $decodedKey = base64_decode($key, true);
+        if (strtolower(trim($upgrade[0])) !== 'websocket'
+            || !in_array('upgrade', $connectionTokens, true)
+            || trim($versions[0]) !== '13'
+            || $decodedKey === false
+            || strlen($decodedKey) !== 16) {
+            static::rejectHandshake(
+                $connection,
+                400,
+                'Bad Request',
+                "Sec-WebSocket-Version: 13\r\n"
+            );
+            return 0;
+        }
+
+        $request = new Request($head);
+        $request->connection = $connection;
+        if ($connection->onWebSocketConnect !== null) {
+            $decision = ($connection->onWebSocketConnect)($connection, $request);
+            if ($decision instanceof Response) {
+                $connection->close((string)$decision, true);
+                return 0;
+            }
+            if ($connection->getStatus() >= TcpConnection::STATUS_CLOSING) {
+                return 0;
+            }
+        }
+
+        $accept = base64_encode(sha1($key . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
+        $extra = '';
+        foreach ($connection->headers as $name => $value) {
+            foreach ((array)$value as $item) {
+                $extra .= str_replace(["\r", "\n"], '', (string)$name) . ': '
+                    . str_replace(["\r", "\n"], '', (string)$item) . "\r\n";
+            }
+        }
+        $connection->headers = [];
+        $response = "HTTP/1.1 101 Switching Protocols\r\n"
+            . "Upgrade: websocket\r\nConnection: Upgrade\r\n"
+            . "Sec-WebSocket-Accept: {$accept}\r\n{$extra}\r\n";
+        $connection->send($response, true);
+        $connection->context->websocketHandshake = true;
+
+        if (!empty($connection->context->tmpWebsocketData)) {
+            $connection->send($connection->context->tmpWebsocketData, true);
+            unset($connection->context->tmpWebsocketData);
+        }
+
+        if ($connection->onWebSocketConnected !== null) {
+            ($connection->onWebSocketConnected)($connection, $request);
+        }
+
+        return $end + 4;
+    }
+
+    protected static function rejectHandshake(
+        TcpConnection $connection,
+        int           $status,
+        string        $reason,
+        string        $extraHeaders = ''
+    ): void
+    {
+        $connection->close(
+            "HTTP/1.1 {$status} {$reason}\r\n"
+            . "Connection: close\r\n"
+            . $extraHeaders
+            . "Content-Length: 0\r\n\r\n",
+            true
+        );
+    }
+
+    protected static function validHost(string $host): bool
+    {
+        if ($host === '' || preg_match('/\s/', $host) || str_contains($host, '/')
+            || str_contains($host, '@') || str_contains($host, '\\')) {
+            return false;
+        }
+
+        // WebSocket handshake использует те же Host semantics, что и HTTP.
+        // Не ограничиваемся regexp: IPv6 literal валидируем как IPv6, а port
+        // проверяем по реальному диапазону TCP/UDP, иначе :99999 проходил бы.
+        if ($host[0] === '[') {
+            if (!preg_match('/^\[([^]]+)](?::([0-9]{1,5}))?$/D', $host, $match)) {
+                return false;
+            }
+            if (filter_var($match[1], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false) {
+                return false;
+            }
+            return !isset($match[2]) || static::validPort($match[2]);
+        }
+
+        if (!preg_match('/^([A-Za-z0-9._-]+)(?::([0-9]{1,5}))?$/D', $host, $match)) {
+            return false;
+        }
+        return !isset($match[2]) || static::validPort($match[2]);
+    }
+
+    protected static function validPort(string $port): bool
+    {
+        return $port !== '' && ctype_digit($port) && (int)$port <= 65535;
+    }
+
+    /**
+     * RFC 6455 graceful server shutdown.
+     *
+     * 1001 (Going Away) сообщает клиенту, что endpoint штатно уходит, а не
+     * обрывается сеть. После отправки Close даём peer короткое окно ответить.
+     */
+    public static function gracefulClose(
+        TcpConnection $connection,
+        int           $code = 1001,
+        string        $reason = 'Server shutting down',
+        float         $timeout = 1.0,
+    ): void
+    {
+        if (($connection->context->websocketHandshake ?? false) !== true) {
+            $connection->end();
+            return;
+        }
+        if (($connection->context->wsCloseSent ?? false) === true) {
+            return;
+        }
+        if (!static::isValidCloseCode($code)) {
+            throw new \InvalidArgumentException('Invalid WebSocket close code.');
+        }
+        if (!static::isValidUtf8($reason) || strlen($reason) > 123) {
+            throw new \InvalidArgumentException('WebSocket close reason must be valid UTF-8 and <= 123 bytes.');
+        }
+
+        $connection->context->wsCloseSent = true;
+        $connection->send(static::frame(pack('n', $code) . $reason, 0x8), true);
+
+        $delay = max(0.0, $timeout);
+        if ($delay <= 0 || $connection->eventLoop === null) {
+            $connection->end();
+            return;
+        }
+
+        $connection->context->wsCloseTimer = $connection->eventLoop->delay($delay, static function () use ($connection): void {
+            unset($connection->context->wsCloseTimer);
+            if ($connection->getStatus() !== TcpConnection::STATUS_CLOSED) {
+                $connection->end();
+            }
+        });
+    }
+
+    /** @internal transport cleanup hook called by TcpConnection::destroy(). */
+    public static function onClose(TcpConnection $connection): void
+    {
+        static::cancelGracefulCloseTimer($connection);
+        unset(
+            $connection->context->wsCloseSent,
+            $connection->context->wsFragmentBuffer,
+            $connection->context->wsFragmentOpcode
+        );
+    }
+
+    protected static function cancelGracefulCloseTimer(TcpConnection $connection): void
+    {
+        $timerId = (int)($connection->context->wsCloseTimer ?? 0);
+        if ($timerId > 0 && $connection->eventLoop !== null) {
+            $connection->eventLoop->offDelay($timerId);
+        }
+        unset($connection->context->wsCloseTimer);
+    }
+
+    public static function frame(string $payload, int $opcode = 0x1, bool $fin = true): string
+    {
+        $first = ($fin ? 0x80 : 0x00) | ($opcode & 0x0f);
+        $length = strlen($payload);
+        if ($length < 126) {
+            return chr($first) . chr($length) . $payload;
+        }
+        if ($length <= 0xffff) {
+            return chr($first) . chr(126) . pack('n', $length) . $payload;
+        }
+        $high = intdiv($length, 4294967296);
+        $low = $length % 4294967296;
+        return chr($first) . chr(127) . pack('NN', $high, $low) . $payload;
+    }
+
+    protected static function mask(string $payload, string $mask): string
+    {
+        $length = strlen($payload);
+        for ($i = 0; $i < $length; $i++) {
+            $payload[$i] = $payload[$i] ^ $mask[$i & 3];
+        }
+        return $payload;
+    }
+
+    protected static function protocolClose(TcpConnection $connection, int $code, string $reason = ''): void
+    {
+        $connection->close(static::frame(pack('n', $code) . $reason, 0x8), true);
+    }
+
+    protected static function isValidCloseCode(int $code): bool
+    {
+        if ($code >= 3000 && $code <= 4999) {
+            return true;
+        }
+        if ($code < 1000 || $code >= 1015) {
+            return false;
+        }
+        return !in_array($code, [1004, 1005, 1006], true);
+    }
+
+    protected static function isValidUtf8(string $value): bool
+    {
+        return preg_match('//u', $value) === 1;
     }
 }

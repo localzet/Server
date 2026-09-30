@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,199 +28,202 @@
 
 namespace localzet\Server\Connection;
 
-use JetBrains\PhpStorm\{Pure};
 use JsonSerializable;
-use localzet\Server\Protocols\ProtocolInterface;
-use function stream_socket_get_name;
-use function stream_socket_sendto;
-use function strlen;
-use function strrchr;
-use function strrpos;
-use function substr;
-use function trim;
+use localzet\Server\Events\EventInterface;
+use stdClass;
+use Throwable;
 
 /**
- * UDP-соединение.
+ * Логическое UDP-соединение.
+ *
+ * Для server socket объект представляет конкретный peer поверх общего datagram
+ * socket. Для connected UDP socket адрес назначения в sendto() намеренно не
+ * передаётся: это важно для BSD/macOS, где иначе можно получить EISCONN.
  */
 class UdpConnection extends ConnectionInterface implements JsonSerializable
 {
-    /**
-     * Максимальный размер пакета UDP.
-     *
-     * @var int
-     */
     public const MAX_UDP_PACKAGE_SIZE = 65535;
 
-    /**
-     * Протокол транспортного уровня.
-     */
+    public int $id;
     public string $transport = 'udp';
+    public int $maxPackageSize = 65507;
+    public stdClass $context;
+    public array $headers = [];
 
-    /**
-     * Конструктор.
-     *
-     * @param resource $socket
-     */
-    public function __construct(
-        /**
-         * UDP-сокет.
-         */
-        protected        $socket,
-        /**
-         * Удаленный адрес.
-         */
-        protected string $remoteAddress
-    )
-    {
-    }
+    /** @var resource|null */
+    protected $socket;
+    public ?EventInterface $eventLoop = null;
+    protected string $remoteAddress;
+    protected bool $connected = false;
+    protected bool $closed = false;
 
-    /**
-     * @inheritdoc
-     */
-    public function close(mixed $data = null, bool $raw = false): void
+    public function __construct(EventInterface $eventLoop, $socket, string $remoteAddress)
     {
-        if ($data !== null) {
-            $this->send($data, $raw);
+        if (!is_resource($socket)) {
+            throw new \InvalidArgumentException('UdpConnection requires a valid stream resource.');
         }
-
-        $this->eventLoop = $this->errorHandler = null;
+        $this->eventLoop = $eventLoop;
+        $this->socket = $socket;
+        $this->remoteAddress = $remoteAddress;
+        $this->context = new stdClass();
+        $this->id = spl_object_id($this);
+        $this->connected = @stream_socket_get_name($socket, true) !== false;
     }
 
-    /**
-     * @inheritdoc
-     */
-    public function send(mixed $sendBuffer, bool $raw = false): bool|null
+    public function send(mixed $data, bool $raw = false): ?bool
     {
-        if (false === $raw && $this->protocol) {
-            $sendBuffer = $this->protocol::encode($sendBuffer, $this);
-            if ($sendBuffer === '') {
-                return null;
-            }
-        }
-
-        return strlen((string)$sendBuffer) === stream_socket_sendto($this->socket, (string)$sendBuffer, 0, $this->isIpV6() ? '[' . $this->getRemoteIp() . ']:' . $this->getRemotePort() : $this->remoteAddress);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    #[Pure]
-    public function isIpV6(): bool
-    {
-        if ($this->transport === 'unix') {
+        if ($this->closed || !is_resource($this->socket)) {
             return false;
         }
 
-        return str_contains($this->getRemoteIp(), ':');
+        try {
+            if (!$raw && $this->protocol !== null) {
+                $protocol = $this->protocol;
+                $data = $protocol::encode($data, $this);
+            }
+        } catch (Throwable $e) {
+            self::$statistics['throw_exception']++;
+            $this->emitError(0, $e->getMessage());
+            return false;
+        }
+
+        if ($data === null || $data === '') {
+            return null;
+        }
+        $data = (string)$data;
+        if (strlen($data) > $this->maxPackageSize) {
+            self::$statistics['send_fail']++;
+            $this->emitError(self::SEND_FAIL, 'UDP datagram exceeds maxPackageSize.');
+            return false;
+        }
+
+        $written = $this->connected
+            ? @stream_socket_sendto($this->socket, $data)
+            : @stream_socket_sendto($this->socket, $data, 0, $this->formatRemoteAddress());
+
+        if ($written === false || $written !== strlen($data)) {
+            self::$statistics['send_fail']++;
+            $this->emitError(self::SEND_FAIL, 'Unable to send complete UDP datagram.');
+            return false;
+        }
+        return true;
     }
 
-    /**
-     * @inheritdoc
-     */
+    public function close(mixed $data = null, bool $raw = false): void
+    {
+        if ($this->closed) {
+            return;
+        }
+        if ($data !== null) {
+            $this->send($data, $raw);
+        }
+        $this->closed = true;
+
+        // Server-side UdpConnection shares the listening socket with the Server and
+        // must not close it. Only connected/client-owned sockets are closed here.
+        if ($this->connected && is_resource($this->socket)) {
+            $this->eventLoop?->offReadable($this->socket);
+            @fclose($this->socket);
+            $this->socket = null;
+        }
+
+        if ($this->onClose !== null) {
+            try {
+                ($this->onClose)($this);
+            } catch (Throwable $e) {
+                $this->error($e);
+            }
+        }
+    }
+
     public function getRemoteIp(): string
     {
-        $pos = strrpos($this->remoteAddress, ':');
-        if ($pos) {
-            return trim(substr($this->remoteAddress, 0, $pos), '[]');
-        }
-
-        return '';
+        return $this->splitAddress($this->remoteAddress)[0];
     }
 
-    /**
-     * @inheritdoc
-     */
     public function getRemotePort(): int
     {
-        if ($this->remoteAddress) {
-            return (int)substr(strrchr($this->remoteAddress, ':'), 1);
-        }
-
-        return 0;
+        return $this->splitAddress($this->remoteAddress)[1];
     }
 
-    /**
-     * Получает реальный сокет.
-     *
-     * @return resource
-     */
-    public function getSocket()
-    {
-        return $this->socket;
-    }
-
-    /**
-     * Получает информацию для json_encode.
-     */
-    public function jsonSerialize(): array
-    {
-        return [
-            'transport' => $this->transport,
-            'getRemoteIp' => $this->getRemoteIp(),
-            'remotePort' => $this->getRemotePort(),
-            'getRemoteAddress' => $this->getRemoteAddress(),
-            'getLocalIp' => $this->getLocalIp(),
-            'getLocalPort' => $this->getLocalPort(),
-            'getLocalAddress' => $this->getLocalAddress(),
-            'isIpV4' => $this->isIpV4(),
-            'isIpV6' => $this->isIpV6(),
-        ];
-    }
-
-    /**
-     * @inheritdoc
-     */
     public function getRemoteAddress(): string
     {
         return $this->remoteAddress;
     }
 
-    /**
-     * @inheritdoc
-     */
     public function getLocalIp(): string
     {
-        $address = $this->getLocalAddress();
-        $pos = strrpos($address, ':');
-        if (!$pos) {
-            return '';
-        }
-
-        return substr($address, 0, $pos);
+        return $this->splitAddress($this->getLocalAddress())[0];
     }
 
-    /**
-     * @inheritdoc
-     */
-    public function getLocalAddress(): string
-    {
-        return (string)@stream_socket_get_name($this->socket, false);
-    }
-
-    /**
-     * @inheritdoc
-     */
     public function getLocalPort(): int
     {
-        $address = $this->getLocalAddress();
-        $pos = strrpos($address, ':');
-        if (!$pos) {
-            return 0;
-        }
-
-        return (int)substr(strrchr($address, ':'), 1);
+        return $this->splitAddress($this->getLocalAddress())[1];
     }
 
-    /**
-     * @inheritdoc
-     */
-    #[Pure]
+    public function getLocalAddress(): string
+    {
+        return is_resource($this->socket) ? (string)@stream_socket_get_name($this->socket, false) : '';
+    }
+
     public function isIpV4(): bool
     {
-        if ($this->transport === 'unix') {
-            return false;
-        }
+        return $this->transport !== 'unix' && filter_var($this->getRemoteIp(), FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
+    }
 
-        return !str_contains($this->getRemoteIp(), ':');
+    public function isIpV6(): bool
+    {
+        return $this->transport !== 'unix' && filter_var($this->getRemoteIp(), FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+    }
+
+    /** @return resource|null */
+    public function getSocket()
+    {
+        return $this->socket;
+    }
+
+    public function jsonSerialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'transport' => $this->transport,
+            'remoteAddress' => $this->getRemoteAddress(),
+            'remoteIp' => $this->getRemoteIp(),
+            'remotePort' => $this->getRemotePort(),
+            'localAddress' => $this->getLocalAddress(),
+            'localIp' => $this->getLocalIp(),
+            'localPort' => $this->getLocalPort(),
+        ];
+    }
+
+    protected function emitError(int $code, string $message): void
+    {
+        if ($this->onError !== null) {
+            try {
+                ($this->onError)($this, $code, $message);
+            } catch (Throwable $e) {
+                $this->error($e);
+            }
+        }
+    }
+
+    protected function formatRemoteAddress(): string
+    {
+        return $this->isIpV6()
+            ? '[' . $this->getRemoteIp() . ']:' . $this->getRemotePort()
+            : $this->remoteAddress;
+    }
+
+    /** @return array{0:string,1:int} */
+    protected function splitAddress(string $address): array
+    {
+        if ($address === '') {
+            return ['', 0];
+        }
+        if ($address[0] === '[' && ($end = strpos($address, ']')) !== false) {
+            return [substr($address, 1, $end - 1), (int)ltrim(substr($address, $end + 1), ':')];
+        }
+        $pos = strrpos($address, ':');
+        return $pos === false ? [$address, 0] : [substr($address, 0, $pos), (int)substr($address, $pos + 1)];
     }
 }

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,131 +28,131 @@
 
 namespace localzet\Server\Protocols\Http\Session;
 
-use DateTime;
+use DateTimeImmutable;
 use localzet\Server;
+use MongoDB\BSON\Binary;
 use MongoDB\BSON\UTCDateTime;
 use MongoDB\Client;
 use MongoDB\Collection;
 
 /**
- * Class MongoSessionHandler
- * @package localzet\Server\Protocols\Http\Session
+ * MongoDB session storage.
+ *
+ * Payload хранится как бинарная сериализованная строка, а не раскладывается в
+ * BSON-поля. Это сохраняет точное значение PHP session data и не допускает
+ * неожиданной десериализации объектов драйвером MongoDB.
  */
 class MongoSessionHandler implements SessionHandlerInterface
 {
     protected Client $client;
-
     protected Collection $collection;
 
-    /**
-     * Конструктор MongoSessionHandler.
-     *
-     * @param array $config Конфигурация Redis-сервера и сессий.
-     */
-    public function __construct(array $config)
+    public function __construct(
+        array $config = [],
+        array $uriOptions = [],
+        array $driverOptions = [],
+    )
     {
+        if (!class_exists(Client::class)) {
+            throw new \RuntimeException('mongodb/mongodb is required for MongoSessionHandler.');
+        }
+
         $uri = $config['url'] ?? null;
-        $database = $config['database'] ?? 'default';
-        $collection = $config['collection'] ?? 'sessions';
-
-        if (!isset($config['url'])) {
-            $hosts = is_array($config['host']) ? $config['host'] : [$config['host']];
-
-            foreach ($hosts as &$host) {
-                // ipv6
+        if (!is_string($uri) || $uri === '') {
+            $hosts = $config['host'] ?? '127.0.0.1';
+            $hosts = is_array($hosts) ? $hosts : [$hosts];
+            $port = isset($config['port']) ? (int)$config['port'] : 27017;
+            $authorities = [];
+            foreach ($hosts as $host) {
+                $host = (string)$host;
                 if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
                     $host = '[' . $host . ']';
-                    if (!empty($config['port'])) {
-                        $host .= ':' . $config['port'];
-                    }
-                } elseif (!str_contains((string)$host, ':') && !empty($config['port'])) {
-                    // Check if we need to add a port to the host
-                    $host .= ':' . $config['port'];
                 }
+                $authorities[] = str_contains($host, ':') && !str_starts_with($host, '[')
+                    ? $host
+                    : $host . ':' . $port;
             }
-
-            $uri = 'mongodb://' . implode(',', $hosts);
+            $uri = 'mongodb://' . implode(',', $authorities);
         }
 
-        $options = $config['options'] ?? [];
-        if (!isset($options['username']) && !empty($config['username'])) {
-            $options['username'] = $config['username'];
-        }
+        // Сохраняем историческую config-array форму и дополнительно разрешаем
+        // нативные MongoDB Client uri/driver options без необходимости прятать
+        // их в нестандартных Localzet ключах.
+        $options = array_replace($config['options'] ?? [], $uriOptions);
+        if (!isset($options['username']) && !empty($config['username'])) $options['username'] = $config['username'];
+        if (!isset($options['password']) && !empty($config['password'])) $options['password'] = $config['password'];
 
-        if (!isset($options['password']) && !empty($config['password'])) {
-            $options['password'] = $config['password'];
-        }
+        $driverOptions = array_replace(
+            [
+                'name' => 'Localzet-Server',
+                'version' => Server::getVersion(),
+                'platform' => PHP_OS_FAMILY,
+            ],
+            is_array($config['driver_options'] ?? null) ? $config['driver_options'] : [],
+            $driverOptions,
+        );
 
-        $this->client = new Client($uri, $options, ['name' => 'Localzet-Server', 'version' => Server::getVersion(), 'platform' => PHP_OS_FAMILY]);
-        $this->collection = $this->client->$database->$collection;
+        $this->client = new Client($uri, $options, $driverOptions);
+        $database = (string)($config['database'] ?? 'default');
+        $collection = (string)($config['collection'] ?? 'sessions');
+        $this->collection = $this->client->selectCollection($database, $collection);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function open(string $savePath, string $name): bool
     {
         return true;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function close(): bool
     {
         return true;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function read(string $sessionId): string
+    public function read(string $sessionId): string|false
     {
         $session = $this->collection->findOne(['_id' => $sessionId]);
-        if ($session !== null) {
-            return serialize((array)$session);
+        if ($session === null || !isset($session['data'])) {
+            return false;
         }
-
-        return '';
+        $data = $session['data'];
+        if ($data instanceof Binary) {
+            return $data->getData();
+        }
+        return is_string($data) ? $data : false;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function write(string $sessionId, string $sessionData): bool
     {
-        $session = ['_id' => $sessionId] + unserialize($sessionData);
-        $options = ['upsert' => true];
-        $this->collection->replaceOne(['_id' => $sessionId], $session, $options);
-        $this->updateTimestamp($sessionId);
-        return true;
+        $result = $this->collection->updateOne(
+            ['_id' => $sessionId],
+            ['$set' => [
+                'data' => new Binary($sessionData, Binary::TYPE_GENERIC),
+                'updated_at' => new UTCDateTime(),
+            ]],
+            ['upsert' => true],
+        );
+        return $result->isAcknowledged();
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function updateTimestamp(string $sessionId, string $data = ""): bool
+    public function updateTimestamp(string $sessionId, string $data = ''): bool
     {
-        $this->collection->updateOne(['_id' => $sessionId], ['$set' => ['updated_at' => new UTCDateTime()]]);
-        return true;
+        $result = $this->collection->updateOne(
+            ['_id' => $sessionId],
+            ['$set' => ['updated_at' => new UTCDateTime()]],
+        );
+        return $result->isAcknowledged() && $result->getMatchedCount() > 0;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function destroy(string $sessionId): bool
     {
-        $this->collection->deleteOne(['_id' => $sessionId]);
-        return true;
+        return $this->collection->deleteOne(['_id' => $sessionId])->isAcknowledged();
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function gc(int $maxLifetime): bool
     {
-        $utcDateTime = new UTCDateTime((new DateTime())->getTimestamp() * 1000 - $maxLifetime * 1000);
-        $this->collection->deleteMany(['updated_at' => ['$lt' => $utcDateTime]]);
-        return true;
+        $thresholdMs = ((new DateTimeImmutable())->getTimestamp() - $maxLifetime) * 1000;
+        return $this->collection
+            ->deleteMany(['updated_at' => ['$lt' => new UTCDateTime($thresholdMs)]])
+            ->isAcknowledged();
     }
 }

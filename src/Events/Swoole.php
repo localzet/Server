@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,290 +28,259 @@
 
 namespace localzet\Server\Events;
 
-use Swoole\Coroutine;
-use Swoole\Event;
-use Swoole\Process;
-use Swoole\Timer;
+use RuntimeException;
 use Throwable;
-use const SWOOLE_EVENT_READ;
-use const SWOOLE_EVENT_WRITE;
-use const SWOOLE_HOOK_ALL;
 
 /**
- * Класс Windows реализует интерфейс EventInterface и представляет select event loop.
+ * Native Swoole event-loop backend.
+ *
+ * Реализация использует Swoole Event/Timer/Process напрямую и запускает
+ * пользовательские callbacks в coroutine, чтобы один медленный callback не
+ * блокировал всю петлю событий. Backend включается только при явном выборе:
+ * автоматический runtime не должен неожиданно включать глобальные Swoole hooks.
  */
-final class Swoole implements EventInterface
+final class Swoole implements EventInterface, SuspensionCapableInterface
 {
-    /**
-     * Массив всех обработчиков событий чтения.
-     *
-     * @var array<int, array>
-     */
+    /** @var array<int,int> */
+    private array $timerEvents = [];
+
+    /** @var array<int,array{0:resource,1:callable}> */
     private array $readEvents = [];
 
-    /**
-     * Массив всех обработчиков событий записи.
-     *
-     * @var array<int, array>
-     */
+    /** @var array<int,array{0:resource,1:callable}> */
     private array $writeEvents = [];
 
-    /**
-     * Массив всех таймеров.
-     *
-     * @var array<int, int>
-     */
-    private array $eventTimer = [];
+    /** @var array<int,callable> */
+    private array $signalEvents = [];
 
-    /**
-     * Обработчик ошибок.
-     *
-     * @var ?callable
-     */
+    /** @var null|callable(Throwable):void */
     private $errorHandler = null;
 
-    private bool $stopping = false;
+    private bool $running = false;
 
-    /**
-     * Constructor.
-     */
     public function __construct()
     {
-        Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
+        if (!extension_loaded('swoole') || !class_exists(\Swoole\Event::class)) {
+            throw new RuntimeException('ext-swoole is required for the Localzet swoole backend.');
+        }
+
+        // Hooking happens only for explicit Swoole selection. This is why the
+        // factory intentionally excludes Swoole from automatic Unix selection.
+        if (class_exists(\Swoole\Coroutine::class) && defined('SWOOLE_HOOK_ALL')) {
+            \Swoole\Coroutine::set(['hook_flags' => SWOOLE_HOOK_ALL]);
+        }
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function delay(float $delay, callable $func, array $args = []): int
+    public function run(): void
     {
-        $t = (int)($delay * 1000);
-        $t = max($t, 1);
-
-        $timerId = Timer::after($t, function () use ($func, $args, &$timerId): void {
-            unset($this->eventTimer[$timerId]);
-            $this->safeCall($func, $args);
-        });
-        $this->eventTimer[$timerId] = $timerId;
-        return $timerId;
-    }
-
-    private function safeCall(callable $func, array $args = []): void
-    {
-        Coroutine::create(function() use ($func, $args) {
-            try {
-                $func(...$args);
-            } catch (Throwable $e) {
-                if ($this->errorHandler === null) {
-                    echo $e;
-                } else {
-                    ($this->errorHandler)($e);
-                }
+        $this->running = true;
+        // Swoole may otherwise leave Event::wait() immediately when no watcher
+        // exists at the exact instant run() is entered. Keep one long-lived timer.
+        $guard = \Swoole\Timer::tick(86_400_000, static fn() => null);
+        try {
+            \Swoole\Event::wait();
+        } finally {
+            $this->running = false;
+            if (is_int($guard) && $guard > 0) {
+                \Swoole\Timer::clear($guard);
             }
-        });
+        }
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function repeat(float $interval, callable $func, array $args = []): int
+    public function stop(): void
     {
-        $t = (int)($interval * 1000);
-        $t = max($t, 1);
+        $this->running = false;
+        $this->deleteAllTimer();
+        \Swoole\Event::exit();
+    }
 
-        $timerId = Timer::tick($t, function () use ($func, $args): void {
-            $this->safeCall($func, $args);
+    public function delay(float $delay, callable $callback, array $args = []): int
+    {
+        if ($delay < 0) {
+            throw new \InvalidArgumentException('Timer delay must be >= 0.');
+        }
+        $milliseconds = max(1, (int)round($delay * 1000));
+        $timerId = \Swoole\Timer::after($milliseconds, function () use (&$timerId, $callback, $args): void {
+            unset($this->timerEvents[$timerId]);
+            $this->safeCall($callback, ...$args);
         });
-        $this->eventTimer[$timerId] = $timerId;
+        if (!is_int($timerId) || $timerId <= 0) {
+            throw new RuntimeException('Unable to register Swoole timer.');
+        }
+        $this->timerEvents[$timerId] = $timerId;
         return $timerId;
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    public function repeat(float $interval, callable $callback, array $args = []): int
+    {
+        if ($interval < 0) {
+            throw new \InvalidArgumentException('Timer interval must be >= 0.');
+        }
+        $milliseconds = max(1, (int)round($interval * 1000));
+        $timerId = \Swoole\Timer::tick($milliseconds, fn() => $this->safeCall($callback, ...$args));
+        if (!is_int($timerId) || $timerId <= 0) {
+            throw new RuntimeException('Unable to register Swoole timer.');
+        }
+        $this->timerEvents[$timerId] = $timerId;
+        return $timerId;
+    }
+
+    public function offDelay(int $timerId): bool
+    {
+        if (!isset($this->timerEvents[$timerId])) {
+            return false;
+        }
+        \Swoole\Timer::clear($timerId);
+        unset($this->timerEvents[$timerId]);
+        return true;
+    }
+
     public function offRepeat(int $timerId): bool
     {
         return $this->offDelay($timerId);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function offDelay(int $timerId): bool
-    {
-        if (isset($this->eventTimer[$timerId])) {
-            Timer::clear($timerId);
-            unset($this->eventTimer[$timerId]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function stop(): void
-    {
-        if ($this->stopping) {
-            return;
-        }
-        $this->stopping = true;
-
-        // Отменим все сопрограммы перед Event::exit
-        foreach (Coroutine::listCoroutines() as $coroutine) {
-            Coroutine::cancel($coroutine);
-        }
-
-        // Дождемся завершения работы сопрограмм.
-        usleep(200000);
-        Event::exit();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onReadable($stream, callable $func): void
-    {
-        $fd = (int)$stream;
-        if (!isset($this->readEvents[$fd]) && !isset($this->writeEvents[$fd])) {
-            Event::add($stream, fn() => $this->callRead($fd), null, SWOOLE_EVENT_READ);
-        } elseif (isset($this->writeEvents[$fd])) {
-            Event::set($stream, fn() => $this->callRead($fd), null, SWOOLE_EVENT_READ | SWOOLE_EVENT_WRITE);
-        } else {
-            Event::set($stream, fn() => $this->callRead($fd), null, SWOOLE_EVENT_READ);
-        }
-
-        $this->readEvents[$fd] = [$func, [$stream]];
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offReadable($stream): bool
-    {
-        $fd = (int)$stream;
-        if (!isset($this->readEvents[$fd])) {
-            return false;
-        }
-
-        unset($this->readEvents[$fd]);
-        if (!isset($this->writeEvents[$fd])) {
-            Event::del($stream);
-            return true;
-        }
-
-        Event::set($stream, null, null, SWOOLE_EVENT_WRITE);
-        return true;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onWritable($stream, callable $func): void
-    {
-        $fd = (int)$stream;
-        if (!isset($this->readEvents[$fd]) && !isset($this->writeEvents[$fd])) {
-            Event::add($stream, null, fn() => $this->callWrite($fd), SWOOLE_EVENT_WRITE);
-        } elseif (isset($this->readEvents[$fd])) {
-            Event::set($stream, null, fn() => $this->callWrite($fd), SWOOLE_EVENT_WRITE | SWOOLE_EVENT_READ);
-        } else {
-            Event::set($stream, null, fn() => $this->callWrite($fd), SWOOLE_EVENT_WRITE);
-        }
-
-        $this->writeEvents[$fd] = [$func, [$stream]];
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offWritable($stream): bool
-    {
-        $fd = (int)$stream;
-        if (!isset($this->writeEvents[$fd])) {
-            return false;
-        }
-
-        unset($this->writeEvents[$fd]);
-        if (!isset($this->readEvents[$fd])) {
-            Event::del($stream);
-            return true;
-        }
-
-        Event::set($stream, null, null, SWOOLE_EVENT_READ);
-        return true;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onSignal(int $signal, callable $func): void
-    {
-        Process::signal($signal, fn() => $this->safeCall($func, [$signal]));
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function run(): void
-    {
-        // Avoid process exit due to no listening
-        Timer::tick(100000000, static fn() => null);
-        Event::wait();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function deleteAllTimer(): void
     {
-        foreach ($this->eventTimer as $timerId) {
-            Timer::clear($timerId);
+        foreach ($this->timerEvents as $timerId) {
+            \Swoole\Timer::clear($timerId);
+        }
+        $this->timerEvents = [];
+    }
+
+    public function getTimerCount(): int
+    {
+        return count($this->timerEvents);
+    }
+
+    public function onReadable($stream, callable $callback): void
+    {
+        $id = (int)$stream;
+        $this->readEvents[$id] = [$stream, $callback];
+        $this->refreshStreamWatcher($stream);
+    }
+
+    public function offReadable($stream): bool
+    {
+        $id = (int)$stream;
+        if (!isset($this->readEvents[$id])) {
+            return false;
+        }
+        unset($this->readEvents[$id]);
+        $this->refreshStreamWatcher($stream);
+        return true;
+    }
+
+    public function onWritable($stream, callable $callback): void
+    {
+        $id = (int)$stream;
+        $this->writeEvents[$id] = [$stream, $callback];
+        $this->refreshStreamWatcher($stream);
+    }
+
+    public function offWritable($stream): bool
+    {
+        $id = (int)$stream;
+        if (!isset($this->writeEvents[$id])) {
+            return false;
+        }
+        unset($this->writeEvents[$id]);
+        $this->refreshStreamWatcher($stream);
+        return true;
+    }
+
+    /**
+     * Пересобирает Swoole watcher после изменения read/write callbacks.
+     *
+     * Swoole хранит read и write handlers в одной записи на fd, поэтому нельзя
+     * независимо удалять только одну сторону как в Select.
+     *
+     * @param resource $stream
+     */
+    private function refreshStreamWatcher($stream): void
+    {
+        $id = (int)$stream;
+        $read = isset($this->readEvents[$id]);
+        $write = isset($this->writeEvents[$id]);
+
+        if (!$read && !$write) {
+            @\Swoole\Event::del($stream);
+            return;
+        }
+
+        $readCallback = $read
+            ? fn() => $this->safeCall($this->readEvents[$id][1], $stream)
+            : null;
+        $writeCallback = $write
+            ? fn() => $this->safeCall($this->writeEvents[$id][1], $stream)
+            : null;
+        $flags = ($read ? SWOOLE_EVENT_READ : 0) | ($write ? SWOOLE_EVENT_WRITE : 0);
+
+        if (!@\Swoole\Event::set($stream, $readCallback, $writeCallback, $flags)) {
+            if (!@\Swoole\Event::add($stream, $readCallback, $writeCallback, $flags)) {
+                throw new RuntimeException('Unable to register Swoole stream watcher.');
+            }
         }
     }
 
-    /**
-     * @see https://wiki.swoole.com/#/process/process?id=signal
-     * {@inheritdoc}
-     */
+    public function onSignal(int $signal, callable $callback): void
+    {
+        if (!class_exists(\Swoole\Process::class)) {
+            throw new RuntimeException('Swoole Process API is required for signal watchers.');
+        }
+        $this->signalEvents[$signal] = $callback;
+        \Swoole\Process::signal($signal, fn() => $this->safeCall($callback, $signal));
+    }
+
     public function offSignal(int $signal): bool
     {
-        return Process::signal($signal, null);
+        if (!isset($this->signalEvents[$signal])) {
+            return false;
+        }
+        unset($this->signalEvents[$signal]);
+        \Swoole\Process::signal($signal, null);
+        return true;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getTimerCount(): int
-    {
-        return count($this->eventTimer);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function setErrorHandler(callable $errorHandler): void
     {
         $this->errorHandler = $errorHandler;
     }
 
-    /**
-     * @param $fd
-     */
-    private function callRead(int $fd): void
+    public function sleep(float $delay): void
     {
-        if (isset($this->readEvents[$fd])) {
-            $this->safeCall($this->readEvents[$fd][0], $this->readEvents[$fd][1]);
+        if ($delay <= 0) {
+            return;
         }
+        if (class_exists(\Swoole\Coroutine::class)
+            && class_exists(\Swoole\Coroutine\System::class)
+            && \Swoole\Coroutine::getCid() >= 0) {
+            \Swoole\Coroutine\System::sleep($delay);
+            return;
+        }
+        usleep((int)round($delay * 1_000_000));
     }
 
-    /**
-     * @param $fd
-     */
-    private function callWrite(int $fd): void
+    private function safeCall(callable $callback, mixed ...$args): void
     {
-        if (isset($this->writeEvents[$fd])) {
-            $this->safeCall($this->writeEvents[$fd][0], $this->writeEvents[$fd][1]);
+        $runner = function () use ($callback, $args): void {
+            try {
+                $callback(...$args);
+            } catch (Throwable $e) {
+                if ($this->errorHandler !== null) {
+                    ($this->errorHandler)($e);
+                    return;
+                }
+                throw $e;
+            }
+        };
+
+        if (class_exists(\Swoole\Coroutine::class)) {
+            $cid = \Swoole\Coroutine::create($runner);
+            if ($cid !== false) {
+                return;
+            }
         }
+        $runner();
     }
 }

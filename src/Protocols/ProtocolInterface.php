@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -27,45 +29,12 @@
 namespace localzet\Server\Protocols;
 
 use localzet\Server\Connection\ConnectionInterface;
-use Throwable;
 
-/**
- * Интерфейс протокола
- */
 interface ProtocolInterface
 {
-    /**
-     * Проверьте целостность пакета.
-     * Пожалуйста, верните длину пакета.
-     * Если длина неизвестна, верните 0, что означает ожидание дополнительных данных.
-     * Если в пакете есть какие-то проблемы, верните false, и соединение будет закрыто.
-     *
-     * @param string $buffer
-     * @param ConnectionInterface $connection
-     * @return int
-     * @throws Throwable
-     */
     public static function input(string $buffer, ConnectionInterface $connection): int;
 
-    /**
-     * Кодируйте пакет перед отправкой клиенту.
-     *
-     * @param mixed $data
-     * @param ConnectionInterface $connection
-     * @return string
-     * @throws Throwable
-     */
-    public static function encode(mixed $data, ConnectionInterface $connection): string;
-
-    /**
-     * Расшифруйте пакет и вызовите обратный вызов onMessage($message),
-     * где $message - это результат, возвращенный функцией decode.
-     *
-     * @param string $buffer
-     * @param ConnectionInterface $connection
-     * @return mixed
-     * @throws Throwable
-     */
     public static function decode(string $buffer, ConnectionInterface $connection): mixed;
-}
 
+    public static function encode(mixed $data, ConnectionInterface $connection): string;
+}

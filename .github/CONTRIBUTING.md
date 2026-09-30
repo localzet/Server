@@ -1,4 +1,5 @@
 # Contributing to the Project
+
 [Документ на русском языке](.github/CONTRIBUTING_ru.md)
 
 We welcome you to our project and thank you for your interest in our code!

@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,57 +28,74 @@
 
 namespace localzet\Server\Protocols\Http\Session;
 
-use Redis;
-use RedisCluster;
-use RedisClusterException;
-use RedisException;
-
-/**
- * Class RedisClusterSessionHandler
- * @package localzet\Server\Protocols\Http\Session
- */
-class RedisClusterSessionHandler extends RedisSessionHandler
+/** Redis Cluster session storage. */
+class RedisClusterSessionHandler implements SessionHandlerInterface
 {
-    /**
-     * Конструктор RedisClusterSessionHandler.
-     *
-     * @param array $config Конфигурация Redis-кластера.
-     *
-     * @throws RedisClusterException
-     * @throws RedisException
-     */
-    public function __construct(array $config)
+    protected \RedisCluster $redis;
+    protected string $prefix;
+    protected int $lifetime;
+
+    public function __construct(array $config = [])
     {
-        // Извлекаем значения из конфигурации или устанавливаем значения по умолчанию
-        $timeout = $config['timeout'] ?? 2;
-        $readTimeout = $config['read_timeout'] ?? $timeout;
-        $persistent = $config['persistent'] ?? false;
-        $auth = $config['auth'] ?? '';
-
-        // Формируем аргументы для создания экземпляра RedisCluster
-        $args = [null, $config['host'], $timeout, $readTimeout, $persistent];
-        if ($auth) {
-            $args[] = $auth;
+        if (!class_exists(\RedisCluster::class)) {
+            throw new \RuntimeException('ext-redis with RedisCluster support is required.');
         }
 
-        // Создаем экземпляр RedisCluster
-        $this->redis = new RedisCluster(...$args);
-
-        // Если префикс не указан в конфигурации, устанавливаем значение по умолчанию
-        if (empty($config['prefix'])) {
-            $config['prefix'] = 'redis_session_';
+        $seeds = $config['seeds'] ?? ['127.0.0.1:6379'];
+        if (!is_array($seeds) || $seeds === []) {
+            throw new \InvalidArgumentException('RedisCluster seeds must be a non-empty array.');
         }
 
-        // Устанавливаем префикс для ключей сессий в Redis
-        $this->redis->setOption(Redis::OPT_PREFIX, $config['prefix']);
+        $this->redis = new \RedisCluster(
+            null,
+            $seeds,
+            (float)($config['timeout'] ?? 2.0),
+            (float)($config['read_timeout'] ?? 2.0),
+            (bool)($config['persistent'] ?? true),
+            $config['auth'] ?? null,
+        );
+        $this->prefix = (string)($config['prefix'] ?? 'localzet:session:');
+        $this->lifetime = max(1, (int)($config['lifetime'] ?? 1440));
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function read(string $sessionId): string
+    public function open(string $savePath, string $name): bool
     {
-        // Читаем данные сессии из Redis по ключу
-        return $this->redis->get($sessionId);
+        return true;
+    }
+
+    public function close(): bool
+    {
+        return true;
+    }
+
+    public function read(string $sessionId): string|false
+    {
+        $value = $this->redis->get($this->key($sessionId));
+        return $value === false ? false : (string)$value;
+    }
+
+    public function write(string $sessionId, string $sessionData): bool
+    {
+        return (bool)$this->redis->setex($this->key($sessionId), $this->lifetime, $sessionData);
+    }
+
+    public function updateTimestamp(string $sessionId, string $data = ''): bool
+    {
+        return (bool)$this->redis->expire($this->key($sessionId), $this->lifetime);
+    }
+
+    public function destroy(string $sessionId): bool
+    {
+        return $this->redis->del($this->key($sessionId)) >= 0;
+    }
+
+    public function gc(int $maxLifetime): bool
+    {
+        return true;
+    }
+
+    protected function key(string $sessionId): string
+    {
+        return $this->prefix . $sessionId;
     }
 }

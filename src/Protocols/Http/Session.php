@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,190 +28,104 @@
 
 namespace localzet\Server\Protocols\Http;
 
-use Exception;
-use InvalidArgumentException;
-use localzet\Server\Protocols\Http\Session\{FileSessionHandler};
+use localzet\Server\Protocols\Http\Session\FileSessionHandler;
 use localzet\Server\Protocols\Http\Session\SessionHandlerInterface;
-use function array_key_exists;
-use function ini_get;
-use function is_array;
-use function is_scalar;
-use function preg_match;
-use function random_int;
-use function serialize;
-use function session_get_cookie_params;
-use function unserialize;
-
+use Throwable;
 
 /**
- * Класс Session
- * @package localzet\Server\Protocols\Http
+ * HTTP session facade для long-running worker'ов.
+ *
+ * Сессия не использует PHP global session runtime: каждый Request получает свой
+ * объект Session и явно сохраняет его при уничтожении. Десериализация запрещает
+ * создание объектов, поэтому данные из storage не могут запустить gadget-chain.
  */
 class Session
 {
-    /**
-     * Имя сессии.
-     */
-    public static string $name = 'PHPSID';
-
-    /**
-     * Автоматическое обновление метки времени.
-     */
-    public static bool $autoUpdateTimestamp = false;
-
-    /**
-     * Время жизни сессии.
-     */
-    public static int $lifetime = 1440;
-
-    /**
-     * Время жизни cookie.
-     */
-    public static int $cookieLifetime = 1440;
-
-    /**
-     * Путь к cookie сессии.
-     */
-    public static string $cookiePath = '/';
-
-    /**
-     * Домен cookie сессии.
-     */
-    public static string $domain = '';
-
-    /**
-     * Только HTTPS cookie.
-     */
-    public static bool $secure = false;
-
-    /**
-     * Только HTTP доступ.
-     */
-    public static bool $httpOnly = true;
-
-    /**
-     * Same-site cookies.
-     */
-    public static string $sameSite = '';
-
-    /**
-     * Вероятность выполнения сборки мусора.
-     *
-     * @var int[]
-     */
-    public static array $gcProbability = [1, 20000];
-
-    /**
-     * Класс обработчика сессий, реализующий интерфейс SessionHandlerInterface.
-     */
     protected static string $handlerClass = FileSessionHandler::class;
-
-    /**
-     * Параметры конструктора для класса обработчика сессий.
-     */
     protected static mixed $handlerConfig = null;
-
-    /**
-     * Экземпляр обработчика сессий.
-     */
     protected static ?SessionHandlerInterface $handler = null;
 
-    /**
-     * Данные сессии.
-     *
-     * @var array
-     */
-    protected mixed $data = [];
+    public static string $name = 'PHPSID';
+    public static bool $autoUpdateTimestamp = false;
+    public static int $lifetime = 1440;
+    public static int $cookieLifetime = 1440;
+    public static string $cookiePath = '/';
+    public static string $domain = '';
+    public static bool $secure = false;
+    public static bool $httpOnly = true;
+    public static string $sameSite = '';
+    /** @var array{0:int,1:int} */
+    public static array $gcProbability = [1, 20000];
 
-    /**
-     * Безопасность данных.
-     */
+    protected array $data = [];
+    protected bool $needSave = false;
     protected bool $isSafe = true;
 
-    /**
-     * Флаг изменения данных сессии, требующий сохранения.
-     */
-    protected bool $needSave = false;
-
-    /**
-     * Конструктор сессии.
-     */
-    public function __construct(/**
-     * Идентификатор сессии.
-     */
-    protected ?string $sessionId)
+    public function __construct(protected string $id)
     {
-        // Если обработчик еще не инициализирован, инициализируем его.
-        if (!(static::$handler instanceof SessionHandlerInterface)) {
-            static::initHandler();
-        }
-        
-        // Если есть данные, читаем их из обработчика и десериализуем.
-        if ($data = static::$handler->read($this->sessionId)) {
-            $this->data = unserialize($data);
+        $raw = static::handler()->read($id);
+        if (is_string($raw) && $raw !== '') {
+            $value = @unserialize($raw, ['allowed_classes' => false]);
+            $this->data = is_array($value) ? $value : [];
         }
     }
 
-    /**
-     * Инициализация обработчика.
-     */
-    protected static function initHandler(): void
+    public function getId(): string
     {
-        // Если конфигурация обработчика не установлена, создаем новый экземпляр обработчика.
-        if (static::$handlerConfig === null) {
-            static::$handler = new static::$handlerClass();
-        } else {
-            // В противном случае создаем новый экземпляр обработчика с конфигурацией.
-            static::$handler = new static::$handlerClass(static::$handlerConfig);
-        }
+        return $this->id;
     }
 
     /**
-     * Инициализация.
+     * Возвращает/задаёт готовый handler instance — исторический Localzet API.
      */
-    public static function init(): void
+    public static function handler(?SessionHandlerInterface $handler = null): SessionHandlerInterface
     {
-        // Если в конфигурации PHP установлены вероятность и делитель сборки мусора, используем их.
-        if (($gcProbability = (int)ini_get('session.gc_probability')) && ($gcDivisor = (int)ini_get('session.gc_divisor'))) {
-            static::$gcProbability = [$gcProbability, $gcDivisor];
+        if ($handler !== null) {
+            static::$handler = $handler;
         }
-
-        // Если в конфигурации PHP установлено максимальное время жизни сессии, используем его.
-        if ($gcMaxLifeTime = ini_get('session.gc_maxlifetime')) {
-            self::$lifetime = (int)$gcMaxLifeTime;
+        if (static::$handler === null) {
+            $class = static::$handlerClass;
+            static::$handler = static::$handlerConfig === null
+                ? new $class()
+                : new $class(static::$handlerConfig);
         }
+        return static::$handler;
+    }
 
-        // Получаем параметры cookie сессии из конфигурации PHP.
-        $sessionCookieParams = session_get_cookie_params();
-        static::$cookieLifetime = $sessionCookieParams['lifetime'];
-        static::$cookiePath = $sessionCookieParams['path'];
-        static::$domain = $sessionCookieParams['domain'];
-        static::$secure = $sessionCookieParams['secure'];
-        static::$httpOnly = $sessionCookieParams['httponly'];
+    public static function setHandler(SessionHandlerInterface $handler): void
+    {
+        static::$handler = $handler;
     }
 
     /**
-     * Установить класс обработчика сессии.
-     *
-     * @param mixed|null $className
-     * @param mixed|null $config
+     * Смена класса сбрасывает уже созданный singleton handler.
      */
     public static function handlerClass(mixed $className = null, mixed $config = null): string
     {
-        if ($className) {
+        if ($className !== null) {
+            if (!is_string($className) || !is_a($className, SessionHandlerInterface::class, true)) {
+                throw new \InvalidArgumentException('Session handler must implement ' . SessionHandlerInterface::class);
+            }
             static::$handlerClass = $className;
+            static::$handler = null;
         }
-
-        if ($config) {
+        if ($config !== null) {
             static::$handlerConfig = $config;
+            static::$handler = null;
         }
-
         return static::$handlerClass;
     }
 
-    /**
-     * Получить параметры cookie.
-     */
+    public static function setCookieParams(array $params): void
+    {
+        if (array_key_exists('lifetime', $params)) static::$cookieLifetime = max(0, (int)$params['lifetime']);
+        if (array_key_exists('path', $params)) static::$cookiePath = (string)$params['path'];
+        if (array_key_exists('domain', $params)) static::$domain = (string)$params['domain'];
+        if (array_key_exists('secure', $params)) static::$secure = (bool)$params['secure'];
+        if (array_key_exists('httponly', $params)) static::$httpOnly = (bool)$params['httponly'];
+        if (array_key_exists('samesite', $params)) static::$sameSite = (string)$params['samesite'];
+    }
+
     public static function getCookieParams(): array
     {
         return [
@@ -222,11 +138,35 @@ class Session
         ];
     }
 
-    /**
-     * Получить и удалить элемент из сессии.
-     *
-     * @param mixed|null $default
-     */
+    public function get(string $name, mixed $default = null): mixed
+    {
+        return $this->data[$name] ?? $default;
+    }
+
+    public function set(string $name, mixed $value): void
+    {
+        $this->data[$name] = $value;
+        $this->needSave = true;
+    }
+
+    public function put(string|array $name, mixed $value = null): void
+    {
+        if (!is_array($name)) {
+            $this->set($name, $value);
+            return;
+        }
+        foreach ($name as $key => $item) {
+            $this->data[(string)$key] = $item;
+        }
+        $this->needSave = true;
+    }
+
+    public function delete(string $name): void
+    {
+        unset($this->data[$name]);
+        $this->needSave = true;
+    }
+
     public function pull(string $name, mixed $default = null): mixed
     {
         $value = $this->get($name, $default);
@@ -234,171 +174,111 @@ class Session
         return $value;
     }
 
-    /**
-     * Получить данные сессии.
-     *
-     * @param mixed|null $default
-     */
-    public function get(string $name, mixed $default = null): mixed
+    public function forget(string|array $name): void
     {
-        return $this->data[$name] ?? $default;
-    }
-
-    /**
-     * Удалить элемент из сессии.
-     */
-    public function delete(string $name): void
-    {
-        unset($this->data[$name]);
-        $this->needSave = true;
-    }
-
-    /**
-     * Сохранить данные в сессии.
-     *
-     * @param mixed|null $value
-     */
-    public function put(array|string $key, mixed $value = null): void
-    {
-        if (!is_array($key)) {
-            $this->set($key, $value);
-            return;
+        foreach ((array)$name as $key) {
+            unset($this->data[(string)$key]);
         }
-
-        foreach ($key as $k => $v) {
-            $this->data[$k] = $v;
-        }
-
         $this->needSave = true;
     }
 
-    /**
-     * Сохранить данные в сессии.
-     */
-    public function set(string $name, mixed $value): void
-    {
-        $this->data[$name] = $value;
-        $this->needSave = true;
-    }
-
-    /**
-     * Удалить данные из сессии.
-     */
-    public function forget(array|string $name): void
-    {
-        if (is_scalar($name)) {
-            $this->delete($name);
-            return;
-        }
-
-        foreach ($name as $key) {
-            unset($this->data[$key]);
-        }
-
-        $this->needSave = true;
-    }
-
-    /**
-     * Получить все данные сессии.
-     */
-    public function all(): array
-    {
-        return $this->data;
-    }
-
-    /**
-     * Удалить все данные из сессии.
-     */
-    public function flush(): void
-    {
-        $this->needSave = true;
-        $this->data = [];
-    }
-
-    /**
-     * Проверить наличие элемента в сессии.
-     */
+    /** isset-semantics: null считается отсутствующим. */
     public function has(string $name): bool
     {
         return isset($this->data[$name]);
     }
 
-    /**
-     * Проверить наличие элемента в сессии, даже если его значение равно null.
-     */
+    /** array_key_exists-semantics: null считается существующим значением. */
     public function exists(string $name): bool
     {
         return array_key_exists($name, $this->data);
     }
 
-    /**
-     * __wakeup.
-     *
-     * @return void
-     */
-    public function __wakeup()
+    public function all(): array
+    {
+        return $this->data;
+    }
+
+    public function flush(): void
+    {
+        $this->data = [];
+        $this->needSave = true;
+    }
+
+    public function save(): void
+    {
+        $handler = static::handler();
+        if ($this->needSave) {
+            if ($this->data === []) {
+                $handler->destroy($this->id);
+            } else {
+                $handler->write($this->id, serialize($this->data));
+            }
+            $this->needSave = false;
+            return;
+        }
+
+        if (static::$autoUpdateTimestamp) {
+            $handler->updateTimestamp($this->id);
+        }
+    }
+
+    public function refresh(): bool
+    {
+        return static::handler()->updateTimestamp($this->id);
+    }
+
+    public function gc(): void
+    {
+        static::handler()->gc(static::$lifetime);
+    }
+
+    public static function init(): void
+    {
+        $probability = (int)ini_get('session.gc_probability');
+        $divisor = (int)ini_get('session.gc_divisor');
+        if ($probability > 0 && $divisor > 0) {
+            static::$gcProbability = [$probability, $divisor];
+        }
+        $maxLifetime = (int)ini_get('session.gc_maxlifetime');
+        if ($maxLifetime > 0) {
+            static::$lifetime = $maxLifetime;
+        }
+        $params = session_get_cookie_params();
+        static::$cookieLifetime = (int)($params['lifetime'] ?? static::$cookieLifetime);
+        static::$cookiePath = (string)($params['path'] ?? static::$cookiePath);
+        static::$domain = (string)($params['domain'] ?? static::$domain);
+        static::$secure = (bool)($params['secure'] ?? static::$secure);
+        static::$httpOnly = (bool)($params['httponly'] ?? static::$httpOnly);
+        if (isset($params['samesite']) && $params['samesite'] !== '') {
+            static::$sameSite = (string)$params['samesite'];
+        }
+    }
+
+    public function __unserialize(array $data): void
     {
         $this->isSafe = false;
     }
 
-    /**
-     * Деструктор.
-     *
-     * @return void
-     * @throws Exception
-     */
+    public function __wakeup(): void
+    {
+        $this->isSafe = false;
+    }
+
     public function __destruct()
     {
         if (!$this->isSafe) {
             return;
         }
-
-        $this->save();
-        if (random_int(1, static::$gcProbability[1]) <= static::$gcProbability[0]) {
-            $this->gc();
-        }
-    }
-
-    /**
-     * Сохранить сессию в хранилище.
-     */
-    public function save(): void
-    {
-        if ($this->needSave) {
-            if (empty($this->data)) {
-                static::$handler->destroy($this->sessionId);
-            } else {
-                static::$handler->write($this->sessionId, serialize($this->data));
+        try {
+            $this->save();
+            [$chance, $divisor] = static::$gcProbability;
+            if ($chance > 0 && $divisor > 0 && random_int(1, $divisor) <= $chance) {
+                $this->gc();
             }
-        } elseif (static::$autoUpdateTimestamp) {
-            $this->refresh();
+        } catch (Throwable) {
+            // Destructors must not turn request shutdown into a fatal error.
         }
-
-        $this->needSave = false;
-    }
-
-    /**
-     * Обновить время истечения сессии.
-     */
-    public function refresh(): bool
-    {
-        return static::$handler->updateTimestamp($this->getId());
-    }
-
-    /**
-     * Получить идентификатор сессии.
-     */
-    public function getId(): string
-    {
-        return $this->sessionId;
-    }
-
-    /**
-     * Очистка неиспользуемых сессий.
-     */
-    public function gc(): void
-    {
-        static::$handler->gc(static::$lifetime);
     }
 }
 

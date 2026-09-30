@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -27,43 +29,34 @@
 namespace localzet\Server\Protocols;
 
 use localzet\Server\Connection\ConnectionInterface;
-use function pack;
-use function strlen;
-use function substr;
-use function unpack;
 
 /**
- * Протокол Frame.
+ * Бинарный length-prefixed framing: uint32 network-order + payload.
  */
-class Frame implements ProtocolInterface
+final class Frame implements ProtocolInterface
 {
-    /** @inheritdoc */
+    private const HEADER_LENGTH = 4;
+
     public static function input(string $buffer, ConnectionInterface $connection): int
     {
-        // Если длина буфера меньше 4, возвращаем 0.
-        if (strlen($buffer) < 4) {
+        if (strlen($buffer) < self::HEADER_LENGTH) {
             return 0;
         }
-
-        // Распаковываем данные из буфера.
-        $unpackData = unpack('Ntotal_length', $buffer);
-        // Возвращаем общую длину.
-        return $unpackData['total_length'];
+        $length = unpack('Nlength', substr($buffer, 0, 4))['length'];
+        if ($length < 0 || $length > 64 * 1024 * 1024) {
+            throw new \RuntimeException('Invalid frame length: ' . $length);
+        }
+        return self::HEADER_LENGTH + $length;
     }
 
-    /** @inheritdoc */
-    public static function encode(mixed $data, ConnectionInterface $connection): string
-    {
-        // Общая длина равна 4 плюс длина данных.
-        $totalLength = 4 + strlen($data);
-        // Возвращаем упакованные данные.
-        return pack('N', $totalLength) . $data;
-    }
-
-    /** @inheritdoc */
     public static function decode(string $buffer, ConnectionInterface $connection): string
     {
-        // Возвращаем подстроку буфера, начиная с 4-го символа.
-        return substr($buffer, 4);
+        return substr($buffer, self::HEADER_LENGTH);
+    }
+
+    public static function encode(mixed $data, ConnectionInterface $connection): string
+    {
+        $payload = (string)$data;
+        return pack('N', strlen($payload)) . $payload;
     }
 }

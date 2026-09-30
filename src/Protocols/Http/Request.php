@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,1141 +28,751 @@
 
 namespace localzet\Server\Protocols\Http;
 
-use Exception;
+use JsonException;
 use localzet\Server\Connection\TcpConnection;
-use localzet\Server\Protocols\Http;
 use RuntimeException;
 use Stringable;
-use function array_walk_recursive;
-use function bin2hex;
-use function clearstatcache;
-use function count;
-use function explode;
-use function file_put_contents;
-use function is_file;
-use function json_decode;
-use function ltrim;
-use function microtime;
-use function pack;
-use function parse_str;
-use function parse_url;
-use function preg_match;
-use function preg_replace;
-use function strlen;
-use function strpos;
-use function strstr;
-use function strtolower;
-use function substr;
-use function tempnam;
-use function trim;
-use function unlink;
-use function urlencode;
 
 /**
- * Класс Request
- * @property mixed|string $sid
- * @package localzet\Server\Protocols\Http
+ * Lazy HTTP request object.
+ *
+ * Request хранит только данные конкретного HTTP сообщения. В отличие от старой
+ * реализации экземпляры Request не переиспользуются между соединениями, поэтому
+ * connection/context невозможно случайно "перетащить" в соседний Fiber/request.
  */
 class Request implements Stringable
 {
-    /**
-     * Максимальное количество загружаемых файлов.
-     */
+    public const MAX_CACHE_STRING_LENGTH = 4096;
+    public const MAX_CACHE_SIZE = 256;
+
     public static int $maxFileUploads = 1024;
 
     /**
-     * Максимальная длина строки для кэша
+     * Список доверенных reverse proxy. Пока peer не входит в этот список,
+     * X-Forwarded-For / Forwarded / X-Real-IP считаются обычными пользовательскими заголовками.
+     * Поддерживаются точные IP, CIDR и "*".
      *
-     * @var int
+     * @var list<string>
      */
-    public const MAX_CACHE_STRING_LENGTH = 4096;
+    public static array $trustedProxies = [];
 
-    /**
-     * Максимальный размер кэша.
-     *
-     * @var int
-     */
-    public const MAX_CACHE_SIZE = 256;
-
-    /**
-     * Соединение.
-     */
     public ?TcpConnection $connection = null;
-
-    /**
-     * Свойства.
-     */
     public array $properties = [];
-
-    /**
-     * Данные запроса.
-     */
-    protected array $data = [];
-
-    /**
-     * Безопасно ли.
-     */
-    protected bool $isSafe = true;
-
-    /**
-     * @var bool
-     */
-    protected $isDirty = false;
-
-    /**
-     * Context.
-     */
     public array $context = [];
 
+    protected array $data = [];
+    protected bool $isSafe = true;
+    protected bool $isDirty = false;
+    /** @var array<string,string>|null */
+    protected ?array $chunkTrailers = null;
 
-    /**
-     * Конструктор запроса.
-     */
-    public function __construct(
-        /**
-         * Буфер HTTP.
-         */
-        protected string $buffer
-    )
+    public function __construct(protected string $buffer)
     {
     }
 
-    /**
-     * Получить GET.
-     *
-     * @param mixed|null $default
-     */
+    /** @internal HTTP protocol sets trailers once after chunked normalization. */
+    public function setChunkTrailers(array $trailers): void
+    {
+        $this->chunkTrailers ??= $trailers;
+    }
+
     public function get(?string $name = null, mixed $default = null): mixed
     {
-        if (!isset($this->data['get'])) {
-            $this->parseGet();
-        }
-
-        if (null === $name) {
-            return $this->data['get'];
-        }
-
-        return $this->data['get'][$name] ?? $default;
+        $this->data['get'] ??= $this->parseQuery($this->queryString());
+        return $name === null ? $this->data['get'] : ($this->data['get'][$name] ?? $default);
     }
 
-    /**
-     * Установить GET.
-     */
-    public function setGet(array $get): Request
+    public function setGet(array $get): static
     {
         $this->isDirty = true;
-        if (isset($this->data)) {
-            $this->data['get'] = $get;
-        } else {
-            $this->_data['get'] = $get;
-        }
-
+        $this->data['get'] = $get;
         return $this;
     }
 
-    /**
-     * Разобрать заголовок.
-     */
-    protected function parseGet(): void
-    {
-        static $cache = [];
-        $queryString = $this->queryString();
-        $this->data['get'] = [];
-        if ($queryString === '') {
-            return;
-        }
-
-        if (isset($cache[$queryString])) {
-            // Если условие выполняется, используем данные из кэша.
-            $this->data['get'] = $cache[$queryString];
-            return;
-        }
-
-        // Если нет - парсим строку запроса и сохраняем результат в кэше.
-        parse_str($queryString, $this->data['get']);
-        $cache[$queryString] = $this->data['get'];
-        // Если размер кэша превышает 256, удаляем самый старый элемент кэша.
-        if (count($cache) > static::MAX_CACHE_SIZE) {
-            unset($cache[key($cache)]);
-        }
-    }
-
-    /**
-     * Получить строку запроса.
-     */
-    public function queryString(): string
-    {
-        if (!isset($this->data['query_string'])) {
-            $this->data['query_string'] = (string)parse_url($this->uri(), PHP_URL_QUERY);
-        }
-
-        return $this->data['query_string'];
-    }
-
-    /**
-     * Получить URI.
-     */
-    public function uri(): string
-    {
-        if (!isset($this->data['uri'])) {
-            $this->parseHeadFirstLine();
-        }
-
-        return $this->data['uri'];
-    }
-
-    /**
-     * Разобрать первую строку буфера заголовка http.
-     */
-    protected function parseHeadFirstLine(): void
-    {
-        $firstLine = strstr($this->buffer, "\r\n", true);
-        $tmp = explode(' ', $firstLine, 3);
-        $this->data['method'] = $tmp[0];
-        $this->data['uri'] = $tmp[1] ?? '/';
-    }
-
-    /**
-     * Получить POST.
-     *
-     * @param mixed|null $default
-     */
     public function post(?string $name = null, mixed $default = null): mixed
     {
-        if (!isset($this->data['post'])) {
+        if (!array_key_exists('post', $this->data)) {
             $this->parsePost();
         }
-
-        if (null === $name) {
-            return $this->data['post'];
-        }
-
-        return $this->data['post'][$name] ?? $default;
+        return $name === null ? $this->data['post'] : ($this->data['post'][$name] ?? $default);
     }
 
-    /**
-     * Установить POST.
-     */
-    public function setPost(array $post): Request
+    public function setPost(array $post): static
     {
         $this->isDirty = true;
-        if (isset($this->data)) {
-            $this->data['post'] = $post;
-        } else {
-            $this->_data['post'] = $post;
-        }
-
+        $this->data['post'] = $post;
         return $this;
     }
 
-    /**
-     * Получить ввод.
-     *
-     * @param mixed|null $default
-     * @return mixed|null
-     */
+    /** GET имеет приоритет над POST — сохраняем историческую семантику Localzet. */
     public function input(string $name, mixed $default = null): mixed
     {
         return $this->get($name, $this->post($name, $default));
     }
 
-    /**
-     * Получить только указанные ключи.
-     */
-    public function only(array $keys): array
-    {
-        $all = $this->all();
-        $result = [];
-        foreach ($keys as $key) {
-            if (isset($all[$key])) {
-                $result[$key] = $all[$key];
-            }
-        }
-
-        return $result;
-    }
-
-    /**
-     * Получить все данные из POST и GET.
-     *
-     * @return mixed|null
-     */
-    public function all(): mixed
+    public function all(): array
     {
         return $this->get() + $this->post();
     }
 
-    /**
-     * Получить все данные, кроме указанных ключей.
-     *
-     * @return mixed|null
-     */
-    public function except(array $keys): mixed
+    public function only(array $keys): array
     {
-        $all = $this->all();
-        foreach ($keys as $key) {
-            unset($all[$key]);
-        }
-
-        return $all;
+        return array_intersect_key($this->all(), array_fill_keys($keys, true));
     }
 
-    /**
-     * Разбор POST.
-     */
-    protected function parsePost(): void
+    public function except(array $keys): array
     {
-        static $cache = [];
-        $this->data['post'] = $this->data['files'] = [];
-        $contentType = $this->header('content-type', '');
-        if (preg_match('/boundary="?(\S+)"?/', (string)$contentType, $match)) {
-            $httpPostBoundary = '--' . $match[1];
-            $this->parseUploadFiles($httpPostBoundary);
-            return;
-        }
+        return array_diff_key($this->all(), array_fill_keys($keys, true));
+    }
 
-        $bodyBuffer = $this->rawBody();
-        if ($bodyBuffer === '') {
-            return;
-        }
-
-        $cacheable = !isset($bodyBuffer[static::MAX_CACHE_STRING_LENGTH]);
-        if ($cacheable && isset($cache[$bodyBuffer])) {
-            $this->data['post'] = $cache[$bodyBuffer];
-            return;
-        }
-
-        if (preg_match('/\bjson\b/i', (string)$contentType)) {
-            $this->data['post'] = (array)json_decode($bodyBuffer, true);
-        } else {
-            parse_str($bodyBuffer, $this->data['post']);
-        }
-
-        if ($cacheable) {
-            $cache[$bodyBuffer] = $this->data['post'];
-            if (count($cache) > static::MAX_CACHE_SIZE) {
-                unset($cache[key($cache)]);
+    /** Декодированное JSON body либо его поле. */
+    public function json(?string $name = null, mixed $default = null): mixed
+    {
+        if (!array_key_exists('json', $this->data)) {
+            try {
+                $this->data['json'] = json_decode($this->rawBody(), true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                $this->data['json'] = null;
             }
         }
+        if ($name === null) {
+            return $this->data['json'];
+        }
+        return is_array($this->data['json']) ? ($this->data['json'][$name] ?? $default) : $default;
     }
 
-    /**
-     * Получить элемент заголовка по имени.
-     *
-     * @param mixed|null $default
-     */
     public function header(?string $name = null, mixed $default = null): mixed
     {
-        if (!isset($this->data['headers'])) {
-            $this->parseHeaders();
-        }
-
-        if (null === $name) {
+        $this->data['headers'] ??= $this->parseHeaders();
+        if ($name === null) {
             return $this->data['headers'];
         }
-
-        $name = strtolower($name);
-        return $this->data['headers'][$name] ?? $default;
+        return $this->data['headers'][strtolower($name)] ?? $default;
     }
 
-    /**
-     * Установить заголовки.
-     */
-    public function setHeaders(array $headers): Request
+    public function setHeaders(array $headers): static
     {
         $this->isDirty = true;
-        if (isset($this->data)) {
-            $this->data['headers'] = $headers;
-        } else {
-            $this->_data['headers'] = $headers;
+        $normalized = [];
+        foreach ($headers as $name => $value) {
+            $normalized[strtolower((string)$name)] = $value;
         }
-
+        $this->data['headers'] = $normalized;
         return $this;
     }
 
-    /**
-     * Разбор заголовков.
-     */
-    protected function parseHeaders(): void
+    public function trailer(?string $name = null, mixed $default = null): mixed
     {
-        static $cache = [];
-        $this->data['headers'] = [];
-        $rawHead = $this->rawHead();
-        $endLinePosition = strpos($rawHead, "\r\n");
-        if ($endLinePosition === false) {
-            return;
-        }
-
-        $headBuffer = substr($rawHead, $endLinePosition + 2);
-        $cacheable = !isset($headBuffer[static::MAX_CACHE_STRING_LENGTH]);
-        if ($cacheable && isset($cache[$headBuffer])) {
-            $this->data['headers'] = $cache[$headBuffer];
-            return;
-        }
-
-        $headData = explode("\r\n", $headBuffer);
-        foreach ($headData as $content) {
-            if (str_contains($content, ':')) {
-                [$key, $value] = explode(':', $content, 2);
-                $key = strtolower($key);
-                $value = ltrim($value);
-            } else {
-                $key = strtolower($content);
-                $value = '';
-            }
-
-            if (isset($this->data['headers'][$key])) {
-                $this->data['headers'][$key] .= ",$value";
-            } else {
-                $this->data['headers'][$key] = $value;
-            }
-        }
-
-        if ($cacheable) {
-            $cache[$headBuffer] = $this->data['headers'];
-            if (count($cache) > static::MAX_CACHE_SIZE) {
-                unset($cache[key($cache)]);
-            }
-        }
+        $trailers = $this->chunkTrailers ?? [];
+        return $name === null ? $trailers : ($trailers[strtolower($name)] ?? $default);
     }
 
-    /**
-     * Получить сырой HTTP-заголовок.
-     */
-    public function rawHead(): string
+    public function cookie(?string $name = null, mixed $default = null): mixed
     {
-        if (!isset($this->data['head'])) {
-            $this->data['head'] = strstr($this->buffer, "\r\n\r\n", true);
-        }
-
-        return $this->data['head'];
-    }
-
-    /**
-     * Разбор загруженных файлов.
-     */
-    protected function parseUploadFiles(string $httpPostBoundary): void
-    {
-        // Удаление кавычек из границы POST-запроса HTTP
-        $httpPostBoundary = trim($httpPostBoundary, '"');
-
-        // Буфер данных
-        $buffer = $this->buffer;
-
-        // Инициализация строк для кодирования POST-запроса и файлов
-        $postEncodeString = '';
-        $filesEncodeString = '';
-
-        // Инициализация массива для файлов
-        $files = [];
-
-        // Позиция тела в буфере данных
-        $bodayPosition = strpos($buffer, "\r\n\r\n") + 4;
-
-        // Смещение от начала тела
-        $offset = $bodayPosition + strlen($httpPostBoundary) + 2;
-
-        // Максимальное количество загружаемых файлов
-        $maxCount = static::$maxFileUploads;
-
-        // Разбор каждого загруженного файла
-        while ($maxCount-- > 0 && $offset) {
-            // Разбор каждого загруженного файла и обновление смещения, строки кодирования POST-запроса и файлов
-            $offset = $this->parseUploadFile($httpPostBoundary, $offset, $postEncodeString, $filesEncodeString, $files);
-        }
-
-        // Если есть строка кодирования POST-запроса, преобразовать ее в массив POST-запроса
-        if ($postEncodeString) {
-            parse_str($postEncodeString, $this->data['post']);
-        }
-
-        // Если есть строка кодирования файлов, преобразовать ее в массив файлов
-        if ($filesEncodeString) {
-            parse_str($filesEncodeString, $this->data['files']);
-
-            // Обновление значений массива файлов ссылками на реальные файлы
-            array_walk_recursive($this->data['files'], function (&$value) use ($files): void {
-                $value = $files[$value];
-            });
-        }
-    }
-
-    /**
-     * Разбор загруженного файла.
-     *
-     * @param $boundary
-     * @param $sectionStartOffset
-     * @param $postEncodeString
-     * @param $filesEncodeStr
-     * @param $files
-     */
-    protected function parseUploadFile($boundary, $sectionStartOffset, string &$postEncodeString, string &$filesEncodeStr, &$files): int
-    {
-        // Инициализация массива для файла
-        $file = [];
-
-        // Добавление символов перевода строки к границе
-        $boundary = "\r\n$boundary";
-
-        // Если длина буфера меньше смещения начала секции, вернуть 0
-        if (strlen($this->buffer) < $sectionStartOffset) {
-            return 0;
-        }
-
-        // Найти смещение конца секции по границе
-        $sectionEndOffset = strpos($this->buffer, $boundary, $sectionStartOffset);
-
-        // Если смещение конца секции не найдено, вернуть 0
-        if (!$sectionEndOffset) {
-            return 0;
-        }
-
-        // Найти смещение конца строк содержимого
-        $contentLinesEndOffset = strpos($this->buffer, "\r\n\r\n", $sectionStartOffset);
-
-        // Если смещение конца строк содержимого не найдено или оно больше смещения конца секции, вернуть 0
-        if (!$contentLinesEndOffset || $contentLinesEndOffset + 4 > $sectionEndOffset) {
-            return 0;
-        }
-
-        // Получить строки содержимого из буфера и разбить их на массив строк
-        $contentLinesStr = substr($this->buffer, $sectionStartOffset, $contentLinesEndOffset - $sectionStartOffset);
-        $contentLines = explode("\r\n", trim($contentLinesStr . "\r\n"));
-
-        // Получить значение границы из буфера
-        $boundaryValue = substr($this->buffer, $contentLinesEndOffset + 4, $sectionEndOffset - $contentLinesEndOffset - 4);
-
-        // Инициализация ключа загрузки как false
-        $uploadKey = false;
-
-        // Обработка каждой строки содержимого
-        foreach ($contentLines as $contentLine) {
-            // Если в строке содержимого нет ': ', вернуть 0
-            if (!strpos($contentLine, ': ')) {
-                return 0;
+        if (!isset($this->data['cookie'])) {
+            $cookies = [];
+            foreach (explode(';', (string)$this->header('cookie', '')) as $item) {
+                $parts = explode('=', trim($item), 2);
+                if (count($parts) !== 2 || $parts[0] === '') {
+                    continue;
+                }
+                $cookies[$parts[0]] = rawurldecode($parts[1]);
             }
-
-            // Разбить строку содержимого на ключ и значение по ': '
-            [$key, $value] = explode(': ', $contentLine);
-
-            // Обработка ключа в зависимости от его значения
-            switch (strtolower($key)) {
-                case "content-disposition":
-                    // Это данные файла.
-                    if (preg_match('/name="(.*?)"; filename="(.*?)"/i', $value, $match)) {
-                        // Инициализация ошибки как 0 и временного файла как пустой строки
-                        $error = 0;
-                        $tmpFile = '';
-
-                        // Получение имени файла из регулярного выражения
-                        $fileName = $match[1];
-
-                        // Получение размера значения границы
-                        $size = strlen($boundaryValue);
-
-                        // Получение временного каталога для загрузки HTTP
-                        $tmpUploadDir = HTTP::uploadTmpDir();
-
-                        // Если временный каталог для загрузки HTTP не найден, установить ошибку в UPLOAD_ERR_NO_TMP_DIR
-                        if (!$tmpUploadDir) {
-                            $error = UPLOAD_ERR_NO_TMP_DIR;
-                        } elseif ($boundaryValue === '' && $fileName === '') {
-                            $error = UPLOAD_ERR_NO_FILE;
-                        } else {
-                            $tmpFile = tempnam($tmpUploadDir, 'localzet.upload.');
-                            if ($tmpFile === false || false === file_put_contents($tmpFile, $boundaryValue)) {
-                                $error = UPLOAD_ERR_CANT_WRITE;
-                            }
-                        }
-
-                        // Установить ключ загрузки в имя файла
-                        $uploadKey = $fileName;
-
-                        // Добавить данные файла в массив файла
-                        $file = [...$file, 'name' => $match[2], 'tmp_name' => $tmpFile, 'size' => $size, 'error' => $error, 'full_path' => $match[2]];
-
-                        // Если тип файла не установлен, установить его в пустую строку
-                        if (!isset($file['type'])) {
-                            $file['type'] = '';
-                        }
-
-                        break;
-                    }
-
-                    // Это поле POST.
-                    // Разбор $POST.
-                    if (preg_match('/name="(.*?)"$/', $value, $match)) {
-                        // Получить ключ из регулярного выражения
-                        $k = $match[1];
-
-                        // Добавить ключ и значение границы в строку кодирования POST-запроса
-                        $postEncodeString .= urlencode($k) . "=" . urlencode($boundaryValue) . '&';
-                    }
-
-                    // Вернуть смещение конца секции плюс длина границы плюс 2
-                    return $sectionEndOffset + strlen($boundary) + 2;
-
-                case "content-type":
-                    // Установить тип файла в значение
-                    $file['type'] = trim($value);
-                    break;
-
-                case "webkitrelativepath":
-                    // Установить полный путь файла в значение
-                    $file['full_path'] = trim($value);
-                    break;
-            }
+            $this->data['cookie'] = $cookies;
         }
-
-        // Если ключ загрузки все еще false, вернуть 0
-        if ($uploadKey === false) {
-            return 0;
-        }
-
-        // Добавить ключ загрузки и количество файлов в строку кодирования файлов
-        $filesEncodeStr .= urlencode($uploadKey) . '=' . count($files) . '&';
-
-        // Добавить файл в массив файлов
-        $files[] = $file;
-
-        // Вернуть смещение конца секции плюс длина границы плюс 2
-        return $sectionEndOffset + strlen($boundary) + 2;
+        return $name === null ? $this->data['cookie'] : ($this->data['cookie'][$name] ?? $default);
     }
 
-    /**
-     * Получить сырое тело HTTP.
-     */
-    public function rawBody(): string
+    /** @return array<string,mixed>|null */
+    public function file(?string $name = null): mixed
     {
-        return substr($this->buffer, strpos($this->buffer, "\r\n\r\n") + 4);
-    }
-
-    /**
-     * Получить загруженные файлы.
-     *
-     * @param string|null $name
-     * @return array|null
-     */
-    public function file(string $name = null): mixed
-    {
-        // Если файлы не установлены, разобрать POST-запрос
-        if (!isset($this->data['files'])) {
+        if (!array_key_exists('files', $this->data)) {
             $this->parsePost();
         }
-
-        // Если имя не указано, вернуть все файлы, иначе вернуть файл с указанным именем или null, если он не найден
-        return $name === null ? $this->data['files'] : $this->data['files'][$name] ?? null;
+        return $name === null ? $this->data['files'] : ($this->data['files'][$name] ?? null);
     }
 
-    /**
-     * Получить URL.
-     */
-    public function url(): string
-    {
-        // Вернуть URL, состоящий из хоста и пути
-        return '//' . $this->host() . $this->path();
-    }
-
-    /**
-     * Получить полный URL.
-     */
-    public function fullUrl(): string
-    {
-        // Вернуть полный URL, состоящий из хоста и URI
-        return '//' . $this->host() . $this->uri();
-    }
-
-    /**
-     * Ожидает ли запрос JSON.
-     */
-    public function expectsJson(): bool
-    {
-        if ($this->isAjax() && !$this->isPjax()) {
-            return true;
-        }
-
-        return $this->acceptJson() && !$this->isHTML();
-    }
-
-    /**
-     * Принимает ли запрос любой тип контента.
-     */
-    public function acceptsAnyContentType(): bool
-    {
-        if (!isset($this->data['accept'])) {
-            $this->parseAcceptHeader();
-        }
-
-        return array_key_exists('*/*', $this->data['accept'])
-            || array_key_exists('*', $this->data['accept']);
-    }
-
-    /**
-     * Проверяет, является ли тип контента JSON.
-     */
-    public function isJson(): bool
-    {
-        return str_contains((string)$this->header('Content-Type', ''), '/json')
-            || str_contains((string)$this->header('Content-Type', ''), '+json');
-    }
-
-    /**
-     * Проверяет, является ли тип контента HTML.
-     */
-    public function isHTML(): bool
-    {
-        return str_contains((string)$this->header('Content-Type', ''), '/html')
-            || str_contains((string)$this->header('Content-Type', ''), '+html');
-    }
-
-    /**
-     * Является ли запрос AJAX-запросом.
-     */
-    public function isAjax(): bool
-    {
-        return $this->header('X-Requested-With', '') === 'XMLHttpRequest';
-    }
-
-    /**
-     * Является ли запрос PJAX-запросом.
-     */
-    public function isPjax(): bool
-    {
-        return (bool)$this->header('X-PJAX', false);
-    }
-
-    /**
-     * Принимает ли запрос JSON.
-     */
-    public function acceptJson(): bool
-    {
-        if ($this->isJson()) {
-            return true;
-        }
-
-        return $this->acceptsAnyContentType();
-    }
-
-    /**
-     * Парсит заголовок Accept.
-     */
-    public function parseAcceptHeader(): void
-    {
-        $accepts = explode(',', (string)$this->header('Accept', ''));
-        $this->data['accept'] = [];
-
-        foreach ($accepts as $accept) {
-            $parts = explode(';', $accept);
-            $media_type = trim(array_shift($parts));
-            $params = [];
-
-            foreach ($parts as $part) {
-                [$name, $value] = explode('=', $part);
-                $params[trim($name)] = trim($value);
-            }
-
-            $this->data['accept'][$media_type] = $params;
-        }
-    }
-
-    /**
-     * Получить метод.
-     */
     public function method(): string
     {
-        // Если метод не установлен, разобрать первую строку заголовка
-        if (!isset($this->data['method'])) {
-            $this->parseHeadFirstLine();
-        }
-
-        // Вернуть метод
+        $this->parseFirstLine();
         return $this->data['method'];
     }
 
-    /**
-     * Проверяет, является ли метод запроса указанным методом.
-     */
     public function isMethod(string $method): bool
     {
         return $this->method() === strtoupper($method);
     }
 
-    /**
-     * Получить версию протокола HTTP.
-     */
     public function protocolVersion(): string
     {
-        // Если версия протокола не установлена, разобрать версию протокола
-        if (!isset($this->data['protocolVersion'])) {
-            $this->parseProtocolVersion();
-        }
-
-        // Вернуть версию протокола HTTP
+        $this->parseFirstLine();
         return $this->data['protocolVersion'];
     }
 
-    /**
-     * Разбор версии протокола.
-     */
-    protected function parseProtocolVersion(): void
-    {
-        // Получить первую строку из буфера данных
-        $firstLine = strstr($this->buffer, "\r\n", true);
-
-        // Получить версию протокола из первой строки
-        $protocolVersion = strstr($firstLine, 'HTTP/');
-
-        // Установить версию протокола в данные или '1.0', если она не найдена
-        $this->data['protocolVersion'] = $protocolVersion ? substr($protocolVersion, 5) : '1.0';
-    }
-
-    /**
-     * Получить хост.
-     */
     public function host(bool $withoutPort = false): ?string
     {
-        // Получить хост из заголовка 'host'
-        $host = $this->header('host', '');
-
-        // Если хост установлен и без порта, вернуть хост без порта, иначе вернуть хост
-        return $host && $withoutPort ? preg_replace('/:\d{1,5}$/', '', (string)$host) : $host;
+        $host = $this->header('host');
+        if (!is_string($host) || $host === '') {
+            return null;
+        }
+        if (!$withoutPort) {
+            return $host;
+        }
+        if (str_starts_with($host, '[')) {
+            $end = strpos($host, ']');
+            return $end === false ? $host : substr($host, 0, $end + 1);
+        }
+        return preg_replace('/:\d{1,5}$/', '', $host);
     }
 
-    /**
-     * Получить путь.
-     */
+    public function uri(): string
+    {
+        $this->parseFirstLine();
+        return $this->data['uri'];
+    }
+
     public function path(): string
     {
-        // Если путь не установлен, установить его в путь URI из буфера данных
-        if (!isset($this->data['path'])) {
-            $this->data['path'] = (string)parse_url($this->uri(), PHP_URL_PATH);
-        }
-
-        // Вернуть путь
+        $this->parseUri();
         return $this->data['path'];
     }
 
-    /**
-     * Сгенерировать новый идентификатор сессии.
-     *
-     * @throws Exception
-     */
-    public function sessionRegenerateId(bool $deleteOldSession = false): string
+    public function queryString(): string
     {
-        // Получить сессию и все ее данные
-        $session = $this->session();
-        $sessionData = $session->all();
+        $this->parseUri();
+        return $this->data['query_string'];
+    }
 
-        // Если старая сессия должна быть удалена, очистить ее
-        if ($deleteOldSession) {
-            $session->flush();
+    /** Protocol-relative URL, сохранён для совместимости со старым Localzet API. */
+    public function url(): string
+    {
+        return '//' . ($this->host() ?? '') . $this->path();
+    }
+
+    /** Protocol-relative URL с query string. */
+    public function fullUrl(): string
+    {
+        return '//' . ($this->host() ?? '') . $this->uri();
+    }
+
+    public function rawHead(): string
+    {
+        if (!isset($this->data['head'])) {
+            $pos = strpos($this->buffer, "\r\n\r\n");
+            $this->data['head'] = $pos === false ? $this->buffer : substr($this->buffer, 0, $pos);
         }
+        return $this->data['head'];
+    }
 
-        // Создать новый идентификатор сессии
-        $newSid = static::createSessionId();
+    public function rawBody(): string
+    {
+        $pos = strpos($this->buffer, "\r\n\r\n");
+        return $pos === false ? '' : substr($this->buffer, $pos + 4);
+    }
 
-        // Создать новую сессию с новым идентификатором и установить в нее данные старой сессии
-        $session = new Session($newSid);
-        $session->put($sessionData);
+    public function rawBuffer(): string
+    {
+        return $this->buffer;
+    }
 
-        // Получить параметры cookie сессии и имя сессии
-        $cookieParams = Session::getCookieParams();
-        $sessionName = Session::$name;
+    public function isAjax(): bool
+    {
+        return strcasecmp((string)$this->header('x-requested-with', ''), 'XMLHttpRequest') === 0;
+    }
 
-        // Установить cookie с идентификатором сессии
-        $this->setSidCookie($sessionName, $newSid, $cookieParams);
+    public function isPjax(): bool
+    {
+        return (bool)$this->header('x-pjax', false);
+    }
 
-        // Вернуть новый идентификатор сессии
-        return $newSid;
+    public function isJson(): bool
+    {
+        $type = strtolower((string)$this->header('content-type', ''));
+        return str_contains($type, '/json') || str_contains($type, '+json');
+    }
+
+    public function isHTML(): bool
+    {
+        $type = strtolower((string)$this->header('content-type', ''));
+        return str_contains($type, '/html') || str_contains($type, '+html');
+    }
+
+    /** Историческое имя. */
+    public function acceptJson(): bool
+    {
+        return $this->acceptsJson();
+    }
+
+    public function acceptsJson(): bool
+    {
+        if ($this->isJson()) {
+            return true;
+        }
+        if ($this->acceptsAnyContentType()) {
+            return true;
+        }
+        foreach (array_keys($this->parseAcceptHeader()) as $type) {
+            if ($type === 'application/json' || str_ends_with($type, '+json')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function expectsJson(): bool
+    {
+        return ($this->isAjax() && !$this->isPjax()) || ($this->acceptsJson() && !$this->isHTML());
+    }
+
+    public function acceptsAnyContentType(): bool
+    {
+        $accepts = $this->parseAcceptHeader();
+        return isset($accepts['*/*']) || isset($accepts['*']);
     }
 
     /**
-     * Получить сессию.
-     *
-     * @throws Exception
+     * @return array<string,array<string,string>> media-type => parameters
      */
+    public function parseAcceptHeader(): array
+    {
+        if (isset($this->data['accept'])) {
+            return $this->data['accept'];
+        }
+        $this->data['accept'] = [];
+        foreach (explode(',', (string)$this->header('accept', '')) as $accept) {
+            $accept = trim($accept);
+            if ($accept === '') {
+                continue;
+            }
+            $parts = array_map('trim', explode(';', $accept));
+            $mediaType = strtolower((string)array_shift($parts));
+            $params = [];
+            foreach ($parts as $part) {
+                if (!str_contains($part, '=')) {
+                    continue;
+                }
+                [$key, $value] = explode('=', $part, 2);
+                $params[strtolower(trim($key))] = trim($value, " \t\"");
+            }
+            $this->data['accept'][$mediaType] = $params;
+        }
+        return $this->data['accept'];
+    }
+
     public function session(): Session
     {
         return $this->context['session'] ??= new Session($this->sessionId());
     }
 
-    /**
-     * Получить/установить идентификатор сессии.
-     *
-     * @param string|null $sessionId
-     * @throws Exception
-     */
-    public function sessionId(string $sessionId = null): string
+    public function sessionId(?string $sessionId = null): string
     {
-        // Если идентификатор сессии указан, удалить текущий идентификатор сессии
-        if ($sessionId) {
-            unset($this->context['sid']);
+        if ($sessionId !== null) {
+            if (!$this->isValidSessionId($sessionId)) {
+                throw new \InvalidArgumentException('Invalid session id.');
+            }
+            unset($this->context['sid'], $this->context['session']);
         }
 
-        // Если идентификатор сессии не установлен, получить его из cookie или создать новый
         if (!isset($this->context['sid'])) {
-            // Получить имя сессии
             $sessionName = Session::$name;
-
-            // Получить идентификатор сессии из cookie или создать новый, если он не указан или равен пустой строке
-            $sid = $sessionId ? '' : $this->cookie($sessionName);
-            $sid = $this->isValidSessionId($sid) ? $sid : '';
-            if ($sid === '') {
-                // Если соединение не установлено, выбросить исключение
-                if (!$this->connection instanceof TcpConnection) {
-                    throw new RuntimeException('Request->session() fail, header already send');
-                }
-
-                // Создать новый идентификатор сессии, если он не указан
-                $sid = $sessionId ?: static::createSessionId();
-
-                // Получить параметры cookie сессии и установить cookie с идентификатором сессии
-                $cookieParams = Session::getCookieParams();
-                $this->setSidCookie($sessionName, $sid, $cookieParams);
+            $sid = $sessionId === null ? $this->cookie($sessionName, '') : '';
+            if (is_string($sid) && strlen($sid) >= 2 && $sid[0] === '"' && $sid[-1] === '"') {
+                $sid = substr($sid, 1, -1);
             }
+            $sid = $this->isValidSessionId($sid) ? $sid : '';
 
-            // Установить идентификатор сессии
+            if ($sid === '') {
+                if ($this->connection === null) {
+                    throw new RuntimeException('Cannot create session after the connection is detached.');
+                }
+                $sid = $sessionId ?? static::createSessionId();
+                $this->setSidCookie($sessionName, $sid, Session::getCookieParams());
+            }
             $this->context['sid'] = $sid;
         }
-
-        // Вернуть идентификатор сессии
         return $this->context['sid'];
     }
 
-    /**
-     * Валидация ID сессии.
-     */
     public function isValidSessionId(mixed $sessionId): bool
     {
-        return is_string($sessionId) && preg_match('/^[a-zA-Z0-9"]+$/', $sessionId);
+        return is_string($sessionId) && preg_match('/^[A-Za-z0-9,-]{16,256}$/D', $sessionId) === 1;
     }
 
-    /**
-     * Получить элемент cookie по имени.
-     *
-     * @param string|null $name
-     * @param mixed|null $default
-     */
-    public function cookie(string $name = null, mixed $default = null): mixed
-    {
-        // Если cookie не установлены, получить их из заголовка 'cookie' и разобрать в массив
-        if (!isset($this->data['cookie'])) {
-            $this->data['cookie'] = [];
-            parse_str((string)preg_replace('/; ?/', '&', (string)$this->header('cookie', '')), $this->data['cookie']);
-        }
-
-        // Если имя не указано, вернуть все cookie, иначе вернуть cookie с указанным именем или значение по умолчанию, если он не найден
-        return $name === null ? $this->data['cookie'] : $this->data['cookie'][$name] ?? $default;
-    }
-
-    /**
-     * Создать идентификатор сессии.
-     *
-     * @throws Exception
-     */
     public static function createSessionId(): string
     {
-        // Вернуть двоичное представление текущего времени в микросекундах и 8 случайных байтов в шестнадцатеричном виде
-        return bin2hex(pack('d', microtime(true)) . random_bytes(8));
+        return bin2hex(random_bytes(32));
     }
 
-    /**
-     * Установить cookie с идентификатором сессии.
-     */
-    protected function setSidCookie(string $sessionName, string $sid, array $cookieParams): void
+    public function sessionRegenerateId(bool $deleteOldSession = false): string
     {
-        // Если соединение не установлено, выбросить исключение
-        if (!$this->connection instanceof TcpConnection) {
-            throw new RuntimeException('Request->setSidCookie() fail, header already send');
+        $old = $this->session();
+        $data = $old->all();
+        if ($deleteOldSession) {
+            $old->flush();
         }
 
-        // Установить заголовок 'Set-Cookie' с идентификатором сессии и параметрами cookie сессии
-        $this->connection->headers['Set-Cookie'] = [$sessionName . '=' . $sid
-            . (empty($cookieParams['domain']) ? '' : '; Domain=' . $cookieParams['domain'])
-            . (empty($cookieParams['lifetime']) ? '' : '; Max-Age=' . $cookieParams['lifetime'])
-            . (empty($cookieParams['path']) ? '' : '; Path=' . $cookieParams['path'])
-            . (empty($cookieParams['samesite']) ? '' : '; SameSite=' . $cookieParams['samesite'])
-            . ($cookieParams['secure'] ? '; Secure' : '')
-            . ($cookieParams['httponly'] ? '; HttpOnly' : '')];
+        $sid = static::createSessionId();
+        $session = new Session($sid);
+        $session->put($data);
+        $this->setSidCookie(Session::$name, $sid, Session::getCookieParams());
+        $this->context['sid'] = $sid;
+        $this->context['session'] = $session;
+        return $sid;
     }
 
-    /**
-     * Получить сырой буфер.
-     */
-    public function rawBuffer(): string
+    protected function setSidCookie(string $sessionName, string $sid, array $params): void
     {
-        // Вернуть буфер
-        return $this->buffer;
+        if ($this->connection === null) {
+            throw new RuntimeException('Cannot set session cookie after the connection is detached.');
+        }
+
+        $cookie = rawurlencode($sessionName) . '=' . rawurlencode($sid);
+        if (!empty($params['domain'])) $cookie .= '; Domain=' . str_replace(["\r", "\n"], '', (string)$params['domain']);
+        if (!empty($params['lifetime'])) $cookie .= '; Max-Age=' . max(0, (int)$params['lifetime']);
+        if (!empty($params['path'])) $cookie .= '; Path=' . str_replace(["\r", "\n"], '', (string)$params['path']);
+        if (!empty($params['samesite'])) $cookie .= '; SameSite=' . str_replace(["\r", "\n"], '', (string)$params['samesite']);
+        if (($params['secure'] ?? false) === true) $cookie .= '; Secure';
+        if (($params['httponly'] ?? true) === true) $cookie .= '; HttpOnly';
+        $this->connection->headers['Set-Cookie'][] = $cookie;
     }
 
-    /**
-     * Получить локальный IP-адрес.
-     */
     public function getLocalIp(): string
     {
-        // Вернуть локальный IP-адрес из соединения
-        return $this->connection->getLocalIp();
+        return $this->connection?->getLocalIp() ?? '';
     }
 
-    /**
-     * Получить локальный порт.
-     */
     public function getLocalPort(): int
     {
-        // Вернуть локальный порт из соединения
-        return $this->connection->getLocalPort();
+        return $this->connection?->getLocalPort() ?? 0;
     }
 
-    /**
-     * Получить удаленный IP-адрес.
-     */
     public function getRemoteIp(): string
     {
-        // Вернуть удаленный IP-адрес из соединения
-        return $this->connection->getRemoteIp();
+        return $this->connection?->getRemoteIp() ?? '';
     }
 
-    /**
-     * Получить удаленный порт.
-     */
     public function getRemotePort(): int
     {
-        // Вернуть удаленный порт из соединения
-        return $this->connection->getRemotePort();
+        return $this->connection?->getRemotePort() ?? 0;
+    }
+
+    public function getConnection(): TcpConnection
+    {
+        if ($this->connection === null) {
+            throw new RuntimeException('Request connection is no longer available.');
+        }
+        return $this->connection;
     }
 
     /**
-     * Получить IP-адрес запроса
+     * Возвращает клиентский IP с безопасной моделью доверия к reverse proxy.
      *
-     * @return string|null IP-адрес
+     * По умолчанию forwarded headers игнорируются. Чтобы их учитывать, добавьте
+     * адрес вашего proxy/LB в Request::$trustedProxies.
      */
     public function getRequestIp(): ?string
     {
-        $ip = $this->header('x-forwarded-for')
-            ?? $this->header('x-real-ip')
-            ?? $this->header('client-ip')
-            ?? $this->header('x-client-ip')
-            ?? $this->header('remote-addr')
-            ?? $this->header('via');
-
-        if (is_string($ip)) {
-            $ip = current(explode(',', $ip));
+        $peer = $this->getRemoteIp();
+        if ($peer === '') {
+            return null;
+        }
+        if (!static::isTrustedProxy($peer)) {
+            return filter_var($peer, FILTER_VALIDATE_IP) ? $peer : null;
         }
 
-        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : null;
+        $forwarded = (string)$this->header('forwarded', '');
+        if ($forwarded !== '' && preg_match('/(?:^|[;,])\s*for=(?:"?\[?)([^\]";,]+)(?:\]?"?)/i', $forwarded, $match)) {
+            $candidate = static::normalizeForwardedIp($match[1]);
+            if ($candidate !== null) return $candidate;
+        }
+
+        foreach (['x-forwarded-for', 'x-real-ip', 'client-ip', 'x-client-ip'] as $header) {
+            $value = $this->header($header);
+            if (!is_string($value) || $value === '') continue;
+            foreach (explode(',', $value) as $candidate) {
+                $ip = static::normalizeForwardedIp($candidate);
+                if ($ip !== null) return $ip;
+            }
+        }
+        return $peer;
     }
 
-    /**
-     * Получить соединение.
-     */
-    public function getConnection(): TcpConnection
+    public function isSecure(): bool
     {
-        // Вернуть соединение
-        return $this->connection;
+        if (($this->connection?->transport ?? '') === 'ssl') {
+            return true;
+        }
+        $peer = $this->getRemoteIp();
+        if ($peer !== '' && static::isTrustedProxy($peer)) {
+            $forwardedProto = strtolower(trim(explode(',', (string)$this->header('x-forwarded-proto', ''))[0] ?? ''));
+            if ($forwardedProto === 'https' || $forwardedProto === 'wss') {
+                return true;
+            }
+            if (preg_match('/(?:^|;)\s*proto=(https|wss)(?:;|$)/i', (string)$this->header('forwarded', ''))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function toArray(): array
     {
-        $return = $this->properties +
-            [
+        $result = $this->properties + [
                 'protocolVersion' => $this->protocolVersion(),
                 'host' => $this->host(),
                 'path' => $this->path(),
                 'uri' => $this->uri(),
-
                 'method' => $this->method(),
                 'get' => $this->get(),
                 'post' => $this->post(),
                 'header' => $this->header(),
                 'cookie' => $this->cookie(),
-
                 'isAjax' => $this->isAjax(),
                 'isPjax' => $this->isPjax(),
                 'acceptJson' => $this->acceptJson(),
                 'expectsJson' => $this->expectsJson(),
             ];
-
-        if ($this->connection instanceof TcpConnection) {
-            $return += [
+        if ($this->connection !== null) {
+            $result += [
                 'localIp' => $this->getLocalIp(),
                 'localPort' => $this->getLocalPort(),
                 'remoteIp' => $this->getRemoteIp(),
                 'remotePort' => $this->getRemotePort(),
+                'requestIp' => $this->getRequestIp(),
+                'secure' => $this->isSecure(),
             ];
         }
-
-        return $return;
+        return $result;
     }
 
-    /**
-     * __toString.
-     */
+    protected function parseFirstLine(): void
+    {
+        if (isset($this->data['method'])) {
+            return;
+        }
+        $end = strpos($this->buffer, "\r\n");
+        $line = $end === false ? $this->buffer : substr($this->buffer, 0, $end);
+        $parts = explode(' ', $line, 3);
+        $this->data['method'] = $parts[0] ?? '';
+        $this->data['uri'] = $parts[1] ?? '/';
+        $this->data['protocolVersion'] = isset($parts[2]) && str_starts_with($parts[2], 'HTTP/')
+            ? substr($parts[2], 5)
+            : '1.0';
+    }
+
+    protected function parseUri(): void
+    {
+        if (isset($this->data['path'])) {
+            return;
+        }
+        $parts = parse_url($this->uri());
+        $this->data['path'] = is_array($parts) ? ($parts['path'] ?? '/') : '/';
+        $this->data['query_string'] = is_array($parts) ? ($parts['query'] ?? '') : '';
+    }
+
+    protected function parseHeaders(): array
+    {
+        $headers = [];
+        $lines = explode("\r\n", $this->rawHead());
+        array_shift($lines);
+        foreach ($lines as $line) {
+            if ($line === '' || !str_contains($line, ':')) continue;
+            [$name, $value] = explode(':', $line, 2);
+            $key = strtolower(trim($name));
+            $value = trim($value, " \t");
+            $headers[$key] = isset($headers[$key]) ? $headers[$key] . ',' . $value : $value;
+        }
+        return $headers;
+    }
+
+    protected function parseQuery(string $query): array
+    {
+        if ($query === '') return [];
+        parse_str($query, $result);
+        return $this->sanitizeInput($result);
+    }
+
+    protected function parsePost(): void
+    {
+        $this->data['post'] = [];
+        $this->data['files'] = [];
+        $contentType = (string)$this->header('content-type', '');
+        $lower = strtolower($contentType);
+
+        if (str_starts_with($lower, 'application/x-www-form-urlencoded')) {
+            parse_str($this->rawBody(), $post);
+            $this->data['post'] = $this->sanitizeInput($post);
+            return;
+        }
+        if (str_contains($lower, 'json')) {
+            $json = $this->json();
+            $this->data['post'] = is_array($json) ? $json : [];
+            return;
+        }
+        if (str_starts_with($lower, 'multipart/form-data')) {
+            $this->parseMultipart($contentType);
+        }
+    }
+
+    protected function parseMultipart(string $contentType): void
+    {
+        if (!preg_match('/boundary=(?:"([^"]+)"|([^;\s]+))/i', $contentType, $matches)) {
+            return;
+        }
+        $boundary = $matches[1] !== '' ? $matches[1] : ($matches[2] ?? '');
+        if ($boundary === '' || strlen($boundary) > 200) {
+            return;
+        }
+
+        $postPairs = [];
+        $filePairs = [];
+        $files = [];
+        $uploadCount = 0;
+        $fileToken = 0;
+
+        foreach (explode('--' . $boundary, $this->rawBody()) as $part) {
+            $part = ltrim($part, "\r\n");
+            if ($part === '' || $part === '--\r\n' || $part === '--' || !str_contains($part, "\r\n\r\n")) {
+                continue;
+            }
+            // Boundary delimiter contributes CRLF before the next part; it is not file content.
+            $part = preg_replace('/\r\n$/D', '', $part, 1) ?? $part;
+            [$head, $body] = explode("\r\n\r\n", $part, 2);
+            if (!preg_match('/^Content-Disposition:\s*form-data;[^\r\n]*\bname="([^"]*)"(?:;\s*filename="([^"]*)")?/mi', $head, $match)) {
+                continue;
+            }
+
+            $name = $match[1];
+            $filename = $match[2] ?? null;
+            if ($name === '') continue;
+
+            if ($filename === null || $filename === '') {
+                $postPairs[] = rawurlencode($name) . '=' . rawurlencode($body);
+                continue;
+            }
+            if (++$uploadCount > static::$maxFileUploads) {
+                break;
+            }
+
+            $tmpDir = \localzet\Server\Protocols\Http::uploadTmpDir();
+            $tmp = tempnam($tmpDir, 'localzet-upload-');
+            if ($tmp === false || file_put_contents($tmp, $body, LOCK_EX) === false) {
+                if (is_string($tmp) && is_file($tmp)) @unlink($tmp);
+                continue;
+            }
+            preg_match('/^Content-Type:\s*([^\r\n]+)/mi', $head, $typeMatch);
+            $token = (string)++$fileToken;
+            $files[$token] = [
+                'name' => basename(str_replace('\\', '/', $filename)),
+                'tmp_name' => $tmp,
+                'size' => strlen($body),
+                'error' => UPLOAD_ERR_OK,
+                'type' => trim($typeMatch[1] ?? 'application/octet-stream'),
+            ];
+            $filePairs[] = rawurlencode($name) . '=' . rawurlencode($token);
+        }
+
+        if ($postPairs) {
+            parse_str(implode('&', $postPairs), $post);
+            $this->data['post'] = $this->sanitizeInput($post);
+        }
+        if ($filePairs) {
+            parse_str(implode('&', $filePairs), $fileTree);
+            array_walk_recursive($fileTree, static function (&$value) use ($files): void {
+                if (is_string($value) && isset($files[$value])) {
+                    $value = $files[$value];
+                }
+            });
+            $this->data['files'] = $fileTree;
+        }
+    }
+
+    protected function sanitizeInput(array $input): array
+    {
+        array_walk_recursive($input, static function (&$value): void {
+            if (is_string($value)) {
+                $value = str_replace("\0", '', $value);
+            }
+        });
+        return $input;
+    }
+
+    protected static function isTrustedProxy(string $ip): bool
+    {
+        foreach (static::$trustedProxies as $trusted) {
+            if ($trusted === '*' || $trusted === $ip || static::ipMatchesCidr($ip, $trusted)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    protected static function ipMatchesCidr(string $ip, string $cidr): bool
+    {
+        if (!str_contains($cidr, '/')) return false;
+        [$network, $prefix] = explode('/', $cidr, 2);
+        $ipBinary = @inet_pton($ip);
+        $networkBinary = @inet_pton($network);
+        if ($ipBinary === false || $networkBinary === false || strlen($ipBinary) !== strlen($networkBinary) || !ctype_digit($prefix)) {
+            return false;
+        }
+        $bits = (int)$prefix;
+        $maxBits = strlen($ipBinary) * 8;
+        if ($bits < 0 || $bits > $maxBits) return false;
+        $bytes = intdiv($bits, 8);
+        $remaining = $bits % 8;
+        if ($bytes > 0 && substr($ipBinary, 0, $bytes) !== substr($networkBinary, 0, $bytes)) return false;
+        if ($remaining === 0) return true;
+        $mask = (0xff << (8 - $remaining)) & 0xff;
+        return (ord($ipBinary[$bytes]) & $mask) === (ord($networkBinary[$bytes]) & $mask);
+    }
+
+    protected static function normalizeForwardedIp(string $candidate): ?string
+    {
+        $candidate = trim($candidate, " \t\"");
+        if (str_starts_with($candidate, '[') && ($end = strpos($candidate, ']')) !== false) {
+            $candidate = substr($candidate, 1, $end - 1);
+        } elseif (substr_count($candidate, ':') === 1 && preg_match('/^(.+):\d+$/', $candidate, $match)) {
+            $candidate = $match[1];
+        }
+        return filter_var($candidate, FILTER_VALIDATE_IP) ? $candidate : null;
+    }
+
     public function __toString(): string
     {
-        // Вернуть буфер
         return $this->buffer;
     }
 
-    /**
-     * Getter.
-     *
-     * @return mixed|null
-     */
-    public function __get(string $name)
+    public function __get(string $name): mixed
     {
-        // Вернуть свойство с указанным именем или null, если оно не найдено
         return $this->properties[$name] ?? null;
     }
 
-    /**
-     * Setter.
-     *
-     * @return void
-     */
-    public function __set(string $name, mixed $value)
+    public function __set(string $name, mixed $value): void
     {
-        // Установить свойство с указанным именем в указанное значение
         $this->properties[$name] = $value;
     }
 
-    /**
-     * Isset.
-     *
-     * @return bool
-     */
-    public function __isset(string $name)
+    public function __isset(string $name): bool
     {
-        // Вернуть true, если свойство с указанным именем установлено, иначе вернуть false
         return isset($this->properties[$name]);
     }
 
-    /**
-     * Unset.
-     *
-     * @return void
-     */
-    public function __unset(string $name)
+    public function __unset(string $name): void
     {
-        // Удалить свойство с указанным именем
         unset($this->properties[$name]);
     }
 
-    /**
-     * __wakeup.
-     *
-     * @return void
-     */
-    public function __wakeup()
+    public function __wakeup(): void
     {
-        // Установить безопасность в false
         $this->isSafe = false;
     }
 
-    /**
-     * __clone.
-     *
-     * @return void
-     */
+    public function __unserialize(array $data): void
+    {
+        $this->isSafe = false;
+    }
+
     public function __clone()
     {
         if ($this->isDirty) {
@@ -1168,32 +780,22 @@ class Request implements Stringable
         }
     }
 
-    /**
-     * __destruct.
-     */
+    /** Освобождает context и временные upload-файлы. Безопасно вызывать повторно. */
     public function destroy(): void
     {
-        if ($this->context) {
-            $this->context = [];
-        }
+        $this->context = [];
+        $this->properties = [];
+        $this->connection = null;
 
-        if ($this->properties) {
-            $this->properties = [];
-        }
-
-        // Если файлы установлены и безопасность включена, очистить кэш статуса файла и удалить временные файлы
-        if (isset($this->data['files']) && $this->isSafe) {
-            // Очистить кэш статуса файла
+        if ($this->isSafe && isset($this->data['files'])) {
             clearstatcache();
-
-            // Обойти все файлы рекурсивно и удалить временные файлы
-            array_walk_recursive($this->data['files'], function ($value, $key): void {
-                // Если ключ равен 'tmp_name' и значение является файлом, удалить файл
-                if ($key === 'tmp_name' && is_file($value)) {
-                    unlink($value);
+            array_walk_recursive($this->data['files'], static function ($value, $key): void {
+                if ($key === 'tmp_name' && is_string($value) && is_file($value)) {
+                    @unlink($value);
                 }
             });
         }
+        unset($this->data['files']);
     }
 
     public function __destruct()

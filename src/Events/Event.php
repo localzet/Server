@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,280 +28,216 @@
 
 namespace localzet\Server\Events;
 
-use Event as LibEvent;
-use EventBase;
 use RuntimeException;
 use Throwable;
-use function class_exists;
-use function count;
 
 /**
- * Класс Windows реализует интерфейс EventInterface и представляет select event loop.
+ * Native event loop на PECL ext-event/libevent.
+ *
+ * В отличие от старой modernized-заглушки этот класс действительно работает
+ * через EventBase/Event. Явный выбор `event` поэтому больше не маскируется под
+ * Revolt: отсутствие extension приводит к fail-fast ещё в EventLoopFactory.
  */
 final class Event implements EventInterface
 {
-    /**
-     * Массив всех обработчиков событий чтения.
-     *
-     * @var array<int, LibEvent>
-     */
+    private \EventBase $eventBase;
+
+    /** @var array<int,\Event> */
     private array $readEvents = [];
 
-    /**
-     * Массив всех обработчиков событий записи.
-     *
-     * @var array<int, LibEvent>
-     */
+    /** @var array<int,\Event> */
     private array $writeEvents = [];
 
-    /**
-     * Массив всех обработчиков сигналов.
-     *
-     * @var array<int, LibEvent>
-     */
-    private array $eventSignal = [];
+    /** @var array<int,\Event> */
+    private array $signalEvents = [];
 
-    /**
-     * Массив всех таймеров.
-     *
-     * @var array<int, LibEvent>
-     */
-    private array $eventTimer = [];
+    /** @var array<int,\Event> */
+    private array $timerEvents = [];
 
-    /**
-     * Идентификатор таймера.
-     */
-    private int $timerId = 0;
+    private int $nextTimerId = 1;
 
-    /**
-     * Обработчик ошибок.
-     *
-     * @var ?callable
-     */
+    /** @var null|callable(Throwable):void */
     private $errorHandler = null;
 
-    private readonly EventBase $eventBase;
-
-    private string $eventClassName = '';
-
-    /**
-     * Конструктор.
-     */
     public function __construct()
     {
-        if (class_exists('\\\\Event', false)) {
-            $className = '\\\\Event';
-        } else {
-            $className = '\Event';
+        if (!class_exists(\EventBase::class) || !class_exists(\Event::class)) {
+            throw new RuntimeException('ext-event is required for the Localzet event backend.');
         }
-
-        $this->eventClassName = $className;
-        if (class_exists('\\\\EventBase', false)) {
-            $className = '\\\\EventBase';
-        } else {
-            $className = '\EventBase';
-        }
-
-        $this->eventBase = new $className();
+        $this->eventBase = new \EventBase();
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function delay(float $delay, callable $func, array $args = []): int
-    {
-        $className = $this->eventClassName;
-        $timerId = $this->timerId++;
-        $event = new $className($this->eventBase, -1, $className::TIMEOUT, function () use ($func, $args, $timerId): void {
-            unset($this->eventTimer[$timerId]);
-            $this->safeCall($func, $args);
-        });
-        if (!$event->addTimer($delay)) {
-            throw new RuntimeException("Event::addTimer($delay) failed");
-        }
-
-        $this->eventTimer[$timerId] = $event;
-        return $timerId;
-    }
-
-    private function safeCall(callable $func, array $args = []): void
-    {
-        try {
-            $func(...$args);
-        } catch (Throwable $throwable) {
-            if ($this->errorHandler === null) {
-                echo $throwable;
-            } else {
-                ($this->errorHandler)($throwable);
-            }
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function repeat(float $interval, callable $func, array $args = []): int
-    {
-        $className = $this->eventClassName;
-        $timerId = $this->timerId++;
-        $event = new $className($this->eventBase, -1, $className::TIMEOUT | $className::PERSIST, function () use ($func, $args) {
-            $this->safeCall($func, $args);
-        });
-        if (!$event->addTimer($interval)) {
-            throw new RuntimeException("Event::addTimer($interval) failed");
-        }
-
-        $this->eventTimer[$timerId] = $event;
-        return $timerId;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offRepeat(int $timerId): bool
-    {
-        return $this->offDelay($timerId);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offDelay(int $timerId): bool
-    {
-        if (isset($this->eventTimer[$timerId])) {
-            $this->eventTimer[$timerId]->del();
-            unset($this->eventTimer[$timerId]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onReadable($stream, callable $func): void
-    {
-        $className = $this->eventClassName;
-        $fdKey = (int)$stream;
-        $event = new $className($this->eventBase, $stream, $className::READ | $className::PERSIST, fn() => $this->safeCall($func, [$stream]));
-        if ($event->add()) {
-            $this->readEvents[$fdKey] = $event;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offReadable($stream): bool
-    {
-        $fdKey = (int)$stream;
-        if (isset($this->readEvents[$fdKey])) {
-            $this->readEvents[$fdKey]->del();
-            unset($this->readEvents[$fdKey]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onWritable($stream, callable $func): void
-    {
-        $className = $this->eventClassName;
-        $fdKey = (int)$stream;
-        $event = new $className($this->eventBase, $stream, $className::WRITE | $className::PERSIST, fn() => $this->safeCall($func, [$stream]));
-        if ($event->add()) {
-            $this->writeEvents[$fdKey] = $event;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offWritable($stream): bool
-    {
-        $fdKey = (int)$stream;
-        if (isset($this->writeEvents[$fdKey])) {
-            $this->writeEvents[$fdKey]->del();
-            unset($this->writeEvents[$fdKey]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function onSignal(int $signal, callable $func): void
-    {
-        $className = $this->eventClassName;
-        $fdKey = $signal;
-        $event = $className::signal($this->eventBase, $signal, fn() => $this->safeCall($func, [$signal]));
-        if ($event->add()) {
-            $this->eventSignal[$fdKey] = $event;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function run(): void
     {
         $this->eventBase->loop();
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function stop(): void
     {
         $this->eventBase->exit();
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    public function delay(float $delay, callable $callback, array $args = []): int
+    {
+        return $this->addTimer($delay, false, $callback, $args);
+    }
+
+    public function repeat(float $interval, callable $callback, array $args = []): int
+    {
+        return $this->addTimer($interval, true, $callback, $args);
+    }
+
+    private function addTimer(float $interval, bool $repeat, callable $callback, array $args): int
+    {
+        if ($interval < 0) {
+            throw new \InvalidArgumentException('Timer interval must be >= 0.');
+        }
+
+        $timerId = $this->nextTimerId++;
+        $flags = \Event::TIMEOUT | ($repeat ? \Event::PERSIST : 0);
+        $event = new \Event(
+            $this->eventBase,
+            -1,
+            $flags,
+            function () use ($timerId, $repeat, $callback, $args): void {
+                if (!$repeat) {
+                    unset($this->timerEvents[$timerId]);
+                }
+                $this->safeCall($callback, ...$args);
+            }
+        );
+
+        if (!$event->addTimer(max($interval, 0.000001))) {
+            throw new RuntimeException('Unable to register ext-event timer.');
+        }
+
+        $this->timerEvents[$timerId] = $event;
+        return $timerId;
+    }
+
+    public function offDelay(int $timerId): bool
+    {
+        if (!isset($this->timerEvents[$timerId])) {
+            return false;
+        }
+        $this->timerEvents[$timerId]->del();
+        unset($this->timerEvents[$timerId]);
+        return true;
+    }
+
+    public function offRepeat(int $timerId): bool
+    {
+        return $this->offDelay($timerId);
+    }
+
     public function deleteAllTimer(): void
     {
-        foreach ($this->eventTimer as $event) {
+        foreach ($this->timerEvents as $event) {
             $event->del();
         }
-
-        $this->eventTimer = [];
+        $this->timerEvents = [];
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function offSignal(int $signal): bool
-    {
-        $fdKey = $signal;
-        if (isset($this->eventSignal[$fdKey])) {
-            $this->eventSignal[$fdKey]->del();
-            unset($this->eventSignal[$fdKey]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function getTimerCount(): int
     {
-        return count($this->eventTimer);
+        return count($this->timerEvents);
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    public function onReadable($stream, callable $callback): void
+    {
+        $id = (int)$stream;
+        $this->offReadable($stream);
+
+        $event = new \Event(
+            $this->eventBase,
+            $stream,
+            \Event::READ | \Event::PERSIST,
+            fn() => $this->safeCall($callback, $stream)
+        );
+        if (!$event->add()) {
+            throw new RuntimeException('Unable to register ext-event readable watcher.');
+        }
+        $this->readEvents[$id] = $event;
+    }
+
+    public function offReadable($stream): bool
+    {
+        $id = (int)$stream;
+        if (!isset($this->readEvents[$id])) {
+            return false;
+        }
+        $this->readEvents[$id]->del();
+        unset($this->readEvents[$id]);
+        return true;
+    }
+
+    public function onWritable($stream, callable $callback): void
+    {
+        $id = (int)$stream;
+        $this->offWritable($stream);
+
+        $event = new \Event(
+            $this->eventBase,
+            $stream,
+            \Event::WRITE | \Event::PERSIST,
+            fn() => $this->safeCall($callback, $stream)
+        );
+        if (!$event->add()) {
+            throw new RuntimeException('Unable to register ext-event writable watcher.');
+        }
+        $this->writeEvents[$id] = $event;
+    }
+
+    public function offWritable($stream): bool
+    {
+        $id = (int)$stream;
+        if (!isset($this->writeEvents[$id])) {
+            return false;
+        }
+        $this->writeEvents[$id]->del();
+        unset($this->writeEvents[$id]);
+        return true;
+    }
+
+    public function onSignal(int $signal, callable $callback): void
+    {
+        $this->offSignal($signal);
+        $event = \Event::signal(
+            $this->eventBase,
+            $signal,
+            fn() => $this->safeCall($callback, $signal)
+        );
+        if (!$event->add()) {
+            throw new RuntimeException("Unable to register ext-event signal {$signal}.");
+        }
+        $this->signalEvents[$signal] = $event;
+    }
+
+    public function offSignal(int $signal): bool
+    {
+        if (!isset($this->signalEvents[$signal])) {
+            return false;
+        }
+        $this->signalEvents[$signal]->del();
+        unset($this->signalEvents[$signal]);
+        return true;
+    }
+
     public function setErrorHandler(callable $errorHandler): void
     {
         $this->errorHandler = $errorHandler;
+    }
+
+    private function safeCall(callable $callback, mixed ...$args): void
+    {
+        try {
+            $callback(...$args);
+        } catch (Throwable $e) {
+            if ($this->errorHandler !== null) {
+                ($this->errorHandler)($e);
+                return;
+            }
+            throw $e;
+        }
     }
 }

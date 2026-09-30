@@ -29,18 +29,9 @@ declare(strict_types=1);
 namespace localzet;
 
 use localzet\Server\Events\EventInterface;
-use localzet\Server\Events\Linux;
-use localzet\Server\Events\Swoole;
+use localzet\Server\Events\Select;
+use localzet\Server\Events\SuspensionCapableInterface;
 use RuntimeException;
-use Swoole\Coroutine\System;
-use Throwable;
-
-use function function_exists;
-use function pcntl_alarm;
-use function pcntl_signal;
-
-use const PHP_INT_MAX;
-use const SIGALRM;
 
 /**
  * Таймеры Localzet Server.
@@ -54,49 +45,17 @@ use const SIGALRM;
  */
 final class Timer
 {
-    /**
-     * Задачи, основанные на сигнале ALARM
-     * [
-     *   run_time => [[$func, $args, $persistent, time_interval], ... ],
-     *   ...
-     * ]
-     */
-    protected static array $tasks = [];
-
-    /**
-     * Событие
-     */
+    /** Событийная петля, которой принадлежат таймеры текущего процесса. */
     protected static ?EventInterface $event = null;
 
     /**
-     * ID таймера
-     */
-    protected static int $timerId = 0;
-
-    /**
-     * Статус таймеров
-     * [
-     *   timer_id => bool,
-     *   ...
-     * ]
-     */
-    protected static array $status = [];
-
-    /**
-     * Инициализация
+     * Инициализация.
      *
      * @param EventInterface|null $event Явная петля событий или globalEvent Server.
      */
     public static function init(?EventInterface $event = null): void
     {
-        if ($event) {
-            self::$event = $event;
-            return;
-        }
-
-        if (function_exists('pcntl_signal')) {
-            pcntl_signal(SIGALRM, self::signalHandle(...), false);
-        }
+        self::$event = $event ?? Server::$globalEvent ?? new Select();
     }
 
     /**
@@ -109,6 +68,8 @@ final class Timer
      */
     public static function repeat(float $timeInterval, callable $func, array $args = []): int
     {
+        self::validateInterval($timeInterval);
+        self::ensureEvent();
         return self::$event->repeat($timeInterval, $func, $args);
     }
 
@@ -122,6 +83,8 @@ final class Timer
      */
     public static function delay(float $timeInterval, callable $func, array $args = []): int
     {
+        self::validateInterval($timeInterval);
+        self::ensureEvent();
         return self::$event->delay($timeInterval, $func, $args);
     }
 
@@ -134,10 +97,7 @@ final class Timer
      */
     public static function signalHandle(): void
     {
-        if (!self::$event) {
-            pcntl_alarm(1);
-            self::tick();
-        }
+        // Намеренно пусто: event loop уже является единственным scheduler'ом.
     }
 
     /**
@@ -149,38 +109,18 @@ final class Timer
      * @param bool $persistent true — повторяющийся timer, false — one-shot.
      * @return int Идентификатор таймера.
      */
-    public static function add(float $timeInterval, callable $func, ?array $args = [], bool $persistent = true): int
+    public static function add(
+        float    $timeInterval,
+        callable $func,
+        ?array   $args = [],
+        bool     $persistent = true,
+    ): int
     {
-        if ($timeInterval < 0) {
-            throw new RuntimeException('$timeInterval не может быть меньше 0');
-        }
+        self::validateInterval($timeInterval);
 
-        $args ??= [];
-
-        if (self::$event) {
-            return $persistent
-                ? self::$event->repeat($timeInterval, $func, $args)
-                : self::$event->delay($timeInterval, $func, $args);
-        }
-
-        if (!Server::getAllServers()) {
-            throw new RuntimeException('Таймер может использоваться только в окружении Localzet');
-        }
-
-        if (empty(self::$tasks)) {
-            pcntl_alarm(1);
-        }
-
-        $runTime = time() + $timeInterval;
-        if (!isset(self::$tasks[$runTime])) {
-            self::$tasks[$runTime] = [];
-        }
-
-        self::$timerId = self::$timerId === PHP_INT_MAX ? 1 : ++self::$timerId;
-        self::$status[self::$timerId] = true;
-        self::$tasks[$runTime][self::$timerId] = [$func, $args, $persistent, $timeInterval];
-
-        return self::$timerId;
+        return $persistent
+            ? self::repeat($timeInterval, $func, $args ?? [])
+            : self::delay($timeInterval, $func, $args ?? []);
     }
 
     /**
@@ -191,104 +131,68 @@ final class Timer
      * Для обычных loop'ов используется блокирующий usleep().
      *
      * @param float $delay Задержка в секундах.
-     * @throws Throwable
      */
     public static function sleep(float $delay): void
     {
-        if ($delay < 0) {
-            throw new RuntimeException('$delay не может быть меньше 0');
-        }
-
+        self::validateInterval($delay);
         if ($delay === 0.0) {
             return;
         }
 
-        switch (Server::$eventLoopClass) {
-            case Linux::class:
-                if (Server::$globalEvent === null) {
-                    throw new RuntimeException('Глобальный цикл событий не инициализирован');
-                }
-                $suspension = Server::$globalEvent->getSuspension();
-                static::add($delay, function () use ($suspension): void {
-                    $suspension->resume();
-                }, [], false);
-                $suspension->suspend();
-                return;
-            case Swoole::class:
-                System::sleep($delay);
-                return;
-            default:
-                usleep((int)($delay * 1000000));
-                return;
-        }
-    }
-
-    /**
-     * Тик
-     */
-    protected static function tick(): void
-    {
-        if (empty(self::$tasks)) {
-            pcntl_alarm(0);
+        self::ensureEvent();
+        if (self::$event instanceof SuspensionCapableInterface) {
+            self::$event->sleep($delay);
             return;
         }
 
-        $timeNow = time();
-        foreach (self::$tasks as $runTime => $taskData) {
-            if ($timeNow >= $runTime) {
-                foreach ($taskData as $index => $oneTask) {
-                    [$taskFunc, $taskArgs, $persistent, $timeInterval] = $oneTask;
-                    try {
-                        $taskFunc(...$taskArgs);
-                    } catch (Throwable $e) {
-                        Server::safeEcho((string)$e);
-                    }
-
-                    if ($persistent && !empty(self::$status[$index])) {
-                        $newRunTime = time() + $timeInterval;
-                        if (!isset(self::$tasks[$newRunTime])) {
-                            self::$tasks[$newRunTime] = [];
-                        }
-
-                        self::$tasks[$newRunTime][$index] = [$taskFunc, $taskArgs, $persistent, $timeInterval];
-                    }
-                }
-
-                unset(self::$tasks[$runTime]);
-            }
-        }
+        usleep((int)round($delay * 1_000_000));
     }
 
     /**
-     * Удалить таймер
+     * Удалить таймер.
+     *
+     * @param int $timerId Идентификатор таймера.
      */
     public static function del(int $timerId): bool
     {
-        if (self::$event) {
-            return self::$event->offDelay($timerId);
-        }
+        self::ensureEvent();
 
-        foreach (self::$tasks as $runTime => $taskData) {
-            if (isset($taskData[$timerId])) {
-                unset(self::$tasks[$runTime][$timerId]);
-            }
-        }
+        // Backend'ы используют единое пространство timer ID. Некоторые старые
+        // реализации различали delay/repeat, поэтому сохраняем оба вызова.
+        return self::$event->offDelay($timerId) || self::$event->offRepeat($timerId);
+    }
 
-        unset(self::$status[$timerId]);
-
-        return true;
+    /** Удалить все таймеры текущего процесса. */
+    public static function delAll(): void
+    {
+        self::ensureEvent();
+        self::$event->deleteAllTimer();
     }
 
     /**
-     * Удалить все таймеры
+     * Получить диагностическую информацию о таймерах.
+     *
+     * @return array{count:int}
      */
-    public static function delAll(): void
+    public static function getAll(): array
     {
-        self::$tasks = self::$status = [];
-        if (function_exists('pcntl_alarm')) {
-            pcntl_alarm(0);
-        }
+        self::ensureEvent();
+        return ['count' => self::$event->getTimerCount()];
+    }
 
-        self::$event?->deleteAllTimer();
+    /** Гарантирует наличие event loop даже при использовании Timer вне runAll(). */
+    private static function ensureEvent(): void
+    {
+        if (self::$event === null) {
+            self::init();
+        }
+    }
+
+    /** Проверяет пользовательский интервал до передачи backend'у. */
+    private static function validateInterval(float $interval): void
+    {
+        if ($interval < 0) {
+            throw new RuntimeException('Timer interval cannot be negative.');
+        }
     }
 }

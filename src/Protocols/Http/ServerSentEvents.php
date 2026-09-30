@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -28,65 +30,32 @@ namespace localzet\Server\Protocols\Http;
 
 use Stringable;
 
-/**
- * Класс ServerSentEvents
- * @package localzet\Server\Protocols\Http
- */
-class ServerSentEvents implements Stringable
+/** Одно Server-Sent Event сообщение. */
+final class ServerSentEvents implements Stringable
 {
-    /**
-     * Конструктор ServerSentEvents.
-     *
-     * @param array $data Данные для создания объекта ServerSentEvents. Пример: ['event' => 'ping', 'data' => 'какие-то данные', 'id' => 1000, 'retry' => 5000]
-     */
     public function __construct(
-        /**
-         * Данные.
-         */
-        protected array $data
+        public string  $data,
+        public ?string $event = null,
+        public ?string $id = null,
+        public ?int    $retry = null,
     )
     {
     }
 
-    /**
-     * __toString.
-     *
-     * Возвращает строковое представление объекта ServerSentEvents.
-     *
-     * @return string Строковое представление объекта ServerSentEvents.
-     */
     public function __toString(): string
     {
-        // Инициализируем буфер пустой строкой.
-        $buffer = '';
-        // Получаем данные из свойства data.
-        $data = $this->data;
-        // Если в данных есть пустой ключ, добавляем его значение в буфер.
-        if (isset($data[''])) {
-            $buffer = ": {$data['']}\n";
+        $out = '';
+        if ($this->event !== null) $out .= 'event: ' . $this->sanitize($this->event) . "\n";
+        if ($this->id !== null) $out .= 'id: ' . $this->sanitize($this->id) . "\n";
+        if ($this->retry !== null) $out .= 'retry: ' . max(0, $this->retry) . "\n";
+        foreach (preg_split('/\R/', $this->data) ?: [''] as $line) {
+            $out .= 'data: ' . $line . "\n";
         }
+        return $out . "\n";
+    }
 
-        // Если в данных есть ключ 'event', добавляем его значение в буфер.
-        if (isset($data['event'])) {
-            $buffer .= "event: {$data['event']}\n";
-        }
-
-        // Если в данных есть ключ 'id', добавляем его значение в буфер.
-        if (isset($data['id'])) {
-            $buffer .= "id: {$data['id']}\n";
-        }
-
-        // Если в данных есть ключ 'retry', добавляем его значение в буфер.
-        if (isset($data['retry'])) {
-            $buffer .= "retry: {$data['retry']}\n";
-        }
-
-        // Если в данных есть ключ 'data', добавляем его значение в буфер, заменяя все переносы строк на "\ndata: ".
-        if (isset($data['data'])) {
-            $buffer .= 'data: ' . str_replace("\n", "\ndata: ", $data['data']) . "\n";
-        }
-
-        // Возвращаем буфер с дополнительным переносом строки на конце.
-        return $buffer . "\n";
+    protected function sanitize(string $value): string
+    {
+        return str_replace(["\r", "\n"], '', $value);
     }
 }

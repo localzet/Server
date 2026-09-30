@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /**
  * @package     Localzet Server
@@ -26,43 +28,12 @@
 
 namespace localzet\Server\Connection;
 
-use JsonSerializable;
 use localzet\Server;
 use localzet\Server\Events\EventInterface;
-use localzet\Server\Protocols\Http;
-use localzet\Server\Protocols\Http\Request;
+use JsonSerializable;
 use RuntimeException;
 use stdClass;
 use Throwable;
-use function ceil;
-use function count;
-use function fclose;
-use function feof;
-use function fread;
-use function function_exists;
-use function fwrite;
-use function is_object;
-use function is_resource;
-use function key;
-use function posix_getpid;
-use function restore_error_handler;
-use function set_error_handler;
-use function stream_set_blocking;
-use function stream_set_read_buffer;
-use function stream_socket_enable_crypto;
-use function stream_socket_get_name;
-use function strlen;
-use function strrchr;
-use function strrpos;
-use function substr;
-use function var_export;
-use const PHP_INT_MAX;
-use const STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT;
-use const STREAM_CRYPTO_METHOD_TLSv1_1_SERVER;
-use const STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
-use const STREAM_CRYPTO_METHOD_TLSv1_2_SERVER;
-use const STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
-use const STREAM_CRYPTO_METHOD_TLSv1_3_SERVER;
 
 /**
  * Неблокирующее TCP/Unix/SSL соединение.
@@ -72,568 +43,300 @@ use const STREAM_CRYPTO_METHOD_TLSv1_3_SERVER;
  */
 class TcpConnection extends ConnectionInterface implements JsonSerializable
 {
-    /**
-     * Размер буфера чтения.
-     *
-     * @var int
-     */
-    public const READ_BUFFER_SIZE = 87380;
-
-    /**
-     * Начальный статус.
-     *
-     * @var int
-     */
     public const STATUS_INITIAL = 0;
-
-    /**
-     * Статус соединения в процессе установки.
-     *
-     * @var int
-     */
     public const STATUS_CONNECTING = 1;
-
-    /**
-     * Статус установленного соединения.
-     *
-     * @var int
-     */
     public const STATUS_ESTABLISHED = 2;
+    public const STATUS_ENDING = 4;
+    public const STATUS_CLOSING = 8;
+    public const STATUS_CLOSED = 16;
 
-    /**
-     * Статус закрытия соединения.
-     *
-     * @var int
-     */
-    public const STATUS_CLOSING = 4;
+    public const READ_BUFFER_SIZE = 87380;
+    public const MAX_SEND_BUFFER_SIZE = 1048576;
+    public const DEFAULT_MAX_PACKAGE_SIZE = 10 * 1024 * 1024;
+    public const MAX_CACHE_SIZE = 512;
+    public const MAX_CACHE_STRING_LENGTH = 2048;
+    public const TCP_KEEPALIVE_INTERVAL = 55;
 
-    /**
-     * Статус закрытого соединения.
-     *
-     * @var int
-     */
-    public const STATUS_CLOSED = 8;
-
-    /**
-     * Массив для преобразования статуса в строковое представление.
-     *
-     * @var array
-     */
     public const STATUS_TO_STRING = [
         self::STATUS_INITIAL => 'INITIAL',
         self::STATUS_CONNECTING => 'CONNECTING',
         self::STATUS_ESTABLISHED => 'ESTABLISHED',
+        self::STATUS_ENDING => 'ENDING',
         self::STATUS_CLOSING => 'CLOSING',
         self::STATUS_CLOSED => 'CLOSED',
     ];
 
-    /**
-     * Максимальная длина строки для кэша.
-     *
-     * @var int
-     */
-    public const MAX_CACHE_STRING_LENGTH = 2048;
+    /** Defaults can be tuned globally before accepting connections. */
+    public static int $defaultMaxSendBufferSize = self::MAX_SEND_BUFFER_SIZE;
+    public static int $defaultMaxPackageSize = self::DEFAULT_MAX_PACKAGE_SIZE;
+    public static float $defaultLingerTimeout = 1.0;
 
-    /**
-     * Максимальный размер кэша.
-     *
-     * @var int
-     */
-    public const MAX_CACHE_SIZE = 512;
-
-    /**
-     * Интервал keepalive.
-     */
-    public const TCP_KEEPALIVE_INTERVAL = 55;
-
-    /**
-     * Размер буфера отправки по умолчанию.
-     */
-    public static int $defaultMaxSendBufferSize = 1048576;
-
-    /**
-     * Максимальный допустимый размер пакета по умолчанию.
-     */
-    public static int $defaultMaxPackageSize = 10485760;
-
-    /**
-     * Массив всех экземпляров соединения.
-     */
+    /** Все активные TCP connections текущего процесса. */
     public static array $connections = [];
 
-    /**
-     * Идентификатор записывателя.
-     */
     protected static int $idRecorder = 1;
 
-    /**
-     * Событие, возникающее при успешном установлении сокетного соединения.
-     *
-     * @var ?callable
-     */
-    public $onConnect = null;
+    public int $id;
+    public ?Server $server = null;
+    public string $transport = 'tcp';
+    public int $bytesRead = 0;
+    public int $bytesWritten = 0;
+    public int $maxSendBufferSize = self::MAX_SEND_BUFFER_SIZE;
+    public int $maxPackageSize = self::DEFAULT_MAX_PACKAGE_SIZE;
+    public float $lingerTimeout = 1.0;
+    public array $headers = [];
+    public stdClass $context;
 
-    /**
-     * Событие, возникающее после успешного завершения рукопожатия WebSocket (работает только для протокола ws).
-     *
-     * @var ?callable
-     */
+    public $onBufferFull = null;
+    public $onBufferDrain = null;
     public $onWebSocketConnect = null;
     public $onWebSocketConnected = null;
     public $onWebSocketClose = null;
+    public $onWebSocketPing = null;
+    public $onWebSocketPong = null;
 
-    /**
-     * Событие, возникающее при получении данных.
-     *
-     * @var ?callable
-     */
-    public $onMessage = null;
-
-    /**
-     * Событие, возникающее при получении пакета FIN от другого конца сокета.
-     *
-     * @var ?callable
-     */
-    public $onClose = null;
-
-    /**
-     * Событие, возникающее при возникновении ошибки в соединении.
-     *
-     * @var ?callable
-     */
-    public $onError = null;
-
-    /**
-     * Событие, возникающее при заполнении отправочного буфера.
-     *
-     * @var ?callable
-     */
-    public $onBufferFull = null;
-
-    /**
-     * Событие, возникающее при опустошении отправочного буфера.
-     *
-     * @var ?callable
-     */
-    public $onBufferDrain = null;
-
-    /**
-     * Транспорт (tcp/udp/unix/ssl).
-     */
-    public string $transport = 'tcp';
-
-    /**
-     * К какому серверу принадлежит соединение.
-     */
-    public ?Server $server = null;
-
-    /**
-     * Прочитанные байты.
-     */
-    public int $bytesRead = 0;
-
-    /**
-     * Записанные байты.
-     */
-    public int $bytesWritten = 0;
-
-    /**
-     * Идентификатор соединения.
-     */
-    public int $id = 0;
-
-    /**
-     * Задает максимальный размер отправочного буфера для текущего соединения.
-     * Событие onBufferFull будет возникать, когда буфер отправки будет полон.
-     */
-    public int $maxSendBufferSize = 1048576;
-
-    /**
-     * Контекст.
-     */
-    public ?stdClass $context = null;
-
-    /**
-     * Заголовки.
-     */
-    public array $headers = [];
-
-    /**
-     * Запрос.
-     */
-    public ?Request $request = null;
-
-    protected bool $isSafe = true;
-
-    /**
-     * Задает максимальный допустимый размер пакета для текущего соединения.
-     */
-    public int $maxPackageSize = 1048576;
-
-    /**
-     * Копия $server->id, используется для очистки соединения в $server->connections.
-     */
-    protected int $realId = 0;
-
-    /**
-     * Буфер отправки.
-     */
-    protected string $sendBuffer = '';
-
-    /**
-     * Буфер приема.
-     */
-    protected string $recvBuffer = '';
-
-    /**
-     * Длина текущего пакета.
-     */
-    protected int $currentPackageLength = 0;
-
-    /**
-     * Статус соединения.
-     */
+    /** @var resource|null */
+    protected $socket;
+    public ?EventInterface $eventLoop = null;
     protected int $status = self::STATUS_ESTABLISHED;
+    protected string $recvBuffer = '';
+    protected string $sendBuffer = '';
+    protected int $currentPackageLength = 0;
+    protected int $endLingerTimerId = 0;
+    protected int $idleTimerId = 0;
+    protected int $frameTimerId = 0;
+    protected int $tlsHandshakeTimerId = 0;
+    protected bool $endWriteShutdown = false;
+    protected bool $paused = false;
+    protected bool $destroyed = false;
+    protected bool $sslHandshakeCompleted = false;
+    protected float $idleTimeout = 0.0;
+    protected float $frameTimeout = 0.0;
+    protected float $tlsHandshakeTimeout = 10.0;
+    protected float $lastActivityAt = 0.0;
+    protected ?string $remoteAddress = null;
+    protected ?string $localAddress = null;
 
-    /**
-     * Соединение приостановлено?
-     */
-    protected bool $isPaused = false;
-
-    /**
-     * SSL-рукопожатие совержено?
-     */
-    protected bool|int $sslHandshakeCompleted = false;
-
-    /**
-     * Конструктор.
-     *
-     * @param resource $socket
-     */
-    public function __construct(
-        EventInterface   $event,
-        protected        $socket,
-        protected string $remoteAddress = ''
-    )
+    public function __construct(EventInterface $eventLoop, $socket, string $remoteAddress = '')
     {
-        ++self::$statistics['connection_count'];
-        $this->id = $this->realId = self::$idRecorder++;
-        if (self::$idRecorder === PHP_INT_MAX) {
-            self::$idRecorder = 0;
+        if (!is_resource($socket)) {
+            throw new \InvalidArgumentException('TcpConnection requires a valid stream resource.');
         }
+
+        $this->eventLoop = $eventLoop;
+        $this->socket = $socket;
+        $this->context = new stdClass();
+        $this->id = self::nextConnectionId();
+        $this->remoteAddress = $remoteAddress !== '' ? $remoteAddress : null;
+        $this->maxSendBufferSize = self::$defaultMaxSendBufferSize;
+        $this->maxPackageSize = self::$defaultMaxPackageSize;
+        $this->lingerTimeout = self::$defaultLingerTimeout;
+        $this->lastActivityAt = microtime(true);
 
         stream_set_blocking($this->socket, false);
         stream_set_read_buffer($this->socket, 0);
-
-        $this->eventLoop = $event;
+        self::$statistics['connection_count']++;
+        self::$statistics['connection_total']++;
+        self::$connections[$this->id] = $this;
         $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
-
-        $this->maxSendBufferSize = self::$defaultMaxSendBufferSize;
-        $this->maxPackageSize = self::$defaultMaxPackageSize;
-        static::$connections[$this->id] = $this;
-        $this->context = new stdClass();
     }
 
-    /**
-     * Получить размер очереди буфера отправки.
-     */
-    public function getSendBufferQueueSize(): int
+    public function getStatus(bool $rawOutput = true): int|string
     {
-        return strlen($this->sendBuffer);
+        return $rawOutput ? $this->status : self::STATUS_TO_STRING[$this->status];
     }
 
-    /**
-     * Получить размер очереди буфера приема.
-     */
-    public function getRecvBufferQueueSize(): int
+    public function getEventLoop(): EventInterface
     {
-        return strlen($this->recvBuffer);
+        return $this->eventLoop;
     }
 
     /**
-     * Основной обработчик записи.
+     * Закрывает соединение, если по нему не было успешного I/O указанное время.
+     * Таймер отключён по умолчанию, поэтому long-lived sockets не меняют поведение.
+     */
+    public function setIdleTimeout(float $seconds): static
+    {
+        if ($seconds < 0) {
+            throw new \InvalidArgumentException('Idle timeout must be >= 0.');
+        }
+        $this->idleTimeout = $seconds;
+        $this->lastActivityAt = microtime(true);
+        $this->armIdleTimer();
+        return $this;
+    }
+
+    public function getIdleTimeout(): float
+    {
+        return $this->idleTimeout;
+    }
+
+    /**
+     * Ограничивает полное время сборки одного protocol frame.
      *
-     * @throws Throwable
+     * В отличие от idle timeout этот deadline не продлевается каждым новым байтом.
      */
-    public function baseWrite(): void
+    public function setFrameTimeout(float $seconds): static
     {
-        $len = 0;
+        if ($seconds < 0) {
+            throw new \InvalidArgumentException('Frame timeout must be >= 0.');
+        }
+        $this->frameTimeout = $seconds;
+        if ($seconds <= 0) {
+            $this->disarmFrameTimer();
+        } elseif ($this->protocol !== null && $this->recvBuffer !== '') {
+            $this->armFrameTimer();
+        }
+        return $this;
+    }
+
+    public function getFrameTimeout(): float
+    {
+        return $this->frameTimeout;
+    }
+
+    /** Ограничение времени TLS handshake; 0 полностью отключает deadline. */
+    public function setTlsHandshakeTimeout(float $seconds): static
+    {
+        if ($seconds < 0) {
+            throw new \InvalidArgumentException('TLS handshake timeout must be >= 0.');
+        }
+        $this->tlsHandshakeTimeout = $seconds;
+        return $this;
+    }
+
+    public function getLastActivityAt(): float
+    {
+        return $this->lastActivityAt;
+    }
+
+    public function send(mixed $data, bool $raw = false): ?bool
+    {
+        $closeAfterProtocolSend = false;
+        if (in_array($this->status, [self::STATUS_ENDING, self::STATUS_CLOSING, self::STATUS_CLOSED], true)) {
+            self::$statistics['send_fail']++;
+            return false;
+        }
+
         try {
-            if ($this->transport === 'ssl') {
-                $len = @fwrite($this->socket, $this->sendBuffer, 8192);
-            } else {
-                $len = @fwrite($this->socket, $this->sendBuffer);
+            if (!$raw && $this->protocol !== null) {
+                $protocol = $this->protocol;
+                $data = $protocol::encode($data, $this);
+                $closeAfterProtocolSend = (bool)($this->context->closeAfterProtocolSend ?? false);
+                unset($this->context->closeAfterProtocolSend);
             }
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            self::$statistics['throw_exception']++;
+            $this->emitError(0, 'Protocol encode failed: ' . $e->getMessage());
+            return false;
         }
 
-        if ($len === strlen($this->sendBuffer)) {
-            $this->bytesWritten += $len;
-            $this->eventLoop->offWritable($this->socket);
-            $this->sendBuffer = '';
-            // Попытка вызвать обратный вызов onBufferDrain, когда буфер отправки становится пустым.
-            if ($this->onBufferDrain) {
-                try {
-                    ($this->onBufferDrain)($this);
-                } catch (Throwable $e) {
-                    $this->error($e);
-                }
-            }
-
-            if ($this->status === self::STATUS_CLOSING) {
-                if (!empty($this->context->streamSending)) {
-                    return;
-                }
-
-                $this->destroy();
-            }
-
-            return;
+        if ($data === null || $data === '') {
+            return $this->finalizeProtocolSend(null, $closeAfterProtocolSend);
+        }
+        if (!is_string($data)) {
+            $data = (string)$data;
         }
 
-        if ($len > 0) {
-            $this->bytesWritten += $len;
-            $this->sendBuffer = substr($this->sendBuffer, $len);
-        } else {
-            ++self::$statistics['send_fail'];
+        // До завершения TCP/TLS establishment данные только буферизуются.
+        if ($this->status !== self::STATUS_ESTABLISHED
+            || ($this->transport === 'ssl' && !$this->sslHandshakeCompleted)) {
+            return $this->finalizeProtocolSend($this->bufferData($data), $closeAfterProtocolSend);
+        }
+
+        // Если в очереди уже есть данные, сохраняем порядок и только дописываем хвост.
+        if ($this->sendBuffer !== '') {
+            return $this->finalizeProtocolSend($this->bufferData($data), $closeAfterProtocolSend);
+        }
+
+        $written = @fwrite($this->socket, $data);
+        if ($written === false) {
+            self::$statistics['send_fail']++;
+            $this->emitError(0, 'Unable to write to socket.');
+            return false;
+        }
+
+        if ($written < strlen($data)) {
+            if ($written > 0) {
+                $this->bytesWritten += $written;
+                self::$statistics['bytes_written'] += $written;
+                $this->touchActivity();
+            }
+            return $this->finalizeProtocolSend(
+                $this->bufferData(substr($data, max(0, $written))),
+                $closeAfterProtocolSend
+            );
+        }
+
+        $this->bytesWritten += $written;
+        self::$statistics['bytes_written'] += $written;
+        if ($written > 0) {
+            $this->touchActivity();
+        }
+        return $this->finalizeProtocolSend(true, $closeAfterProtocolSend);
+    }
+
+    /**
+     * Завершает protocol-triggered close только после постановки текущего response
+     * в send path. Ошибка отправки не должна оставлять клиенту обрезанный keep-alive.
+     */
+    protected function finalizeProtocolSend(?bool $result, bool $closeAfterProtocolSend): ?bool
+    {
+        if (!$closeAfterProtocolSend || $this->status === self::STATUS_CLOSED) {
+            return $result;
+        }
+        if ($result === false) {
             $this->destroy();
-        }
-    }
-
-    /**
-     * Уничтожить соединение.
-     *
-     * @throws Throwable
-     */
-    public function destroy(): void
-    {
-        // Избежать повторных вызовов.
-        if ($this->status === self::STATUS_CLOSED) {
-            return;
-        }
-
-        // Удалить обработчик событий.
-        if ($this->eventLoop !== null) {
-            $this->eventLoop->offReadable($this->socket);
-            $this->eventLoop->offWritable($this->socket);
-            if (!is_unix() && method_exists($this->eventLoop, 'offExcept')) {
-                $this->eventLoop->offExcept($this->socket);
-            }
-        }
-
-        // Закрыть сокет.
-        try {
-            @fclose($this->socket);
-        } catch (Throwable) {
-        }
-
-        $this->status = self::STATUS_CLOSED;
-        // Попытка вызвать обратный вызов onClose.
-        if ($this->onClose) {
-            try {
-                ($this->onClose)($this);
-            } catch (Throwable $e) {
-                $this->error($e);
-            }
-        }
-
-        // Попытка вызвать protocol::onClose
-        if ($this->protocol && method_exists($this->protocol, 'onClose')) {
-            try {
-                $this->protocol::onClose($this);
-            } catch (Throwable $e) {
-                $this->error($e);
-            }
-        }
-
-        $this->sendBuffer = $this->recvBuffer = '';
-        $this->currentPackageLength = 0;
-        $this->isPaused = $this->sslHandshakeCompleted = false;
-        if ($this->status === self::STATUS_CLOSED) {
-            // Очистка обратного вызова для предотвращения утечек памяти.
-            $this->onMessage = $this->onClose = $this->onError = $this->onBufferFull = $this->onBufferDrain = $this->eventLoop = $this->errorHandler = null;
-            // Удаление из server->connections.
-            if ($this->server instanceof Server) {
-                unset($this->server->connections[$this->realId]);
-            }
-
-            $this->server = null;
-            unset(static::$connections[$this->realId]);
-        }
-    }
-
-    /**
-     * Метод pipe() позволяет установить канал передачи данных между текущим соединением и другим соединением (dest).
-     * Входящие данные из текущего соединения будут отправлены на соединение dest.
-     * Этот метод используется для перенаправления данных между соединениями.
-     */
-    public function pipe(self $dest, bool $raw = false): void
-    {
-        $source = $this;
-        $this->onMessage = function ($source, $data) use ($dest, $raw): void {
-            $dest->send($data, $raw);
-        };
-        $this->onClose = function () use ($dest): void {
-            $dest->close();
-        };
-        $dest->onBufferFull = function () use ($source): void {
-            $source->pauseRecv();
-        };
-        $dest->onBufferDrain = function () use ($source): void {
-            $source->resumeRecv();
-        };
-    }
-
-    /**
-     * @inheritdoc
-     * @throws Throwable
-     */
-    public function send(mixed $sendBuffer, bool $raw = false): bool|null
-    {
-        if ($this->status === self::STATUS_CLOSING || $this->status === self::STATUS_CLOSED) {
             return false;
         }
-
-        // Попытка вызвать protocol::encode($sendBuffer) перед отправкой.
-        if (false === $raw && $this->protocol !== null) {
-            try {
-                $sendBuffer = $this->protocol::encode($sendBuffer, $this);
-            } catch (Throwable $e) {
-                $this->error($e);
-            }
-
-            if ($sendBuffer === '') {
-                return null;
-            }
-        }
-
-        // Если соединение еще не установлено или еще не завершено SSL-рукопожатие.
-        if ($this->status !== self::STATUS_ESTABLISHED ||
-            ($this->transport === 'ssl' && $this->sslHandshakeCompleted !== true)
-        ) {
-            if ($this->sendBuffer && $this->bufferIsFull()) {
-                ++self::$statistics['send_fail'];
-                return false;
-            }
-
-            $this->sendBuffer .= $sendBuffer;
-            $this->checkBufferWillFull();
-            return null;
-        }
-
-        // Попытка отправить данные напрямую.
-        if ($this->sendBuffer === '') {
-            if ($this->transport === 'ssl') {
-                $this->eventLoop->onWritable($this->socket, $this->baseWrite(...));
-                $this->sendBuffer = $sendBuffer;
-                $this->checkBufferWillFull();
-                return null;
-            }
-
-            $len = 0;
-            try {
-                $len = @fwrite($this->socket, (string)$sendBuffer);
-            } catch (Throwable $e) {
-                Server::log($e);
-            }
-
-            // Отправка успешна.
-            if ($len === strlen((string)$sendBuffer)) {
-                $this->bytesWritten += $len;
-                return true;
-            }
-
-            // Отправить только часть данных.
-            if ($len > 0) {
-                $this->sendBuffer = substr((string)$sendBuffer, $len);
-                $this->bytesWritten += $len;
-            } else {
-                // Соединение закрыто?
-                if (!is_resource($this->socket) || feof($this->socket)) {
-                    ++self::$statistics['send_fail'];
-                    if ($this->onError) {
-                        try {
-                            ($this->onError)($this, static::SEND_FAIL, 'client closed');
-                        } catch (Throwable $e) {
-                            $this->error($e);
-                        }
-                    }
-
-                    $this->destroy();
-                    return false;
-                }
-
-                $this->sendBuffer = $sendBuffer;
-            }
-
-            $this->eventLoop->onWritable($this->socket, $this->baseWrite(...));
-            // Проверка, будет ли буфер отправки заполнен.
-            $this->checkBufferWillFull();
-            return null;
-        }
-
-        if ($this->bufferIsFull()) {
-            ++self::$statistics['send_fail'];
-            return false;
-        }
-
-        $this->sendBuffer .= $sendBuffer;
-        // Проверка, будет ли буфер отправки заполнен.
-        $this->checkBufferWillFull();
-        return null;
+        $this->end();
+        return $result;
     }
 
     /**
-     * Метод bufferIsFull() используется для проверки заполненности буфера отправки.
-     *
-     * @throws Throwable
-     */
-    protected function bufferIsFull(): bool
-    {
-        // Если буфер был помечен как заполненный, но еще есть данные для отправки, пакет отбрасывается.
-        if ($this->maxSendBufferSize <= strlen($this->sendBuffer)) {
-            if ($this->onError) {
-                try {
-                    ($this->onError)($this, static::SEND_FAIL, 'send buffer full and drop package');
-                } catch (Throwable $e) {
-                    $this->error($e);
-                }
-            }
-
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Метод checkBufferWillFull() используется для проверки заполнения буфера отправки.
-     *
-     * @throws Throwable
-     */
-    protected function checkBufferWillFull(): void
-    {
-        if ($this->onBufferFull && $this->maxSendBufferSize <= strlen($this->sendBuffer)) {
-            try {
-                ($this->onBufferFull)($this);
-            } catch (Throwable $e) {
-                $this->error($e);
-            }
-        }
-    }
-
-    /**
-     * @inheritdoc
-     * @throws Throwable
+     * Graceful close: сначала отправляет остаток данных, затем закрывает socket.
      */
     public function close(mixed $data = null, bool $raw = false): void
     {
-        if ($this->status === self::STATUS_CONNECTING) {
+        if ($this->status === self::STATUS_CLOSED) {
+            return;
+        }
+
+        // Потоковая HTTP-отправка владеет последовательностью байтов до EOF.
+        // Закрытие откладываем, иначе крупный файл оборвётся посередине.
+        if (($this->context->streamSending ?? false) === true) {
+            $this->context->closeAfterStream = ['mode' => 'close', 'data' => $data, 'raw' => $raw];
+            return;
+        }
+
+        if ($data !== null && $data !== '') {
+            $this->send($data, $raw);
+        }
+        $this->status = self::STATUS_CLOSING;
+        if ($this->sendBuffer === '') {
+            $this->destroy();
+        } else {
+            // После close() business input больше не нужен: ждём только flush send buffer.
+            $this->pauseRecv();
+        }
+    }
+
+    /**
+     * Graceful end: дописывает send buffer, отправляет FIN и некоторое время
+     * дренирует входящие данные. Это снижает риск TCP RST при закрытии HTTP/TLS.
+     */
+    public function end(mixed $data = null, bool $raw = false): void
+    {
+        if (in_array($this->status, [self::STATUS_ENDING, self::STATUS_CLOSING, self::STATUS_CLOSED], true)) {
+            return;
+        }
+        if ($this->status === self::STATUS_INITIAL || $this->status === self::STATUS_CONNECTING) {
             $this->destroy();
             return;
         }
 
-        if ($this->status === self::STATUS_CLOSING || $this->status === self::STATUS_CLOSED) {
+        if (($this->context->streamSending ?? false) === true) {
+            $this->context->closeAfterStream = ['mode' => 'end', 'data' => $data, 'raw' => $raw];
             return;
         }
 
@@ -641,446 +344,543 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             $this->send($data, $raw);
         }
 
-        $this->status = self::STATUS_CLOSING;
+        $this->status = self::STATUS_ENDING;
+        $this->onMessage = static function (): void {
+        };
+        $this->recvBuffer = '';
+        $this->currentPackageLength = 0;
 
         if ($this->sendBuffer === '') {
-            $this->destroy();
-        } else {
-            $this->pauseRecv();
+            $this->endMaybeShutdownWrite();
         }
     }
 
-    /**
-     * Приостанавливает чтение данных. Это означает, что onMessage не будет вызван. Полезно для снижения нагрузки при загрузке данных.
-     */
+    /** Немедленно закрывает соединение, не дожидаясь send buffer. */
+    public function destroy(): void
+    {
+        if ($this->destroyed) {
+            return;
+        }
+        $this->destroyed = true;
+        $this->status = self::STATUS_CLOSED;
+
+        if ($this->endLingerTimerId !== 0 && $this->eventLoop !== null) {
+            $this->eventLoop->offDelay($this->endLingerTimerId);
+            $this->endLingerTimerId = 0;
+        }
+        if ($this->idleTimerId !== 0 && $this->eventLoop !== null) {
+            $this->eventLoop->offDelay($this->idleTimerId);
+            $this->idleTimerId = 0;
+        }
+        $this->disarmFrameTimer();
+        if ($this->tlsHandshakeTimerId !== 0 && $this->eventLoop !== null) {
+            $this->eventLoop->offDelay($this->tlsHandshakeTimerId);
+            $this->tlsHandshakeTimerId = 0;
+        }
+
+        // Если соединение уничтожено во время sendFile, закрываем file descriptor
+        // и освобождаем замыкания, удерживающие потоковую передачу.
+        if (isset($this->context->streamCleanup) && is_callable($this->context->streamCleanup)) {
+            $cleanup = $this->context->streamCleanup;
+            unset($this->context->streamCleanup);
+            $cleanup(false);
+        }
+
+        if (is_resource($this->socket)) {
+            $this->eventLoop->offReadable($this->socket);
+            $this->eventLoop->offWritable($this->socket);
+            @fclose($this->socket);
+        }
+
+        unset(self::$connections[$this->id]);
+        if ($this->server !== null) {
+            unset($this->server->connections[$this->id]);
+            $this->server = null;
+        }
+        self::$statistics['connection_count'] = max(0, self::$statistics['connection_count'] - 1);
+        if ($this->onClose !== null) {
+            try {
+                ($this->onClose)($this);
+            } catch (Throwable $e) {
+                self::$statistics['throw_exception']++;
+                Server::log($e);
+            }
+        }
+        if ($this->protocol !== null && method_exists($this->protocol, 'onClose')) {
+            try {
+                ($this->protocol)::onClose($this);
+            } catch (Throwable $e) {
+                self::$statistics['throw_exception']++;
+                $this->error($e);
+            }
+        }
+    }
+
     public function pauseRecv(): void
     {
-        if ($this->eventLoop !== null) $this->eventLoop->offReadable($this->socket);
-        $this->isPaused = true;
+        if ($this->paused || !is_resource($this->socket)) {
+            return;
+        }
+        $this->paused = true;
+        $this->eventLoop->offReadable($this->socket);
     }
 
-    /**
-     * Возобновляет чтение данных после вызова pauseRecv.
-     *
-     * @throws Throwable
-     */
     public function resumeRecv(): void
     {
-        if ($this->isPaused) {
-            $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
-            $this->isPaused = false;
-            $this->baseRead($this->socket, false);
+        if (!$this->paused || !is_resource($this->socket)) {
+            return;
+        }
+        $this->paused = false;
+        $this->eventLoop->onReadable($this->socket, $this->baseRead(...));
+        if ($this->recvBuffer !== '') {
+            $this->processRecvBuffer();
         }
     }
 
-    /**
-     * Основной обработчик чтения.
-     *
-     * @param resource $socket
-     * @throws Throwable
-     */
-    public function baseRead($socket, bool $checkEof = true): void
+    /** @internal вызывается event loop при готовности socket к чтению. */
+    public function baseRead($socket): void
     {
-        static $requests = [];
-        // SSL handshake.
-        if ($this->transport === 'ssl' && $this->sslHandshakeCompleted !== true) {
-            if ($this->doSslHandshake($socket)) {
-                $this->sslHandshakeCompleted = true;
-                if ($this->sendBuffer) {
-                    $this->eventLoop->onWritable($socket, $this->baseWrite(...));
-                }
-            } else {
-                return;
-            }
+        if ($this->paused || $this->status === self::STATUS_CLOSED) {
+            return;
         }
 
-        $buffer = '';
-        try {
-            $buffer = @fread($socket, self::READ_BUFFER_SIZE);
-        } catch (Throwable) {
-            // :)
+        if ($this->transport === 'ssl' && !$this->sslHandshakeCompleted) {
+            $this->enableSsl();
+            return;
         }
 
-        // Проверка закрытия соединения.
+        $buffer = @fread($socket, self::READ_BUFFER_SIZE);
         if ($buffer === '' || $buffer === false) {
-            if ($checkEof && (feof($socket) || !is_resource($socket) || $buffer === false)) {
+            if (feof($socket)) {
                 $this->destroy();
-                return;
             }
-        } else {
-            $this->bytesRead += strlen($buffer);
-            if ($this->recvBuffer === '') {
-                if (!isset($buffer[static::MAX_CACHE_STRING_LENGTH]) && isset($requests[$buffer])) {
-                    ++self::$statistics['total_request'];
-                    if ($this->protocol === Http::class) {
-                        $request = clone $requests[$buffer];
-                        $request->destroy();
-                        $request->connection = $this;
-                        $this->request = $request;
-                        try {
-                            ($this->onMessage)($this, $request);
-                        } catch (Throwable $e) {
-                            $this->error($e);
-                        }
-                        return;
-                    }
-                    $request = $requests[$buffer];
-                    try {
-                        ($this->onMessage)($this, $request);
-                    } catch (Throwable $e) {
-                        $this->error($e);
-                    }
-
-                    return;
-                }
-
-                $this->recvBuffer = $buffer;
-            } else {
-                $this->recvBuffer .= $buffer;
-            }
+            return;
         }
 
-        // Если протокол прикладного уровня был установлен.
-        if ($this->protocol !== null) {
-            while ($this->recvBuffer !== '' && !$this->isPaused) {
-                // Длина текущего пакета известна.
-                if ($this->currentPackageLength) {
-                    // Данных недостаточно для пакета.
-                    if ($this->currentPackageLength > strlen($this->recvBuffer)) {
-                        break;
-                    }
-                } else {
-                    // Получить текущую длину пакета.
-                    try {
-                        $this->currentPackageLength = $this->protocol::input($this->recvBuffer, $this);
-                    } catch (Throwable $e) {
-                        $this->currentPackageLength = -1;
-                        Server::safeEcho((string)$e);
-                    }
+        $readLength = strlen($buffer);
+        $this->bytesRead += $readLength;
+        self::$statistics['bytes_read'] += $readLength;
+        $this->touchActivity();
 
-                    // Длина пакета неизвестна.
-                    if ($this->currentPackageLength === 0) {
-                        break;
-                    } elseif ($this->currentPackageLength > 0 && $this->currentPackageLength <= $this->maxPackageSize) {
-                        // Данных недостаточно для пакета.
-                        if ($this->currentPackageLength > strlen($this->recvBuffer)) {
-                            break;
-                        }
-                    } // Неверный пакет.
-                    else {
-                        Server::safeEcho((string)(new RuntimeException("Protocol $this->protocol Error package. package_length=" . var_export($this->currentPackageLength, true))));
-                        $this->destroy();
-                        return;
-                    }
-                }
+        // Первый байт нового protocol packet запускает абсолютный frame deadline.
+        // В отличие от idle timeout последующие read() его не продлевают.
+        if ($this->protocol !== null && $this->recvBuffer === '') {
+            $this->armFrameTimer();
+        }
 
-                // Данных достаточно для пакета.
-                ++self::$statistics['total_request'];
-                // Длина текущего пакета равна длине буфера.
-                if ($one = (strlen($this->recvBuffer) === $this->currentPackageLength)) {
-                    $oneRequestBuffer = $this->recvBuffer;
-                    $this->recvBuffer = '';
-                } else {
-                    // Получить полный пакет из буфера.
-                    $oneRequestBuffer = substr($this->recvBuffer, 0, $this->currentPackageLength);
-                    // Удалить текущий пакет из буфера чтения.
-                    $this->recvBuffer = substr($this->recvBuffer, $this->currentPackageLength);
-                }
+        if ($this->status === self::STATUS_ENDING) {
+            // В ENDING данные только дренируются; business protocol больше не вызывается.
+            return;
+        }
 
-                // Сбросить текущую длину пакета на 0.
-                $this->currentPackageLength = 0;
+        $this->recvBuffer .= $buffer;
+        if (strlen($this->recvBuffer) > $this->maxPackageSize) {
+            $this->emitError(1, 'Receive buffer exceeded maxPackageSize.');
+            $this->destroy();
+            return;
+        }
+
+        $this->processRecvBuffer();
+    }
+
+    /** @internal вызывается event loop при возможности дописать send buffer. */
+    public function baseWrite($socket): void
+    {
+        if ($this->transport === 'ssl' && !$this->sslHandshakeCompleted) {
+            $this->enableSsl();
+            return;
+        }
+
+        if ($this->sendBuffer === '' || $this->status === self::STATUS_CLOSED) {
+            $this->eventLoop->offWritable($socket);
+            return;
+        }
+
+        $written = $this->transport === 'ssl'
+            ? @fwrite($socket, $this->sendBuffer, 8192)
+            : @fwrite($socket, $this->sendBuffer);
+        if ($written === false) {
+            self::$statistics['send_fail']++;
+            $this->destroy();
+            return;
+        }
+
+        if ($written > 0) {
+            $this->bytesWritten += $written;
+            self::$statistics['bytes_written'] += $written;
+            $this->touchActivity();
+            $this->sendBuffer = (string)substr($this->sendBuffer, $written);
+        }
+
+        if ($this->sendBuffer === '') {
+            $this->eventLoop->offWritable($socket);
+            if ($this->onBufferDrain !== null) {
                 try {
-                    // Декодировать буфер запроса перед вызовом обратного вызова onMessage.
-                    $request = $this->protocol::decode($oneRequestBuffer, $this);
-                    if ((!is_object($request) || $request instanceof Request) && $one && !isset($oneRequestBuffer[static::MAX_CACHE_STRING_LENGTH])) {
-                        ($this->onMessage)($this, $request);
-                        if ($request instanceof Request) {
-                            $requests[$oneRequestBuffer] = clone $request;
-                            $requests[$oneRequestBuffer]->destroy();
-                        } else {
-                            $requests[$oneRequestBuffer] = $request;
-                        }
-
-                        if (count($requests) > self::MAX_CACHE_SIZE) {
-                            unset($requests[key($requests)]);
-                        }
-
-                        return;
-                    }
-
-                    ($this->onMessage)($this, $request);
+                    ($this->onBufferDrain)($this);
                 } catch (Throwable $e) {
+                    self::$statistics['throw_exception']++;
                     $this->error($e);
                 }
             }
-
-            return;
-        }
-
-        if ($this->recvBuffer === '' || $this->isPaused) {
-            return;
-        }
-
-        // Протокол приложения не установлен.
-        ++self::$statistics['total_request'];
-        try {
-            ($this->onMessage)($this, $this->recvBuffer);
-        } catch (Throwable $throwable) {
-            $this->error($throwable);
-        }
-
-        // Очистить буфер чтения.
-        $this->recvBuffer = '';
-    }
-
-    /**
-     * SSL handshake.
-     *
-     * @param resource $socket
-     * @throws Throwable
-     */
-    public function doSslHandshake($socket): bool|int
-    {
-        if (feof($socket)) {
-            $this->destroy();
-            return false;
-        }
-
-        $async = $this instanceof AsyncTcpConnection;
-
-        // /**
-        //  * SSLv3 небезопасен.
-        //  * @see https://blog.qualys.com/ssllabs/2014/10/15/ssl-3-is-dead-killed-by-the-poodle-attack
-        //  */
-        // if ($async) {
-        //     $type = STREAM_CRYPTO_METHOD_SSLv2_CLIENT | STREAM_CRYPTO_METHOD_SSLv23_CLIENT | STREAM_CRYPTO_METHOD_SSLv3_CLIENT;
-        // } else {
-        //     $type = STREAM_CRYPTO_METHOD_SSLv2_SERVER | STREAM_CRYPTO_METHOD_SSLv23_SERVER | STREAM_CRYPTO_METHOD_SSLv3_SERVER;
-        // }
-
-        if ($async) {
-            $type = STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
-        } else {
-            $type = STREAM_CRYPTO_METHOD_TLSv1_1_SERVER | STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER;
-        }
-
-        // Скрытая ошибка.
-        set_error_handler(static function (int $code, string $msg): bool {
-            if (!Server::$daemonize) {
-                Server::safeEcho(sprintf("Ошибка SSL-соединения: %s\n", $msg));
+            if ($this->status === self::STATUS_ENDING) {
+                $this->endMaybeShutdownWrite();
+            } elseif ($this->status === self::STATUS_CLOSING) {
+                $this->destroy();
             }
-
-            return true;
-        });
-
-        $ret = stream_socket_enable_crypto($socket, true, $type);
-        restore_error_handler();
-
-        // Переговоры не удались.
-        if (false === $ret) {
-            $this->destroy();
-            return false;
         }
-
-        if (0 === $ret) {
-            // Данных недостаточно, нужно повторить попытку.
-            return 0;
-        }
-
-        return true;
     }
 
-    /**
-     * Удаляет $length данных из буфера чтения.
-     */
+    public function getSendBufferQueueSize(): int
+    {
+        return strlen($this->sendBuffer);
+    }
+
+    public function getRecvBufferQueueSize(): int
+    {
+        return strlen($this->recvBuffer);
+    }
+
+    /** Удаляет указанное число байт из receive buffer. */
     public function consumeRecvBuffer(int $length): void
     {
-        $this->recvBuffer = substr($this->recvBuffer, $length);
+        if ($length <= 0) {
+            return;
+        }
+        $this->recvBuffer = (string)substr($this->recvBuffer, $length);
+        $this->currentPackageLength = 0;
     }
 
-    /**
-     * Получает реальный сокет.
-     *
-     * @return resource
-     */
+    /** Связывает source -> destination с backpressure. */
+    public function pipe(self $destination): void
+    {
+        $this->onMessage = static fn(self $source, mixed $data) => $destination->send($data);
+        $this->onClose = static fn() => $destination->close();
+        $destination->onBufferFull = fn() => $this->pauseRecv();
+        $destination->onBufferDrain = fn() => $this->resumeRecv();
+    }
+
+    /** @return resource|null */
     public function getSocket()
     {
         return $this->socket;
     }
 
-    /**
-     * Проверяет, пустой ли буфер отправки.
-     */
     public function bufferIsEmpty(): bool
     {
-        return empty($this->sendBuffer);
+        return $this->sendBuffer === '';
+    }
+
+    protected function endMaybeShutdownWrite(): void
+    {
+        if ($this->status !== self::STATUS_ENDING || $this->endWriteShutdown || $this->sendBuffer !== '') {
+            return;
+        }
+
+        if (is_resource($this->socket)) {
+            @stream_socket_shutdown($this->socket, STREAM_SHUT_WR);
+        }
+        $this->endWriteShutdown = true;
+
+        if ($this->lingerTimeout <= 0 || $this->eventLoop === null) {
+            $this->close();
+            return;
+        }
+
+        $this->endLingerTimerId = $this->eventLoop->delay($this->lingerTimeout, function (): void {
+            $this->endLingerTimerId = 0;
+            if ($this->status !== self::STATUS_CLOSED) {
+                $this->close();
+            }
+        });
     }
 
     /**
-     * Получает информацию для json_encode.
+     * Выполняет серверный TLS handshake без блокировки event loop.
      */
+    public function enableSsl(int $cryptoMethod = STREAM_CRYPTO_METHOD_TLS_SERVER): bool
+    {
+        if (!is_resource($this->socket)) {
+            return false;
+        }
+        if (!$this->sslHandshakeCompleted && $this->tlsHandshakeTimeout > 0 && $this->tlsHandshakeTimerId === 0) {
+            $this->tlsHandshakeTimerId = $this->eventLoop->delay($this->tlsHandshakeTimeout, function (): void {
+                $this->tlsHandshakeTimerId = 0;
+                if (!$this->sslHandshakeCompleted && $this->status !== self::STATUS_CLOSED) {
+                    self::$statistics['timeout']++;
+                    $this->emitError(2, 'TLS handshake timed out.');
+                    $this->destroy();
+                }
+            });
+        }
+        $result = @stream_socket_enable_crypto($this->socket, true, $cryptoMethod);
+        if ($result === true) {
+            $this->sslHandshakeCompleted = true;
+            if ($this->tlsHandshakeTimerId !== 0) {
+                $this->eventLoop->offDelay($this->tlsHandshakeTimerId);
+                $this->tlsHandshakeTimerId = 0;
+            }
+            $this->touchActivity();
+            return true;
+        }
+        if ($result === 0) {
+            return false;
+        }
+        $this->emitError(2, 'TLS handshake failed.');
+        $this->destroy();
+        return false;
+    }
+
+    protected function processRecvBuffer(): void
+    {
+        while ($this->recvBuffer !== '' && !$this->paused && $this->status !== self::STATUS_CLOSED) {
+            $length = strlen($this->recvBuffer);
+            $payloadLength = $length;
+
+            try {
+                if ($this->protocol !== null) {
+                    $protocol = $this->protocol;
+                    $payloadLength = (int)$protocol::input($this->recvBuffer, $this);
+                    if ($payloadLength === 0) {
+                        return;
+                    }
+                    if ($payloadLength < 0 || $payloadLength > $this->maxPackageSize) {
+                        throw new RuntimeException('Invalid protocol frame length: ' . $payloadLength);
+                    }
+                    if ($payloadLength > $length) {
+                        return;
+                    }
+                }
+
+                // Полный frame собран — deadline этого frame больше не нужен.
+                $this->disarmFrameTimer();
+
+                $frame = substr($this->recvBuffer, 0, $payloadLength);
+                $this->recvBuffer = (string)substr($this->recvBuffer, $payloadLength);
+
+                // Если в kernel read уже лежит следующий packet, запускаем для него
+                // отдельный абсолютный deadline.
+                if ($this->protocol !== null && $this->recvBuffer !== '') {
+                    $this->armFrameTimer();
+                }
+
+                $message = $this->protocol !== null
+                    ? ($this->protocol)::decode($frame, $this)
+                    : $frame;
+
+                self::$statistics['total_request']++;
+                if ($this->onMessage !== null && $message !== null) {
+                    ($this->onMessage)($this, $message);
+                }
+            } catch (Throwable $e) {
+                self::$statistics['throw_exception']++;
+                Server::log($e);
+                $this->destroy();
+                return;
+            }
+        }
+    }
+
+    protected function bufferData(string $data): ?bool
+    {
+        if (strlen($this->sendBuffer) + strlen($data) > $this->maxSendBufferSize) {
+            self::$statistics['send_fail']++;
+            $this->emitError(3, 'Send buffer exceeded maxSendBufferSize.');
+            return false;
+        }
+
+        $wasEmpty = $this->sendBuffer === '';
+        $this->sendBuffer .= $data;
+        if ($wasEmpty && is_resource($this->socket)) {
+            $this->eventLoop->onWritable($this->socket, $this->baseWrite(...));
+        }
+        if (strlen($this->sendBuffer) >= $this->maxSendBufferSize && $this->onBufferFull !== null) {
+            try {
+                ($this->onBufferFull)($this);
+            } catch (Throwable $e) {
+                self::$statistics['throw_exception']++;
+                $this->error($e);
+            }
+        }
+        return null;
+    }
+
+    protected function armFrameTimer(): void
+    {
+        if ($this->frameTimeout <= 0 || $this->frameTimerId !== 0 || $this->eventLoop === null) {
+            return;
+        }
+
+        $this->frameTimerId = $this->eventLoop->delay($this->frameTimeout, function (): void {
+            $this->frameTimerId = 0;
+            if ($this->status === self::STATUS_CLOSED || $this->recvBuffer === '') {
+                return;
+            }
+            self::$statistics['timeout']++;
+            $this->emitError(4, 'Protocol frame timeout exceeded.');
+            $this->destroy();
+        });
+    }
+
+    protected function disarmFrameTimer(): void
+    {
+        if ($this->frameTimerId !== 0 && $this->eventLoop !== null) {
+            $this->eventLoop->offDelay($this->frameTimerId);
+        }
+        $this->frameTimerId = 0;
+    }
+
+    protected function touchActivity(): void
+    {
+        $this->lastActivityAt = microtime(true);
+        if ($this->idleTimeout > 0) {
+            $this->armIdleTimer();
+        }
+    }
+
+    protected function armIdleTimer(): void
+    {
+        if ($this->eventLoop === null) {
+            return;
+        }
+        if ($this->idleTimerId !== 0) {
+            $this->eventLoop->offDelay($this->idleTimerId);
+            $this->idleTimerId = 0;
+        }
+        if ($this->idleTimeout <= 0 || $this->status === self::STATUS_CLOSED) {
+            return;
+        }
+
+        $this->idleTimerId = $this->eventLoop->delay($this->idleTimeout, $this->handleIdleTimer(...));
+    }
+
+    protected function handleIdleTimer(): void
+    {
+        $this->idleTimerId = 0;
+        if ($this->status === self::STATUS_CLOSED || $this->idleTimeout <= 0) {
+            return;
+        }
+        $remaining = $this->idleTimeout - (microtime(true) - $this->lastActivityAt);
+        if ($remaining > 0.001) {
+            $this->idleTimerId = $this->eventLoop->delay($remaining, $this->handleIdleTimer(...));
+            return;
+        }
+        self::$statistics['timeout']++;
+        $this->emitError(4, 'Connection idle timeout exceeded.');
+        $this->destroy();
+    }
+
+    protected function emitError(int $code, string $message): void
+    {
+        if ($this->onError !== null) {
+            try {
+                ($this->onError)($this, $code, $message);
+            } catch (Throwable $e) {
+                Server::log($e);
+            }
+        }
+    }
+
+    public function getRemoteIp(): string
+    {
+        return $this->splitAddress($this->getRemoteAddress())[0];
+    }
+
+    public function getRemotePort(): int
+    {
+        return $this->splitAddress($this->getRemoteAddress())[1];
+    }
+
+    public function getRemoteAddress(): string
+    {
+        if ($this->remoteAddress !== null) {
+            return $this->remoteAddress;
+        }
+        if (!is_resource($this->socket)) {
+            return '';
+        }
+        return $this->remoteAddress = (string)@stream_socket_get_name($this->socket, true);
+    }
+
+    public function getLocalIp(): string
+    {
+        return $this->splitAddress($this->getLocalAddress())[0];
+    }
+
+    public function getLocalPort(): int
+    {
+        return $this->splitAddress($this->getLocalAddress())[1];
+    }
+
+    public function getLocalAddress(): string
+    {
+        if ($this->localAddress !== null) {
+            return $this->localAddress;
+        }
+        if (!is_resource($this->socket)) {
+            return '';
+        }
+        return $this->localAddress = (string)@stream_socket_get_name($this->socket, false);
+    }
+
+    public function isIpV4(): bool
+    {
+        return filter_var($this->getRemoteIp(), FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
+    }
+
+    public function isIpV6(): bool
+    {
+        return filter_var($this->getRemoteIp(), FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+    }
+
+    /** @return array{0:string,1:int} */
+    protected function splitAddress(string $address): array
+    {
+        if ($address === '') {
+            return ['', 0];
+        }
+        if ($address[0] === '[' && ($end = strpos($address, ']')) !== false) {
+            return [substr($address, 1, $end - 1), (int)ltrim(substr($address, $end + 1), ':')];
+        }
+        $pos = strrpos($address, ':');
+        if ($pos === false || str_contains($address, '/')) {
+            return [$address, 0];
+        }
+        return [substr($address, 0, $pos), (int)substr($address, $pos + 1)];
+    }
+
+    protected static function nextConnectionId(): int
+    {
+        $id = self::$idRecorder++;
+        if (self::$idRecorder === PHP_INT_MAX) {
+            self::$idRecorder = 1;
+        }
+        return $id;
+    }
+
     public function jsonSerialize(): array
     {
         return [
             'id' => $this->id,
-            'status' => $this->getStatus(),
+            'status' => $this->getStatus(false),
             'transport' => $this->transport,
-            'getRemoteIp' => $this->getRemoteIp(),
+            'remoteAddress' => $this->getRemoteAddress(),
+            'remoteIp' => $this->getRemoteIp(),
             'remotePort' => $this->getRemotePort(),
-            'getRemoteAddress' => $this->getRemoteAddress(),
-            'getLocalIp' => $this->getLocalIp(),
-            'getLocalPort' => $this->getLocalPort(),
-            'getLocalAddress' => $this->getLocalAddress(),
-            'isIpV4' => $this->isIpV4(),
-            'isIpV6' => $this->isIpV6(),
+            'localAddress' => $this->getLocalAddress(),
+            'localIp' => $this->getLocalIp(),
+            'localPort' => $this->getLocalPort(),
+            'bytesRead' => $this->bytesRead,
+            'bytesWritten' => $this->bytesWritten,
+            'sendBuffer' => $this->getSendBufferQueueSize(),
+            'recvBuffer' => $this->getRecvBufferQueueSize(),
+            'idleTimeout' => $this->idleTimeout,
+            'frameTimeout' => $this->frameTimeout,
+            'lastActivityAt' => $this->lastActivityAt,
         ];
     }
 
-    /**
-     * __wakeup.
-     *
-     * @return void
-     */
-    public function __wakeup()
-    {
-        $this->isSafe = false;
-    }
-
-    /**
-     * Получает статус.
-     *
-     */
-    public function getStatus(bool $rawOutput = true): int|string
-    {
-        if ($rawOutput) {
-            return $this->status;
-        }
-
-        return self::STATUS_TO_STRING[$this->status];
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getRemoteIp(): string
-    {
-        $pos = strrpos($this->remoteAddress, ':');
-        if ($pos) {
-            return substr($this->remoteAddress, 0, $pos);
-        }
-
-        return '';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getRemotePort(): int
-    {
-        if ($this->remoteAddress) {
-            return (int)substr(strrchr($this->remoteAddress, ':'), 1);
-        }
-
-        return 0;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getRemoteAddress(): string
-    {
-        return $this->remoteAddress;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getLocalIp(): string
-    {
-        $address = $this->getLocalAddress();
-        $pos = strrpos($address, ':');
-        if (!$pos) {
-            return '';
-        }
-
-        return substr($address, 0, $pos);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getLocalAddress(): string
-    {
-        if (!is_resource($this->socket)) {
-            return '';
-        }
-
-        return (string)@stream_socket_get_name($this->socket, false);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getLocalPort(): int
-    {
-        $address = $this->getLocalAddress();
-        $pos = strrpos($address, ':');
-        if (!$pos) {
-            return 0;
-        }
-
-        return (int)substr(strrchr($address, ':'), 1);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function isIpV4(): bool
-    {
-        if ($this->transport === 'unix') {
-            return false;
-        }
-
-        return !str_contains($this->getRemoteIp(), ':');
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function isIpV6(): bool
-    {
-        if ($this->transport === 'unix') {
-            return false;
-        }
-
-        return str_contains($this->getRemoteIp(), ':');
-    }
-
-    /**
-     * Деструктор.
-     *
-     * @return void
-     * @throws Throwable
-     */
     public function __destruct()
     {
-        static $mod;
-        if (!$this->isSafe) {
-            return;
-        }
-
-        --self::$statistics['connection_count'];
-        if (Server::getGracefulStop()) {
-            $mod ??= ceil((self::$statistics['connection_count'] + 1) / 3);
-
-            if (0 === self::$statistics['connection_count'] % $mod) {
-                $pid = function_exists('posix_getpid') ? posix_getpid() : 0;
-                Server::log('Localzet Server [' . $pid . '] осталось ' . self::$statistics['connection_count'] . ' соединений(я)');
-            }
-
-            if (0 === self::$statistics['connection_count']) {
-                Server::stopAll();
-            }
-        }
+        $this->destroy();
     }
 }

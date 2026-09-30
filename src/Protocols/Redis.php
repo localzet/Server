@@ -1,4 +1,7 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
@@ -26,147 +29,105 @@
 namespace localzet\Server\Protocols;
 
 use localzet\Server\Connection\ConnectionInterface;
-use function count;
-use function is_array;
-use function strlen;
-use function strpos;
-use function substr;
 
-/**
- * Протокол Redis.
- */
-class Redis implements ProtocolInterface
+/** Минимальный RESP2 framing/codec для совместимости со старым Localzet API. */
+final class Redis implements ProtocolInterface
 {
-    /** @inheritdoc */
     public static function input(string $buffer, ConnectionInterface $connection): int
     {
-        $type = $buffer[0];
-        $pos = strpos($buffer, "\r\n");
-        if (false === $pos) {
-            return 0;
-        }
-        switch ($type) {
-            case ':':
-            case '+':
-            case '-':
-                return $pos + 2;
-            case '$':
-                if (str_starts_with($buffer, '$-1')) {
-                    return 5;
-                }
-                return $pos + 4 + (int)substr($buffer, 1, $pos);
-            case '*':
-                if (str_starts_with($buffer, '*-1')) {
-                    return 5;
-                }
-                $count = (int)substr($buffer, 1, $pos - 1);
-                while ($count--) {
-                    $next_pos = strpos($buffer, "\r\n", $pos + 2);
-                    if (!$next_pos) {
-                        return 0;
-                    }
-                    $sub_type = $buffer[$pos + 2];
-                    switch ($sub_type) {
-                        case ':':
-                        case '+':
-                        case '-':
-                            $pos = $next_pos;
-                            break;
-                        case '$':
-                            if ($pos + 2 === strpos($buffer, '$-1', $pos)) {
-                                $pos = $next_pos;
-                                break;
-                            }
-                            $length = (int)substr($buffer, $pos + 3, $next_pos - $pos - 3);
-                            $pos = $next_pos + $length + 2;
-                            if (strlen($buffer) < $pos) {
-                                return 0;
-                            }
-                            break;
-                        default:
-                            return strlen($buffer);
-                    }
-                }
-                return $pos + 2;
-            default:
-                return strlen($buffer);
-        }
+        return self::frameLength($buffer);
     }
 
-    /** @inheritdoc */
-    public static function encode(mixed $data, ConnectionInterface $connection): string
-    {
-        $cmd = '';
-        $count = count($data);
-        foreach ($data as $item) {
-            if (is_array($item)) {
-                $count += count($item) - 1;
-                foreach ($item as $str) {
-                    $cmd .= '$' . strlen($str) . "\r\n$str\r\n";
-                }
-                continue;
-            }
-            $cmd .= '$' . strlen($item) . "\r\n$item\r\n";
-        }
-        return "*$count\r\n$cmd";
-    }
-
-    /** @inheritdoc */
     public static function decode(string $buffer, ConnectionInterface $connection): mixed
     {
-        $type = $buffer[0];
-        switch ($type) {
-            case ':':
-                return [$type, (int)substr($buffer, 1)];
-            case '-':
-            case '+':
-                return [$type, substr($buffer, 1, strlen($buffer) - 3)];
-            case '$':
-                if (str_starts_with($buffer, '$-1')) {
-                    return [$type, null];
-                }
-                $pos = strpos($buffer, "\r\n");
-                return [$type, substr($buffer, $pos + 2, (int)substr($buffer, 1, $pos))];
-            case '*':
-                if (str_starts_with($buffer, '*-1')) {
-                    return [$type, null];
-                }
-                $pos = strpos($buffer, "\r\n");
-                $value = [];
-                $count = (int)substr($buffer, 1, $pos - 1);
-                while ($count--) {
-                    $next_pos = strpos($buffer, "\r\n", $pos + 2);
-                    if (!$next_pos) {
-                        return 0;
-                    }
-                    $sub_type = $buffer[$pos + 2];
-                    switch ($sub_type) {
-                        case ':':
-                            $value[] = (int)substr($buffer, $pos + 3, $next_pos - $pos - 3);
-                            $pos = $next_pos;
-                            break;
-                        case '-':
-                        case '+':
-                            $value[] = substr($buffer, $pos + 3, $next_pos - $pos - 3);
-                            $pos = $next_pos;
-                            break;
-                        case '$':
-                            if ($pos + 2 === strpos($buffer, '$-1', $pos)) {
-                                $pos = $next_pos;
-                                $value[] = null;
-                                break;
-                            }
-                            $length = (int)substr($buffer, $pos + 3, $next_pos - $pos - 3);
-                            $value[] = substr($buffer, $next_pos + 2, $length);
-                            $pos = $next_pos + $length + 2;
-                            break;
-                        default:
-                            return ['!', "protocol error, got '$sub_type' as reply type byte. buffer:" . bin2hex($buffer) . " pos:$pos"];
-                    }
-                }
-                return [$type, $value];
-            default:
-                return ['!', "protocol error, got '$type' as reply type byte. buffer:" . bin2hex($buffer)];
+        $offset = 0;
+        return self::decodeValue($buffer, $offset);
+    }
+
+    public static function encode(mixed $data, ConnectionInterface $connection): string
+    {
+        if (is_array($data)) {
+            $out = '*' . count($data) . "\r\n";
+            foreach ($data as $item) {
+                $item = (string)$item;
+                $out .= '$' . strlen($item) . "\r\n" . $item . "\r\n";
+            }
+            return $out;
         }
+        return (string)$data;
+    }
+
+    private static function frameLength(string $buffer): int
+    {
+        if ($buffer === '') {
+            return 0;
+        }
+        $type = $buffer[0];
+        $lineEnd = strpos($buffer, "\r\n");
+        if ($lineEnd === false) {
+            return 0;
+        }
+        if ($type === '+' || $type === '-' || $type === ':') {
+            return $lineEnd + 2;
+        }
+        if ($type === '$') {
+            $size = (int)substr($buffer, 1, $lineEnd - 1);
+            if ($size < 0) {
+                return $lineEnd + 2;
+            }
+            $total = $lineEnd + 2 + $size + 2;
+            return strlen($buffer) >= $total ? $total : 0;
+        }
+        if ($type === '*') {
+            $count = (int)substr($buffer, 1, $lineEnd - 1);
+            $offset = $lineEnd + 2;
+            for ($i = 0; $i < $count; $i++) {
+                $len = self::frameLength(substr($buffer, $offset));
+                if ($len === 0) {
+                    return 0;
+                }
+                $offset += $len;
+            }
+            return $offset;
+        }
+        throw new \RuntimeException('Unsupported RESP frame.');
+    }
+
+    private static function decodeValue(string $buffer, int &$offset): mixed
+    {
+        $type = $buffer[$offset++];
+        $lineEnd = strpos($buffer, "\r\n", $offset);
+        $line = substr($buffer, $offset, $lineEnd - $offset);
+        $offset = $lineEnd + 2;
+        return match ($type) {
+            '+' => $line,
+            '-' => new \RuntimeException($line),
+            ':' => (int)$line,
+            '$' => self::decodeBulk($buffer, $offset, (int)$line),
+            '*' => self::decodeArray($buffer, $offset, (int)$line),
+            default => throw new \RuntimeException('Unsupported RESP frame type.'),
+        };
+    }
+
+    private static function decodeBulk(string $buffer, int &$offset, int $length): ?string
+    {
+        if ($length < 0) {
+            return null;
+        }
+        $value = substr($buffer, $offset, $length);
+        $offset += $length + 2;
+        return $value;
+    }
+
+    private static function decodeArray(string $buffer, int &$offset, int $count): ?array
+    {
+        if ($count < 0) {
+            return null;
+        }
+        $result = [];
+        for ($i = 0; $i < $count; $i++) {
+            $result[] = self::decodeValue($buffer, $offset);
+        }
+        return $result;
     }
 }
