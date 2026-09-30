@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * @package     Localzet Server
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2025 Localzet Group
+ * @copyright   Copyright (c) 2018-2026 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -15,35 +17,13 @@
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
- *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *              GNU Affero General Public License for more details.
- *
- *              You should have received a copy of the GNU Affero General Public License
- *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- *              For any questions, please contact <creator@localzet.com>
- */
-
-declare(strict_types=1);
-
-/**
- * @package     Localzet Server
- * @link        https://github.com/localzet/Server
- *
- *              This program is free software: you can redistribute it and/or modify
- *              it under the terms of the GNU Affero General Public License as
- *              published by the Free Software Foundation, either version 3 of the
- *              License, or (at your option) any later version.
- *
- *              This program is distributed in the hope that it will be useful,
- *              but WITHOUT ANY WARRANTY; without even the implied warranty of
  *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *              GNU Affero General Public License for more details.
  *
  *              You should have received a copy of the GNU Affero General Public License
  *              along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
- *              For any questions, please contact <support@localzet.com>
+ *              For any questions, please contact <creator@localzet.com>
  */
 
 use localzet\Server\Events\Linux;
@@ -56,21 +36,26 @@ use localzet\Server;
 use localzet\ServerAbstract;
 
 /**
- * Запускает сервер Localzet.
+ * Создаёт основной Localzet Server и, при необходимости, дополнительные
+ * endpoints из конфигурации.
  *
- * @param null|string|array $name Название для серверных процессов
- * @param null|int $count Количество серверных процессов
- * @param null|string $listen Имя сокета
- * @param null|array $context Контекст сокета
- * @param null|string $user Unix пользователь (нужен root)
- * @param null|string $group Unix группа (нужен root)
- * @param null|bool $reloadable Перезагружаемый экземпляр?
- * @param null|bool $reusePort Повторно использовать порт?
- * @param null|string $protocol Протокол уровня приложения
- * @param null|string $transport Протокол транспортного уровня
- * @param null|class-string $server Экземпляр сервера, или его наследника
- * @param null|string $handler [ServerAbstract](\localzet\ServerAbstract)
- * @param null|array $services Массив сервисов (только listen, context, handler, constructor)
+ * В отличие от старой реализации дополнительные services регистрируются до
+ * runAll(). Поэтому master знает о них заранее и корректно форкает заданное
+ * число процессов, вместо создания нового listening socket из onServerStart().
+ *
+ * @param null|string|array $name Имя процесса либо полный массив конфигурации.
+ * @param null|int $count Количество процессов.
+ * @param null|string $listen URI сокета, например http://0.0.0.0:8080.
+ * @param null|array $context stream context.
+ * @param null|string $user Unix user после fork.
+ * @param null|string $group Unix group после fork.
+ * @param null|bool $reloadable Разрешить reload.
+ * @param null|bool $reusePort Использовать SO_REUSEPORT, если поддерживается.
+ * @param null|string $protocol Класс application protocol.
+ * @param null|string $transport tcp/udp/unix/ssl.
+ * @param null|class-string<Server> $server Класс Server или наследника.
+ * @param null|class-string $handler Объектный обработчик callback'ов.
+ * @param null|array $constructor Аргументы конструктора handler.
  */
 function localzet_start(
     // Свойства главного сервера
@@ -175,7 +160,8 @@ function localzet_start(
 }
 
 /**
- * Привязывает методы класса к серверу.
+ * Привязывает методы объекта-обработчика к callback API Server.
+ * Не требует наследования от ServerAbstract, поэтому остаётся удобным для DI.
  *
  * @param Server $server Экземпляр сервера.
  * @param ServerAbstract|mixed $class Класс, методы которого будут привязаны.
@@ -222,7 +208,7 @@ if (!function_exists('cpu_count')) {
 }
 
 /**
- * Проверяет, является ли операционная система Unix-подобной.
+ * Unix-like ОС.
  *
  * @return bool Возвращает true, если операционная система Unix-подобная, иначе false.
  */
@@ -232,7 +218,7 @@ function is_unix(): bool
 }
 
 /**
- * Возвращает имя используемого цикла событий.
+ * Человекочитаемое имя выбранного event-loop backend.
  *
  * @return string Имя цикла событий.
  */
@@ -258,7 +244,8 @@ function get_event_loop_name(): string
 }
 
 /**
- * Форматирует HTTP-ответ.
+ * Форматирует raw HTTP response для legacy-кода.
+ * Для chunked response добавляется обязательный terminating zero chunk.
  *
  * @param int $code Код ответа.
  * @param string|null $body Тело ответа.

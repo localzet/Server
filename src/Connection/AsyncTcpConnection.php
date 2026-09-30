@@ -5,7 +5,7 @@
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2025 Localzet Group
+ * @copyright   Copyright (c) 2018-2026 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -15,11 +15,11 @@
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
- *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *              GNU Affero General Public License for more details.
  *
  *              You should have received a copy of the GNU Affero General Public License
- *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *              along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
  *              For any questions, please contact <creator@localzet.com>
  */
@@ -56,12 +56,19 @@ use const STREAM_CLIENT_ASYNC_CONNECT;
 use const TCP_NODELAY;
 
 /**
- * Асинхронное TCP-соединение.
+ * Исходящее неблокирующее TCP/Unix/TLS соединение.
+ *
+ * Соединение создаётся лениво. Пока TCP/TLS/proxy handshake не завершён,
+ * исходящие данные складываются в send buffer и сохраняют порядок.
+ *
+ * API совместим с историческим Localzet-клиентом: поддерживаются
+ * reconnect(), HTTP CONNECT, SOCKS5 (включая username/password), URI helpers
+ * и пользовательские application protocols вроде ws://.
  */
 class AsyncTcpConnection extends TcpConnection
 {
     /**
-     * Встроенные протоколы PHP.
+     * PHP transport schemes, не являющиеся application protocols.
      *
      * @var array<string,string>
      */

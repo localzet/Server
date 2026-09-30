@@ -7,7 +7,7 @@ declare(strict_types=1);
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2025 Localzet Group
+ * @copyright   Copyright (c) 2018-2026 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -17,11 +17,11 @@ declare(strict_types=1);
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
- *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *              GNU Affero General Public License for more details.
  *
  *              You should have received a copy of the GNU Affero General Public License
- *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *              along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
  *              For any questions, please contact <creator@localzet.com>
  */
@@ -104,6 +104,12 @@ use const WUNTRACED;
 /**
  * Localzet Server
  *
+ * Центральный supervisor и listening endpoint. API сохраняет привычную модель:
+ * создаём Server instances, назначаем callbacks и один раз вызываем runAll().
+ * На Unix master управляет worker-процессами; на Windows endpoint'ы работают
+ * в одном процессе.
+ *
+ * Сохраняем исходную lifecycle-модель Localzet Events:
  * <code>
  * Localzet\Events = [
  *  'Server::Start' => fn($server = null){},
@@ -113,21 +119,21 @@ use const WUNTRACED;
  *
  *  'Server::Master::Stop' => fn(){},
  *  'Server::Master::Reload' => fn(){},
- * ]
+ * ];
  * </code>
  */
 #[AllowDynamicProperties]
 class Server
 {
     /**
-     * Version.
+     * Версия Localzet Server.
      *
      * @var string
      */
     final public const VERSION = '501_25.01.01';
 
     /**
-     * Status initial.
+     * Начальное состояние процесса.
      *
      * @var int
      */
@@ -169,7 +175,9 @@ class Server
     public const DEFAULT_BACKLOG = 102400;
 
     /**
-     * Безопасное расстояние для соседних колонок
+     * Безопасное расстояние для соседних колонок CLI status.
+     *
+     * Константа сохранена из публичного API ветки 5.x для совместимости.
      *
      * @var int
      */
@@ -188,7 +196,7 @@ class Server
     ];
 
     /**
-     * Встроенные типы ошибок
+     * Соответствие Localzet environment variables параметрам PHP SSL stream context.
      *
      * @var array<int,string>
      */
@@ -234,37 +242,51 @@ class Server
     ];
 
     /**
-     * ID Сервера
+     * ID сервера.
+     * 
+     * @var int
      */
     public int $id = 0;
 
     /**
-     * Название для серверных процессов
+     * Название для серверных процессов.
+     *
+     * @var string
      */
     public string $name = 'none';
 
     /**
-     * Количество серверных процессов
+     * Количество серверных процессов.
+     *
+     * @var int
      */
     public int $count = 1;
 
     /**
-     * Unix пользователь (нужен root)
+     * Unix-пользователь, под которым должен работать worker (для смены нужен root).
+     *
+     * @var string
      */
     public string $user = '';
 
     /**
-     * Unix группа (нужен root)
+     * Unix-группа, под которой должен работать worker (для смены нужен root).
+     *
+     * @var string
      */
     public string $group = '';
 
     /**
-     * Перезагружаемый экземпляр?
+     * Разрешено ли заменять этот worker при reload.
+     *
+     * @var bool
      */
     public bool $reloadable = true;
 
     /**
-     * Повторно использовать порт?
+     * Повторно использовать порт через SO_REUSEPORT, если это поддерживается платформой.
+     *
+     * @var bool
      */
     public bool $reusePort = false;
 

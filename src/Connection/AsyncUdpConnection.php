@@ -5,7 +5,7 @@
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2025 Localzet Group
+ * @copyright   Copyright (c) 2018-2026 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -15,11 +15,11 @@
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
- *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *              GNU Affero General Public License for more details.
  *
  *              You should have received a copy of the GNU Affero General Public License
- *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *              along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
  *              For any questions, please contact <creator@localzet.com>
  */
@@ -44,7 +44,11 @@ use function ucfirst;
 use const STREAM_CLIENT_CONNECT;
 
 /**
- * Асинхронное UDP-соединение.
+ * Исходящее UDP-соединение.
+ *
+ * UDP не имеет TCP-подобного handshake, поэтому connect() здесь создаёт
+ * connected UDP socket: ОС фиксирует peer, а sendto() вызывается без адреса.
+ * Прикладной protocol scheme (например text://) при этом не влияет на транспорт.
  */
 class AsyncUdpConnection extends UdpConnection
 {

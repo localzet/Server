@@ -7,7 +7,7 @@ declare(strict_types=1);
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2025 Localzet Group
+ * @copyright   Copyright (c) 2018-2026 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -17,11 +17,11 @@ declare(strict_types=1);
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
- *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *              GNU Affero General Public License for more details.
  *
  *              You should have received a copy of the GNU Affero General Public License
- *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *              along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
  *              For any questions, please contact <creator@localzet.com>
  */
@@ -43,12 +43,16 @@ use const PHP_INT_MAX;
 use const SIGALRM;
 
 /**
- * Таймер
+ * Таймеры Localzet Server.
  *
  * Например:
- * localzet\Timer::add($time_interval, callback, array($arg1, $arg2..));
+ * localzet\Timer::add($timeInterval, $callback, [$arg1, $arg2]);
+ *
+ * Начиная с 6.x таймеры всегда принадлежат event loop текущего server process.
+ * Старый SIGALRM fallback больше не нужен для worker runtime: это убирает второй
+ * независимый scheduler и делает семантику timer ID одинаковой для всех backend'ов.
  */
-class Timer
+final class Timer
 {
     /**
      * Задачи, основанные на сигнале ALARM
@@ -81,7 +85,7 @@ class Timer
     /**
      * Инициализация
      *
-     * @param EventInterface|null $event
+     * @param EventInterface|null $event Явная петля событий или globalEvent Server.
      */
     public static function init(?EventInterface $event = null): void
     {
@@ -96,12 +100,12 @@ class Timer
     }
 
     /**
-     * Repeat.
+     * Добавить повторяющийся таймер.
      *
-     * @param float $timeInterval
-     * @param callable $func
-     * @param array $args
-     * @return int
+     * @param float $timeInterval Интервал в секундах.
+     * @param callable $func Callback таймера.
+     * @param array $args Аргументы callback.
+     * @return int Идентификатор таймера.
      */
     public static function repeat(float $timeInterval, callable $func, array $args = []): int
     {
@@ -109,12 +113,12 @@ class Timer
     }
 
     /**
-     * Delay.
+     * Добавить одноразовый таймер.
      *
-     * @param float $timeInterval
-     * @param callable $func
-     * @param array $args
-     * @return int
+     * @param float $timeInterval Задержка в секундах.
+     * @param callable $func Callback таймера.
+     * @param array $args Аргументы callback.
+     * @return int Идентификатор таймера.
      */
     public static function delay(float $timeInterval, callable $func, array $args = []): int
     {
@@ -122,7 +126,11 @@ class Timer
     }
 
     /**
-     * Обработчик сигнала
+     * Совместимый обработчик старого SIGALRM API.
+     *
+     * В современной реализации отдельного alarm scheduler нет: timers обслуживает
+     * EventInterface. Метод сохранён, чтобы старый пользовательский код, который
+     * ссылался на Timer::signalHandle(), не падал после обновления.
      */
     public static function signalHandle(): void
     {
@@ -133,7 +141,13 @@ class Timer
     }
 
     /**
-     * Добавить таймер
+     * Добавить таймер.
+     *
+     * @param float $timeInterval Интервал/задержка в секундах.
+     * @param callable $func Callback таймера.
+     * @param array|null $args Аргументы callback.
+     * @param bool $persistent true — повторяющийся timer, false — one-shot.
+     * @return int Идентификатор таймера.
      */
     public static function add(float $timeInterval, callable $func, ?array $args = [], bool $persistent = true): int
     {
@@ -170,7 +184,11 @@ class Timer
     }
 
     /**
-     * Приостановить выполнение на указанное время (для корутин).
+     * Приостановить выполнение на указанное время.
+     *
+     * Для backend'ов, реализующих SuspensionCapableInterface, приостанавливается
+     * только текущий Fiber/coroutine, а event loop продолжает обслуживать I/O.
+     * Для обычных loop'ов используется блокирующий usleep().
      *
      * @param float $delay Задержка в секундах.
      * @throws Throwable

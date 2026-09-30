@@ -7,7 +7,7 @@ declare(strict_types=1);
  * @link        https://github.com/localzet/Server
  *
  * @author      Ivan Zorin <creator@localzet.com>
- * @copyright   Copyright (c) 2018-2025 Localzet Group
+ * @copyright   Copyright (c) 2018-2026 Localzet Group
  * @license     https://www.gnu.org/licenses/agpl-3.0 GNU Affero General Public License v3.0
  *
  *              This program is free software: you can redistribute it and/or modify
@@ -17,11 +17,11 @@ declare(strict_types=1);
  *
  *              This program is distributed in the hope that it will be useful,
  *              but WITHOUT ANY WARRANTY; without even the implied warranty of
- *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *              GNU Affero General Public License for more details.
  *
  *              You should have received a copy of the GNU Affero General Public License
- *              along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *              along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
  *              For any questions, please contact <creator@localzet.com>
  */
@@ -35,7 +35,11 @@ use localzet\Server;
 use Throwable;
 
 /**
- * ConnectionInterface.
+ * Базовый контракт соединений Localzet Server.
+ *
+ * Исторически это именно abstract class, а не PHP interface. Сохраняем эту
+ * модель для совместимости с Localzet-подобным пользовательским
+ * кодом и держим здесь общие callbacks, statistics и error policy.
  */
 #[AllowDynamicProperties]
 abstract class ConnectionInterface
@@ -55,7 +59,7 @@ abstract class ConnectionInterface
     public const SEND_FAIL = 2;
 
     /**
-     * Статистика для команды status.
+     * Статистика соединений текущего процесса.
      */
     public static array $statistics = [
         'connection_count' => 0,
@@ -92,12 +96,12 @@ abstract class ConnectionInterface
     public $onError = null;
 
     /**
-     * Цикл событий для обработки асинхронных операций.
+     * Event loop, обслуживающая конкретное соединение.
      */
     public ?EventInterface $eventLoop = null;
 
     /**
-     * Обработчик ошибок для соединения.
+     * Пользовательский обработчик исключений connection layer.
      *
      * @var ?callable(Throwable): void
      */
@@ -177,7 +181,8 @@ abstract class ConnectionInterface
     abstract public function isIpV6(): bool;
 
     /**
-     * Обработать ошибку соединения.
+     * Передаёт исключение пользовательскому error handler либо останавливает
+     * процесс с кодом 250, если обработчик отсутствует/сам выбросил исключение.
      *
      * @param Throwable $exception Исключение для обработки.
      * @throws Throwable Если обработчик ошибок не установлен или выбросил исключение в синхронном контексте.
