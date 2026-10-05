@@ -635,7 +635,7 @@ final class HttpProxySession
 
     private function isValidHost(string $host): bool
     {
-        if (str_contains($host, '@') || preg_match('/[\s\/\\]/', $host)) {
+        if (str_contains($host, '@') || str_contains($host, '/') || str_contains($host, '\\') || preg_match('/\s/', $host) === 1) {
             return false;
         }
         if (str_starts_with($host, '[')) {

@@ -80,7 +80,7 @@
       "@test:integration"
     ],
     "test:revolt": "php tests/revolt.php",
-    "test:gateway": "php tests/gateway_smoke.php && bash tests/gateway_integration.sh",
+    "test:gateway": "php tests/gateway_smoke.php && php tests/gateway_host_regression.php && bash tests/gateway_integration.sh",
     "test:fuzz": "php tests/fuzz_smoke.php",
     "test:memory": "php tests/memory_smoke.php",
     "release:audit": "bash tests/release_audit.sh"
