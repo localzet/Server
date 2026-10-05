@@ -1,0 +1,12 @@
+parameters:
+    level: 0
+    paths:
+        - src
+        - Server.php
+        - ServerAbstract.php
+        - Timer.php
+        - Helpers.php
+    excludePaths:
+        analyse:
+            - src/Events/Swow.php
+            - src/Protocols/Http/Session/MongoSessionHandler.php

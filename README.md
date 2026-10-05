@@ -1,10 +1,13 @@
 # Localzet Server
 
+[Русская документация](README.ru.md)
+
 High-performance event-driven server runtime for PHP with TCP, UDP, HTTP/1.1, WebSocket, timers, long-lived connections
 and multi-process workers.
 
-Localzet Server 7.0 freezes the first modernized runtime line: production supervisor, HTTP/1.x/WebSocket protocols and a
-bounded L4/L7 gateway are treated as stable foundations for framework/adaptor work.
+This development branch targets the 7.0 runtime line, including process supervision, HTTP/1.x/WebSocket protocols and a
+bounded L4/L7 gateway. The released 4.x packages used by Cluster and other libraries are a separate compatibility line;
+do not treat installation of the published package as installation of this branch.
 
 ## Requirements
 
@@ -31,7 +34,12 @@ composer install
 composer check
 composer test:integration
 composer release:audit
+composer analyze
 ```
+
+`composer analyze` performs basic PHPStan level-0 analysis of the core. Optional Swow and MongoDB adapters are excluded
+from this check because their extension/package declarations are not installed in the core environment. Higher-level
+type analysis and separate optional-adapter validation remain follow-up work.
 
 ## HTTP example
 
