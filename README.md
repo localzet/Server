@@ -158,3 +158,7 @@ requests, keep-alive and WebSocket tunneling.
 Localzet Server is distributed under GNU AGPL-3.0-or-later.
 
 Documentation: https://server.localzet.com
+
+## Attribution
+
+Maintainer of Localzet contributions: **Ivan Zorin (localzet)** — <creator@localzet.com> · https://www.localzet.com. Copyright © 2026 Localzet Group. Original authorship and third-party licenses remain applicable. See [AUTHORS](.github/AUTHORS.md).
