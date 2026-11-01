@@ -65,7 +65,7 @@
     "lint": "find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l",
     "test": "php tests/smoke.php",
     "test:integration": "bash tests/integration.sh",
-    "analyze": "phpstan analyse --memory-limit=1G",
+    "analyze": "php vendor/bin/phpstan analyse --memory-limit=1G",
     "check": [
       "@lint",
       "@test"
