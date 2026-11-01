@@ -1,0 +1,20 @@
+{
+  "editor.formatOnSave": false,
+  "editor.insertSpaces": true,
+  "editor.tabSize": 4,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "[php]": {
+    "editor.defaultFormatter": "bmewburn.vscode-intelephense-client"
+  },
+  "intelephense.environment.phpVersion": "8.1.0",
+  "intelephense.files.exclude": [
+    "**/.git/**",
+    "**/vendor/**",
+    "**/node_modules/**"
+  ],
+  "files.exclude": {
+    "**/.git": true,
+    "**/vendor": true
+  }
+}

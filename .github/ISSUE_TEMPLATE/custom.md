@@ -1,10 +1,14 @@
 ---
-name: Custom issue template
-about: Describe this issue template's purpose here.
-title: ''
+name: Question or other report
+about: Ask a usage question or report something not covered by the other templates
+title: "[Question] "
 labels: ''
 assignees: localzet
-
 ---
 
+## Question or report
 
+## Server and PHP versions
+
+## Minimal context
+Remove secrets, personal data and production payloads.

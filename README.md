@@ -16,6 +16,7 @@ do not treat installation of the published package as installation of this branc
   dependency
 - Unix: `pcntl` and `posix` are recommended for multi-process mode
 - Windows works in single-process mode
+- The core CI matrix covers PHP 8.1 through 8.5; optional extension combinations are not all covered by that matrix
 
 Optional integrations such as `revolt/event-loop`, `localzet/events`, `sockets`, `event`, `ev`, `swoole`, `swow`, Redis
 and MongoDB add event-loop, lifecycle, hot-upgrade and session capabilities. Portable `Select` remains available without
@@ -35,11 +36,49 @@ composer check
 composer test:integration
 composer release:audit
 composer analyze
+composer benchmark -- --smoke
 ```
 
 `composer analyze` performs basic PHPStan level-0 analysis of the core. Optional Swow and MongoDB adapters are excluded
 from this check because their extension/package declarations are not installed in the core environment. Higher-level
 type analysis and separate optional-adapter validation remain follow-up work.
+
+The core keeps `composer.lock` out of version control because this is a library: consuming applications resolve and lock
+their own dependency graph. CI resolves one PHP 8.1-compatible toolchain for the PHP matrix and separately resolves and
+tests the latest allowed dev dependencies in its weekly update job. The project uses PHPStan for static analysis and
+script-based PHP smoke/integration tests; PHPUnit is not installed because the current test suite does not use it. Run
+`composer audit` when reviewing dependency updates.
+
+## Support and operations
+
+- The declared runtime floor is PHP 8.1. CI exercises PHP 8.1–8.5 on Linux; Windows is documented for single-process
+  use, but is not part of this CI matrix. Optional extension/backend combinations require separate validation.
+- On Unix, multi-process supervision depends on `pcntl` and `posix`. Hot upgrade additionally depends on socket
+  descriptor passing support; check `php server.php capabilities --json` on the target host before relying on it.
+- Keep HTTP header/frame/connection limits and timeouts appropriate to the deployment. Configure trusted proxies
+  explicitly before consuming forwarded client-IP headers. Terminate TLS at a trusted edge or configure the TLS
+  listener; use graceful `SIGTERM` shutdown in orchestrators.
+- The gateway is an HTTP/1.x and raw TCP proxy, not a general-purpose API gateway. Route only to trusted upstreams,
+  review forwarded-header policy, and size connection/time limits for expected traffic.
+- Public API compatibility follows the project release line. The 7.0 development branch is distinct from published
+  4.x packages; pin and test the exact branch/package version used by applications.
+
+## Development setup
+
+See [contribution guidelines](.github/CONTRIBUTING.md) before submitting changes. Repository settings are provided for
+PhpStorm and VS Code; VS Code recommends Intelephense, EditorConfig and Xdebug. Install Composer dev dependencies, then
+use the Composer commands listed above or the VS Code task palette. The test suite consists of PHP scripts rather than
+PHPUnit test cases.
+
+For security reports, follow the [security policy](.github/SECURITY.md). Do not put vulnerability details in public issues.
+
+## Performance measurement
+
+Run the repeatable parser microbenchmark with `composer benchmark`. It prints JSON including PHP version, OS,
+architecture, warm-up, iteration count, elapsed time, throughput and peak memory. For a quick harness check use
+`composer benchmark -- --smoke`; smoke numbers are not performance results. Use the same host, PHP build, extensions,
+and configuration when comparing revisions. This microbenchmark measures HTTP request parsing only; it does not
+represent end-to-end throughput, latency under load, or multi-worker capacity.
 
 ## HTTP example
 

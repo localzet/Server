@@ -1,20 +1,16 @@
 ---
 name: Feature request
-about: Suggest an idea for this project
-title: "[FEATURE]"
+about: Propose a focused Localzet Server improvement
+title: "[Feature] "
 labels: Улучшение
 assignees: localzet
-
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## Problem and use case
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+## Proposed behavior
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+## Compatibility and operational impact
+Describe public PHP API, wire format, PHP version, runtime dependency, process lifecycle, performance and security effects.
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+## Alternatives and additional context

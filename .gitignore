@@ -1,6 +1,7 @@
 ### Composer ###
 composer.phar
 /vendor/
+/tests/benchmark-results.json
 
 # Фиксируйте файл блокировки вашего приложения https://getcomposer.org/doc/01-basic-usage.md#commit-your-composer-lock-file-to-version-control
 # Вы можете выбрать игнорирование файла блокировки библиотеки http://getcomposer.org/doc/02-libraries.md#lock-file

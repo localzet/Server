@@ -30,7 +30,7 @@
 
 `composer.json`: localzet/server; runtime ">=8.1".
 
-Объявленные проверки: `composer run lint`, `composer run test`, `composer run test:integration`, `composer run check`, `composer run test:all`, `composer run test:revolt`, `composer run test:gateway`, `composer run test:fuzz`.
+Объявленные проверки: `composer run lint`, `composer run test`, `composer run analyze`, `composer run test:integration`, `composer run check`, `composer run test:all`, `composer run test:revolt`, `composer run test:gateway`, `composer run test:fuzz`, `composer run test:memory`, `composer run release:audit`, `composer benchmark -- --smoke`. Основная CI проверяет Linux/PHP 8.1–8.5 на едином наборе dev-зависимостей; еженедельная задача проверяет последние допустимые версии.
 
 Команды выше найдены в манифестах, а не проверены запуском. Перед выполнением прочитай их реализацию, нужные переменные и внешние зависимости. Не запускай нагрузочные, сетевые, deploy/migration-задачи или полный train как обычный smoke test.
 

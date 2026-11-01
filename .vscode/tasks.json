@@ -1,0 +1,37 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Composer: validate",
+      "type": "shell",
+      "command": "composer validate --strict",
+      "problemMatcher": []
+    },
+    {
+      "label": "Composer: lint",
+      "type": "shell",
+      "command": "composer run lint",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Composer: smoke tests",
+      "type": "shell",
+      "command": "composer run test",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Composer: analyze",
+      "type": "shell",
+      "command": "composer run analyze",
+      "problemMatcher": []
+    },
+    {
+      "label": "Composer: integration tests",
+      "type": "shell",
+      "command": "composer run test:integration",
+      "problemMatcher": []
+    }
+  ]
+}

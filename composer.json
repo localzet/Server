@@ -58,8 +58,7 @@
     }
   },
   "require-dev": {
-    "phpunit/phpunit": "^10.5 || ^11 || ^12",
-    "phpstan/phpstan": "^2.1",
+    "phpstan/phpstan": "^2.3",
     "revolt/event-loop": "^1.0"
   },
   "scripts": {
@@ -83,6 +82,7 @@
     "test:gateway": "php tests/gateway_smoke.php && php tests/gateway_host_regression.php && bash tests/gateway_integration.sh",
     "test:fuzz": "php tests/fuzz_smoke.php",
     "test:memory": "php tests/memory_smoke.php",
+    "benchmark": "php tests/benchmark.php",
     "release:audit": "bash tests/release_audit.sh"
   },
   "extra": {

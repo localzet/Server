@@ -3,12 +3,40 @@ name: CI
 on:
   push:
   pull_request:
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.1'
+          coverage: none
+          tools: composer:v2
+      - name: Validate Composer metadata
+        run: composer validate --strict
+      - name: Resolve bounded dependencies
+        run: composer update --no-interaction --prefer-dist --with 'phpstan/phpstan:2.3.*' --with 'revolt/event-loop:1.0.*'
+      - name: Upload resolved dependencies
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: composer-vendor
+          path: |
+            composer.lock
+            vendor
+          include-hidden-files: true
+          retention-days: 1
+
   test:
+    needs: dependencies
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -25,11 +53,13 @@ jobs:
           coverage: none
           tools: composer:v2
 
-      - name: Validate Composer metadata
-        run: composer validate --strict
+      - name: Download resolved dependencies
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: composer-vendor
 
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
+      - name: Check dependency advisories
+        run: composer audit --no-interaction
 
       - name: Syntax check
         run: composer lint
@@ -61,3 +91,41 @@ jobs:
       - name: Integration tests
         if: runner.os == 'Linux'
         run: composer test:integration
+
+  benchmark-smoke:
+    needs: dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - name: Download resolved dependencies
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: composer-vendor
+      - name: Validate benchmark harness
+        run: php tests/benchmark.php --smoke
+
+  dependency-updates:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.5'
+          coverage: none
+          tools: composer:v2
+      - name: Resolve latest dependencies and check advisories
+        run: |
+          composer update --no-interaction --prefer-dist
+          composer audit --no-interaction
+          composer validate --strict
+          composer run lint
+          composer run analyze
+          composer run test:all
