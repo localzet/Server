@@ -172,4 +172,4 @@ Http::maxHeaderCount(100);
 
 GNU AGPL v3 или новее, см. [LICENSE](LICENSE). Документация: https://server.localzet.com.
 
-Ivan Zorin (`localzet`), <creator@localzet.com>, https://www.localzet.com. Copyright © 2026 Localzet Group. Сохраняются исходные уведомления авторов и лицензии сторонних компонентов; см. [.github/AUTHORS.md](.github/AUTHORS.md). Уязвимости сообщайте согласно [.github/SECURITY_ru.md](.github/SECURITY_ru.md).
+Copyright © 2016-2026 [Localzet Group](https://www.localzet.com/). All rights reserved. Сохраняются исходные уведомления авторов и лицензии сторонних компонентов; см. [.github/AUTHORS.md](.github/AUTHORS.md). Уязвимости сообщайте согласно [.github/SECURITY_ru.md](.github/SECURITY_ru.md).
