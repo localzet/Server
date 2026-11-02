@@ -422,6 +422,7 @@ fclose($peerSock);
 
 ok(Server::UI_SAFE_LENGTH === 4, 'legacy UI_SAFE_LENGTH compatibility constant');
 ok(isset(Server::ERROR_TYPE[E_ERROR]), 'legacy ERROR_TYPE compatibility table');
+ok(Server::ERROR_TYPE[2048] === 'E_STRICT', 'E_STRICT mapping avoids deprecated constant access');
 ok(property_exists(Server::class, 'outputStream'), 'legacy outputStream compatibility property');
 
 echo "All smoke tests passed.\n";
