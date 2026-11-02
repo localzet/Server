@@ -28,7 +28,8 @@
   },
   "require": {
     "php": ">=8.1",
-    "ext-json": "*"
+    "ext-json": "*",
+    "ext-ctype": "*"
   },
   "suggest": {
     "revolt/event-loop": "Fiber-based event loop backend and non-blocking Timer::sleep().",
