@@ -690,7 +690,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
 
         $wasEmpty = $this->sendBuffer === '';
         $this->sendBuffer .= $data;
-        if ($wasEmpty && is_resource($this->socket)) {
+        if ($wasEmpty && is_resource($this->socket) && $this->status === self::STATUS_ESTABLISHED) {
             $this->eventLoop->onWritable($this->socket, $this->baseWrite(...));
         }
         if (strlen($this->sendBuffer) >= $this->maxSendBufferSize && $this->onBufferFull !== null) {

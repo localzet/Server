@@ -8,6 +8,7 @@ BASE=$((20000 + ($$ % 10000)))
 export LOCALZET_TEST_HTTP_PORT="${LOCALZET_TEST_HTTP_PORT:-$BASE}"
 export LOCALZET_TEST_WS_PORT="${LOCALZET_TEST_WS_PORT:-$((BASE + 1))}"
 export LOCALZET_TEST_CRASH_PORT="${LOCALZET_TEST_CRASH_PORT:-$((BASE + 2))}"
+export LOCALZET_TEST_ASYNC_TCP_PORT="${LOCALZET_TEST_ASYNC_TCP_PORT:-$((BASE + 3))}"
 export LOCALZET_TEST_RELOAD_DELAY_MS=600
 HTTP_LOG="${TMPDIR:-/tmp}/localzet-http-integration-$$.log"
 WS_LOG="${TMPDIR:-/tmp}/localzet-ws-integration-$$.log"
@@ -15,6 +16,7 @@ UPGRADE_BOOT_FILE="${TMPDIR:-/tmp}/localzet-upgrade-boot-$$.txt"
 HTTP_LAUNCH_PID=''
 WS_LAUNCH_PID=''
 CRASH_LAUNCH_PID=''
+ASYNC_TCP_LAUNCH_PID=''
 
 wait_port() {
     local port="$1"
@@ -34,6 +36,7 @@ stop_servers() {
     [[ -z "$HTTP_LAUNCH_PID" ]] || kill "$HTTP_LAUNCH_PID" >/dev/null 2>&1 || true
     [[ -z "$WS_LAUNCH_PID" ]] || kill "$WS_LAUNCH_PID" >/dev/null 2>&1 || true
     [[ -z "$CRASH_LAUNCH_PID" ]] || kill "$CRASH_LAUNCH_PID" >/dev/null 2>&1 || true
+    [[ -z "$ASYNC_TCP_LAUNCH_PID" ]] || kill "$ASYNC_TCP_LAUNCH_PID" >/dev/null 2>&1 || true
 }
 trap stop_servers EXIT
 
@@ -617,5 +620,20 @@ if [[ "$(cat "$WS_CLOSE_RESULT")" != "1001" ]]; then
 fi
 rm -f "$WS_READY" "$WS_CLOSE_RESULT"
 echo 'WS_GRACEFUL_CLOSE=ok'
+
+# 9. Queue an application frame while an outbound TCP connection is connecting.
+ASYNC_TCP_LOG="${TMPDIR:-/tmp}/localzet-async-tcp-integration-$$.log"
+php tests/live_async_tcp_server.php start "$LOCALZET_TEST_ASYNC_TCP_PORT" >"$ASYNC_TCP_LOG" 2>&1 &
+ASYNC_TCP_LAUNCH_PID=$!
+if ! wait_port "$LOCALZET_TEST_ASYNC_TCP_PORT"; then
+    cat "$ASYNC_TCP_LOG"
+    echo 'Async TCP frame server did not start' >&2
+    exit 1
+fi
+php tests/live_async_tcp_client.php "$LOCALZET_TEST_ASYNC_TCP_PORT"
+kill -INT "$ASYNC_TCP_LAUNCH_PID"
+wait "$ASYNC_TCP_LAUNCH_PID"
+ASYNC_TCP_LAUNCH_PID=''
+unset LOCALZET_TEST_ASYNC_TCP_PORT
 
 echo 'All integration tests passed.'
