@@ -295,12 +295,31 @@ class AsyncTcpConnection extends TcpConnection
         if (!is_resource($socket)) {
             return;
         }
-        $chunk = @fread($socket, 8192);
-        if ($chunk === false || ($chunk === '' && feof($socket))) {
+        $readLength = 8192;
+        if ($this->proxyStage === 'socks-method' || $this->proxyStage === 'socks-auth') {
+            $readLength = max(1, 2 - strlen($this->proxyReadBuffer));
+        } elseif ($this->proxyStage === 'socks-connect') {
+            try {
+                $required = $this->socks5ReplyLength($this->proxyReadBuffer);
+            } catch (RuntimeException $e) {
+                $this->failConnect(self::CONNECT_FAIL, $e->getMessage());
+                return;
+            }
+            $readLength = max(1, ($required ?: (strlen($this->proxyReadBuffer) < 4 ? 4 : 5)) - strlen($this->proxyReadBuffer));
+        }
+
+        // fgets stops at the final header line, leaving early tunnel data for the application.
+        $chunk = $this->proxyStage === 'http-response'
+            ? @fgets($socket, min(8192, 65537 - strlen($this->proxyReadBuffer)))
+            : @fread($socket, min(8192, $readLength));
+        if ($chunk === false && feof($socket)) {
             $this->failConnect(self::CONNECT_FAIL, 'Proxy closed connection during handshake.');
             return;
         }
-        if ($chunk === '') {
+        if ($chunk === false || $chunk === '') {
+            if (feof($socket)) {
+                $this->failConnect(self::CONNECT_FAIL, 'Proxy closed connection during handshake.');
+            }
             return;
         }
         $this->proxyReadBuffer .= $chunk;

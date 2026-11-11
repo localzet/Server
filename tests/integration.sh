@@ -20,6 +20,9 @@ ASYNC_TCP_LAUNCH_PID=''
 SOCKS5_FIXTURE_PID=''
 SOCKS5_FIXTURE=''
 SOCKS5_PORT_FILE=''
+CONNECT_FIXTURE_PID=''
+CONNECT_FIXTURE=''
+CONNECT_PORT_FILE=''
 
 wait_port() {
     local port="$1"
@@ -43,6 +46,9 @@ stop_servers() {
     [[ -z "$SOCKS5_FIXTURE_PID" ]] || kill "$SOCKS5_FIXTURE_PID" >/dev/null 2>&1 || true
     [[ -z "$SOCKS5_FIXTURE" ]] || rm -f "$SOCKS5_FIXTURE"
     [[ -z "$SOCKS5_PORT_FILE" ]] || rm -f "$SOCKS5_PORT_FILE"
+    [[ -z "$CONNECT_FIXTURE_PID" ]] || kill "$CONNECT_FIXTURE_PID" >/dev/null 2>&1 || true
+    [[ -z "$CONNECT_FIXTURE" ]] || rm -f "$CONNECT_FIXTURE"
+    [[ -z "$CONNECT_PORT_FILE" ]] || rm -f "$CONNECT_PORT_FILE"
 }
 trap stop_servers EXIT
 
@@ -674,5 +680,39 @@ SOCKS5_FIXTURE_PID=''
 rm -f "$SOCKS5_FIXTURE" "$SOCKS5_PORT_FILE"
 SOCKS5_FIXTURE=''
 SOCKS5_PORT_FILE=''
+
+# Preserve bytes following a successful HTTP CONNECT response.
+CONNECT_FIXTURE="${TMPDIR:-/tmp}/localzet-connect-fixture-$$.php"
+CONNECT_PORT_FILE="${TMPDIR:-/tmp}/localzet-connect-port-$$"
+cat > "$CONNECT_FIXTURE" <<'PHP'
+<?php
+$server = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
+if (!is_resource($server)) exit(1);
+$address = stream_socket_get_name($server, false);
+file_put_contents($argv[1], (string)substr(strrchr($address, ':'), 1));
+$client = stream_socket_accept($server, 3);
+if (!is_resource($client)) exit(2);
+$request = '';
+while (!str_contains($request, "\r\n\r\n")) {
+    $chunk = fread($client, 1024);
+    if ($chunk === '' || $chunk === false) exit(3);
+    $request .= $chunk;
+}
+fwrite($client, "HTTP/1.1 200 Connection Established\r\n\r\nserver-greeting");
+fclose($client);
+fclose($server);
+PHP
+php "$CONNECT_FIXTURE" "$CONNECT_PORT_FILE" & CONNECT_FIXTURE_PID=$!
+for _ in $(seq 1 40); do [[ -s "$CONNECT_PORT_FILE" ]] && break; sleep 0.025; done
+if [[ ! -s "$CONNECT_PORT_FILE" ]]; then
+    echo 'HTTP CONNECT fixture did not start' >&2
+    exit 1
+fi
+php tests/live_http_connect_proxy_client.php "127.0.0.1:$(cat "$CONNECT_PORT_FILE")"
+wait "$CONNECT_FIXTURE_PID"
+CONNECT_FIXTURE_PID=''
+rm -f "$CONNECT_FIXTURE" "$CONNECT_PORT_FILE"
+CONNECT_FIXTURE=''
+CONNECT_PORT_FILE=''
 
 echo 'All integration tests passed.'
