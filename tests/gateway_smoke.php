@@ -69,6 +69,26 @@ $tail = "ki\r\n0\r\n\r\nNEXT";
 $consumed = $chunked->consume($tail);
 gatewayOk($consumed === strlen("ki\r\n0\r\n\r\n") && $chunked->isComplete(), 'chunked terminal boundary');
 
+$oversizedChunkLine = HttpBodyTracker::forRequest(['transfer-encoding' => ['chunked']]);
+$rejected = false;
+try {
+    $oversizedChunkLine->consume(str_repeat('a', 4096));
+    $oversizedChunkLine->consume(str_repeat('a', 4097));
+} catch (RuntimeException) {
+    $rejected = true;
+}
+gatewayOk($rejected, 'oversized fragmented chunk-size line rejected');
+
+$oversizedTrailers = HttpBodyTracker::forRequest(['transfer-encoding' => ['chunked']]);
+$rejected = false;
+try {
+    $oversizedTrailers->consume("0\r\n" . str_repeat('x', 16384));
+    $oversizedTrailers->consume(str_repeat('x', 16385));
+} catch (RuntimeException) {
+    $rejected = true;
+}
+gatewayOk($rejected, 'oversized incomplete trailers rejected');
+
 
 // Gateway framing must reject ambiguous message boundaries.
 $rejected = false;

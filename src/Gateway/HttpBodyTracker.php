@@ -43,6 +43,8 @@ final class HttpBodyTracker
     private const LENGTH = 'length';
     private const CHUNKED = 'chunked';
     private const UNTIL_CLOSE = 'close';
+    private const MAX_CHUNK_LINE_BYTES = 8192;
+    private const MAX_TRAILER_BYTES = 32768;
 
     private string $mode = self::NONE;
     private int $remaining = 0;
@@ -181,7 +183,13 @@ final class HttpBodyTracker
                 }
                 $end = strpos($this->chunkBuffer, "\r\n\r\n", $offset);
                 if ($end === false) {
+                    if (strlen($this->chunkBuffer) - $offset > self::MAX_TRAILER_BYTES) {
+                        throw new RuntimeException('Trailers are too large in proxied HTTP message.');
+                    }
                     break;
+                }
+                if ($end + 4 - $offset > self::MAX_TRAILER_BYTES) {
+                    throw new RuntimeException('Trailers are too large in proxied HTTP message.');
                 }
                 $offset = $end + 4;
                 $this->complete = true;
@@ -191,7 +199,13 @@ final class HttpBodyTracker
             if ($this->chunkRemaining === null) {
                 $lineEnd = strpos($this->chunkBuffer, "\r\n", $offset);
                 if ($lineEnd === false) {
+                    if (strlen($this->chunkBuffer) - $offset > self::MAX_CHUNK_LINE_BYTES) {
+                        throw new RuntimeException('Chunk size line is too large in proxied HTTP message.');
+                    }
                     break;
+                }
+                if ($lineEnd - $offset > self::MAX_CHUNK_LINE_BYTES) {
+                    throw new RuntimeException('Chunk size line is too large in proxied HTTP message.');
                 }
                 $line = substr($this->chunkBuffer, $offset, $lineEnd - $offset);
                 $sizeToken = trim(explode(';', $line, 2)[0]);
