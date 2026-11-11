@@ -370,13 +370,21 @@ class AsyncTcpConnection extends TcpConnection
                 return;
 
             case 'socks-connect':
-                $required = $this->socks5ReplyLength($this->proxyReadBuffer);
+                try {
+                    $required = $this->socks5ReplyLength($this->proxyReadBuffer);
+                } catch (RuntimeException $e) {
+                    $this->failConnect(self::CONNECT_FAIL, $e->getMessage());
+                    return;
+                }
                 if ($required === 0 || strlen($this->proxyReadBuffer) < $required) {
                     return;
                 }
-                if (ord($this->proxyReadBuffer[0]) !== 5 || ord($this->proxyReadBuffer[1]) !== 0) {
+                if (ord($this->proxyReadBuffer[0]) !== 5
+                    || ord($this->proxyReadBuffer[1]) !== 0
+                    || ord($this->proxyReadBuffer[2]) !== 0
+                ) {
                     $code = isset($this->proxyReadBuffer[1]) ? ord($this->proxyReadBuffer[1]) : -1;
-                    $this->failConnect(self::CONNECT_FAIL, "SOCKS5 CONNECT failed with code {$code}.");
+                    $this->failConnect(self::CONNECT_FAIL, "SOCKS5 CONNECT reply is invalid or failed with code {$code}.");
                     return;
                 }
                 $this->finishProxyHandshake();
@@ -540,13 +548,18 @@ class AsyncTcpConnection extends TcpConnection
 
     protected function socks5ReplyLength(string $buffer): int
     {
-        if (strlen($buffer) < 5) {
+        if (strlen($buffer) < 4) {
             return 0;
         }
+
+        if (ord($buffer[0]) !== 5 || ord($buffer[2]) !== 0) {
+            throw new RuntimeException('Invalid SOCKS5 CONNECT reply header.');
+        }
+
         return match (ord($buffer[3])) {
             0x01 => 10,
             0x04 => 22,
-            0x03 => 7 + ord($buffer[4]),
+            0x03 => strlen($buffer) < 5 ? 0 : 7 + ord($buffer[4]),
             default => throw new RuntimeException('Invalid SOCKS5 reply address type.'),
         };
     }

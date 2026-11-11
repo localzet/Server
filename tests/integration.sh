@@ -17,6 +17,9 @@ HTTP_LAUNCH_PID=''
 WS_LAUNCH_PID=''
 CRASH_LAUNCH_PID=''
 ASYNC_TCP_LAUNCH_PID=''
+SOCKS5_FIXTURE_PID=''
+SOCKS5_FIXTURE=''
+SOCKS5_PORT_FILE=''
 
 wait_port() {
     local port="$1"
@@ -37,6 +40,9 @@ stop_servers() {
     [[ -z "$WS_LAUNCH_PID" ]] || kill "$WS_LAUNCH_PID" >/dev/null 2>&1 || true
     [[ -z "$CRASH_LAUNCH_PID" ]] || kill "$CRASH_LAUNCH_PID" >/dev/null 2>&1 || true
     [[ -z "$ASYNC_TCP_LAUNCH_PID" ]] || kill "$ASYNC_TCP_LAUNCH_PID" >/dev/null 2>&1 || true
+    [[ -z "$SOCKS5_FIXTURE_PID" ]] || kill "$SOCKS5_FIXTURE_PID" >/dev/null 2>&1 || true
+    [[ -z "$SOCKS5_FIXTURE" ]] || rm -f "$SOCKS5_FIXTURE"
+    [[ -z "$SOCKS5_PORT_FILE" ]] || rm -f "$SOCKS5_PORT_FILE"
 }
 trap stop_servers EXIT
 
@@ -635,5 +641,38 @@ kill -INT "$ASYNC_TCP_LAUNCH_PID"
 wait "$ASYNC_TCP_LAUNCH_PID"
 ASYNC_TCP_LAUNCH_PID=''
 unset LOCALZET_TEST_ASYNC_TCP_PORT
+
+# A malformed SOCKS5 CONNECT reply must fail the client without escaping the event loop.
+SOCKS5_FIXTURE="${TMPDIR:-/tmp}/localzet-socks5-fixture-$$.php"
+SOCKS5_PORT_FILE="${TMPDIR:-/tmp}/localzet-socks5-port-$$"
+cat > "$SOCKS5_FIXTURE" <<'PHP'
+<?php
+$server = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
+if (!is_resource($server)) exit(1);
+$address = stream_socket_get_name($server, false);
+file_put_contents($argv[1], (string)substr(strrchr($address, ':'), 1));
+$client = stream_socket_accept($server, 3);
+if (!is_resource($client)) exit(2);
+$hello = fread($client, 3);
+if ($hello !== "\x05\x01\x00") exit(3);
+fwrite($client, "\x05\x00");
+$request = fread($client, 5);
+if (strlen($request) < 5) exit(4);
+fwrite($client, "\x05\x00\x00\x7f\xff");
+fclose($client);
+fclose($server);
+PHP
+php "$SOCKS5_FIXTURE" "$SOCKS5_PORT_FILE" & SOCKS5_FIXTURE_PID=$!
+for _ in $(seq 1 40); do [[ -s "$SOCKS5_PORT_FILE" ]] && break; sleep 0.025; done
+if [[ ! -s "$SOCKS5_PORT_FILE" ]]; then
+    echo 'SOCKS5 malformed-reply fixture did not start' >&2
+    exit 1
+fi
+php tests/live_socks5_malformed_client.php "127.0.0.1:$(cat "$SOCKS5_PORT_FILE")"
+wait "$SOCKS5_FIXTURE_PID"
+SOCKS5_FIXTURE_PID=''
+rm -f "$SOCKS5_FIXTURE" "$SOCKS5_PORT_FILE"
+SOCKS5_FIXTURE=''
+SOCKS5_PORT_FILE=''
 
 echo 'All integration tests passed.'
