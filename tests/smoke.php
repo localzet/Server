@@ -38,7 +38,23 @@ use localzet\Server\Protocols\Http\ServerSentEvents;
 use localzet\Server\Protocols\Http\Request;
 use localzet\Server\Protocols\Http\Session;
 use localzet\Server\Protocols\Http\Session\FileSessionHandler;
+use localzet\Server\Protocols\Redis;
 use localzet\Server\Protocols\Websocket;
+
+final class PidFileSmokeServer extends Server
+{
+    public static function readPidForTest(string $file): int
+    {
+        return parent::readPidFile($file);
+    }
+
+    public static function writePidForTest(string $file, int $pid): void
+    {
+        self::$pidFile = $file;
+        parent::$masterPid = $pid;
+        parent::writePidFile();
+    }
+}
 
 function ok(bool $condition, string $message): void
 {
@@ -54,6 +70,19 @@ function connectionPair(): array
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     if ($pair === false) throw new RuntimeException('stream_socket_pair failed');
     return $pair;
+}
+
+$pidFixture = sys_get_temp_dir() . '/localzet-pid-smoke-' . bin2hex(random_bytes(8));
+if (function_exists('symlink') && @symlink($pidFixture . '.target', $pidFixture)) {
+    file_put_contents($pidFixture . '.target', (string)getmypid());
+    ok(PidFileSmokeServer::readPidForTest($pidFixture) === 0, 'PID reader rejects symlink files');
+    PidFileSmokeServer::writePidForTest($pidFixture, 12345);
+    ok(file_get_contents($pidFixture . '.target') === (string)getmypid(), 'atomic PID write does not follow symlink target');
+    ok(!is_link($pidFixture) && trim((string)file_get_contents($pidFixture)) === '12345', 'atomic PID write replaces symlink itself');
+    @unlink($pidFixture);
+    @unlink($pidFixture . '.target');
+} else {
+    ok(true, 'PID symlink regression skipped on unsupported filesystem');
 }
 
 $loop = new Select();
@@ -264,6 +293,30 @@ fclose($idlePeer);
 $packet = Frame::encode('payload', $conn);
 ok(Frame::input($packet, $conn) === strlen($packet), 'Frame protocol length');
 ok(Frame::decode($packet, $conn) === 'payload', 'Frame protocol decode');
+
+$redisFrame = "*2\r\n$3\r\nGET\r\n$4\r\nkey1\r\n";
+ok(Redis::input($redisFrame, $conn) === strlen($redisFrame), 'Redis array frame length');
+ok(Redis::decode($redisFrame, $conn) === ['GET', 'key1'], 'Redis array decode');
+
+$redisDeepFrame = str_repeat("*1\r\n", 64) . "+ok\r\n";
+ok(Redis::input($redisDeepFrame, $conn) === strlen($redisDeepFrame), 'Redis nested frame within depth limit');
+$redisTooDeepFrame = str_repeat("*1\r\n", 65) . "+no\r\n";
+$redisRejected = false;
+try {
+    Redis::input($redisTooDeepFrame, $conn);
+} catch (RuntimeException) {
+    $redisRejected = true;
+}
+ok($redisRejected, 'Redis excessive nesting rejected');
+
+$redisTooManyValues = "*100001\r\n";
+$redisRejected = false;
+try {
+    Redis::input($redisTooManyValues, $conn);
+} catch (RuntimeException) {
+    $redisRejected = true;
+}
+ok($redisRejected, 'Redis excessive array element count rejected');
 
 // Async UDP: application scheme должен кодироваться поверх UDP, а не становиться transport scheme.
 $udpServer = stream_socket_server('udp://127.0.0.1:0', $udpErrno, $udpError, STREAM_SERVER_BIND);

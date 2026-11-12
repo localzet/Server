@@ -33,6 +33,9 @@ use localzet\Server\Connection\ConnectionInterface;
 /** Минимальный RESP2 framing/codec для совместимости со старым Localzet API. */
 final class Redis implements ProtocolInterface
 {
+    private const MAX_NESTING_DEPTH = 64;
+    private const MAX_VALUES_PER_FRAME = 100_000;
+
     public static function input(string $buffer, ConnectionInterface $connection): int
     {
         return self::frameLength($buffer);
@@ -40,8 +43,12 @@ final class Redis implements ProtocolInterface
 
     public static function decode(string $buffer, ConnectionInterface $connection): mixed
     {
+        if (self::frameLength($buffer) === 0) {
+            throw new \RuntimeException('Incomplete RESP frame.');
+        }
         $offset = 0;
-        return self::decodeValue($buffer, $offset);
+        $remainingValues = self::MAX_VALUES_PER_FRAME;
+        return self::decodeValue($buffer, $offset, 0, $remainingValues);
     }
 
     public static function encode(mixed $data, ConnectionInterface $connection): string
@@ -62,41 +69,83 @@ final class Redis implements ProtocolInterface
         if ($buffer === '') {
             return 0;
         }
-        $type = $buffer[0];
-        $lineEnd = strpos($buffer, "\r\n");
-        if ($lineEnd === false) {
+        $offset = 0;
+        $remainingValues = self::MAX_VALUES_PER_FRAME;
+        if (!self::advanceFrame($buffer, $offset, 0, $remainingValues)) {
             return 0;
         }
+        return $offset;
+    }
+
+    private static function advanceFrame(string $buffer, int &$offset, int $depth, int &$remainingValues): bool
+    {
+        if ($depth > self::MAX_NESTING_DEPTH) {
+            throw new \RuntimeException('RESP nesting depth exceeds the supported limit.');
+        }
+        if (--$remainingValues < 0) {
+            throw new \RuntimeException('RESP frame contains too many values.');
+        }
+
+        $type = $buffer[$offset] ?? '';
+        if ($type === '') {
+            return false;
+        }
+        $lineEnd = strpos($buffer, "\r\n", $offset + 1);
+        if ($lineEnd === false) {
+            return false;
+        }
+        $line = substr($buffer, $offset + 1, $lineEnd - $offset - 1);
+        $offset = $lineEnd + 2;
         if ($type === '+' || $type === '-' || $type === ':') {
-            return $lineEnd + 2;
+            return true;
         }
         if ($type === '$') {
-            $size = (int)substr($buffer, 1, $lineEnd - 1);
+            $size = (int)$line;
             if ($size < 0) {
-                return $lineEnd + 2;
+                return true;
             }
-            $total = $lineEnd + 2 + $size + 2;
-            return strlen($buffer) >= $total ? $total : 0;
+            $available = strlen($buffer) - $offset;
+            if ($available < 2 || $size > $available - 2) {
+                return false;
+            }
+            if (substr($buffer, $offset + $size, 2) !== "\r\n") {
+                throw new \RuntimeException('Invalid RESP bulk string terminator.');
+            }
+            $offset += $size + 2;
+            return true;
         }
         if ($type === '*') {
-            $count = (int)substr($buffer, 1, $lineEnd - 1);
-            $offset = $lineEnd + 2;
-            for ($i = 0; $i < $count; $i++) {
-                $len = self::frameLength(substr($buffer, $offset));
-                if ($len === 0) {
-                    return 0;
-                }
-                $offset += $len;
+            $count = (int)$line;
+            if ($count < 0) {
+                return true;
             }
-            return $offset;
+            if ($count > $remainingValues) {
+                throw new \RuntimeException('RESP frame contains too many array values.');
+            }
+            for ($i = 0; $i < $count; $i++) {
+                if (!self::advanceFrame($buffer, $offset, $depth + 1, $remainingValues)) {
+                    return false;
+                }
+            }
+            return true;
         }
         throw new \RuntimeException('Unsupported RESP frame.');
     }
 
-    private static function decodeValue(string $buffer, int &$offset): mixed
+    private static function decodeValue(string $buffer, int &$offset, int $depth, int &$remainingValues): mixed
     {
-        $type = $buffer[$offset++];
+        if ($depth > self::MAX_NESTING_DEPTH) {
+            throw new \RuntimeException('RESP nesting depth exceeds the supported limit.');
+        }
+        if (--$remainingValues < 0) {
+            throw new \RuntimeException('RESP frame contains too many values.');
+        }
+
+        $type = $buffer[$offset++] ?? '';
         $lineEnd = strpos($buffer, "\r\n", $offset);
+        if ($type === '' || $lineEnd === false) {
+            throw new \RuntimeException('Invalid RESP frame.');
+        }
         $line = substr($buffer, $offset, $lineEnd - $offset);
         $offset = $lineEnd + 2;
         return match ($type) {
@@ -104,7 +153,7 @@ final class Redis implements ProtocolInterface
             '-' => new \RuntimeException($line),
             ':' => (int)$line,
             '$' => self::decodeBulk($buffer, $offset, (int)$line),
-            '*' => self::decodeArray($buffer, $offset, (int)$line),
+            '*' => self::decodeArray($buffer, $offset, (int)$line, $depth, $remainingValues),
             default => throw new \RuntimeException('Unsupported RESP frame type.'),
         };
     }
@@ -114,19 +163,29 @@ final class Redis implements ProtocolInterface
         if ($length < 0) {
             return null;
         }
+        $available = strlen($buffer) - $offset;
+        if ($available < 2 || $length > $available - 2) {
+            throw new \RuntimeException('Incomplete RESP bulk string.');
+        }
+        if (substr($buffer, $offset + $length, 2) !== "\r\n") {
+            throw new \RuntimeException('Invalid RESP bulk string terminator.');
+        }
         $value = substr($buffer, $offset, $length);
         $offset += $length + 2;
         return $value;
     }
 
-    private static function decodeArray(string $buffer, int &$offset, int $count): ?array
+    private static function decodeArray(string $buffer, int &$offset, int $count, int $depth, int &$remainingValues): ?array
     {
         if ($count < 0) {
             return null;
         }
+        if ($count > $remainingValues) {
+            throw new \RuntimeException('RESP frame contains too many array values.');
+        }
         $result = [];
         for ($i = 0; $i < $count; $i++) {
-            $result[] = self::decodeValue($buffer, $offset);
+            $result[] = self::decodeValue($buffer, $offset, $depth + 1, $remainingValues);
         }
         return $result;
     }

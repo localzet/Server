@@ -26,6 +26,8 @@ require_once $root . '/Helpers.php';
 
 use localzet\Server\Gateway\HttpBodyTracker;
 use localzet\Server\Gateway\HttpRoute;
+use localzet\Server\Events\Select;
+use localzet\Server\Proxy\TcpProxy;
 use localzet\Server\Proxy\Upstream;
 use localzet\Server\Proxy\UpstreamPool;
 
@@ -54,6 +56,27 @@ $pool->markFailure($a);
 gatewayOk(!$a->isAvailable(), 'passive quarantine');
 $pool->markSuccess($a);
 gatewayOk($a->isAvailable(), 'successful probe restores upstream');
+
+$proxyLoop = new Select();
+$proxyServer = new \localzet\Server('tcp://127.0.0.1:0');
+$proxyPool = new UpstreamPool([
+    new Upstream('tcp://127.0.0.1:1'),
+    new Upstream('tcp://127.0.0.1:2'),
+], UpstreamPool::ROUND_ROBIN);
+(new TcpProxy($proxyPool))->attach($proxyServer);
+$proxySocketPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+if ($proxySocketPair === false) {
+    throw new RuntimeException('Unable to create TCP proxy test sockets.');
+}
+[$proxyClientSocket, $proxyPeerSocket] = $proxySocketPair;
+$proxyClient = new \localzet\Server\Connection\TcpConnection($proxyLoop, $proxyClientSocket, '127.0.0.1:12345');
+($proxyServer->onConnect)($proxyClient);
+$proxyBackend = $proxyClient->context->tcpProxyBackend;
+($proxyBackend->onConnect)($proxyBackend);
+($proxyBackend->onError)($proxyBackend, 3, 'simulated post-connect send failure');
+gatewayOk($proxyClient->getStatus() === \localzet\Server\Connection\TcpConnection::STATUS_CLOSED, 'TCP proxy closes client after post-connect backend failure');
+gatewayOk(!isset($proxyClient->context->tcpProxyBackend), 'TCP proxy does not retry another upstream after client data may have been sent');
+fclose($proxyPeerSocket);
 
 $route = new HttpRoute($pool, 'api.example.test', '/api/', '/v1/');
 gatewayOk($route->matches('api.example.test:8080', '/api/users'), 'HTTP route host/path match');

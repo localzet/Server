@@ -108,6 +108,7 @@ final class TcpProxy
         $client->context->tcpProxyBackend = $backend;
         $upstream->activeConnections++;
         $released = false;
+        $connected = false;
 
         $release = static function () use ($upstream, &$released): void {
             if ($released) {
@@ -122,12 +123,13 @@ final class TcpProxy
         // failover не требует временно буферизовать произвольный объём данных.
         $client->pauseRecv();
 
-        $backend->onConnect = function (AsyncTcpConnection $backend) use ($client, $upstream): void {
+        $backend->onConnect = function (AsyncTcpConnection $backend) use ($client, $upstream, &$connected): void {
             if (($client->context->tcpProxyBackend ?? null) !== $backend) {
                 $backend->close();
                 return;
             }
 
+            $connected = true;
             $this->pool->markSuccess($upstream);
 
             // Не используем TcpConnection::pipe(): helper намеренно заменяет
@@ -140,14 +142,18 @@ final class TcpProxy
             $client->onBufferDrain = static fn() => $backend->resumeRecv();
             $client->resumeRecv();
         };
-        $backend->onError = function (AsyncTcpConnection $backend) use ($client, $upstream, $excluded, $release): void {
+        $backend->onError = function (AsyncTcpConnection $backend) use ($client, $upstream, $excluded, $release, &$connected): void {
             if (($client->context->tcpProxyBackend ?? null) !== $backend) {
                 return;
             }
             $this->pool->markFailure($upstream);
             $release();
             unset($client->context->tcpProxyBackend, $client->context->tcpProxyRelease);
-            if ($client->getStatus() !== TcpConnection::STATUS_CLOSED) {
+            $backend->close();
+
+            if ($connected) {
+                $client->close();
+            } elseif ($client->getStatus() !== TcpConnection::STATUS_CLOSED) {
                 $this->connectUpstream($client, $excluded);
             }
         };

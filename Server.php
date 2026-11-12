@@ -465,7 +465,7 @@ class Server
         self::$masterPid = getmypid() ?: 0;
         self::$masterStartedAt = microtime(true);
         self::setProcessTitle('localzet: master ' . basename(self::$startFile));
-        @file_put_contents(self::$pidFile, (string)self::$masterPid, LOCK_EX);
+        self::writePidFile();
 
         if (DIRECTORY_SEPARATOR === '\\' || !function_exists('pcntl_fork')) {
             self::runSingleProcess();
@@ -1083,7 +1083,9 @@ class Server
             self::$pidFile = sys_get_temp_dir() . '/localzet-server-' . $hash . '.pid';
         }
         if (self::$statusFile === '') {
-            self::$statusFile = sys_get_temp_dir() . '/localzet-server-' . $hash . '.status';
+            $runtimeDirectory = self::runtimeDirectoryPath();
+            self::ensurePrivateDirectory($runtimeDirectory);
+            self::$statusFile = $runtimeDirectory . '/server.status';
         }
         if (self::$logFile === '') {
             self::$logFile = dirname(self::$startFile) . '/localzet-server.log';
@@ -1100,22 +1102,24 @@ class Server
             return;
         }
 
-        $lockFile = self::$pidFile . '.lock';
-        $handle = @fopen($lockFile, 'c');
+        $runtimeDirectory = self::runtimeDirectoryPath();
+        self::ensurePrivateDirectory($runtimeDirectory);
+        $lockFile = $runtimeDirectory . DIRECTORY_SEPARATOR . 'startup.lock';
+        $handle = self::openSafeLockFile($lockFile);
         if (!is_resource($handle)) {
             throw new RuntimeException("Unable to open Localzet startup lock: {$lockFile}");
         }
 
         if (!@flock($handle, LOCK_EX | LOCK_NB)) {
             fclose($handle);
-            $pid = is_file(self::$pidFile) ? (int)trim((string)@file_get_contents(self::$pidFile)) : 0;
+            $pid = self::readPidFile(self::$pidFile);
             $suffix = $pid > 0 ? " (PID {$pid})" : '';
             throw new RuntimeException('Localzet Server is already starting or running' . $suffix . '.');
         }
 
         // Старый Server мог не использовать lock. Поэтому после успешного flock
         // отдельно проверяем legacy PID-файл и не стартуем поверх живого master.
-        $previousPid = is_file(self::$pidFile) ? (int)trim((string)@file_get_contents(self::$pidFile)) : 0;
+        $previousPid = self::readPidFile(self::$pidFile);
         if ($previousPid > 0 && self::isProcessAlive($previousPid)) {
             @flock($handle, LOCK_UN);
             fclose($handle);
@@ -1127,6 +1131,76 @@ class Server
             @unlink(self::$pidFile);
         }
         self::cleanupStatusFiles();
+    }
+
+    protected static function runtimeDirectoryPath(): string
+    {
+        $hash = substr(hash('sha256', self::$startFile), 0, 12);
+        $owner = function_exists('posix_geteuid') ? posix_geteuid() : getmyuid();
+        return sys_get_temp_dir() . '/localzet-server-' . $owner . '-' . $hash;
+    }
+
+    protected static function ensurePrivateDirectory(string $directory): void
+    {
+        if (!is_dir($directory) && !@mkdir($directory, 0700) && !is_dir($directory)) {
+            throw new RuntimeException("Unable to create Localzet runtime directory: {$directory}");
+        }
+        clearstatcache(true, $directory);
+        $stat = @lstat($directory);
+        $owner = function_exists('posix_geteuid') ? posix_geteuid() : getmyuid();
+        if ($stat === false || (($stat['mode'] & 0170000) !== 0040000) || $stat['uid'] !== $owner || (($stat['mode'] & 0077) !== 0)) {
+            throw new RuntimeException("Localzet runtime directory must be a private directory owned by the current user: {$directory}");
+        }
+    }
+
+    protected static function openSafeLockFile(string $file)
+    {
+        clearstatcache(true, $file);
+        $stat = @lstat($file);
+        if ($stat !== false && (($stat['mode'] & 0170000) !== 0100000 || $stat['uid'] !== (function_exists('posix_geteuid') ? posix_geteuid() : getmyuid()))) {
+            throw new RuntimeException("Localzet startup lock must be a regular file owned by the current user: {$file}");
+        }
+        $handle = @fopen($file, 'c');
+        if (!is_resource($handle)) {
+            return false;
+        }
+        $opened = fstat($handle);
+        $current = @lstat($file);
+        if ($opened === false || $current === false || $opened['dev'] !== $current['dev'] || $opened['ino'] !== $current['ino'] || (($opened['mode'] & 0170000) !== 0100000)) {
+            fclose($handle);
+            throw new RuntimeException("Localzet startup lock changed while opening: {$file}");
+        }
+        @chmod($file, 0600);
+        return $handle;
+    }
+
+    protected static function readPidFile(string $file): int
+    {
+        clearstatcache(true, $file);
+        $stat = @lstat($file);
+        if ($stat === false || (($stat['mode'] & 0170000) !== 0100000)
+            || $stat['uid'] !== (function_exists('posix_geteuid') ? posix_geteuid() : getmyuid())) {
+            return 0;
+        }
+        $handle = @fopen($file, 'rb');
+        if (!is_resource($handle)) {
+            return 0;
+        }
+        $opened = fstat($handle);
+        $current = @lstat($file);
+        if ($opened === false || $current === false || $opened['dev'] !== $current['dev'] || $opened['ino'] !== $current['ino']
+            || (($opened['mode'] & 0170000) !== 0100000) || $opened['uid'] !== (function_exists('posix_geteuid') ? posix_geteuid() : getmyuid())) {
+            fclose($handle);
+            return 0;
+        }
+        $value = stream_get_contents($handle, 64);
+        fclose($handle);
+        return $value !== false && preg_match('/^[1-9][0-9]*$/D', trim($value)) === 1 ? (int)trim($value) : 0;
+    }
+
+    protected static function writePidFile(): void
+    {
+        self::writeFileAtomically(self::$pidFile, (string)self::$masterPid . "\n", 0600);
     }
 
     protected static function releaseStartupLock(): void
@@ -1212,7 +1286,7 @@ class Server
 
     protected static function executeControlCommand(): void
     {
-        $pid = is_file(self::$pidFile) ? (int)trim((string)file_get_contents(self::$pidFile)) : 0;
+        $pid = self::readPidFile(self::$pidFile);
         $alive = $pid > 0 && DIRECTORY_SEPARATOR === '/' && function_exists('posix_kill') && @posix_kill($pid, 0);
 
         switch (self::$command) {
@@ -1516,7 +1590,7 @@ class Server
         self::$reloadQueue = [];
         self::$reloadCurrent = null;
         self::setProcessTitle('localzet: master ' . basename(self::$startFile));
-        @file_put_contents(self::$pidFile, (string)self::$masterPid, LOCK_EX);
+        self::writePidFile();
 
         $oldServers = is_array($metadata['servers'] ?? null) ? array_values($metadata['servers']) : [];
         $newServers = array_values(self::$servers);
@@ -2230,8 +2304,24 @@ class Server
         if ($json === false) {
             return;
         }
-        $tmp = $file . '.' . getmypid() . '.tmp';
-        if (@file_put_contents($tmp, $json . "\n", LOCK_EX) !== false) {
+        self::writeFileAtomically($file, $json . "\n", 0600);
+    }
+
+    protected static function writeFileAtomically(string $file, string $contents, int $mode): void
+    {
+        $directory = dirname($file);
+        if (!is_dir($directory) || is_link($directory)) {
+            return;
+        }
+        $tmp = $directory . DIRECTORY_SEPARATOR . '.' . basename($file) . '.' . bin2hex(random_bytes(12)) . '.tmp';
+        $handle = @fopen($tmp, 'x');
+        if (!is_resource($handle)) {
+            return;
+        }
+        @chmod($tmp, $mode);
+        $ok = fwrite($handle, $contents) === strlen($contents) && fflush($handle);
+        fclose($handle);
+        if ($ok) {
             @rename($tmp, $file);
         }
         @unlink($tmp);
@@ -2363,7 +2453,7 @@ class Server
     {
         $master = self::readJsonFile(self::$statusFile) ?? [
             'running' => true,
-            'master_pid' => (int)trim((string)@file_get_contents(self::$pidFile)),
+            'master_pid' => self::readPidFile(self::$pidFile),
             'servers' => [],
         ];
 
