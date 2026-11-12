@@ -1135,7 +1135,7 @@ class Server
 
     protected static function runtimeDirectoryPath(): string
     {
-        $hash = substr(hash('sha256', self::$startFile), 0, 12);
+        $hash = substr(hash('sha256', self::$startFile . "\0" . self::$pidFile), 0, 12);
         $owner = function_exists('posix_geteuid') ? posix_geteuid() : getmyuid();
         return sys_get_temp_dir() . '/localzet-server-' . $owner . '-' . $hash;
     }

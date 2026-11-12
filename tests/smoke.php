@@ -54,6 +54,13 @@ final class PidFileSmokeServer extends Server
         parent::$masterPid = $pid;
         parent::writePidFile();
     }
+
+    public static function runtimeDirectoryForTest(string $entry, string $pidFile): string
+    {
+        self::$startFile = $entry;
+        self::$pidFile = $pidFile;
+        return parent::runtimeDirectoryPath();
+    }
 }
 
 function ok(bool $condition, string $message): void
@@ -73,6 +80,11 @@ function connectionPair(): array
 }
 
 $pidFixture = sys_get_temp_dir() . '/localzet-pid-smoke-' . bin2hex(random_bytes(8));
+ok(
+    PidFileSmokeServer::runtimeDirectoryForTest('/tmp/shared-entry.php', '/tmp/one.pid')
+    !== PidFileSmokeServer::runtimeDirectoryForTest('/tmp/shared-entry.php', '/tmp/two.pid'),
+    'runtime lock directories respect distinct configured PID files'
+);
 if (function_exists('symlink') && @symlink($pidFixture . '.target', $pidFixture)) {
     file_put_contents($pidFixture . '.target', (string)getmypid());
     ok(PidFileSmokeServer::readPidForTest($pidFixture) === 0, 'PID reader rejects symlink files');
