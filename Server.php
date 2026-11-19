@@ -545,9 +545,9 @@ class Server
         self::closeShutdownChannel();
         $pair = false;
 
-        if (extension_loaded('sockets') && defined('SOCK_CLOEXEC')) {
+        if (extension_loaded('sockets')) {
             $sockets = [];
-            if (@socket_create_pair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, $sockets)) {
+            if (HotUpgradeBroker::createCloseOnExecPair($sockets)) {
                 $pair = [];
                 foreach ($sockets as $socket) {
                     $stream = @socket_export_stream($socket);

@@ -49,6 +49,17 @@ final class HotUpgradeBroker
     public const ENV_TOKEN = 'LOCALZET_HOT_UPGRADE_TOKEN';
     private static ?bool $supported = null;
 
+    /** Creates a Unix socket pair with descriptors marked close-on-exec. */
+    public static function createCloseOnExecPair(array &$pair): bool
+    {
+        $type = self::closeOnExecSocketType();
+        if ($type === null || !extension_loaded('sockets') || !function_exists('socket_create_pair')) {
+            return false;
+        }
+
+        return @socket_create_pair(AF_UNIX, $type, 0, $pair);
+    }
+
     /**
      * Проверяет наличие системных примитивов, необходимых для descriptor passing.
      */
@@ -58,20 +69,21 @@ final class HotUpgradeBroker
             return self::$supported;
         }
 
-        $closeOnExecPairSupported = false;
-        if (extension_loaded('sockets')
-            && function_exists('socket_create_pair')
-            && defined('SOCK_CLOEXEC')
-            && defined('MSG_CMSG_CLOEXEC')
-        ) {
-            $pair = [];
-            if (@socket_create_pair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, $pair)) {
-                foreach ($pair as $socket) {
-                    if ($socket instanceof Socket) {
-                        @socket_close($socket);
-                    }
+        $pair = [];
+        $closeOnExecPairSupported = self::descriptorReceiveFlags() !== null
+            && self::createCloseOnExecPair($pair)
+            && count($pair) === 2;
+        if ($closeOnExecPairSupported) {
+            foreach ($pair as $socket) {
+                if ($socket instanceof Socket) {
+                    @socket_close($socket);
                 }
-                $closeOnExecPairSupported = true;
+            }
+        } else {
+            foreach ($pair as $socket) {
+                if ($socket instanceof Socket) {
+                    @socket_close($socket);
+                }
             }
         }
 
@@ -87,6 +99,28 @@ final class HotUpgradeBroker
             && defined('AF_UNIX');
 
         return self::$supported;
+    }
+
+    private static function closeOnExecSocketType(): ?int
+    {
+        $closeOnExec = defined('SOCK_CLOEXEC')
+            ? SOCK_CLOEXEC
+            : (PHP_OS_FAMILY === 'Linux' ? 0x80000 : null);
+        if (!is_int($closeOnExec) || !defined('SOCK_STREAM')) {
+            return null;
+        }
+
+        return SOCK_STREAM | $closeOnExec;
+    }
+
+    private static function descriptorReceiveFlags(): ?int
+    {
+        if (defined('MSG_CMSG_CLOEXEC')) {
+            return MSG_CMSG_CLOEXEC;
+        }
+
+        // Linux UAPI flag value keeps older PHP sockets extensions close-on-exec safe.
+        return PHP_OS_FAMILY === 'Linux' ? 0x40000000 : null;
     }
 
     /**
@@ -190,7 +224,10 @@ final class HotUpgradeBroker
                 'buffer_size' => 512,
                 'controllen' => socket_cmsg_space(SOL_SOCKET, SCM_RIGHTS, 1),
             ];
-            $flags = defined('MSG_CMSG_CLOEXEC') ? MSG_CMSG_CLOEXEC : 0;
+            $flags = self::descriptorReceiveFlags();
+            if ($flags === null) {
+                throw new RuntimeException('The runtime cannot receive close-on-exec descriptors.');
+            }
             $received = @socket_recvmsg($client, $message, $flags);
             if ($received === false || $received <= 0) {
                 throw new RuntimeException('Hot-upgrade broker closed before all descriptors were received.');
