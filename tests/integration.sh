@@ -224,8 +224,11 @@ for($i=0;$i<100;$i++){
     if(!$s){fwrite(STDERR,"Hot-upgrade request $i connect failed: $m\n");exit(1);}
     stream_set_timeout($s,1);
     fwrite($s,"GET /boot-value HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
-    $raw=stream_get_contents($s);fclose($s);
-    if(!str_contains($raw,"\r\n\r\n")){fwrite(STDERR,"Hot-upgrade request $i invalid response\n");exit(1);}
+    $raw=stream_get_contents($s);$meta=stream_get_meta_data($s);fclose($s);
+    if(!str_contains($raw,"\r\n\r\n")){
+        fwrite(STDERR,"Hot-upgrade request $i invalid response: bytes=".strlen($raw)." timed_out=".(($meta["timed_out"]??false)?"yes":"no")." data=".bin2hex(substr($raw,0,96))."\n");
+        exit(1);
+    }
     [, $body]=explode("\r\n\r\n",$raw,2);
     $json=json_decode($body,true);
     if(!is_array($json) || !in_array($json["boot_value"]??null,["generation-1","generation-2"],true)){

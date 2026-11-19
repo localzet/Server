@@ -47,13 +47,36 @@ final class HotUpgradeBroker
 {
     public const ENV_PATH = 'LOCALZET_HOT_UPGRADE_PATH';
     public const ENV_TOKEN = 'LOCALZET_HOT_UPGRADE_TOKEN';
+    private static ?bool $supported = null;
 
     /**
      * Проверяет наличие системных примитивов, необходимых для descriptor passing.
      */
     public static function isSupported(): bool
     {
-        return DIRECTORY_SEPARATOR === '/'
+        if (self::$supported !== null) {
+            return self::$supported;
+        }
+
+        $closeOnExecPairSupported = false;
+        if (extension_loaded('sockets')
+            && function_exists('socket_create_pair')
+            && defined('SOCK_CLOEXEC')
+            && defined('MSG_CMSG_CLOEXEC')
+        ) {
+            $pair = [];
+            if (@socket_create_pair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, $pair)) {
+                foreach ($pair as $socket) {
+                    if ($socket instanceof Socket) {
+                        @socket_close($socket);
+                    }
+                }
+                $closeOnExecPairSupported = true;
+            }
+        }
+
+        self::$supported = $closeOnExecPairSupported
+            && DIRECTORY_SEPARATOR === '/'
             && function_exists('pcntl_fork')
             && function_exists('pcntl_exec')
             && extension_loaded('sockets')
@@ -62,6 +85,8 @@ final class HotUpgradeBroker
             && function_exists('socket_cmsg_space')
             && defined('SCM_RIGHTS')
             && defined('AF_UNIX');
+
+        return self::$supported;
     }
 
     /**
@@ -165,7 +190,8 @@ final class HotUpgradeBroker
                 'buffer_size' => 512,
                 'controllen' => socket_cmsg_space(SOL_SOCKET, SCM_RIGHTS, 1),
             ];
-            $received = @socket_recvmsg($client, $message, 0);
+            $flags = defined('MSG_CMSG_CLOEXEC') ? MSG_CMSG_CLOEXEC : 0;
+            $received = @socket_recvmsg($client, $message, $flags);
             if ($received === false || $received <= 0) {
                 throw new RuntimeException('Hot-upgrade broker closed before all descriptors were received.');
             }

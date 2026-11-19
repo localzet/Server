@@ -91,6 +91,8 @@ class Server
     /** Статус: перезагрузка. */
     public const STATUS_RELOADING = 8;
 
+    protected const CONTROL_REQUEST_SHUTDOWN = "\x01";
+
     /**
      * Backlog по умолчанию. Backlog — максимальная длина очереди ожидающих соединений.
      */
@@ -344,6 +346,11 @@ class Server
 
     /** @var array<int,self> */
     protected static array $servers = [];
+    /** @var list<callable():void> */
+    protected static array $beforeRunCallbacks = [];
+    /** @var list<callable(self):void> */
+    protected static array $workerStartCallbacks = [];
+    protected static bool $workerStartCallbacksInvoked = false;
     /** @var array<int,array<int,int>> server object id -> child pids */
     protected static array $pidMap = [];
     /** @var array<int,int> child pid -> logical process id */
@@ -367,6 +374,12 @@ class Server
     protected static float $masterStartedAt = 0.0;
     protected static string $startFile = '';
     protected static bool $controlJson = false;
+
+    /** @var resource|null */
+    protected static $masterControlChannel = null;
+    /** @var resource|null */
+    protected static $workerControlChannel = null;
+    protected static bool $shutdownChannelCloseOnExec = false;
 
     /**
      * Advisory startup lock for one entry script.
@@ -447,6 +460,7 @@ class Server
             return;
         }
 
+        self::runBeforeRunCallbacks();
         self::$status = self::STATUS_STARTING;
 
         // После pcntl_exec() bootstrap создаёт Server objects заново. Вместо
@@ -472,6 +486,7 @@ class Server
             return;
         }
 
+        self::initializeShutdownChannel();
         self::installMasterSignals();
         // Listening sockets создаются в master до fork и наследуются детьми.
         // Так несколько процессов делят один socket без SO_REUSEPORT и без race на bind().
@@ -483,6 +498,120 @@ class Server
         self::writeMasterStatusSnapshot();
         self::displayStartInfo();
         self::monitorChildren();
+    }
+
+    /** Registers a callback that runs once for a start command before listeners are bound. */
+    public static function onBeforeRun(callable $callback): void
+    {
+        self::$beforeRunCallbacks[] = $callback;
+    }
+
+    /** Registers a callback that runs once per process after its event loop is ready. */
+    public static function onWorkerStart(callable $callback): void
+    {
+        self::$workerStartCallbacks[] = $callback;
+    }
+
+    protected static function runBeforeRunCallbacks(): void
+    {
+        foreach (self::$beforeRunCallbacks as $callback) {
+            $callback();
+        }
+    }
+
+    protected static function runWorkerStartCallbacks(self $server): void
+    {
+        if (self::$workerStartCallbacksInvoked) {
+            return;
+        }
+        self::$workerStartCallbacksInvoked = true;
+
+        foreach (self::$workerStartCallbacks as $callback) {
+            try {
+                $callback($server);
+            } catch (Throwable $exception) {
+                self::requestShutdown(1, $exception);
+                return;
+            }
+
+            if (self::$status === self::STATUS_SHUTDOWN) {
+                return;
+            }
+        }
+    }
+
+    protected static function initializeShutdownChannel(): void
+    {
+        self::closeShutdownChannel();
+        $pair = false;
+
+        if (extension_loaded('sockets') && defined('SOCK_CLOEXEC')) {
+            $sockets = [];
+            if (@socket_create_pair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, $sockets)) {
+                $pair = [];
+                foreach ($sockets as $socket) {
+                    $stream = @socket_export_stream($socket);
+                    if (!is_resource($stream)) {
+                        self::closeShutdownChannel();
+                        throw new RuntimeException('Unable to export the worker shutdown channel.');
+                    }
+                    $pair[] = $stream;
+                }
+                self::$shutdownChannelCloseOnExec = true;
+                unset($sockets);
+            }
+        }
+
+        if ($pair === false) {
+            $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        }
+        if ($pair === false || count($pair) !== 2) {
+            throw new RuntimeException('Unable to create the worker shutdown channel.');
+        }
+
+        self::$masterControlChannel = $pair[0];
+        self::$workerControlChannel = $pair[1];
+        stream_set_blocking(self::$masterControlChannel, false);
+        stream_set_blocking(self::$workerControlChannel, false);
+    }
+
+    protected static function closeShutdownChannel(): void
+    {
+        foreach ([self::$masterControlChannel, self::$workerControlChannel] as $channel) {
+            if (is_resource($channel)) {
+                fclose($channel);
+            }
+        }
+        self::$masterControlChannel = null;
+        self::$workerControlChannel = null;
+        self::$shutdownChannelCloseOnExec = false;
+    }
+
+    protected static function closeMasterControlChannelInWorker(): void
+    {
+        if (is_resource(self::$masterControlChannel)) {
+            fclose(self::$masterControlChannel);
+        }
+        self::$masterControlChannel = null;
+    }
+
+    protected static function checkShutdownChannel(): void
+    {
+        if (!is_resource(self::$masterControlChannel)) {
+            return;
+        }
+
+        $read = [self::$masterControlChannel];
+        $write = [];
+        $except = [];
+        if (@stream_select($read, $write, $except, 0, 0) !== 1) {
+            return;
+        }
+
+        $message = @fread(self::$masterControlChannel, 1024);
+        if (is_string($message) && str_contains($message, self::CONTROL_REQUEST_SHUTDOWN)) {
+            self::signalStop(true);
+        }
     }
 
     /**
@@ -825,6 +954,26 @@ class Server
         }
 
         self::finalizeProcessStop($code);
+    }
+
+    /** Stops this process and asks its master to stop the full server group. */
+    public static function requestShutdown(int $code = 0, mixed $log = ''): void
+    {
+        $currentPid = getmypid() ?: 0;
+        if (self::$masterPid > 0 && self::$masterPid !== $currentPid) {
+            if (!is_resource(self::$workerControlChannel)
+                || @fwrite(self::$workerControlChannel, self::CONTROL_REQUEST_SHUTDOWN) !== 1
+            ) {
+                self::log('Unable to write to the Localzet master shutdown channel.');
+            }
+
+            self::$gracefulStop = true;
+            self::stopAll($code, $log);
+            return;
+        }
+
+        self::$gracefulStop = true;
+        self::stopAll($code, $log);
     }
 
     protected static function hasOpenConnections(): bool
@@ -1490,12 +1639,22 @@ class Server
             self::log('Hot upgrade requested, but this runtime does not support SCM_RIGHTS/pcntl_exec.');
             return;
         }
+        if (!self::$shutdownChannelCloseOnExec) {
+            self::log('Hot upgrade aborted: shutdown channel descriptors cannot be closed on exec.');
+            return;
+        }
         if (!is_resource(self::$pidLockHandle)) {
             self::log('Hot upgrade aborted: startup lock is not available.');
             return;
         }
 
         $resources = ['startup-lock' => self::$pidLockHandle];
+        if (!is_resource(self::$masterControlChannel) || !is_resource(self::$workerControlChannel)) {
+            self::log('Hot upgrade aborted: worker shutdown channel is not available.');
+            return;
+        }
+        $resources['shutdown:master'] = self::$masterControlChannel;
+        $resources['shutdown:worker'] = self::$workerControlChannel;
         foreach (array_values(self::$servers) as $index => $server) {
             if ($server->socketName !== '') {
                 if (!is_resource($server->mainSocket)) {
@@ -1639,6 +1798,16 @@ class Server
             }
         }
 
+        $masterControlChannel = $resources['shutdown:master'] ?? null;
+        $workerControlChannel = $resources['shutdown:worker'] ?? null;
+        if (!is_resource($masterControlChannel) || !is_resource($workerControlChannel)) {
+            throw new RuntimeException('Hot-upgrade shutdown channel descriptors were not received.');
+        }
+        self::$masterControlChannel = $masterControlChannel;
+        self::$workerControlChannel = $workerControlChannel;
+        self::$shutdownChannelCloseOnExec = true;
+        stream_set_blocking(self::$masterControlChannel, false);
+        stream_set_blocking(self::$workerControlChannel, false);
         self::installMasterSignals();
         self::$status = self::STATUS_RUNNING;
         self::writeMasterStatusSnapshot();
@@ -1717,6 +1886,7 @@ class Server
             $server->listen();
         }
 
+        self::initializeShutdownChannel();
         self::installMasterSignals();
         self::forkAllServers();
         self::$status = self::STATUS_RUNNING;
@@ -1734,6 +1904,11 @@ class Server
         Timer::init(self::$globalEvent);
 
         foreach (self::$servers as $server) {
+            self::runWorkerStartCallbacks($server);
+            if (self::$status === self::STATUS_SHUTDOWN) {
+                break;
+            }
+
             $server->listen();
             if ($server->onServerStart !== null) {
                 ($server->onServerStart)($server);
@@ -1741,13 +1916,20 @@ class Server
             self::emitLifecycleEvent('Server::Start', $server);
             self::setupWorkerRuntime($server);
         }
-        self::$status = self::STATUS_RUNNING;
-        self::writeMasterStatusSnapshot();
-        self::displayStartInfo();
+        if (self::$status !== self::STATUS_SHUTDOWN) {
+            self::$status = self::STATUS_RUNNING;
+            self::writeMasterStatusSnapshot();
+            self::displayStartInfo();
+        }
         self::$globalEvent->run();
 
         // В single-process режиме нет master wait-loop, поэтому финальную уборку
         // выполняем здесь после остановки event loop.
+        self::cleanupSingleProcess();
+    }
+
+    protected static function cleanupSingleProcess(): void
+    {
         @unlink(self::$pidFile);
         self::cleanupStatusFiles();
         self::releaseStartupLock();
@@ -1796,6 +1978,7 @@ class Server
             @fclose(self::$pidLockHandle);
             self::$pidLockHandle = null;
         }
+        self::closeMasterControlChannelInWorker();
 
         self::$masterPid = (int)(posix_getppid() ?: 0);
         self::$activeWorkerServerId = $server->serverObjectId;
@@ -1811,6 +1994,7 @@ class Server
         Timer::init(self::$globalEvent);
         self::installChildSignals($server);
         self::dropPrivileges($server);
+        self::runWorkerStartCallbacks($server);
         $server->listen();
         if ($server->onServerStart !== null) {
             ($server->onServerStart)($server);
@@ -1829,6 +2013,7 @@ class Server
         // блокирующий wait() автоматически перезапускается после сигнала, из-за чего
         // master успевает пометить shutdown только после выхода одного из workers.
         while (true) {
+            self::checkShutdownChannel();
             self::runDueRestarts();
 
             if (self::$hotUpgradeRequested && !self::$masterStopping && !self::$masterReloading) {
@@ -1882,6 +2067,8 @@ class Server
         while (($pid = pcntl_wait($status, WNOHANG)) > 0) {
             self::handleChildExit($pid, $status, false);
         }
+
+        self::closeShutdownChannel();
 
         foreach (self::$servers as $server) {
             $server->unlisten();
