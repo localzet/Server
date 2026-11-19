@@ -898,7 +898,7 @@ class Server
             return self::$globalEvent;
         }
         self::$globalEvent = self::createEventLoop();
-        self::$globalEvent->setErrorHandler(static fn(Throwable $e) => self::log($e));
+        self::$globalEvent->setErrorHandler(static fn (Throwable $e) => self::log($e));
         Timer::init(self::$globalEvent);
         return self::$globalEvent;
     }
@@ -1466,7 +1466,9 @@ class Server
                 @posix_kill($pid, self::$gracefulStop && defined('SIGQUIT') ? SIGQUIT : SIGINT);
                 return;
             case 'reload':
-                if (!$alive) throw new RuntimeException('Localzet Server is not running.');
+                if (!$alive) {
+                    throw new RuntimeException('Localzet Server is not running.');
+                }
                 $signal = self::$gracefulStop && defined('SIGUSR2') ? SIGUSR2 : SIGUSR1;
                 @posix_kill($pid, $signal);
                 return;
@@ -1555,9 +1557,9 @@ class Server
         $capabilities = self::runtimeCapabilities();
         if (self::$controlJson) {
             echo json_encode(
-                    $capabilities,
-                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
-                ) . PHP_EOL;
+                $capabilities,
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+            ) . PHP_EOL;
             return;
         }
 
@@ -1699,7 +1701,7 @@ class Server
         }
         $arguments = array_values(array_filter(
             $arguments,
-            static fn(string $argument, int $index): bool => $index < 2 || !in_array($argument, ['-d', '-g', '--json'], true),
+            static fn (string $argument, int $index): bool => $index < 2 || !in_array($argument, ['-d', '-g', '--json'], true),
             ARRAY_FILTER_USE_BOTH
         ));
 
@@ -1858,7 +1860,7 @@ class Server
             $status = 0;
             $pid = pcntl_wait($status, WNOHANG);
             if ($pid > 0) {
-                $oldPids = array_values(array_filter($oldPids, static fn(int $candidate): bool => $candidate !== $pid));
+                $oldPids = array_values(array_filter($oldPids, static fn (int $candidate): bool => $candidate !== $pid));
                 continue;
             }
             usleep(20_000);
@@ -1900,7 +1902,7 @@ class Server
         self::$activeWorkerServerId = null;
         self::setProcessTitle('localzet: single ' . basename(self::$startFile));
         self::$globalEvent = self::createEventLoop();
-        self::$globalEvent->setErrorHandler(static fn(Throwable $e) => self::log($e));
+        self::$globalEvent->setErrorHandler(static fn (Throwable $e) => self::log($e));
         Timer::init(self::$globalEvent);
 
         foreach (self::$servers as $server) {
@@ -1990,7 +1992,7 @@ class Server
         }
         $server->id = $id;
         self::$globalEvent = self::createEventLoop($server->eventLoop);
-        self::$globalEvent->setErrorHandler(static fn(Throwable $e) => self::log($e));
+        self::$globalEvent->setErrorHandler(static fn (Throwable $e) => self::log($e));
         Timer::init(self::$globalEvent);
         self::installChildSignals($server);
         self::dropPrivileges($server);
@@ -2148,7 +2150,7 @@ class Server
             // считается replacement, поэтому старый PID из очереди можно удалить.
             self::$reloadQueue = array_values(array_filter(
                 self::$reloadQueue,
-                static fn(array $item): bool => $item['pid'] !== $pid
+                static fn (array $item): bool => $item['pid'] !== $pid
             ));
         }
 
@@ -2262,36 +2264,44 @@ class Server
     protected static function installMasterSignals(): void
     {
         pcntl_async_signals(true);
-        pcntl_signal(SIGINT, static fn() => self::signalStop(false));
+        pcntl_signal(SIGINT, static fn () => self::signalStop(false));
         // SIGTERM is the normal stop signal from systemd/Docker/Kubernetes. Treat
         // it as graceful by default so orchestrator shutdown does not cut requests.
-        pcntl_signal(SIGTERM, static fn() => self::signalStop(true));
-        if (defined('SIGQUIT')) pcntl_signal(SIGQUIT, static fn() => self::signalStop(true));
-        if (defined('SIGPIPE')) pcntl_signal(SIGPIPE, SIG_IGN);
-        pcntl_signal(SIGUSR1, static fn() => self::signalReload(false));
+        pcntl_signal(SIGTERM, static fn () => self::signalStop(true));
+        if (defined('SIGQUIT')) {
+            pcntl_signal(SIGQUIT, static fn () => self::signalStop(true));
+        }
+        if (defined('SIGPIPE')) {
+            pcntl_signal(SIGPIPE, SIG_IGN);
+        }
+        pcntl_signal(SIGUSR1, static fn () => self::signalReload(false));
         if (defined('SIGUSR2')) {
-            pcntl_signal(SIGUSR2, static fn() => self::signalReload(true));
+            pcntl_signal(SIGUSR2, static fn () => self::signalReload(true));
         }
         if (defined('SIGHUP')) {
             // Signal handler только выставляет флаг. fork/SCM_RIGHTS/exec выполняются
             // из обычного monitor loop, а не из асинхронного signal callback.
-            pcntl_signal(SIGHUP, static fn() => self::$hotUpgradeRequested = true);
+            pcntl_signal(SIGHUP, static fn () => self::$hotUpgradeRequested = true);
         }
     }
 
     protected static function installChildSignals(self $server): void
     {
         pcntl_async_signals(true);
-        pcntl_signal(SIGINT, static fn() => self::stopAll());
+        pcntl_signal(SIGINT, static fn () => self::stopAll());
         pcntl_signal(SIGTERM, static function (): void {
             self::$gracefulStop = true;
             self::stopAll();
         });
-        if (defined('SIGQUIT')) pcntl_signal(SIGQUIT, static function (): void {
-            self::$gracefulStop = true;
-            self::stopAll();
-        });
-        if (defined('SIGPIPE')) pcntl_signal(SIGPIPE, SIG_IGN);
+        if (defined('SIGQUIT')) {
+            pcntl_signal(SIGQUIT, static function (): void {
+                self::$gracefulStop = true;
+                self::stopAll();
+            });
+        }
+        if (defined('SIGPIPE')) {
+            pcntl_signal(SIGPIPE, SIG_IGN);
+        }
         pcntl_signal(SIGUSR1, static function () use ($server): void {
             self::reloadChild($server, false);
         });
@@ -2301,13 +2311,15 @@ class Server
             });
         }
         if (defined('SIGWINCH')) {
-            pcntl_signal(SIGWINCH, static fn() => self::writeWorkerStatusSnapshot($server, true));
+            pcntl_signal(SIGWINCH, static fn () => self::writeWorkerStatusSnapshot($server, true));
         }
     }
 
     protected static function signalStop(bool $graceful): void
     {
-        if (self::$masterStopping) return;
+        if (self::$masterStopping) {
+            return;
+        }
         self::$masterStopping = true;
         self::$masterStopStartedAt = microtime(true);
         self::$pendingRestarts = [];
@@ -2315,7 +2327,9 @@ class Server
         self::$status = self::STATUS_SHUTDOWN;
         $signal = $graceful && defined('SIGQUIT') ? SIGQUIT : SIGINT;
         foreach (self::$pidMap as $pids) {
-            foreach ($pids as $pid) @posix_kill($pid, $signal);
+            foreach ($pids as $pid) {
+                @posix_kill($pid, $signal);
+            }
         }
     }
 
@@ -2746,17 +2760,27 @@ class Server
 
     protected static function formatBytes(int $bytes): string
     {
-        if ($bytes < 1024) return $bytes . 'B';
-        if ($bytes < 1024 ** 2) return number_format($bytes / 1024, 1) . 'K';
-        if ($bytes < 1024 ** 3) return number_format($bytes / 1024 ** 2, 1) . 'M';
+        if ($bytes < 1024) {
+            return $bytes . 'B';
+        }
+        if ($bytes < 1024 ** 2) {
+            return number_format($bytes / 1024, 1) . 'K';
+        }
+        if ($bytes < 1024 ** 3) {
+            return number_format($bytes / 1024 ** 2, 1) . 'M';
+        }
         return number_format($bytes / 1024 ** 3, 1) . 'G';
     }
 
     protected static function formatDuration(float $seconds): string
     {
         $seconds = max(0, (int)$seconds);
-        if ($seconds < 60) return $seconds . 's';
-        if ($seconds < 3600) return intdiv($seconds, 60) . 'm' . ($seconds % 60) . 's';
+        if ($seconds < 60) {
+            return $seconds . 's';
+        }
+        if ($seconds < 3600) {
+            return intdiv($seconds, 60) . 'm' . ($seconds % 60) . 's';
+        }
         return intdiv($seconds, 3600) . 'h' . intdiv($seconds % 3600, 60) . 'm';
     }
 
@@ -2773,12 +2797,22 @@ class Server
     protected static function daemonizeProcess(): void
     {
         $pid = pcntl_fork();
-        if ($pid < 0) throw new RuntimeException('Unable to fork for daemon mode.');
-        if ($pid > 0) exit(0);
-        if (posix_setsid() < 0) throw new RuntimeException('Unable to create daemon session.');
+        if ($pid < 0) {
+            throw new RuntimeException('Unable to fork for daemon mode.');
+        }
+        if ($pid > 0) {
+            exit(0);
+        }
+        if (posix_setsid() < 0) {
+            throw new RuntimeException('Unable to create daemon session.');
+        }
         $pid = pcntl_fork();
-        if ($pid < 0) throw new RuntimeException('Unable to fork daemon child.');
-        if ($pid > 0) exit(0);
+        if ($pid < 0) {
+            throw new RuntimeException('Unable to fork daemon child.');
+        }
+        if ($pid > 0) {
+            exit(0);
+        }
         chdir('/');
         umask(0);
     }
@@ -2832,7 +2866,9 @@ class Server
 
     protected static function displayStartInfo(): void
     {
-        if (self::$daemonize) return;
+        if (self::$daemonize) {
+            return;
+        }
         fwrite(STDOUT, "Localzet Server " . self::VERSION . " started\n");
         foreach (self::$servers as $server) {
             fwrite(STDOUT, sprintf("  %-16s %-30s processes=%d\n", $server->name, $server->socketName ?: '-', max(1, $server->count)));
