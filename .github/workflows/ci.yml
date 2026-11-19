@@ -92,6 +92,10 @@ jobs:
         if: runner.os == 'Linux'
         run: composer test:integration
 
+      - name: Runtime lifecycle integration tests
+        if: runner.os == 'Linux'
+        run: composer test:lifecycle
+
   benchmark-smoke:
     needs: dependencies
     runs-on: ubuntu-latest

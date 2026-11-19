@@ -53,8 +53,9 @@ script-based PHP smoke/integration tests; PHPUnit is not installed because the c
 
 - The declared runtime floor is PHP 8.1. CI exercises PHP 8.1–8.5 on Linux; Windows is documented for single-process
   use, but is not part of this CI matrix. Optional extension/backend combinations require separate validation.
-- On Unix, multi-process supervision depends on `pcntl` and `posix`. Hot upgrade additionally depends on socket
-  descriptor passing support; check `php server.php capabilities --json` on the target host before relying on it.
+- On Unix, multi-process supervision depends on `pcntl` and `posix`. Hot upgrade requires PHP 8.4+ with `ext-sockets`
+  close-on-exec socket flags and descriptor passing support. PHP 8.1–8.3 can run the server without hot upgrade;
+  check `php server.php capabilities --json` on the target host before relying on it.
 - Keep HTTP header/frame/connection limits and timeouts appropriate to the deployment. Configure trusted proxies
   explicitly before consuming forwarded client-IP headers. Terminate TLS at a trusted edge or configure the TLS
   listener; use graceful `SIGTERM` shutdown in orchestrators.
@@ -154,7 +155,8 @@ rereads the application bootstrap and then rolling-replaces old worker images. I
 `restart -g`.
 
 `capabilities [--json]` reports whether the host can hot-upgrade and which event-loop backends are actually available.
-Explicitly selecting an unavailable backend fails fast instead of silently degrading.
+Hot upgrade needs PHP 8.4+; on PHP 8.1–8.3 the server runs without that capability. Explicitly selecting an unavailable
+event-loop backend fails fast instead of silently degrading.
 
 Concurrent `start` commands are protected by a startup `flock`, preventing a second master from racing the PID file or
 listener bind. External `SIGTERM` (the normal Docker/systemd/Kubernetes stop signal) uses graceful draining; `SIGINT`

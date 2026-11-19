@@ -209,6 +209,8 @@ echo "HTTP_RELOAD_WORKERS=$AFTER_PIDS"
 
 # Zero-downtime master re-exec must preserve the master PID/listener, reload
 # bootstrap state from disk and rolling-replace all old worker images.
+HOT_UPGRADE_SUPPORTED="$(php tests/runtime_capabilities.php --print-hot-upgrade)"
+if [[ "$HOT_UPGRADE_SUPPORTED" == "1" ]]; then
 UPGRADE_STATUS_BEFORE="$(php tests/live_http_server.php status --json)"
 UPGRADE_MASTER_BEFORE="$(php -r '$d=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);echo (int)($d["master"]["master_pid"]??0);' <<<"$UPGRADE_STATUS_BEFORE")"
 UPGRADE_GENERATION_BEFORE="$(php -r '$d=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);echo (int)($d["master"]["generation"]??0);' <<<"$UPGRADE_STATUS_BEFORE")"
@@ -224,8 +226,11 @@ for($i=0;$i<100;$i++){
     if(!$s){fwrite(STDERR,"Hot-upgrade request $i connect failed: $m\n");exit(1);}
     stream_set_timeout($s,1);
     fwrite($s,"GET /boot-value HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
-    $raw=stream_get_contents($s);fclose($s);
-    if(!str_contains($raw,"\r\n\r\n")){fwrite(STDERR,"Hot-upgrade request $i invalid response\n");exit(1);}
+    $raw=stream_get_contents($s);$meta=stream_get_meta_data($s);fclose($s);
+    if(!str_contains($raw,"\r\n\r\n")){
+        fwrite(STDERR,"Hot-upgrade request $i invalid response: bytes=".strlen($raw)." timed_out=".(($meta["timed_out"]??false)?"yes":"no")." data=".bin2hex(substr($raw,0,96))."\n");
+        exit(1);
+    }
     [, $body]=explode("\r\n\r\n",$raw,2);
     $json=json_decode($body,true);
     if(!is_array($json) || !in_array($json["boot_value"]??null,["generation-1","generation-2"],true)){
@@ -279,6 +284,9 @@ $port=(int)getenv("LOCALZET_TEST_HTTP_PORT");$s=stream_socket_client("tcp://127.
 ')"
 [[ "$UPGRADE_BOOT_AFTER" == 'generation-2' ]] || { echo 'Hot upgrade did not reload bootstrap code/state' >&2; exit 1; }
 echo "HTTP_HOT_UPGRADE=ok master=$UPGRADE_MASTER_AFTER generation=$UPGRADE_GENERATION_AFTER workers=$UPGRADE_PIDS_AFTER"
+else
+    echo 'HTTP_HOT_UPGRADE=skipped (PHP socket close-on-exec flags are unavailable)'
+fi
 
 php tests/live_http_server.php stop >/dev/null
 wait "$HTTP_LAUNCH_PID"

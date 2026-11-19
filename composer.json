@@ -64,7 +64,10 @@
   },
   "scripts": {
     "lint": "find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l",
-    "test": "php tests/smoke.php",
+    "test": [
+      "php tests/smoke.php",
+      "php tests/runtime_capabilities.php"
+    ],
     "test:integration": "bash tests/integration.sh",
     "analyze": "php vendor/bin/phpstan analyse --memory-limit=1G",
     "check": [
@@ -77,12 +80,14 @@
       "@test:fuzz",
       "@test:memory",
       "@test:revolt",
-      "@test:integration"
+      "@test:integration",
+      "@test:lifecycle"
     ],
     "test:revolt": "php tests/revolt.php",
     "test:gateway": "php tests/gateway_smoke.php && php tests/gateway_host_regression.php && bash tests/gateway_integration.sh",
     "test:fuzz": "php tests/fuzz_smoke.php",
     "test:memory": "php tests/memory_smoke.php",
+    "test:lifecycle": "bash tests/runtime_hooks_integration.sh",
     "benchmark": "php tests/benchmark.php",
     "release:audit": "bash tests/release_audit.sh"
   },
