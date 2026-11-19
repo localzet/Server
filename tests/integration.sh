@@ -10,6 +10,7 @@ export LOCALZET_TEST_WS_PORT="${LOCALZET_TEST_WS_PORT:-$((BASE + 1))}"
 export LOCALZET_TEST_CRASH_PORT="${LOCALZET_TEST_CRASH_PORT:-$((BASE + 2))}"
 export LOCALZET_TEST_ASYNC_TCP_PORT="${LOCALZET_TEST_ASYNC_TCP_PORT:-$((BASE + 3))}"
 export LOCALZET_TEST_RELOAD_DELAY_MS=600
+unset LOCALZET_TEST_NO_DYNAMIC_CLOSE_MARKER
 HTTP_LOG="${TMPDIR:-/tmp}/localzet-http-integration-$$.log"
 WS_LOG="${TMPDIR:-/tmp}/localzet-ws-integration-$$.log"
 UPGRADE_BOOT_FILE="${TMPDIR:-/tmp}/localzet-upgrade-boot-$$.txt"
@@ -505,6 +506,7 @@ unset LOCALZET_TEST_WORKERS LOCALZET_TEST_MAX_CONNECTIONS LOCALZET_TEST_FRAME_TI
 
 # 6. Graceful SIGTERM arriving inside onMessage must drain the active dispatch.
 export LOCALZET_TEST_WORKERS=1
+export LOCALZET_TEST_NO_DYNAMIC_CLOSE_MARKER=1
 GRACEFUL_RESULT="${TMPDIR:-/tmp}/localzet-graceful-$$.txt"
 php tests/live_http_server.php start >"$HTTP_LOG" 2>&1 &
 HTTP_LAUNCH_PID=$!
@@ -547,7 +549,7 @@ if(($d["path"]??null)!=="/slow-dispatch"){
 echo "SIGTERM_GRACEFUL_DRAIN=ok\n";
 ' "$GRACEFUL_RESULT"
 rm -f "$GRACEFUL_RESULT"
-unset LOCALZET_TEST_WORKERS
+unset LOCALZET_TEST_WORKERS LOCALZET_TEST_NO_DYNAMIC_CLOSE_MARKER
 
 # 7. Crash-loop backoff: two intentional startup crashes, then recovery.
 CRASH_COUNTER="${TMPDIR:-/tmp}/localzet-crash-counter-$$.json"
