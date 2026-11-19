@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+unset \
+    LOCALZET_TEST_RUNTIME_HOOK_THROW \
+    LOCALZET_TEST_RUNTIME_HOOK_USER \
+    LOCALZET_TEST_RUNTIME_HOOK_UPGRADE \
+    LOCALZET_TEST_RUNTIME_HOOK_EXIT_86 \
+    LOCALZET_TEST_RUNTIME_HOOK_WORKERS
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
@@ -108,12 +115,14 @@ if [[ "$before_count" -ne 1 || "$worker_count" -ne 1 || "$server_start_count" -n
 fi
 
 rm -rf "$RUNTIME_DIR"
+unset LOCALZET_TEST_RUNTIME_HOOK_THROW LOCALZET_TEST_RUNTIME_HOOK_USER
+HOT_UPGRADE_SUPPORTED="$(php tests/runtime_capabilities.php --print-hot-upgrade)"
+if [[ "$HOT_UPGRADE_SUPPORTED" == "1" ]]; then
 RUNTIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/localzet-runtime-hooks-upgrade.XXXXXX")"
 export LOCALZET_TEST_RUNTIME_HOOK_DIR="$RUNTIME_DIR"
 export LOCALZET_TEST_RUNTIME_HOOK_PORT="$((PORT + 2))"
 export LOCALZET_TEST_RUNTIME_HOOK_WORKERS=2
 export LOCALZET_TEST_RUNTIME_HOOK_UPGRADE=1
-unset LOCALZET_TEST_RUNTIME_HOOK_THROW LOCALZET_TEST_RUNTIME_HOOK_USER
 
 php "$FIXTURE" start >"$RUNTIME_DIR/start.log" 2>&1 &
 SERVER_PID=$!
@@ -161,6 +170,10 @@ if [[ "$before_count" -ne 2 || "$reload_count" -lt 1 ]] || ! grep -q '^reload:.*
 fi
 
 rm -rf "$RUNTIME_DIR"
+else
+    echo 'HOT_UPGRADE_IPC=skipped (PHP socket close-on-exec flags are unavailable)'
+fi
+
 RUNTIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/localzet-runtime-hooks-exit86.XXXXXX")"
 export LOCALZET_TEST_RUNTIME_HOOK_DIR="$RUNTIME_DIR"
 export LOCALZET_TEST_RUNTIME_HOOK_PORT="$((PORT + 3))"
@@ -212,4 +225,8 @@ if [[ "$before_count" -ne 1 || "$server_start_count" -ne 1 ]]; then
     exit 1
 fi
 
-echo 'Runtime lifecycle hooks, hot-upgrade IPC, and worker exit handling passed.'
+if [[ "$HOT_UPGRADE_SUPPORTED" == "1" ]]; then
+    echo 'Runtime lifecycle hooks, hot-upgrade IPC, and worker exit handling passed.'
+else
+    echo 'Runtime lifecycle hooks and worker exit handling passed; hot-upgrade IPC is unavailable.'
+fi

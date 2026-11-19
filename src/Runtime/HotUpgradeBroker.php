@@ -53,11 +53,21 @@ final class HotUpgradeBroker
     public static function createCloseOnExecPair(array &$pair): bool
     {
         $type = self::closeOnExecSocketType();
-        if ($type === null || !extension_loaded('sockets') || !function_exists('socket_create_pair')) {
+        if (
+            $type === null
+            || DIRECTORY_SEPARATOR !== '/'
+            || !defined('AF_UNIX')
+            || !extension_loaded('sockets')
+            || !function_exists('socket_create_pair')
+        ) {
             return false;
         }
 
-        return @socket_create_pair(AF_UNIX, $type, 0, $pair);
+        try {
+            return @socket_create_pair(AF_UNIX, $type, 0, $pair);
+        } catch (\ValueError) {
+            return false;
+        }
     }
 
     /**
@@ -103,14 +113,12 @@ final class HotUpgradeBroker
 
     private static function closeOnExecSocketType(): ?int
     {
-        $closeOnExec = defined('SOCK_CLOEXEC')
-            ? SOCK_CLOEXEC
-            : (PHP_OS_FAMILY === 'Linux' ? 0x80000 : null);
-        if (!is_int($closeOnExec) || !defined('SOCK_STREAM')) {
+        // PHP exposes socket creation flags through ext-sockets starting in 8.4.
+        if (PHP_VERSION_ID < 80400 || !defined('SOCK_CLOEXEC') || !defined('SOCK_STREAM')) {
             return null;
         }
 
-        return SOCK_STREAM | $closeOnExec;
+        return SOCK_STREAM | SOCK_CLOEXEC;
     }
 
     private static function descriptorReceiveFlags(): ?int
