@@ -62,6 +62,13 @@ $server->onMessage = static function (TcpConnection $connection, Request $reques
         // Даёт integration test окно, чтобы POSIX graceful signal пришёл прямо
         // во время user callback, а не между двумя event-loop итерациями.
         usleep(400_000);
+
+        if (
+            getenv('LOCALZET_TEST_NO_DYNAMIC_CLOSE_MARKER') === '1'
+            && property_exists($connection, 'gracefulCloseAfterDispatch')
+        ) {
+            throw new \RuntimeException('Graceful dispatch state leaked onto the connection object.');
+        }
     }
 
     if ($request->path() === '/large') {

@@ -370,6 +370,8 @@ class Server
     protected static bool $masterStopping = false;
     protected static bool $masterReloading = false;
     protected static bool $gracefulStop = false;
+    /** @var \WeakMap<ConnectionInterface, true>|null */
+    protected static ?\WeakMap $gracefulCloseAfterDispatch = null;
     protected static float $masterStopStartedAt = 0.0;
     protected static float $masterStartedAt = 0.0;
     protected static string $startFile = '';
@@ -793,8 +795,11 @@ class Server
             // Graceful stop/reload мог прийти POSIX-сигналом прямо внутри callback.
             // В таком случае socket не трогаем до завершения callback и только
             // сейчас переводим его в half-close/flush lifecycle.
-            if (($connection->gracefulCloseAfterDispatch ?? false) === true) {
-                unset($connection->gracefulCloseAfterDispatch);
+            if (
+                self::$gracefulCloseAfterDispatch !== null
+                && isset(self::$gracefulCloseAfterDispatch[$connection])
+            ) {
+                unset(self::$gracefulCloseAfterDispatch[$connection]);
                 self::gracefullyCloseConnection($connection);
             }
         }
@@ -925,7 +930,8 @@ class Server
                 if ($server->isDispatching($connection)) {
                     // Не закрываем socket из async signal handler посреди user code.
                     // dispatchMessage() завершит его после возврата callback.
-                    $connection->gracefulCloseAfterDispatch = true;
+                    self::$gracefulCloseAfterDispatch ??= new \WeakMap();
+                    self::$gracefulCloseAfterDispatch[$connection] = true;
                     continue;
                 }
 
