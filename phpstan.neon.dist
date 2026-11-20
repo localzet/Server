@@ -1,5 +1,7 @@
 parameters:
     level: 0
+    scanFiles:
+        - stubs/swow.php
     paths:
         - src
         - Server.php
@@ -8,5 +10,4 @@ parameters:
         - Helpers.php
     excludePaths:
         analyse:
-            - src/Events/Swow.php
             - src/Protocols/Http/Session/MongoSessionHandler.php
