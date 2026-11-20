@@ -33,7 +33,12 @@ namespace MongoDB {
     {
         public function __construct(string $uri, array $uriOptions = [], array $driverOptions = [])
         {
-            throw new \LogicException('Static analysis stub; mongodb/mongodb supplies this method at runtime.');
+            throw new \LogicException(sprintf(
+                'Static analysis stub; mongodb/mongodb supplies this method at runtime (URI length: %d, URI options: %d, driver options: %d).',
+                strlen($uri),
+                count($uriOptions),
+                count($driverOptions),
+            ));
         }
 
         public function selectCollection(string $databaseName, string $collectionName, array $options = []): Collection
@@ -73,7 +78,11 @@ namespace MongoDB\BSON {
 
         public function __construct(string $data, int $type)
         {
-            throw new \LogicException('Static analysis stub; ext-mongodb supplies this method at runtime.');
+            throw new \LogicException(sprintf(
+                'Static analysis stub; ext-mongodb supplies this method at runtime (data length: %d, type: %d).',
+                strlen($data),
+                $type,
+            ));
         }
 
         public function getData(): string
@@ -86,7 +95,10 @@ namespace MongoDB\BSON {
     {
         public function __construct(?int $milliseconds = null)
         {
-            throw new \LogicException('Static analysis stub; ext-mongodb supplies this method at runtime.');
+            throw new \LogicException(sprintf(
+                'Static analysis stub; ext-mongodb supplies this method at runtime (milliseconds provided: %s).',
+                $milliseconds === null ? 'no' : 'yes',
+            ));
         }
     }
 }
