@@ -1,14 +1,10 @@
 version = 1
 
-exclude_patterns = [
-    "**/MongoSessionHandler.php",
-]
-
 [[analyzers]]
 name = "php"
 
 [analyzers.meta]
-bootstrap_files = ["stubs/swow.php"]
+bootstrap_files = ["stubs/swow.php", "stubs/mongodb.php"]
 
 [[transformers]]
 name = "php-cs-fixer"
