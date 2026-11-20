@@ -40,22 +40,27 @@ namespace Swow {
     {
         public static function run(callable $callable): static
         {
+            throw new \LogicException('Static analysis stub; ext-swow supplies this method at runtime.');
         }
 
         public static function getCurrent(): self
         {
+            throw new \LogicException('Static analysis stub; ext-swow supplies this method at runtime.');
         }
 
         public function getId(): int
         {
+            throw new \LogicException('Static analysis stub; ext-swow supplies this method at runtime.');
         }
 
         public function isAvailable(): bool
         {
+            throw new \LogicException('Static analysis stub; ext-swow supplies this method at runtime.');
         }
 
         public function kill(): void
         {
+            throw new \LogicException('Static analysis stub; ext-swow supplies this method at runtime.');
         }
     }
 
@@ -63,16 +68,19 @@ namespace Swow {
     {
         public static function wait(int $signal, int $timeout = -1): void
         {
+            throw new \LogicException('Static analysis stub; ext-swow supplies this method at runtime.');
         }
     }
 
     function stream_poll_one(mixed $stream, int $events, int $timeout = -1): int
     {
+        throw new \LogicException('Static analysis stub; ext-swow supplies this function at runtime.');
     }
 }
 
 namespace Swow\Sync {
     function waitAll(int $timeout = -1): void
     {
+        throw new \LogicException('Static analysis stub; ext-swow supplies this function at runtime.');
     }
 }

@@ -55,8 +55,6 @@ class Ws implements ProtocolInterface
     /** Вызывается AsyncTcpConnection после TCP/TLS establishment. */
     public static function onConnect(AsyncTcpConnection $connection): void
     {
-        $connection->websocketOrigin ??= null;
-        $connection->websocketClientProtocol ??= null;
         static::sendHandshake($connection);
     }
 

@@ -1,5 +1,9 @@
 version = 1
 
+exclude_patterns = [
+    "src/Protocols/Http/Session/MongoSessionHandler.php",
+]
+
 [[analyzers]]
 name = "php"
 

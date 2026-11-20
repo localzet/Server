@@ -58,6 +58,8 @@ class AsyncTcpConnection extends TcpConnection
 
     public $onConnect = null;
     public $onReconnect = null;
+    public ?string $websocketOrigin = null;
+    public ?string $websocketClientProtocol = null;
 
     /** SOCKS5 proxy address, например 127.0.0.1:1080. */
     public string $proxySocks5 = '';
