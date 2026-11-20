@@ -27,6 +27,7 @@ declare(strict_types=1);
  */
 
 // Static analysis stubs for ext-swow 1.6.2; this file is never loaded at runtime.
+
 namespace {
     const STREAM_POLLNONE = 0;
     const STREAM_POLLIN = 1;
@@ -37,25 +38,41 @@ namespace {
 namespace Swow {
     class Coroutine
     {
-        public static function run(callable $callable): static { }
+        public static function run(callable $callable): static
+        {
+        }
 
-        public static function getCurrent(): self { }
+        public static function getCurrent(): self
+        {
+        }
 
-        public function getId(): int { }
+        public function getId(): int
+        {
+        }
 
-        public function isAvailable(): bool { }
+        public function isAvailable(): bool
+        {
+        }
 
-        public function kill(): void { }
+        public function kill(): void
+        {
+        }
     }
 
     class Signal
     {
-        public static function wait(int $signal, int $timeout = -1): void { }
+        public static function wait(int $signal, int $timeout = -1): void
+        {
+        }
     }
 
-    function stream_poll_one(mixed $stream, int $events, int $timeout = -1): int { }
+    function stream_poll_one(mixed $stream, int $events, int $timeout = -1): int
+    {
+    }
 }
 
 namespace Swow\Sync {
-    function waitAll(int $timeout = -1): void { }
+    function waitAll(int $timeout = -1): void
+    {
+    }
 }
