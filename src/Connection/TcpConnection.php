@@ -30,6 +30,7 @@ namespace localzet\Server\Connection;
 
 use localzet\Server;
 use localzet\Server\Events\EventInterface;
+use Closure;
 use JsonSerializable;
 use RuntimeException;
 use stdClass;
@@ -110,6 +111,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     protected bool $paused = false;
     protected bool $destroyed = false;
     protected bool $sslHandshakeCompleted = false;
+    protected ?Closure $sslHandshakeCompleteCallback = null;
     protected float $idleTimeout = 0.0;
     protected float $frameTimeout = 0.0;
     protected float $tlsHandshakeTimeout = 10.0;
@@ -203,6 +205,15 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         }
         $this->tlsHandshakeTimeout = $seconds;
         return $this;
+    }
+
+    /** @internal */
+    public function setSslHandshakeCompleteCallback(?callable $callback): void
+    {
+        $this->sslHandshakeCompleteCallback = $callback !== null ? Closure::fromCallable($callback) : null;
+        if ($this->sslHandshakeCompleted && $this->sslHandshakeCompleteCallback !== null) {
+            $this->notifySslHandshakeComplete();
+        }
     }
 
     public function getLastActivityAt(): float
@@ -377,6 +388,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
             $this->eventLoop->offDelay($this->tlsHandshakeTimerId);
             $this->tlsHandshakeTimerId = 0;
         }
+        $this->sslHandshakeCompleteCallback = null;
 
         // Если соединение уничтожено во время sendFile, закрываем file descriptor
         // и освобождаем замыкания, удерживающие потоковую передачу.
@@ -553,10 +565,10 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /** Связывает source -> destination с backpressure. */
     public function pipe(self $destination): void
     {
-        $this->onMessage = static fn(self $source, mixed $data) => $destination->send($data);
-        $this->onClose = static fn() => $destination->close();
-        $destination->onBufferFull = fn() => $this->pauseRecv();
-        $destination->onBufferDrain = fn() => $this->resumeRecv();
+        $this->onMessage = static fn (self $source, mixed $data) => $destination->send($data);
+        $this->onClose = static fn () => $destination->close();
+        $destination->onBufferFull = fn () => $this->pauseRecv();
+        $destination->onBufferDrain = fn () => $this->resumeRecv();
     }
 
     /** @return resource|null */
@@ -620,6 +632,7 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
                 $this->tlsHandshakeTimerId = 0;
             }
             $this->touchActivity();
+            $this->notifySslHandshakeComplete();
             return true;
         }
         if ($result === 0) {
@@ -628,6 +641,15 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         $this->emitError(2, 'TLS handshake failed.');
         $this->destroy();
         return false;
+    }
+
+    private function notifySslHandshakeComplete(): void
+    {
+        $callback = $this->sslHandshakeCompleteCallback;
+        $this->sslHandshakeCompleteCallback = null;
+        if ($callback !== null) {
+            $callback($this);
+        }
     }
 
     protected function processRecvBuffer(): void

@@ -3,5 +3,8 @@ version = 1
 [[analyzers]]
 name = "php"
 
+[analyzers.meta]
+bootstrap_files = ["stubs/swow.php", "stubs/mongodb.php"]
+
 [[transformers]]
 name = "php-cs-fixer"

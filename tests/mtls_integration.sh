@@ -32,8 +32,10 @@ trap cleanup EXIT
 export LOCALZET_TEST_MTLS_PID_FILE="$TEST_DIR/server.pid"
 export LOCALZET_TEST_MTLS_STATUS_FILE="$TEST_DIR/server.status"
 export LOCALZET_TEST_MTLS_LOG_FILE="$TEST_DIR/server.log"
+export LOCALZET_TEST_MTLS_CONNECTS_FILE="$TEST_DIR/connections.log"
 export LOCALZET_TEST_MTLS_HITS_FILE="$TEST_DIR/application-hits.log"
 export LOCALZET_TEST_MTLS_ERRORS_FILE="$TEST_DIR/transport-errors.log"
+: > "$LOCALZET_TEST_MTLS_CONNECTS_FILE"
 : > "$LOCALZET_TEST_MTLS_ERRORS_FILE"
 
 PORT="$(php -r '$socket=stream_socket_server("tcp://127.0.0.1:0", $errno, $error); if (!$socket) exit(1); $address=stream_socket_get_name($socket, false); echo substr(strrchr($address, ":"), 1); fclose($socket);')"
@@ -147,16 +149,74 @@ assert_tls_handshake_rejected() {
     fi
 }
 
+assert_tls_handshake_timed_out() {
+    local previous_count="$1"
+
+    for _ in $(seq 1 20); do
+        local current_count
+        current_count="$(wc -l < "$LOCALZET_TEST_MTLS_ERRORS_FILE")"
+        if [[ "$current_count" -gt "$previous_count" ]] \
+            && tail -n "+$((previous_count + 1))" "$LOCALZET_TEST_MTLS_ERRORS_FILE" | grep -Eq 'TLS handshake timed out\.'; then
+            return
+        fi
+        sleep 0.05
+    done
+
+    cat "$LOCALZET_TEST_MTLS_ERRORS_FILE" >&2
+    echo 'Server did not time out a stalled TLS handshake.' >&2
+    exit 1
+}
+
+assert_on_connect_not_called() {
+    local previous_count="$1"
+
+    sleep 0.1
+    local current_count
+    current_count="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
+    if [[ "$current_count" -ne "$previous_count" ]]; then
+        echo 'onConnect ran for a client without a trusted certificate.' >&2
+        exit 1
+    fi
+}
+
+assert_on_connect_called_once() {
+    local previous_count="$1"
+
+    for _ in $(seq 1 20); do
+        local current_count
+        current_count="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
+        if [[ "$current_count" -eq "$((previous_count + 1))" ]]; then
+            return
+        fi
+        sleep 0.05
+    done
+
+    echo 'onConnect did not run once after a trusted TLS handshake.' >&2
+    exit 1
+}
+
 assert_server_available
 ERROR_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_ERRORS_FILE")"
+CONNECT_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
 php tests/mtls_client.php missing "$PORT" "$TEST_DIR/ca.pem"
 assert_tls_handshake_rejected "$ERROR_COUNT" missing
+assert_on_connect_not_called "$CONNECT_COUNT"
 assert_server_available
 ERROR_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_ERRORS_FILE")"
+CONNECT_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
 php tests/mtls_client.php untrusted "$PORT" "$TEST_DIR/ca.pem" "$TEST_DIR/untrusted-client.pem" "$TEST_DIR/untrusted-client.key"
 assert_tls_handshake_rejected "$ERROR_COUNT" untrusted
+assert_on_connect_not_called "$CONNECT_COUNT"
 assert_server_available
+CONNECT_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
 php tests/mtls_client.php trusted "$PORT" "$TEST_DIR/ca.pem" "$TEST_DIR/client.pem" "$TEST_DIR/client.key"
+assert_on_connect_called_once "$CONNECT_COUNT"
+assert_server_available
+ERROR_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_ERRORS_FILE")"
+CONNECT_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
+php tests/mtls_client.php stall "$PORT" "$TEST_DIR/ca.pem"
+assert_tls_handshake_timed_out "$ERROR_COUNT"
+assert_on_connect_not_called "$CONNECT_COUNT"
 
 sleep 0.1
 HITS="$(wc -l < "$LOCALZET_TEST_MTLS_HITS_FILE")"

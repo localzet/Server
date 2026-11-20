@@ -55,8 +55,6 @@ class Ws implements ProtocolInterface
     /** Вызывается AsyncTcpConnection после TCP/TLS establishment. */
     public static function onConnect(AsyncTcpConnection $connection): void
     {
-        $connection->websocketOrigin ??= null;
-        $connection->websocketClientProtocol ??= null;
         static::sendHandshake($connection);
     }
 
@@ -94,7 +92,9 @@ class Ws implements ProtocolInterface
         $headers = [];
         foreach ($connection->headers as $name => $value) {
             $safeName = str_replace(["\r", "\n", ':'], '', (string)$name);
-            if ($safeName === '') continue;
+            if ($safeName === '') {
+                continue;
+            }
             foreach ((array)$value as $item) {
                 $headers[$safeName][] = str_replace(["\r", "\n"], '', (string)$item);
             }
@@ -144,7 +144,9 @@ class Ws implements ProtocolInterface
             return static::dealHandshake($buffer, $connection);
         }
 
-        if (strlen($buffer) < 2) return 0;
+        if (strlen($buffer) < 2) {
+            return 0;
+        }
         $first = ord($buffer[0]);
         $second = ord($buffer[1]);
         $fin = ($first & 0x80) !== 0;
@@ -160,7 +162,9 @@ class Ws implements ProtocolInterface
 
         $offset = 2;
         if ($lengthCode === 126) {
-            if (strlen($buffer) < 4) return 0;
+            if (strlen($buffer) < 4) {
+                return 0;
+            }
             $length = unpack('nlength', substr($buffer, 2, 2))['length'];
             if ($length < 126) {
                 $connection->close();
@@ -168,7 +172,9 @@ class Ws implements ProtocolInterface
             }
             $offset = 4;
         } elseif ($lengthCode === 127) {
-            if (strlen($buffer) < 10) return 0;
+            if (strlen($buffer) < 10) {
+                return 0;
+            }
             $parts = unpack('Nhigh/Nlow', substr($buffer, 2, 8));
             if (($parts['high'] & 0x80000000) !== 0) {
                 $connection->close();
@@ -270,7 +276,9 @@ class Ws implements ProtocolInterface
                 $connection->close();
                 return null;
             }
-            if (!$fin) return null;
+            if (!$fin) {
+                return null;
+            }
             $message = $connection->context->websocketDataBuffer;
             $originalOpcode = (int)($connection->context->websocketFragmentOpcode ?? 0x2);
             $connection->context->websocketDataBuffer = '';
@@ -292,7 +300,9 @@ class Ws implements ProtocolInterface
         }
         if (!is_scalar($data) && !$data instanceof \Stringable) {
             $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            if ($json === false) throw new RuntimeException('Unable to JSON-encode WebSocket payload.');
+            if ($json === false) {
+                throw new RuntimeException('Unable to JSON-encode WebSocket payload.');
+            }
             $data = $json;
         }
 
@@ -342,7 +352,9 @@ class Ws implements ProtocolInterface
     {
         $end = strpos($buffer, "\r\n\r\n");
         if ($end === false) {
-            if (strlen($buffer) >= self::MAX_HANDSHAKE_LENGTH) $connection->close();
+            if (strlen($buffer) >= self::MAX_HANDSHAKE_LENGTH) {
+                $connection->close();
+            }
             return 0;
         }
         if ($end >= self::MAX_HANDSHAKE_LENGTH) {
@@ -417,7 +429,9 @@ class Ws implements ProtocolInterface
         $reason = $parts[2] ?? null;
         $headers = [];
         foreach ($lines as $line) {
-            if ($line === '' || !str_contains($line, ':')) continue;
+            if ($line === '' || !str_contains($line, ':')) {
+                continue;
+            }
             [$name, $value] = explode(':', $line, 2);
             $headers[trim($name)] = trim($value);
         }
@@ -431,7 +445,9 @@ class Ws implements ProtocolInterface
         $lines = explode("\r\n", trim($head));
         array_shift($lines);
         foreach ($lines as $line) {
-            if (!str_contains($line, ':')) continue;
+            if (!str_contains($line, ':')) {
+                continue;
+            }
             [$name, $value] = explode(':', $line, 2);
             $headers[strtolower(trim($name))] = trim($value);
         }
@@ -441,14 +457,18 @@ class Ws implements ProtocolInterface
     protected static function hasHeader(array $headers, string $name): bool
     {
         foreach ($headers as $key => $_) {
-            if (strcasecmp((string)$key, $name) === 0) return true;
+            if (strcasecmp((string)$key, $name) === 0) {
+                return true;
+            }
         }
         return false;
     }
 
     protected static function isValidCloseCode(int $code): bool
     {
-        if ($code >= 3000 && $code <= 4999) return true;
+        if ($code >= 3000 && $code <= 4999) {
+            return true;
+        }
         return $code >= 1000 && $code < 1015 && !in_array($code, [1004, 1005, 1006], true);
     }
 }
