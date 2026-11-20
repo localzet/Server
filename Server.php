@@ -237,7 +237,7 @@ class Server
     /** Выполняется при запуске server worker. @var ?callable */
     public $onServerStart = null;
 
-    /** Выполняется, когда TCP-соединение успешно установлено. @var ?callable */
+    /** Runs after connection establishment; TLS listeners wait for a successful handshake. @var ?callable */
     public $onConnect = null;
 
     /** Выполняется перед завершением server-side WebSocket handshake. @var ?callable */
@@ -731,16 +731,27 @@ class Server
         $connection->onClose = $this->onClose;
 
         if ($this->transport === 'ssl') {
+            if ($this->onConnect !== null) {
+                $connection->setSslHandshakeCompleteCallback($this->dispatchConnect(...));
+            }
             $connection->enableSsl();
+            return;
         }
 
-        if ($this->onConnect !== null) {
-            try {
-                ($this->onConnect)($connection);
-            } catch (Throwable $e) {
-                self::log($e);
-                $connection->destroy();
-            }
+        $this->dispatchConnect($connection);
+    }
+
+    private function dispatchConnect(TcpConnection $connection): void
+    {
+        if ($this->onConnect === null || $connection->getStatus() === TcpConnection::STATUS_CLOSED) {
+            return;
+        }
+
+        try {
+            ($this->onConnect)($connection);
+        } catch (Throwable $e) {
+            self::log($e);
+            $connection->destroy();
         }
     }
 

@@ -33,6 +33,19 @@ $certFile = $argv[4] ?? '';
 $keyFile = $argv[5] ?? '';
 $expectedSuccess = in_array($mode, ['trusted', 'health'], true);
 
+if ($mode === 'stall') {
+    $socket = stream_socket_client('tcp://127.0.0.1:' . $port, $errorCode, $errorMessage, 3);
+    if (!is_resource($socket)) {
+        fwrite(STDERR, "Could not connect to TLS listener: {$errorMessage}\n");
+        exit(1);
+    }
+
+    sleep(3);
+    fclose($socket);
+    echo "STALLED_TLS_HANDSHAKE=ok\n";
+    exit(0);
+}
+
 $ssl = [
     'cafile' => $caFile,
     'peer_name' => 'localhost',

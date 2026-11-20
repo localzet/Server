@@ -5,9 +5,9 @@
 High-performance event-driven server runtime for PHP with TCP, UDP, HTTP/1.1, WebSocket, timers, long-lived connections
 and multi-process workers.
 
-This development branch targets the 7.0 runtime line, including process supervision, HTTP/1.x/WebSocket protocols and a
-bounded L4/L7 gateway. The released 4.x packages used by Cluster and other libraries are a separate compatibility line;
-do not treat installation of the published package as installation of this branch.
+The current stable release is 7.2.0. It provides process supervision, HTTP/1.x and WebSocket protocols, and a bounded
+L4/L7 gateway. Packages from version 4.x have a different public API; see the [compatibility guide](https://server.localzet.com/current/compatibility)
+for the changes and migration notes.
 
 ## Requirements
 
@@ -65,8 +65,8 @@ script-based PHP smoke/integration tests; PHPUnit is not installed because the c
   identity mapping or authorization.
 - The gateway is an HTTP/1.x and raw TCP proxy, not a general-purpose API gateway. Route only to trusted upstreams,
   review forwarded-header policy, and size connection/time limits for expected traffic.
-- Public API compatibility follows the project release line. The 7.0 development branch is distinct from published
-  4.x packages; pin and test the exact branch/package version used by applications.
+- Pin and test the exact package version used by applications. Do not assume code written for version 4.x works with
+  version 7.x; the [compatibility guide](https://server.localzet.com/current/compatibility) describes the differences.
 
 ## Development setup
 
@@ -139,9 +139,10 @@ php server.php start
 ```
 
 The client must present its certificate and private key during the TLS handshake. Connections with a missing or
-untrusted client certificate are rejected before the HTTP callback runs. Protect the server private key and distribute
-client private keys through your normal secret-management process. This verifies the certificate chain; map client
-certificates to application identities and permissions separately.
+untrusted client certificate are rejected before `onConnect` and the HTTP callback run. For TLS listeners, `onConnect`
+runs only after a successful handshake. Protect the server private key and distribute client private keys through your
+normal secret-management process. This verifies the certificate chain; map client certificates to application
+identities and permissions separately.
 
 ## Process control
 
