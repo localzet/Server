@@ -59,6 +59,10 @@ script-based PHP smoke/integration tests; PHPUnit is not installed because the c
 - Keep HTTP header/frame/connection limits and timeouts appropriate to the deployment. Configure trusted proxies
   explicitly before consuming forwarded client-IP headers. Terminate TLS at a trusted edge or configure the TLS
   listener; use graceful `SIGTERM` shutdown in orchestrators.
+- For mutual TLS, set `LOCALZET_SSL_VERIFY_PEER=true` and point `LOCALZET_SSL_CAFILE` at the CA that issued client
+  certificates. The listener also needs its server certificate and private key; keep the key readable only by the
+  service account. Client-certificate validation gates the TLS connection and does not replace application-level
+  identity mapping or authorization.
 - The gateway is an HTTP/1.x and raw TCP proxy, not a general-purpose API gateway. Route only to trusted upstreams,
   review forwarded-header policy, and size connection/time limits for expected traffic.
 - Public API compatibility follows the project release line. The 7.0 development branch is distinct from published
@@ -120,6 +124,24 @@ Server::runAll();
 
 HTTP keep-alive and `Connection: close` are handled by the HTTP protocol/transport layer. Application code does not need
 to close every ordinary HTTP connection manually.
+
+## Mutual TLS
+
+The HTTPS listener uses PHP's TLS stream context. To require a client certificate issued by a trusted CA, configure the
+server certificate/key and the client CA before starting the process:
+
+```sh
+export LOCALZET_SSL_CERT=/etc/localzet/server.pem
+export LOCALZET_SSL_CERT_KEY=/etc/localzet/server.key
+export LOCALZET_SSL_VERIFY_PEER=true
+export LOCALZET_SSL_CAFILE=/etc/localzet/client-ca.pem
+php server.php start
+```
+
+The client must present its certificate and private key during the TLS handshake. Connections with a missing or
+untrusted client certificate are rejected before the HTTP callback runs. Protect the server private key and distribute
+client private keys through your normal secret-management process. This verifies the certificate chain; map client
+certificates to application identities and permissions separately.
 
 ## Process control
 
