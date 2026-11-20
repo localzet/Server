@@ -565,10 +565,10 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
     /** Связывает source -> destination с backpressure. */
     public function pipe(self $destination): void
     {
-        $this->onMessage = static fn(self $source, mixed $data) => $destination->send($data);
-        $this->onClose = static fn() => $destination->close();
-        $destination->onBufferFull = fn() => $this->pauseRecv();
-        $destination->onBufferDrain = fn() => $this->resumeRecv();
+        $this->onMessage = static fn (self $source, mixed $data) => $destination->send($data);
+        $this->onClose = static fn () => $destination->close();
+        $destination->onBufferFull = fn () => $this->pauseRecv();
+        $destination->onBufferDrain = fn () => $this->resumeRecv();
     }
 
     /** @return resource|null */
