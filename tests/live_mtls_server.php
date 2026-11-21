@@ -39,6 +39,7 @@ Server::$logFile = (string)(getenv('LOCALZET_TEST_MTLS_LOG_FILE') ?: '');
 
 $port = (int)(getenv('LOCALZET_TEST_MTLS_PORT') ?: 0);
 $connectsFile = (string)(getenv('LOCALZET_TEST_MTLS_CONNECTS_FILE') ?: '');
+$alpnFile = (string)(getenv('LOCALZET_TEST_MTLS_ALPN_FILE') ?: '');
 $hitsFile = (string)(getenv('LOCALZET_TEST_MTLS_HITS_FILE') ?: '');
 $errorsFile = (string)(getenv('LOCALZET_TEST_MTLS_ERRORS_FILE') ?: '');
 
@@ -46,8 +47,9 @@ $server = new Server('https://127.0.0.1:' . $port);
 $server->name = 'integration-mtls';
 $server->count = 1;
 $server->tlsHandshakeTimeout = 2.0;
-$server->onConnect = static function (TcpConnection $connection) use ($connectsFile): void {
+$server->onConnect = static function (TcpConnection $connection) use ($connectsFile, $alpnFile): void {
     file_put_contents($connectsFile, $connection->id . "\n", FILE_APPEND | LOCK_EX);
+    file_put_contents($alpnFile, ($connection->getTlsNegotiatedProtocol() ?? 'none') . "\n", FILE_APPEND | LOCK_EX);
 };
 $server->onError = static function (TcpConnection $connection, int $code, string $message) use ($errorsFile): void {
     file_put_contents($errorsFile, $message . "\n", FILE_APPEND | LOCK_EX);

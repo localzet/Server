@@ -33,9 +33,11 @@ export LOCALZET_TEST_MTLS_PID_FILE="$TEST_DIR/server.pid"
 export LOCALZET_TEST_MTLS_STATUS_FILE="$TEST_DIR/server.status"
 export LOCALZET_TEST_MTLS_LOG_FILE="$TEST_DIR/server.log"
 export LOCALZET_TEST_MTLS_CONNECTS_FILE="$TEST_DIR/connections.log"
+export LOCALZET_TEST_MTLS_ALPN_FILE="$TEST_DIR/alpn.log"
 export LOCALZET_TEST_MTLS_HITS_FILE="$TEST_DIR/application-hits.log"
 export LOCALZET_TEST_MTLS_ERRORS_FILE="$TEST_DIR/transport-errors.log"
 : > "$LOCALZET_TEST_MTLS_CONNECTS_FILE"
+: > "$LOCALZET_TEST_MTLS_ALPN_FILE"
 : > "$LOCALZET_TEST_MTLS_ERRORS_FILE"
 
 PORT="$(php -r '$socket=stream_socket_server("tcp://127.0.0.1:0", $errno, $error); if (!$socket) exit(1); $address=stream_socket_get_name($socket, false); echo substr(strrchr($address, ":"), 1); fclose($socket);')"
@@ -96,6 +98,7 @@ export LOCALZET_SSL_CERT="$TEST_DIR/server.pem"
 export LOCALZET_SSL_CERT_KEY="$TEST_DIR/server.key"
 export LOCALZET_SSL_VERIFY_PEER=true
 export LOCALZET_SSL_CAFILE="$TEST_DIR/ca.pem"
+export LOCALZET_SSL_ALPN_PROTOCOLS='h2,http/1.1'
 
 php tests/live_mtls_server.php start >"$TEST_DIR/server-output.log" 2>&1 &
 SERVER_PID=$!
@@ -212,6 +215,20 @@ CONNECT_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
 php tests/mtls_client.php trusted "$PORT" "$TEST_DIR/ca.pem" "$TEST_DIR/client.pem" "$TEST_DIR/client.key"
 assert_on_connect_called_once "$CONNECT_COUNT"
 assert_server_available
+CONNECT_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
+php tests/mtls_client.php alpn "$PORT" "$TEST_DIR/ca.pem" "$TEST_DIR/client.pem" "$TEST_DIR/client.key"
+assert_on_connect_called_once "$CONNECT_COUNT"
+ALPN_COUNT="$(grep -c '^http/1.1$' "$LOCALZET_TEST_MTLS_ALPN_FILE" || true)"
+if [[ "$ALPN_COUNT" -ne 1 ]]; then
+    echo "Expected one connection to negotiate http/1.1, got $ALPN_COUNT." >&2
+    exit 1
+fi
+NO_ALPN_COUNT="$(grep -c '^none$' "$LOCALZET_TEST_MTLS_ALPN_FILE" || true)"
+if [[ "$NO_ALPN_COUNT" -lt 1 ]]; then
+    echo 'Expected connections without ALPN to report no negotiated protocol.' >&2
+    exit 1
+fi
+assert_server_available
 ERROR_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_ERRORS_FILE")"
 CONNECT_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
 php tests/mtls_client.php stall "$PORT" "$TEST_DIR/ca.pem"
@@ -220,8 +237,8 @@ assert_on_connect_not_called "$CONNECT_COUNT"
 
 sleep 0.1
 HITS="$(wc -l < "$LOCALZET_TEST_MTLS_HITS_FILE")"
-if [[ "$HITS" -ne 2 ]]; then
-    echo "Expected only the two trusted clients to reach the application, got $HITS requests." >&2
+if [[ "$HITS" -ne 3 ]]; then
+    echo "Expected only the three trusted clients to reach the application, got $HITS requests." >&2
     exit 1
 fi
 
