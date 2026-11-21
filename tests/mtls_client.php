@@ -31,7 +31,7 @@ $port = (int)($argv[2] ?? 0);
 $caFile = $argv[3] ?? '';
 $certFile = $argv[4] ?? '';
 $keyFile = $argv[5] ?? '';
-$expectedSuccess = in_array($mode, ['trusted', 'health', 'alpn'], true);
+$expectedSuccess = in_array($mode, ['trusted', 'health', 'alpn', 'alpn-h2', 'alpn-h2-wss'], true);
 
 if ($mode === 'stall') {
     $socket = stream_socket_client('tcp://127.0.0.1:' . $port, $errorCode, $errorMessage, 3);
@@ -59,6 +59,8 @@ if ($mode !== 'missing') {
 }
 if ($mode === 'alpn') {
     $ssl['alpn_protocols'] = 'http/1.1';
+} elseif (in_array($mode, ['alpn-h2', 'alpn-h2-wss'], true)) {
+    $ssl['alpn_protocols'] = 'h2';
 }
 
 $warnings = [];
@@ -90,10 +92,11 @@ if (!is_resource($socket)) {
     exit(0);
 }
 
-if ($mode === 'alpn') {
+if (in_array($mode, ['alpn', 'alpn-h2', 'alpn-h2-wss'], true)) {
     $protocol = stream_get_meta_data($socket)['crypto']['alpn_protocol'] ?? null;
-    if ($protocol !== 'http/1.1') {
-        fwrite(STDERR, 'TLS ALPN did not select http/1.1.');
+    $expectedProtocol = in_array($mode, ['alpn-h2', 'alpn-h2-wss'], true) ? 'h2' : 'http/1.1';
+    if ($protocol !== $expectedProtocol) {
+        fwrite(STDERR, "TLS ALPN did not select {$expectedProtocol}.");
         exit(1);
     }
 }
@@ -102,6 +105,25 @@ stream_set_timeout($socket, 2);
 if ($mode === 'health') {
     fclose($socket);
     echo "TRUSTED_TLS_HANDSHAKE=ok\n";
+    exit(0);
+}
+
+if (in_array($mode, ['alpn-h2', 'alpn-h2-wss'], true)) {
+    fwrite($socket, "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
+    $response = stream_get_contents($socket);
+    $timedOut = stream_get_meta_data($socket)['timed_out'] ?? false;
+    $closed = feof($socket);
+    fclose($socket);
+    if ($timedOut || !$closed) {
+        fwrite(STDERR, 'The server did not close the unsupported ALPN connection.');
+        exit(1);
+    }
+    if (is_string($response) && $response !== '') {
+        fwrite(STDERR, 'An HTTP/1 codec responded to a connection negotiated as h2.');
+        exit(1);
+    }
+
+    echo "UNSUPPORTED_H2_ALPN_CLOSED=" . ($mode === 'alpn-h2-wss' ? 'wss' : 'https') . "\n";
     exit(0);
 }
 

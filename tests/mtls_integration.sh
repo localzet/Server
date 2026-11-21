@@ -40,8 +40,10 @@ export LOCALZET_TEST_MTLS_ERRORS_FILE="$TEST_DIR/transport-errors.log"
 : > "$LOCALZET_TEST_MTLS_ALPN_FILE"
 : > "$LOCALZET_TEST_MTLS_ERRORS_FILE"
 
-PORT="$(php -r '$socket=stream_socket_server("tcp://127.0.0.1:0", $errno, $error); if (!$socket) exit(1); $address=stream_socket_get_name($socket, false); echo substr(strrchr($address, ":"), 1); fclose($socket);')"
+PORTS="$(php -r '$sockets=[]; for ($i=0; $i<2; $i++) { $socket=stream_socket_server("tcp://127.0.0.1:0", $errno, $error); if (!$socket) exit(1); $sockets[]=$socket; } foreach ($sockets as $socket) { $address=stream_socket_get_name($socket, false); echo substr(strrchr($address, ":"), 1), " "; } foreach ($sockets as $socket) fclose($socket);')"
+read -r PORT WEBSOCKET_PORT <<< "$PORTS"
 export LOCALZET_TEST_MTLS_PORT="$PORT"
+export LOCALZET_TEST_MTLS_WEBSOCKET_PORT="$WEBSOCKET_PORT"
 
 openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
     -keyout "$TEST_DIR/ca.key" -out "$TEST_DIR/ca.pem" \
@@ -226,6 +228,24 @@ fi
 NO_ALPN_COUNT="$(grep -c '^none$' "$LOCALZET_TEST_MTLS_ALPN_FILE" || true)"
 if [[ "$NO_ALPN_COUNT" -lt 1 ]]; then
     echo 'Expected connections without ALPN to report no negotiated protocol.' >&2
+    exit 1
+fi
+assert_server_available
+CONNECT_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
+php tests/mtls_client.php alpn-h2 "$PORT" "$TEST_DIR/ca.pem" "$TEST_DIR/client.pem" "$TEST_DIR/client.key"
+assert_on_connect_called_once "$CONNECT_COUNT"
+H2_ALPN_COUNT="$(grep -c '^h2$' "$LOCALZET_TEST_MTLS_ALPN_FILE" || true)"
+if [[ "$H2_ALPN_COUNT" -ne 1 ]]; then
+    echo "Expected one connection to negotiate h2, got $H2_ALPN_COUNT." >&2
+    exit 1
+fi
+assert_server_available
+CONNECT_COUNT="$(wc -l < "$LOCALZET_TEST_MTLS_CONNECTS_FILE")"
+php tests/mtls_client.php alpn-h2-wss "$WEBSOCKET_PORT" "$TEST_DIR/ca.pem" "$TEST_DIR/client.pem" "$TEST_DIR/client.key"
+assert_on_connect_called_once "$CONNECT_COUNT"
+H2_ALPN_COUNT="$(grep -c '^h2$' "$LOCALZET_TEST_MTLS_ALPN_FILE" || true)"
+if [[ "$H2_ALPN_COUNT" -ne 2 ]]; then
+    echo "Expected two connections to negotiate h2, got $H2_ALPN_COUNT." >&2
     exit 1
 fi
 assert_server_available
