@@ -52,6 +52,12 @@ class Websocket implements ProtocolInterface
             throw new \InvalidArgumentException('WebSocket requires TcpConnection.');
         }
 
+        $negotiatedProtocol = $connection->getTlsNegotiatedProtocol();
+        if ($negotiatedProtocol !== null && $negotiatedProtocol !== 'http/1.1') {
+            $connection->destroy();
+            return 0;
+        }
+
         if (!($connection->context->websocketHandshake ?? false)) {
             return static::handshake($buffer, $connection);
         }

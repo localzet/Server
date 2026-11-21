@@ -103,6 +103,12 @@ class Http implements ProtocolInterface
             throw new \InvalidArgumentException('HTTP requires TcpConnection.');
         }
 
+        $negotiatedProtocol = $connection->getTlsNegotiatedProtocol();
+        if ($negotiatedProtocol !== null && $negotiatedProtocol !== 'http/1.1') {
+            $connection->destroy();
+            return 0;
+        }
+
         $headerEnd = strpos($buffer, "\r\n\r\n");
         if ($headerEnd === false) {
             if (strlen($buffer) >= static::$maxHeaderLength) {

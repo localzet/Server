@@ -62,7 +62,8 @@ script-based PHP smoke/integration tests; PHPUnit is not installed because the c
 - For mutual TLS, set `LOCALZET_SSL_VERIFY_PEER=true` and point `LOCALZET_SSL_CAFILE` at the CA that issued client
   certificates. The listener also needs its server certificate and private key; keep the key readable only by the
   service account. Client-certificate validation gates the TLS connection and does not replace application-level
-  identity mapping or authorization.
+  identity mapping or authorization. The built-in HTTP and WebSocket codecs close a TLS connection when ALPN selects a
+  protocol other than `http/1.1`; they never parse another protocol as HTTP/1.x.
 - The gateway is an HTTP/1.x and raw TCP proxy, not a general-purpose API gateway. Route only to trusted upstreams,
   review forwarded-header policy, and size connection/time limits for expected traffic.
 - Pin and test the exact package version used by applications. Do not assume code written for version 4.x works with

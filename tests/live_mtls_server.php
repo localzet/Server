@@ -42,6 +42,7 @@ $connectsFile = (string)(getenv('LOCALZET_TEST_MTLS_CONNECTS_FILE') ?: '');
 $alpnFile = (string)(getenv('LOCALZET_TEST_MTLS_ALPN_FILE') ?: '');
 $hitsFile = (string)(getenv('LOCALZET_TEST_MTLS_HITS_FILE') ?: '');
 $errorsFile = (string)(getenv('LOCALZET_TEST_MTLS_ERRORS_FILE') ?: '');
+$websocketPort = (int)(getenv('LOCALZET_TEST_MTLS_WEBSOCKET_PORT') ?: 0);
 
 $server = new Server('https://127.0.0.1:' . $port);
 $server->name = 'integration-mtls';
@@ -60,5 +61,12 @@ $server->onMessage = static function (TcpConnection $connection, Request $reques
     $connection->send(new Response(200, ['Content-Type' => 'application/json'], $body));
     $connection->close();
 };
+
+$websocketServer = new Server('wss://127.0.0.1:' . $websocketPort);
+$websocketServer->name = 'integration-mtls-websocket';
+$websocketServer->count = 1;
+$websocketServer->tlsHandshakeTimeout = 2.0;
+$websocketServer->onConnect = $server->onConnect;
+$websocketServer->onError = $server->onError;
 
 Server::runAll();
