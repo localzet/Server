@@ -95,7 +95,7 @@
   },
   "extra": {
     "branch-alias": {
-      "dev-main": "7.0.x-dev"
+      "dev-main": "7.2.x-dev"
     }
   }
 }

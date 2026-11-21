@@ -13,6 +13,14 @@ permissions:
 jobs:
   dependencies:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - revolt: '1.0.*'
+            artifact: composer-vendor-revolt-1.0
+          - revolt: '1.1.*'
+            artifact: composer-vendor-revolt-1.1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup PHP
@@ -24,11 +32,11 @@ jobs:
       - name: Validate Composer metadata
         run: composer validate --strict
       - name: Resolve bounded dependencies
-        run: composer update --no-interaction --prefer-dist --with 'phpstan/phpstan:2.3.*' --with 'revolt/event-loop:1.0.*'
+        run: composer update --no-interaction --prefer-dist --with 'phpstan/phpstan:2.3.*' --with 'revolt/event-loop:${{ matrix.revolt }}'
       - name: Upload resolved dependencies
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: composer-vendor
+          name: ${{ matrix.artifact }}
           path: |
             composer.lock
             vendor
@@ -41,7 +49,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: [ '8.1', '8.2', '8.3', '8.4', '8.5' ]
+        include:
+          - php: '8.1'
+            artifact: composer-vendor-revolt-1.0
+          - php: '8.1'
+            artifact: composer-vendor-revolt-1.1
+          - php: '8.2'
+            artifact: composer-vendor-revolt-1.1
+          - php: '8.3'
+            artifact: composer-vendor-revolt-1.1
+          - php: '8.4'
+            artifact: composer-vendor-revolt-1.1
+          - php: '8.5'
+            artifact: composer-vendor-revolt-1.1
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,7 +76,7 @@ jobs:
       - name: Download resolved dependencies
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: composer-vendor
+          name: ${{ matrix.artifact }}
 
       - name: Check dependency advisories
         run: composer audit --no-interaction
@@ -114,7 +134,7 @@ jobs:
       - name: Download resolved dependencies
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: composer-vendor
+          name: composer-vendor-revolt-1.1
       - name: Validate benchmark harness
         run: php tests/benchmark.php --smoke
 
