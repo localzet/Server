@@ -5,7 +5,7 @@
 High-performance event-driven server runtime for PHP with TCP, UDP, HTTP/1.1, WebSocket, timers, long-lived connections
 and multi-process workers.
 
-The current stable release is 7.2.0. It provides process supervision, HTTP/1.x and WebSocket protocols, and a bounded
+The current stable release is 7.2.1. It provides process supervision, HTTP/1.x and WebSocket protocols, and a bounded
 L4/L7 gateway. Packages from version 4.x have a different public API; see the [compatibility guide](https://server.localzet.com/current/compatibility)
 for the changes and migration notes.
 
