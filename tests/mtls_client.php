@@ -31,7 +31,7 @@ $port = (int)($argv[2] ?? 0);
 $caFile = $argv[3] ?? '';
 $certFile = $argv[4] ?? '';
 $keyFile = $argv[5] ?? '';
-$expectedSuccess = in_array($mode, ['trusted', 'health'], true);
+$expectedSuccess = in_array($mode, ['trusted', 'health', 'alpn'], true);
 
 if ($mode === 'stall') {
     $socket = stream_socket_client('tcp://127.0.0.1:' . $port, $errorCode, $errorMessage, 3);
@@ -56,6 +56,9 @@ $ssl = [
 if ($mode !== 'missing') {
     $ssl['local_cert'] = $certFile;
     $ssl['local_pk'] = $keyFile;
+}
+if ($mode === 'alpn') {
+    $ssl['alpn_protocols'] = 'http/1.1';
 }
 
 $warnings = [];
@@ -85,6 +88,14 @@ if (!is_resource($socket) && $expectedSuccess) {
 if (!is_resource($socket)) {
     echo strtoupper($mode) . "_CLIENT_REJECTED=ok\n";
     exit(0);
+}
+
+if ($mode === 'alpn') {
+    $protocol = stream_get_meta_data($socket)['crypto']['alpn_protocol'] ?? null;
+    if ($protocol !== 'http/1.1') {
+        fwrite(STDERR, 'TLS ALPN did not select http/1.1.');
+        exit(1);
+    }
 }
 
 stream_set_timeout($socket, 2);
