@@ -81,7 +81,9 @@ class Websocket implements ProtocolInterface
 
         $offset = 2;
         if ($payloadCode === 126) {
-            if (strlen($buffer) < 4) return 0;
+            if (strlen($buffer) < 4) {
+                return 0;
+            }
             $payloadLength = unpack('n', substr($buffer, 2, 2))[1];
             if ($payloadLength < 126) {
                 static::protocolClose($connection, 1002, 'Non-minimal length');
@@ -89,7 +91,9 @@ class Websocket implements ProtocolInterface
             }
             $offset = 4;
         } elseif ($payloadCode === 127) {
-            if (strlen($buffer) < 10) return 0;
+            if (strlen($buffer) < 10) {
+                return 0;
+            }
             $parts = unpack('Nhigh/Nlow', substr($buffer, 2, 8));
             if (($parts['high'] & 0x80000000) !== 0) {
                 static::protocolClose($connection, 1002, 'Invalid 64-bit length');
@@ -441,8 +445,7 @@ class Websocket implements ProtocolInterface
         int           $status,
         string        $reason,
         string        $extraHeaders = ''
-    ): void
-    {
+    ): void {
         $connection->close(
             "HTTP/1.1 {$status} {$reason}\r\n"
             . "Connection: close\r\n"
@@ -494,8 +497,7 @@ class Websocket implements ProtocolInterface
         int           $code = 1001,
         string        $reason = 'Server shutting down',
         float         $timeout = 1.0,
-    ): void
-    {
+    ): void {
         if (($connection->context->websocketHandshake ?? false) !== true) {
             $connection->end();
             return;
