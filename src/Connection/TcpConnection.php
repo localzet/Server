@@ -207,6 +207,19 @@ class TcpConnection extends ConnectionInterface implements JsonSerializable
         return $this;
     }
 
+    /** Returns the TLS ALPN protocol selected for this connection, if any. */
+    public function getTlsNegotiatedProtocol(): ?string
+    {
+        if (!$this->sslHandshakeCompleted || !is_resource($this->socket)) {
+            return null;
+        }
+
+        $metadata = stream_get_meta_data($this->socket);
+        $protocol = $metadata['crypto']['alpn_protocol'] ?? null;
+
+        return is_string($protocol) && $protocol !== '' ? $protocol : null;
+    }
+
     /** @internal */
     public function setSslHandshakeCompleteCallback(?callable $callback): void
     {

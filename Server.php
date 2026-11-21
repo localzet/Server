@@ -163,6 +163,7 @@ class Server
         'LOCALZET_SSL_CERT_PASS' => 'passphrase',                           // Пароль приватного ключа/local_cert.
         'LOCALZET_SSL_CERT_VERIFY_DEPTH' => 'verify_depth',                 // Максимальная допустимая глубина цепочки сертификатов.
         'LOCALZET_SSL_CIPHERS' => 'ciphers',                                // Список доступных алгоритмов шифрования.
+        'LOCALZET_SSL_ALPN_PROTOCOLS' => 'alpn_protocols',                  // Comma-separated ALPN protocol list.
         'LOCALZET_SSL_CAPTURE_CERT' => 'capture_peer_cert',                 // Сохранить сертификат удалённого узла в контексте.
         'LOCALZET_SSL_CAPTURE_CERT_CHAIN' => 'capture_peer_cert_chain',     // Сохранить цепочку сертификатов удалённого узла.
         'LOCALZET_SSL_SNI' => 'SNI_enabled',                                // Включить SNI для нескольких сертификатов на одном IP.
