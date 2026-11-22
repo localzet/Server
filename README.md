@@ -5,7 +5,7 @@
 High-performance event-driven server runtime for PHP with TCP, UDP, HTTP/1.1, WebSocket, timers, long-lived connections
 and multi-process workers.
 
-The current stable release is 7.2.1. It provides process supervision, HTTP/1.x and WebSocket protocols, and a bounded
+The current stable release is 7.2.2. It provides process supervision, HTTP/1.x and WebSocket protocols, and a bounded
 L4/L7 gateway. Packages from version 4.x have a different public API; see the [compatibility guide](https://server.localzet.com/current/compatibility)
 for the changes and migration notes.
 
@@ -204,12 +204,16 @@ HTTP request limits are configurable globally when an application needs stricter
 
 ```php
 use localzet\Server\Protocols\Http;
+use localzet\Server\Protocols\Http\Request;
 
 Http::maxHeaderLength(16 * 1024);
 Http::maxHeaderCount(100);
+Request::$maxMultipartParts = 256;
 ```
 
-The parser also handles `Expect: 100-continue`, validates HTTP/1.1 `Host`, rejects ambiguous request framing and accepts
+Multipart parsing is limited to 1,024 parts per request by default. Lower `Request::$maxMultipartParts` for the
+application; exceeding the configured limit throws `LengthException` when the request body is first parsed. The parser
+also handles `Expect: 100-continue`, validates HTTP/1.1 `Host`, rejects ambiguous request framing and accepts
 standards-compliant extension methods such as WebDAV verbs rather than using a fixed method whitelist.
 
 ## Gateway

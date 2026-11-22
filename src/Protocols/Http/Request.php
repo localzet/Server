@@ -46,6 +46,7 @@ class Request implements Stringable
     public const MAX_CACHE_SIZE = 256;
 
     public static int $maxFileUploads = 1024;
+    public static int $maxMultipartParts = 1024;
 
     /**
      * Список доверенных reverse proxy. Пока peer не входит в этот список,
@@ -629,8 +630,16 @@ class Request implements Stringable
         $files = [];
         $uploadCount = 0;
         $fileToken = 0;
+        $maxParts = static::$maxMultipartParts;
+        if ($maxParts < 1) {
+            throw new \LengthException('Multipart part limit must be greater than zero.');
+        }
+        $parts = explode('--' . $boundary, $this->rawBody(), $maxParts + 3);
+        if (count($parts) > $maxParts + 2) {
+            throw new \LengthException('Multipart request contains too many parts.');
+        }
 
-        foreach (explode('--' . $boundary, $this->rawBody()) as $part) {
+        foreach ($parts as $part) {
             $part = ltrim($part, "\r\n");
             if ($part === '' || $part === '--\r\n' || $part === '--' || !str_contains($part, "\r\n\r\n")) {
                 continue;

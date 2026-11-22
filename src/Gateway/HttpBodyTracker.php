@@ -175,7 +175,7 @@ final class HttpBodyTracker
 
         while (!$this->complete) {
             if ($this->readingTrailers) {
-                // Пустые trailers заканчиваются одиночным CRLF; непустые — CRLFCRLF.
+                // Empty trailers end with one CRLF; non-empty trailers use CRLFCRLF.
                 if (str_starts_with(substr($this->chunkBuffer, $offset), "\r\n")) {
                     $offset += 2;
                     $this->complete = true;
@@ -212,19 +212,32 @@ final class HttpBodyTracker
                 if ($sizeToken === '' || !ctype_xdigit($sizeToken)) {
                     throw new RuntimeException('Invalid chunk size in proxied HTTP message.');
                 }
-                $this->chunkRemaining = hexdec($sizeToken);
+                $size = hexdec($sizeToken);
+                if (!is_int($size) || $size < 0) {
+                    throw new RuntimeException('Invalid chunk size in proxied HTTP message.');
+                }
+                $this->chunkRemaining = $size;
                 $offset = $lineEnd + 2;
-                if ($this->chunkRemaining === 0) {
+                if ($size === 0) {
                     $this->readingTrailers = true;
                     $this->chunkRemaining = null;
                 }
                 continue;
             }
 
-            if (strlen($this->chunkBuffer) - $offset < $this->chunkRemaining + 2) {
+            $available = strlen($this->chunkBuffer) - $offset;
+            if ($this->chunkRemaining > 0) {
+                $payloadBytes = min($available, $this->chunkRemaining);
+                $offset += $payloadBytes;
+                $this->chunkRemaining -= $payloadBytes;
+                if ($this->chunkRemaining > 0) {
+                    break;
+                }
+            }
+
+            if (strlen($this->chunkBuffer) - $offset < 2) {
                 break;
             }
-            $offset += $this->chunkRemaining;
             if (substr($this->chunkBuffer, $offset, 2) !== "\r\n") {
                 throw new RuntimeException('Invalid chunk terminator in proxied HTTP message.');
             }
@@ -236,14 +249,12 @@ final class HttpBodyTracker
             $this->chunkBuffer = (string)substr($this->chunkBuffer, $offset);
         }
 
-        // Пока terminal zero-chunk не найден, вся новая порция однозначно
-        // принадлежит текущему body и может немедленно стримиться upstream.
+        // Stream body bytes immediately; keep only incomplete framing bytes.
         if (!$this->complete) {
             return strlen($data);
         }
 
-        // После terminal chunk возвращаем только часть новой порции до границы
-        // message. Остаток уже может быть началом следующего HTTP сообщения.
+        // Bytes after the terminal chunk may start the next HTTP message.
         $consumed = max(0, min(strlen($data), $offset - $before));
         $this->chunkBuffer = '';
         return $consumed;

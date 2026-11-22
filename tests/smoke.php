@@ -125,6 +125,38 @@ $request = Http::decode($chunked, $conn);
 ok($request->post('a') === '1' && $request->post('b') === '2', 'HTTP chunked body decode');
 ok($request->trailer('x-trace') === 'done', 'HTTP chunked trailers');
 
+[$chunkedServer, $chunkedPeer] = connectionPair();
+$chunkedConnection = new TcpConnection(new Select(), $chunkedServer, '127.0.0.1:12345');
+$chunkedConnection->protocol = Http::class;
+$incrementalHeader = "POST /incremental HTTP/1.1\r\nHost: example.test\r\nTransfer-Encoding: chunked\r\n\r\n";
+$incrementalBuffer = $incrementalHeader;
+ok(Http::input($incrementalBuffer, $chunkedConnection) === 0, 'HTTP chunked parser waits for body');
+$incrementalBuffer .= "2\r\nx";
+ok(Http::input($incrementalBuffer, $chunkedConnection) === 0
+    && $chunkedConnection->context->httpChunkedParserState['mode'] === 'data',
+    'HTTP chunked parser retains partial payload state');
+$incrementalBuffer .= "y\r\n";
+ok(Http::input($incrementalBuffer, $chunkedConnection) === 0, 'HTTP chunked parser resumes partial payload');
+$cursorAdvanced = true;
+for ($index = 0; $index < 64; $index++) {
+    $incrementalBuffer .= "1\r\nx\r\n";
+    $cursorAdvanced = Http::input($incrementalBuffer, $chunkedConnection) === 0
+        && $chunkedConnection->context->httpChunkedParserState['pos'] === strlen($incrementalBuffer)
+        && $cursorAdvanced;
+}
+ok($cursorAdvanced, 'HTTP chunked parser advances its cursor');
+$incrementalBuffer .= "0\r\nX-Trace: done\r";
+ok(Http::input($incrementalBuffer, $chunkedConnection) === 0, 'HTTP chunked parser waits for trailer terminator');
+$incrementalBuffer .= "\n\r\n";
+ok(Http::input($incrementalBuffer, $chunkedConnection) === strlen($incrementalBuffer), 'HTTP chunked parser completes incremental frame');
+$incrementalRequest = Http::decode($incrementalBuffer, $chunkedConnection);
+ok($incrementalRequest->rawBody() === 'xy' . str_repeat('x', 64)
+    && $incrementalRequest->trailer('x-trace') === 'done',
+    'HTTP chunked incremental body and trailers decode');
+$incrementalRequest->destroy();
+$chunkedConnection->destroy();
+fclose($chunkedPeer);
+
 // Multipart parser keeps ordinary fields and upload metadata separate and owns
 // the temporary file lifecycle through Request::destroy().
 $boundary = '----localzet-smoke-boundary';
@@ -151,6 +183,50 @@ ok($multipartRequest->post('title') === 'demo'
 $uploadTmp = (string)$upload['tmp_name'];
 $multipartRequest->destroy();
 ok(!is_file($uploadTmp), 'HTTP multipart temp file cleanup');
+
+$multipartLimit = Request::$maxMultipartParts;
+$uploadDir = sys_get_temp_dir() . '/localzet-multipart-limit-' . bin2hex(random_bytes(4));
+mkdir($uploadDir);
+$previousUploadDir = Http::uploadTmpDir();
+Http::uploadTmpDir($uploadDir);
+Request::$maxMultipartParts = 2;
+$limitedBoundary = '----localzet-limited-multipart';
+$limitedMultipartBody = "--{$limitedBoundary}\r\n"
+    . "Content-Disposition: form-data; name=\"first\"\r\n\r\none\r\n"
+    . "--{$limitedBoundary}\r\n"
+    . "Content-Disposition: form-data; name=\"upload\"; filename=\"blocked.txt\"\r\n\r\nfile\r\n"
+    . "--{$limitedBoundary}\r\n"
+    . "Content-Disposition: form-data; name=\"third\"\r\n\r\nthree\r\n"
+    . "--{$limitedBoundary}--\r\n";
+$limitedMultipartRaw = "POST /upload HTTP/1.1\r\nHost: example.test\r\n"
+    . "Content-Type: multipart/form-data; boundary={$limitedBoundary}\r\n"
+    . 'Content-Length: ' . strlen($limitedMultipartBody) . "\r\n\r\n"
+    . $limitedMultipartBody;
+$limitedMultipart = new Request($limitedMultipartRaw);
+$partLimitRejected = false;
+try {
+    $limitedMultipart->post();
+} catch (LengthException) {
+    $partLimitRejected = true;
+}
+ok($partLimitRejected && (glob($uploadDir . '/localzet-upload-*') ?: []) === [],
+    'HTTP multipart part limit rejects before creating upload files');
+$limitedMultipart->destroy();
+$atLimitBody = "--{$limitedBoundary}\r\n"
+    . "Content-Disposition: form-data; name=\"first\"\r\n\r\none\r\n"
+    . "--{$limitedBoundary}\r\n"
+    . "Content-Disposition: form-data; name=\"second\"\r\n\r\ntwo\r\n"
+    . "--{$limitedBoundary}--\r\n";
+$atLimitRaw = "POST /upload HTTP/1.1\r\nHost: example.test\r\n"
+    . "Content-Type: multipart/form-data; boundary={$limitedBoundary}\r\n"
+    . 'Content-Length: ' . strlen($atLimitBody) . "\r\n\r\n"
+    . $atLimitBody;
+$atLimitRequest = new Request($atLimitRaw);
+ok($atLimitRequest->post('second') === 'two', 'HTTP multipart request at configured part limit parses');
+$atLimitRequest->destroy();
+Request::$maxMultipartParts = $multipartLimit;
+Http::uploadTmpDir($previousUploadDir);
+@rmdir($uploadDir);
 
 // Response: header injection не проходит.
 $response = new Response(200, ['X-Test' => "safe\r\nInjected: yes"], 'body');
