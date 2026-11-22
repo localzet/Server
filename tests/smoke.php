@@ -20,7 +20,9 @@ spl_autoload_register(static function (string $class) use ($root): void {
     if (str_starts_with($class, $prefix)) {
         $relative = substr($class, strlen($prefix));
         $file = $root . '/src/' . str_replace('\\', '/', $relative) . '.php';
-        if (is_file($file)) require_once $file;
+        if (is_file($file)) {
+            require_once $file;
+        }
     }
 });
 require_once $root . '/Helpers.php';
@@ -75,7 +77,9 @@ function ok(bool $condition, string $message): void
 function connectionPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false) throw new RuntimeException('stream_socket_pair failed');
+    if ($pair === false) {
+        throw new RuntimeException('stream_socket_pair failed');
+    }
     return $pair;
 }
 
@@ -132,9 +136,11 @@ $incrementalHeader = "POST /incremental HTTP/1.1\r\nHost: example.test\r\nTransf
 $incrementalBuffer = $incrementalHeader;
 ok(Http::input($incrementalBuffer, $chunkedConnection) === 0, 'HTTP chunked parser waits for body');
 $incrementalBuffer .= "2\r\nx";
-ok(Http::input($incrementalBuffer, $chunkedConnection) === 0
+ok(
+    Http::input($incrementalBuffer, $chunkedConnection) === 0
     && $chunkedConnection->context->httpChunkedParserState['mode'] === 'data',
-    'HTTP chunked parser retains partial payload state');
+    'HTTP chunked parser retains partial payload state'
+);
 $incrementalBuffer .= "y\r\n";
 ok(Http::input($incrementalBuffer, $chunkedConnection) === 0, 'HTTP chunked parser resumes partial payload');
 $cursorAdvanced = true;
@@ -150,9 +156,11 @@ ok(Http::input($incrementalBuffer, $chunkedConnection) === 0, 'HTTP chunked pars
 $incrementalBuffer .= "\n\r\n";
 ok(Http::input($incrementalBuffer, $chunkedConnection) === strlen($incrementalBuffer), 'HTTP chunked parser completes incremental frame');
 $incrementalRequest = Http::decode($incrementalBuffer, $chunkedConnection);
-ok($incrementalRequest->rawBody() === 'xy' . str_repeat('x', 64)
+ok(
+    $incrementalRequest->rawBody() === 'xy' . str_repeat('x', 64)
     && $incrementalRequest->trailer('x-trace') === 'done',
-    'HTTP chunked incremental body and trailers decode');
+    'HTTP chunked incremental body and trailers decode'
+);
 $incrementalRequest->destroy();
 $chunkedConnection->destroy();
 fclose($chunkedPeer);
@@ -174,12 +182,14 @@ $multipartRaw = "POST /upload HTTP/1.1\r\nHost: example.test\r\n"
     . $multipartBody;
 $multipartRequest = new Request($multipartRaw);
 $upload = $multipartRequest->file('upload');
-ok($multipartRequest->post('title') === 'demo'
+ok(
+    $multipartRequest->post('title') === 'demo'
     && is_array($upload)
     && ($upload['name'] ?? '') === 'note.txt'
     && is_file((string)($upload['tmp_name'] ?? ''))
     && file_get_contents((string)$upload['tmp_name']) === 'hello upload',
-    'HTTP multipart field and upload parsing');
+    'HTTP multipart field and upload parsing'
+);
 $uploadTmp = (string)$upload['tmp_name'];
 $multipartRequest->destroy();
 ok(!is_file($uploadTmp), 'HTTP multipart temp file cleanup');
@@ -209,8 +219,10 @@ try {
 } catch (LengthException) {
     $partLimitRejected = true;
 }
-ok($partLimitRejected && (glob($uploadDir . '/localzet-upload-*') ?: []) === [],
-    'HTTP multipart part limit rejects before creating upload files');
+ok(
+    $partLimitRejected && (glob($uploadDir . '/localzet-upload-*') ?: []) === [],
+    'HTTP multipart part limit rejects before creating upload files'
+);
 $limitedMultipart->destroy();
 $atLimitBody = "--{$limitedBoundary}\r\n"
     . "Content-Disposition: form-data; name=\"first\"\r\n\r\none\r\n"
@@ -240,12 +252,16 @@ if (function_exists('gzencode')) {
     $compressedResponse = (new Response(200, ['Content-Type' => 'text/plain'], $compressible))
         ->withCompressionForRequest($compressRequest, 128);
     $compressedBody = $compressedResponse->rawBody();
-    ok($compressedResponse->getHeader('Content-Encoding') === 'gzip'
+    ok(
+        $compressedResponse->getHeader('Content-Encoding') === 'gzip'
         && is_string($compressedBody)
         && gzdecode($compressedBody) === $compressible,
-        'HTTP opt-in gzip compression');
-    ok(stripos((string)$compressedResponse->getHeader('Vary'), 'Accept-Encoding') !== false,
-        'HTTP gzip Vary header');
+        'HTTP opt-in gzip compression'
+    );
+    ok(
+        stripos((string)$compressedResponse->getHeader('Vary'), 'Accept-Encoding') !== false,
+        'HTTP gzip Vary header'
+    );
 
     $gzipRejected = new Request("GET /gzip HTTP/1.1\r\nHost: example.test\r\nAccept-Encoding: gzip;q=0, *;q=1\r\n\r\n");
     $notCompressed = (new Response(200, [], $compressible))->withCompressionForRequest($gzipRejected, 128);
@@ -254,15 +270,19 @@ if (function_exists('gzencode')) {
     $headRequest = new Request("HEAD /gzip HTTP/1.1\r\nHost: example.test\r\nAccept-Encoding: gzip\r\n\r\n");
     $headResponse = (new Response(200, [], $compressible))->withCompressionForRequest($headRequest, 128);
     $headEncoded = (string)$headResponse;
-    ok($headResponse->getHeader('Content-Encoding') === 'gzip'
+    ok(
+        $headResponse->getHeader('Content-Encoding') === 'gzip'
         && str_ends_with($headEncoded, "\r\n\r\n"),
-        'HTTP gzip HEAD suppresses body');
+        'HTTP gzip HEAD suppresses body'
+    );
 }
 
 ok((string)new Chunk('abc') === "3\r\nabc\r\n", 'HTTP chunk serialization');
 $sse = (string)new ServerSentEvents("line1\nline2", 'update', '42', 1500);
-ok(str_contains($sse, "event: update\n") && str_contains($sse, "data: line2\n") && str_ends_with($sse, "\n\n"),
-    'Server-Sent Events serialization');
+ok(
+    str_contains($sse, "event: update\n") && str_contains($sse, "data: line2\n") && str_ends_with($sse, "\n\n"),
+    'Server-Sent Events serialization'
+);
 
 
 // HTTP framing: ambiguous / malformed requests must be rejected before application decode.
@@ -372,7 +392,7 @@ fclose($continuePeer);
 $idleLoop = new Select();
 $idleConnection = new TcpConnection($idleLoop, $idleServer, '127.0.0.1:12345');
 $idleConnection->setIdleTimeout(0.01);
-$idleLoop->delay(0.04, static fn() => $idleLoop->stop());
+$idleLoop->delay(0.04, static fn () => $idleLoop->stop());
 $idleLoop->run();
 ok($idleConnection->getStatus() === TcpConnection::STATUS_CLOSED, 'TCP idle timeout');
 fclose($idlePeer);
@@ -408,7 +428,9 @@ ok($redisRejected, 'Redis excessive array element count rejected');
 
 // Async UDP: application scheme должен кодироваться поверх UDP, а не становиться transport scheme.
 $udpServer = stream_socket_server('udp://127.0.0.1:0', $udpErrno, $udpError, STREAM_SERVER_BIND);
-if ($udpServer === false) throw new RuntimeException("Unable to create UDP fixture: $udpError");
+if ($udpServer === false) {
+    throw new RuntimeException("Unable to create UDP fixture: $udpError");
+}
 $udpAddress = (string)stream_socket_get_name($udpServer, false);
 [, $udpPort] = explode(':', $udpAddress, 2);
 $udpClient = new AsyncUdpConnection('text://127.0.0.1:' . $udpPort, [], new Select());
@@ -475,7 +497,9 @@ fclose($oldWsPeer);
 $payload = 'hello';
 $mask = "\x01\x02\x03\x04";
 $masked = $payload;
-for ($i = 0; $i < strlen($masked); $i++) $masked[$i] = $masked[$i] ^ $mask[$i & 3];
+for ($i = 0; $i < strlen($masked); $i++) {
+    $masked[$i] = $masked[$i] ^ $mask[$i & 3];
+}
 $clientFrame = chr(0x81) . chr(0x80 | strlen($payload)) . $mask . $masked;
 ok(Websocket::input($clientFrame, $conn) === strlen($clientFrame), 'WebSocket masked frame length');
 ok(Websocket::decode($clientFrame, $conn) === 'hello', 'WebSocket masked frame decode');
@@ -506,8 +530,10 @@ ok(Websocket::input($partOne, $limitedWs) === strlen($partOne), 'WebSocket limit
 Websocket::decode($partOne, $limitedWs);
 ok(Websocket::input($partTwo, $limitedWs) === strlen($partTwo), 'WebSocket limited continuation frame accepted');
 Websocket::decode($partTwo, $limitedWs);
-ok(in_array($limitedWs->getStatus(), [TcpConnection::STATUS_ENDING, TcpConnection::STATUS_CLOSING, TcpConnection::STATUS_CLOSED], true),
-    'WebSocket aggregate fragmented message limit');
+ok(
+    in_array($limitedWs->getStatus(), [TcpConnection::STATUS_ENDING, TcpConnection::STATUS_CLOSING, TcpConnection::STATUS_CLOSED], true),
+    'WebSocket aggregate fragmented message limit'
+);
 $limitedWs->destroy();
 fclose($limitedWsPeer);
 
@@ -518,7 +544,9 @@ $oldDaemonize = Server::$daemonize;
 $logBase = sys_get_temp_dir() . '/localzet-log-smoke-' . getmypid() . '.log';
 @unlink($logBase);
 @unlink($logBase . '.lock');
-foreach (glob($logBase . '.*.*') ?: [] as $archive) @unlink($archive);
+foreach (glob($logBase . '.*.*') ?: [] as $archive) {
+    @unlink($archive);
+}
 Server::$logFile = $logBase;
 Server::$logFileMaxSize = 32;
 Server::$daemonize = true;
@@ -531,7 +559,9 @@ Server::$logFileMaxSize = $oldLogMax;
 Server::$daemonize = $oldDaemonize;
 @unlink($logBase);
 @unlink($logBase . '.lock');
-foreach ($archives as $archive) @unlink($archive);
+foreach ($archives as $archive) {
+    @unlink($archive);
+}
 
 // Event loop timer.
 $fired = false;

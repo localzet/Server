@@ -428,12 +428,24 @@ class Request implements Stringable
         }
 
         $cookie = rawurlencode($sessionName) . '=' . rawurlencode($sid);
-        if (!empty($params['domain'])) $cookie .= '; Domain=' . str_replace(["\r", "\n"], '', (string)$params['domain']);
-        if (!empty($params['lifetime'])) $cookie .= '; Max-Age=' . max(0, (int)$params['lifetime']);
-        if (!empty($params['path'])) $cookie .= '; Path=' . str_replace(["\r", "\n"], '', (string)$params['path']);
-        if (!empty($params['samesite'])) $cookie .= '; SameSite=' . str_replace(["\r", "\n"], '', (string)$params['samesite']);
-        if (($params['secure'] ?? false) === true) $cookie .= '; Secure';
-        if (($params['httponly'] ?? true) === true) $cookie .= '; HttpOnly';
+        if (!empty($params['domain'])) {
+            $cookie .= '; Domain=' . str_replace(["\r", "\n"], '', (string)$params['domain']);
+        }
+        if (!empty($params['lifetime'])) {
+            $cookie .= '; Max-Age=' . max(0, (int)$params['lifetime']);
+        }
+        if (!empty($params['path'])) {
+            $cookie .= '; Path=' . str_replace(["\r", "\n"], '', (string)$params['path']);
+        }
+        if (!empty($params['samesite'])) {
+            $cookie .= '; SameSite=' . str_replace(["\r", "\n"], '', (string)$params['samesite']);
+        }
+        if (($params['secure'] ?? false) === true) {
+            $cookie .= '; Secure';
+        }
+        if (($params['httponly'] ?? true) === true) {
+            $cookie .= '; HttpOnly';
+        }
         $this->connection->headers['Set-Cookie'][] = $cookie;
     }
 
@@ -484,15 +496,21 @@ class Request implements Stringable
         $forwarded = (string)$this->header('forwarded', '');
         if ($forwarded !== '' && preg_match('/(?:^|[;,])\s*for=(?:"?\[?)([^\]";,]+)(?:\]?"?)/i', $forwarded, $match)) {
             $candidate = static::normalizeForwardedIp($match[1]);
-            if ($candidate !== null) return $candidate;
+            if ($candidate !== null) {
+                return $candidate;
+            }
         }
 
         foreach (['x-forwarded-for', 'x-real-ip', 'client-ip', 'x-client-ip'] as $header) {
             $value = $this->header($header);
-            if (!is_string($value) || $value === '') continue;
+            if (!is_string($value) || $value === '') {
+                continue;
+            }
             foreach (explode(',', $value) as $candidate) {
                 $ip = static::normalizeForwardedIp($candidate);
-                if ($ip !== null) return $ip;
+                if ($ip !== null) {
+                    return $ip;
+                }
             }
         }
         return $peer;
@@ -577,7 +595,9 @@ class Request implements Stringable
         $lines = explode("\r\n", $this->rawHead());
         array_shift($lines);
         foreach ($lines as $line) {
-            if ($line === '' || !str_contains($line, ':')) continue;
+            if ($line === '' || !str_contains($line, ':')) {
+                continue;
+            }
             [$name, $value] = explode(':', $line, 2);
             $key = strtolower(trim($name));
             $value = trim($value, " \t");
@@ -588,7 +608,9 @@ class Request implements Stringable
 
     protected function parseQuery(string $query): array
     {
-        if ($query === '') return [];
+        if ($query === '') {
+            return [];
+        }
         parse_str($query, $result);
         return $this->sanitizeInput($result);
     }
@@ -653,7 +675,9 @@ class Request implements Stringable
 
             $name = $match[1];
             $filename = $match[2] ?? null;
-            if ($name === '') continue;
+            if ($name === '') {
+                continue;
+            }
 
             if ($filename === null || $filename === '') {
                 $postPairs[] = rawurlencode($name) . '=' . rawurlencode($body);
@@ -666,7 +690,9 @@ class Request implements Stringable
             $tmpDir = \localzet\Server\Protocols\Http::uploadTmpDir();
             $tmp = tempnam($tmpDir, 'localzet-upload-');
             if ($tmp === false || file_put_contents($tmp, $body, LOCK_EX) === false) {
-                if (is_string($tmp) && is_file($tmp)) @unlink($tmp);
+                if (is_string($tmp) && is_file($tmp)) {
+                    @unlink($tmp);
+                }
                 continue;
             }
             preg_match('/^Content-Type:\s*([^\r\n]+)/mi', $head, $typeMatch);
@@ -718,7 +744,9 @@ class Request implements Stringable
 
     protected static function ipMatchesCidr(string $ip, string $cidr): bool
     {
-        if (!str_contains($cidr, '/')) return false;
+        if (!str_contains($cidr, '/')) {
+            return false;
+        }
         [$network, $prefix] = explode('/', $cidr, 2);
         $ipBinary = @inet_pton($ip);
         $networkBinary = @inet_pton($network);
@@ -727,11 +755,17 @@ class Request implements Stringable
         }
         $bits = (int)$prefix;
         $maxBits = strlen($ipBinary) * 8;
-        if ($bits < 0 || $bits > $maxBits) return false;
+        if ($bits < 0 || $bits > $maxBits) {
+            return false;
+        }
         $bytes = intdiv($bits, 8);
         $remaining = $bits % 8;
-        if ($bytes > 0 && substr($ipBinary, 0, $bytes) !== substr($networkBinary, 0, $bytes)) return false;
-        if ($remaining === 0) return true;
+        if ($bytes > 0 && substr($ipBinary, 0, $bytes) !== substr($networkBinary, 0, $bytes)) {
+            return false;
+        }
+        if ($remaining === 0) {
+            return true;
+        }
         $mask = (0xff << (8 - $remaining)) & 0xff;
         return (ord($ipBinary[$bytes]) & $mask) === (ord($networkBinary[$bytes]) & $mask);
     }

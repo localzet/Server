@@ -19,7 +19,9 @@ spl_autoload_register(static function (string $class) use ($root): void {
     $prefix = 'localzet\\Server\\';
     if (str_starts_with($class, $prefix)) {
         $file = $root . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
-        if (is_file($file)) require_once $file;
+        if (is_file($file)) {
+            require_once $file;
+        }
     }
 });
 require_once $root . '/Helpers.php';
