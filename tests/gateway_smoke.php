@@ -19,7 +19,9 @@ spl_autoload_register(static function (string $class) use ($root): void {
     $prefix = 'localzet\\Server\\';
     if (str_starts_with($class, $prefix)) {
         $file = $root . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
-        if (is_file($file)) require_once $file;
+        if (is_file($file)) {
+            require_once $file;
+        }
     }
 });
 require_once $root . '/Helpers.php';
@@ -92,6 +94,24 @@ $tail = "ki\r\n0\r\n\r\nNEXT";
 $consumed = $chunked->consume($tail);
 gatewayOk($consumed === strlen("ki\r\n0\r\n\r\n") && $chunked->isComplete(), 'chunked terminal boundary');
 
+$largeChunkSize = 1024 * 1024;
+$largeChunk = HttpBodyTracker::forRequest(['transfer-encoding' => ['chunked']]);
+$chunkBufferProperty = new ReflectionProperty(HttpBodyTracker::class, 'chunkBuffer');
+$chunkRemainingProperty = new ReflectionProperty(HttpBodyTracker::class, 'chunkRemaining');
+$fragmentSize = 64 * 1024;
+$largeBodyRetained = $largeChunk->consume("100000\r\n" . str_repeat('a', $fragmentSize)) === 8 + $fragmentSize
+    && strlen($chunkBufferProperty->getValue($largeChunk)) <= 2;
+for ($remaining = $largeChunkSize - $fragmentSize; $remaining > 0; $remaining -= $fragmentSize) {
+    $largeBodyRetained = $largeChunk->consume(str_repeat('a', $fragmentSize)) === $fragmentSize
+        && strlen($chunkBufferProperty->getValue($largeChunk)) <= 2
+        && $chunkRemainingProperty->getValue($largeChunk) === $remaining - $fragmentSize
+        && $largeBodyRetained;
+}
+gatewayOk($largeBodyRetained, 'chunked gateway streams payload without retaining it');
+$largeChunkTail = "\r\n0\r\n\r\nNEXT";
+gatewayOk($largeChunk->consume($largeChunkTail) === strlen("\r\n0\r\n\r\n")
+    && $largeChunk->isComplete(), 'chunked gateway preserves boundary after streamed payload');
+
 $oversizedChunkLine = HttpBodyTracker::forRequest(['transfer-encoding' => ['chunked']]);
 $rejected = false;
 try {
@@ -101,6 +121,15 @@ try {
     $rejected = true;
 }
 gatewayOk($rejected, 'oversized fragmented chunk-size line rejected');
+
+$oversizedChunkLength = HttpBodyTracker::forRequest(['transfer-encoding' => ['chunked']]);
+$rejected = false;
+try {
+    $oversizedChunkLength->consume("FFFFFFFFFFFFFFFF\r\n");
+} catch (RuntimeException) {
+    $rejected = true;
+}
+gatewayOk($rejected, 'chunk size exceeding integer range rejected');
 
 $oversizedTrailers = HttpBodyTracker::forRequest(['transfer-encoding' => ['chunked']]);
 $rejected = false;

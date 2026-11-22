@@ -20,7 +20,9 @@ spl_autoload_register(static function (string $class) use ($root): void {
     if (str_starts_with($class, $prefix)) {
         $relative = substr($class, strlen($prefix));
         $file = $root . '/src/' . str_replace('\\', '/', $relative) . '.php';
-        if (is_file($file)) require_once $file;
+        if (is_file($file)) {
+            require_once $file;
+        }
     }
 });
 require_once $root . '/Helpers.php';
@@ -72,10 +74,23 @@ function ok(bool $condition, string $message): void
     fwrite(STDOUT, "OK: {$message}\n");
 }
 
+function removeSmokeFixture(string $path): void
+{
+    if (is_dir($path) && !is_link($path)) {
+        rmdir($path);
+        return;
+    }
+    if (file_exists($path) || is_link($path)) {
+        unlink($path);
+    }
+}
+
 function connectionPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false) throw new RuntimeException('stream_socket_pair failed');
+    if ($pair === false) {
+        throw new RuntimeException('stream_socket_pair failed');
+    }
     return $pair;
 }
 
@@ -91,8 +106,8 @@ if (function_exists('symlink') && @symlink($pidFixture . '.target', $pidFixture)
     PidFileSmokeServer::writePidForTest($pidFixture, 12345);
     ok(file_get_contents($pidFixture . '.target') === (string)getmypid(), 'atomic PID write does not follow symlink target');
     ok(!is_link($pidFixture) && trim((string)file_get_contents($pidFixture)) === '12345', 'atomic PID write replaces symlink itself');
-    @unlink($pidFixture);
-    @unlink($pidFixture . '.target');
+    removeSmokeFixture($pidFixture);
+    removeSmokeFixture($pidFixture . '.target');
 } else {
     ok(true, 'PID symlink regression skipped on unsupported filesystem');
 }
@@ -125,6 +140,42 @@ $request = Http::decode($chunked, $conn);
 ok($request->post('a') === '1' && $request->post('b') === '2', 'HTTP chunked body decode');
 ok($request->trailer('x-trace') === 'done', 'HTTP chunked trailers');
 
+[$chunkedServer, $chunkedPeer] = connectionPair();
+$chunkedConnection = new TcpConnection(new Select(), $chunkedServer, '127.0.0.1:12345');
+$chunkedConnection->protocol = Http::class;
+$incrementalHeader = "POST /incremental HTTP/1.1\r\nHost: example.test\r\nTransfer-Encoding: chunked\r\n\r\n";
+$incrementalBuffer = $incrementalHeader;
+ok(Http::input($incrementalBuffer, $chunkedConnection) === 0, 'HTTP chunked parser waits for body');
+$incrementalBuffer .= "2\r\nx";
+ok(
+    Http::input($incrementalBuffer, $chunkedConnection) === 0
+    && $chunkedConnection->context->httpChunkedParserState['mode'] === 'data',
+    'HTTP chunked parser retains partial payload state'
+);
+$incrementalBuffer .= "y\r\n";
+ok(Http::input($incrementalBuffer, $chunkedConnection) === 0, 'HTTP chunked parser resumes partial payload');
+$cursorAdvanced = true;
+for ($index = 0; $index < 64; $index++) {
+    $incrementalBuffer .= "1\r\nx\r\n";
+    $cursorAdvanced = Http::input($incrementalBuffer, $chunkedConnection) === 0
+        && $chunkedConnection->context->httpChunkedParserState['pos'] === strlen($incrementalBuffer)
+        && $cursorAdvanced;
+}
+ok($cursorAdvanced, 'HTTP chunked parser advances its cursor');
+$incrementalBuffer .= "0\r\nX-Trace: done\r";
+ok(Http::input($incrementalBuffer, $chunkedConnection) === 0, 'HTTP chunked parser waits for trailer terminator');
+$incrementalBuffer .= "\n\r\n";
+ok(Http::input($incrementalBuffer, $chunkedConnection) === strlen($incrementalBuffer), 'HTTP chunked parser completes incremental frame');
+$incrementalRequest = Http::decode($incrementalBuffer, $chunkedConnection);
+ok(
+    $incrementalRequest->rawBody() === 'xy' . str_repeat('x', 64)
+    && $incrementalRequest->trailer('x-trace') === 'done',
+    'HTTP chunked incremental body and trailers decode'
+);
+$incrementalRequest->destroy();
+$chunkedConnection->destroy();
+fclose($chunkedPeer);
+
 // Multipart parser keeps ordinary fields and upload metadata separate and owns
 // the temporary file lifecycle through Request::destroy().
 $boundary = '----localzet-smoke-boundary';
@@ -142,15 +193,63 @@ $multipartRaw = "POST /upload HTTP/1.1\r\nHost: example.test\r\n"
     . $multipartBody;
 $multipartRequest = new Request($multipartRaw);
 $upload = $multipartRequest->file('upload');
-ok($multipartRequest->post('title') === 'demo'
+ok(
+    $multipartRequest->post('title') === 'demo'
     && is_array($upload)
     && ($upload['name'] ?? '') === 'note.txt'
     && is_file((string)($upload['tmp_name'] ?? ''))
     && file_get_contents((string)$upload['tmp_name']) === 'hello upload',
-    'HTTP multipart field and upload parsing');
+    'HTTP multipart field and upload parsing'
+);
 $uploadTmp = (string)$upload['tmp_name'];
 $multipartRequest->destroy();
 ok(!is_file($uploadTmp), 'HTTP multipart temp file cleanup');
+
+$multipartLimit = Request::$maxMultipartParts;
+$uploadDir = sys_get_temp_dir() . '/localzet-multipart-limit-' . bin2hex(random_bytes(4));
+mkdir($uploadDir, 0700);
+$previousUploadDir = Http::uploadTmpDir();
+Http::uploadTmpDir($uploadDir);
+Request::$maxMultipartParts = 2;
+$limitedBoundary = '----localzet-limited-multipart';
+$limitedMultipartBody = "--{$limitedBoundary}\r\n"
+    . "Content-Disposition: form-data; name=\"first\"\r\n\r\none\r\n"
+    . "--{$limitedBoundary}\r\n"
+    . "Content-Disposition: form-data; name=\"upload\"; filename=\"blocked.txt\"\r\n\r\nfile\r\n"
+    . "--{$limitedBoundary}\r\n"
+    . "Content-Disposition: form-data; name=\"third\"\r\n\r\nthree\r\n"
+    . "--{$limitedBoundary}--\r\n";
+$limitedMultipartRaw = "POST /upload HTTP/1.1\r\nHost: example.test\r\n"
+    . "Content-Type: multipart/form-data; boundary={$limitedBoundary}\r\n"
+    . 'Content-Length: ' . strlen($limitedMultipartBody) . "\r\n\r\n"
+    . $limitedMultipartBody;
+$limitedMultipart = new Request($limitedMultipartRaw);
+$partLimitRejected = false;
+try {
+    $limitedMultipart->post();
+} catch (LengthException) {
+    $partLimitRejected = true;
+}
+ok(
+    $partLimitRejected && (glob($uploadDir . '/localzet-upload-*') ?: []) === [],
+    'HTTP multipart part limit rejects before creating upload files'
+);
+$limitedMultipart->destroy();
+$atLimitBody = "--{$limitedBoundary}\r\n"
+    . "Content-Disposition: form-data; name=\"first\"\r\n\r\none\r\n"
+    . "--{$limitedBoundary}\r\n"
+    . "Content-Disposition: form-data; name=\"second\"\r\n\r\ntwo\r\n"
+    . "--{$limitedBoundary}--\r\n";
+$atLimitRaw = "POST /upload HTTP/1.1\r\nHost: example.test\r\n"
+    . "Content-Type: multipart/form-data; boundary={$limitedBoundary}\r\n"
+    . 'Content-Length: ' . strlen($atLimitBody) . "\r\n\r\n"
+    . $atLimitBody;
+$atLimitRequest = new Request($atLimitRaw);
+ok($atLimitRequest->post('second') === 'two', 'HTTP multipart request at configured part limit parses');
+$atLimitRequest->destroy();
+Request::$maxMultipartParts = $multipartLimit;
+Http::uploadTmpDir($previousUploadDir);
+removeSmokeFixture($uploadDir);
 
 // Response: header injection не проходит.
 $response = new Response(200, ['X-Test' => "safe\r\nInjected: yes"], 'body');
@@ -164,12 +263,16 @@ if (function_exists('gzencode')) {
     $compressedResponse = (new Response(200, ['Content-Type' => 'text/plain'], $compressible))
         ->withCompressionForRequest($compressRequest, 128);
     $compressedBody = $compressedResponse->rawBody();
-    ok($compressedResponse->getHeader('Content-Encoding') === 'gzip'
+    ok(
+        $compressedResponse->getHeader('Content-Encoding') === 'gzip'
         && is_string($compressedBody)
         && gzdecode($compressedBody) === $compressible,
-        'HTTP opt-in gzip compression');
-    ok(stripos((string)$compressedResponse->getHeader('Vary'), 'Accept-Encoding') !== false,
-        'HTTP gzip Vary header');
+        'HTTP opt-in gzip compression'
+    );
+    ok(
+        stripos((string)$compressedResponse->getHeader('Vary'), 'Accept-Encoding') !== false,
+        'HTTP gzip Vary header'
+    );
 
     $gzipRejected = new Request("GET /gzip HTTP/1.1\r\nHost: example.test\r\nAccept-Encoding: gzip;q=0, *;q=1\r\n\r\n");
     $notCompressed = (new Response(200, [], $compressible))->withCompressionForRequest($gzipRejected, 128);
@@ -178,15 +281,19 @@ if (function_exists('gzencode')) {
     $headRequest = new Request("HEAD /gzip HTTP/1.1\r\nHost: example.test\r\nAccept-Encoding: gzip\r\n\r\n");
     $headResponse = (new Response(200, [], $compressible))->withCompressionForRequest($headRequest, 128);
     $headEncoded = (string)$headResponse;
-    ok($headResponse->getHeader('Content-Encoding') === 'gzip'
+    ok(
+        $headResponse->getHeader('Content-Encoding') === 'gzip'
         && str_ends_with($headEncoded, "\r\n\r\n"),
-        'HTTP gzip HEAD suppresses body');
+        'HTTP gzip HEAD suppresses body'
+    );
 }
 
 ok((string)new Chunk('abc') === "3\r\nabc\r\n", 'HTTP chunk serialization');
 $sse = (string)new ServerSentEvents("line1\nline2", 'update', '42', 1500);
-ok(str_contains($sse, "event: update\n") && str_contains($sse, "data: line2\n") && str_ends_with($sse, "\n\n"),
-    'Server-Sent Events serialization');
+ok(
+    str_contains($sse, "event: update\n") && str_contains($sse, "data: line2\n") && str_ends_with($sse, "\n\n"),
+    'Server-Sent Events serialization'
+);
 
 
 // HTTP framing: ambiguous / malformed requests must be rejected before application decode.
@@ -234,7 +341,7 @@ $reloaded->flush();
 $reloaded->save();
 $empty = new Session($sessionId);
 ok($empty->all() === [], 'HTTP session flush');
-@rmdir($sessionDir);
+removeSmokeFixture($sessionDir);
 
 // HTTP/1.1 chunked response must never emit conflicting Content-Length.
 $chunkedHead = (string)(new Response(200))->withChunkedTransfer();
@@ -274,7 +381,7 @@ $oldDate = gmdate('D, d M Y H:i:s', max(0, filemtime($fileFixture) - 60)) . ' GM
 $unmodifiedRequest = new Request("GET /asset HTTP/1.1\r\nHost: example.test\r\nIf-Unmodified-Since: {$oldDate}\r\n\r\n");
 $unmodifiedEncoded = Http::encode((new Response())->withFileForRequest($unmodifiedRequest, $fileFixture), $conn);
 ok(str_starts_with($unmodifiedEncoded, 'HTTP/1.1 412'), 'HTTP If-Unmodified-Since precondition');
-@unlink($fileFixture);
+removeSmokeFixture($fileFixture);
 
 // Expect: 100-continue отправляется один раз до получения body.
 [$continueServer, $continuePeer] = connectionPair();
@@ -296,7 +403,7 @@ fclose($continuePeer);
 $idleLoop = new Select();
 $idleConnection = new TcpConnection($idleLoop, $idleServer, '127.0.0.1:12345');
 $idleConnection->setIdleTimeout(0.01);
-$idleLoop->delay(0.04, static fn() => $idleLoop->stop());
+$idleLoop->delay(0.04, static fn () => $idleLoop->stop());
 $idleLoop->run();
 ok($idleConnection->getStatus() === TcpConnection::STATUS_CLOSED, 'TCP idle timeout');
 fclose($idlePeer);
@@ -332,7 +439,9 @@ ok($redisRejected, 'Redis excessive array element count rejected');
 
 // Async UDP: application scheme должен кодироваться поверх UDP, а не становиться transport scheme.
 $udpServer = stream_socket_server('udp://127.0.0.1:0', $udpErrno, $udpError, STREAM_SERVER_BIND);
-if ($udpServer === false) throw new RuntimeException("Unable to create UDP fixture: $udpError");
+if ($udpServer === false) {
+    throw new RuntimeException("Unable to create UDP fixture: $udpError");
+}
 $udpAddress = (string)stream_socket_get_name($udpServer, false);
 [, $udpPort] = explode(':', $udpAddress, 2);
 $udpClient = new AsyncUdpConnection('text://127.0.0.1:' . $udpPort, [], new Select());
@@ -399,7 +508,9 @@ fclose($oldWsPeer);
 $payload = 'hello';
 $mask = "\x01\x02\x03\x04";
 $masked = $payload;
-for ($i = 0; $i < strlen($masked); $i++) $masked[$i] = $masked[$i] ^ $mask[$i & 3];
+for ($i = 0; $i < strlen($masked); $i++) {
+    $masked[$i] = $masked[$i] ^ $mask[$i & 3];
+}
 $clientFrame = chr(0x81) . chr(0x80 | strlen($payload)) . $mask . $masked;
 ok(Websocket::input($clientFrame, $conn) === strlen($clientFrame), 'WebSocket masked frame length');
 ok(Websocket::decode($clientFrame, $conn) === 'hello', 'WebSocket masked frame decode');
@@ -430,8 +541,10 @@ ok(Websocket::input($partOne, $limitedWs) === strlen($partOne), 'WebSocket limit
 Websocket::decode($partOne, $limitedWs);
 ok(Websocket::input($partTwo, $limitedWs) === strlen($partTwo), 'WebSocket limited continuation frame accepted');
 Websocket::decode($partTwo, $limitedWs);
-ok(in_array($limitedWs->getStatus(), [TcpConnection::STATUS_ENDING, TcpConnection::STATUS_CLOSING, TcpConnection::STATUS_CLOSED], true),
-    'WebSocket aggregate fragmented message limit');
+ok(
+    in_array($limitedWs->getStatus(), [TcpConnection::STATUS_ENDING, TcpConnection::STATUS_CLOSING, TcpConnection::STATUS_CLOSED], true),
+    'WebSocket aggregate fragmented message limit'
+);
 $limitedWs->destroy();
 fclose($limitedWsPeer);
 
@@ -440,9 +553,11 @@ $oldLogFile = Server::$logFile;
 $oldLogMax = Server::$logFileMaxSize;
 $oldDaemonize = Server::$daemonize;
 $logBase = sys_get_temp_dir() . '/localzet-log-smoke-' . getmypid() . '.log';
-@unlink($logBase);
-@unlink($logBase . '.lock');
-foreach (glob($logBase . '.*.*') ?: [] as $archive) @unlink($archive);
+removeSmokeFixture($logBase);
+removeSmokeFixture($logBase . '.lock');
+foreach (glob($logBase . '.*.*') ?: [] as $archive) {
+    removeSmokeFixture($archive);
+}
 Server::$logFile = $logBase;
 Server::$logFileMaxSize = 32;
 Server::$daemonize = true;
@@ -453,9 +568,11 @@ ok(count($archives) === 1 && str_contains((string)file_get_contents($logBase), '
 Server::$logFile = $oldLogFile;
 Server::$logFileMaxSize = $oldLogMax;
 Server::$daemonize = $oldDaemonize;
-@unlink($logBase);
-@unlink($logBase . '.lock');
-foreach ($archives as $archive) @unlink($archive);
+removeSmokeFixture($logBase);
+removeSmokeFixture($logBase . '.lock');
+foreach ($archives as $archive) {
+    removeSmokeFixture($archive);
+}
 
 // Event loop timer.
 $fired = false;

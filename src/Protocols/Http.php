@@ -220,6 +220,7 @@ class Http implements ProtocolInterface
         $trailers = [];
         if (($connection->context->httpChunked ?? false) === true) {
             unset($connection->context->httpChunked);
+            unset($connection->context->httpChunkedParserState);
             [$buffer, $trailers] = static::decodeChunked($buffer);
         }
 
@@ -415,81 +416,156 @@ class Http implements ProtocolInterface
     protected static function inputChunked(string $buffer, TcpConnection $connection, int $headerLength): int
     {
         $connection->context->httpChunked = true;
-        $pos = $headerLength;
         $bufferLength = strlen($buffer);
+        $state = $connection->context->httpChunkedParserState ?? null;
+        if (!is_array($state) || ($state['headerLength'] ?? null) !== $headerLength) {
+            $state = static::newChunkedParserState($headerLength);
+        }
 
         while (true) {
-            $lineEnd = strpos($buffer, "\r\n", $pos);
-            if ($lineEnd === false) {
-                return 0;
-            }
-
-            $sizeLine = substr($buffer, $pos, $lineEnd - $pos);
-            $semicolon = strpos($sizeLine, ';');
-            $hex = $semicolon === false ? $sizeLine : substr($sizeLine, 0, $semicolon);
-            if ($hex === '' || strlen($hex) > 16 || !ctype_xdigit($hex)) {
-                static::reject($connection, static::HTTP_400);
-                return 0;
-            }
-
-            $size = hexdec($hex);
-            if (!is_int($size)) {
-                static::reject($connection, static::HTTP_400);
-                return 0;
-            }
-            $pos = $lineEnd + 2;
-
-            if ($size === 0) {
-                // После zero chunk допускаются trailers, заканчивающиеся пустой строкой.
-                // Они входят в те же защитные limits, что и обычные headers.
-                $trailerCount = 0;
-                $trailerBytes = 0;
-                while (true) {
-                    $trailerEnd = strpos($buffer, "\r\n", $pos);
-                    if ($trailerEnd === false) {
-                        return 0;
-                    }
-                    if ($trailerEnd === $pos) {
-                        $total = $pos + 2;
-                        if ($total > $connection->maxPackageSize) {
-                            static::reject($connection, static::HTTP_413);
-                            return 0;
-                        }
-                        return $total;
-                    }
-                    $trailerLine = substr($buffer, $pos, $trailerEnd - $pos);
-                    $trailerCount++;
-                    $trailerBytes += strlen($trailerLine) + 2;
-                    if ($trailerCount > static::$maxHeaderCount || $trailerBytes > static::$maxHeaderLength) {
-                        static::reject($connection, static::HTTP_431);
-                        return 0;
-                    }
-                    if (!preg_match("/^[!#$%&'*+.^_`|~0-9A-Za-z-]+:[^\r\n]*$/D", $trailerLine)) {
-                        static::reject($connection, static::HTTP_400);
-                        return 0;
-                    }
-                    [$trailerName] = explode(':', $trailerLine, 2);
-                    if (static::forbiddenTrailerField(strtolower($trailerName))) {
-                        static::reject($connection, static::HTTP_400);
-                        return 0;
-                    }
-                    $pos = $trailerEnd + 2;
+            if ($state['mode'] === 'size') {
+                if (!static::readChunkedSizeLine($buffer, $connection, $state, $bufferLength)) {
+                    return 0;
                 }
+                continue;
             }
 
-            if ($size > $connection->maxPackageSize || $pos + $size + 2 > $connection->maxPackageSize) {
-                static::reject($connection, static::HTTP_413);
+            if ($state['mode'] === 'data') {
+                if (!static::readChunkedData($buffer, $connection, $state, $bufferLength)) {
+                    return 0;
+                }
+                continue;
+            }
+
+            $completeLength = null;
+            if (!static::readChunkedTrailer($buffer, $connection, $state, $bufferLength, $completeLength)) {
                 return 0;
             }
-            if ($pos + $size + 2 > $bufferLength) {
-                return 0;
+            if ($completeLength !== null) {
+                return $completeLength;
             }
-            if (substr($buffer, $pos + $size, 2) !== "\r\n") {
-                static::reject($connection, static::HTTP_400);
-                return 0;
-            }
-            $pos += $size + 2;
         }
+    }
+
+    /** @return array{headerLength: int, mode: string, pos: int, scanOffset: int, chunkSize: int, trailerCount: int, trailerBytes: int} */
+    private static function newChunkedParserState(int $headerLength): array
+    {
+        return [
+            'headerLength' => $headerLength,
+            'mode' => 'size',
+            'pos' => $headerLength,
+            'scanOffset' => $headerLength,
+            'chunkSize' => 0,
+            'trailerCount' => 0,
+            'trailerBytes' => 0,
+        ];
+    }
+
+    /** @param array<string, int|string> $state */
+    private static function readChunkedSizeLine(string $buffer, TcpConnection $connection, array &$state, int $bufferLength): bool
+    {
+        $lineEnd = strpos($buffer, "\r\n", $state['scanOffset']);
+        if ($lineEnd === false) {
+            $state['scanOffset'] = max($state['pos'], $bufferLength - 1);
+            $connection->context->httpChunkedParserState = $state;
+            return false;
+        }
+
+        $sizeLine = substr($buffer, $state['pos'], $lineEnd - $state['pos']);
+        $semicolon = strpos($sizeLine, ';');
+        $hex = $semicolon === false ? $sizeLine : substr($sizeLine, 0, $semicolon);
+        if ($hex === '' || strlen($hex) > 16 || !ctype_xdigit($hex)) {
+            static::reject($connection, static::HTTP_400);
+            return false;
+        }
+
+        $size = hexdec($hex);
+        if (!is_int($size)) {
+            static::reject($connection, static::HTTP_400);
+            return false;
+        }
+        $state['pos'] = $lineEnd + 2;
+
+        if ($size === 0) {
+            $state['mode'] = 'trailers';
+            $state['scanOffset'] = $state['pos'];
+            $state['trailerCount'] = 0;
+            $state['trailerBytes'] = 0;
+            return true;
+        }
+
+        if ($size > $connection->maxPackageSize || $state['pos'] + $size + 2 > $connection->maxPackageSize) {
+            static::reject($connection, static::HTTP_413);
+            return false;
+        }
+        $state['chunkSize'] = $size;
+        $state['mode'] = 'data';
+        return true;
+    }
+
+    /** @param array<string, int|string> $state */
+    private static function readChunkedData(string $buffer, TcpConnection $connection, array &$state, int $bufferLength): bool
+    {
+        $dataEnd = $state['pos'] + $state['chunkSize'];
+        if ($dataEnd + 2 > $bufferLength) {
+            $connection->context->httpChunkedParserState = $state;
+            return false;
+        }
+        if (substr($buffer, $dataEnd, 2) !== "\r\n") {
+            static::reject($connection, static::HTTP_400);
+            return false;
+        }
+
+        $state['pos'] = $dataEnd + 2;
+        $state['scanOffset'] = $state['pos'];
+        $state['mode'] = 'size';
+        return true;
+    }
+
+    /** @param array<string, int|string> $state */
+    private static function readChunkedTrailer(
+        string $buffer,
+        TcpConnection $connection,
+        array &$state,
+        int $bufferLength,
+        ?int &$completeLength
+    ): bool {
+        $trailerEnd = strpos($buffer, "\r\n", $state['scanOffset']);
+        if ($trailerEnd === false) {
+            $state['scanOffset'] = max($state['pos'], $bufferLength - 1);
+            $connection->context->httpChunkedParserState = $state;
+            return false;
+        }
+        if ($trailerEnd === $state['pos']) {
+            $completeLength = $state['pos'] + 2;
+            if ($completeLength > $connection->maxPackageSize) {
+                static::reject($connection, static::HTTP_413);
+                return false;
+            }
+            unset($connection->context->httpChunkedParserState);
+            return true;
+        }
+
+        $trailerLine = substr($buffer, $state['pos'], $trailerEnd - $state['pos']);
+        $state['trailerCount']++;
+        $state['trailerBytes'] += strlen($trailerLine) + 2;
+        if ($state['trailerCount'] > static::$maxHeaderCount || $state['trailerBytes'] > static::$maxHeaderLength) {
+            static::reject($connection, static::HTTP_431);
+            return false;
+        }
+        if (!preg_match("/^[!#$%&'*+.^_`|~0-9A-Za-z-]+:[^\\r\\n]*$/D", $trailerLine)) {
+            static::reject($connection, static::HTTP_400);
+            return false;
+        }
+
+        [$trailerName] = explode(':', $trailerLine, 2);
+        if (static::forbiddenTrailerField(strtolower($trailerName))) {
+            static::reject($connection, static::HTTP_400);
+            return false;
+        }
+        $state['pos'] = $trailerEnd + 2;
+        $state['scanOffset'] = $state['pos'];
+        return true;
     }
 
     /**
@@ -731,6 +807,7 @@ class Http implements ProtocolInterface
 
     protected static function reject(TcpConnection $connection, string $response): void
     {
+        unset($connection->context->httpChunkedParserState);
         $connection->close($response, true);
     }
 }

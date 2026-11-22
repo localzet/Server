@@ -4,7 +4,7 @@
 
 Событийный серверный runtime на PHP: TCP, UDP, HTTP/1.1, WebSocket, таймеры, долгоживущие соединения и многопроцессные воркеры.
 
-Текущая стабильная версия — 7.2.1. В ней есть управление процессами, HTTP/1.x, WebSocket и ограниченный шлюз L4/L7. У версий 4.x другой публичный API; различия и порядок перехода описаны в [руководстве по совместимости](https://server.localzet.com/current/compatibility).
+Текущая стабильная версия — 7.2.2. В ней есть управление процессами, HTTP/1.x, WebSocket и ограниченный шлюз L4/L7. У версий 4.x другой публичный API; различия и порядок перехода описаны в [руководстве по совместимости](https://server.localzet.com/current/compatibility).
 
 ## Требования
 
@@ -166,12 +166,17 @@ $connection->send(
 
 ```php
 use localzet\Server\Protocols\Http;
+use localzet\Server\Protocols\Http\Request;
 
 Http::maxHeaderLength(16 * 1024);
 Http::maxHeaderCount(100);
+Request::$maxMultipartParts = 256;
 ```
 
-Парсер обрабатывает `Expect: 100-continue`, проверяет HTTP/1.1 `Host`, отклоняет неоднозначный framing и принимает корректные дополнительные методы, включая WebDAV.
+По умолчанию multipart-запрос может содержать не более 1 024 частей. Уменьшите `Request::$maxMultipartParts` под
+потребности приложения; превышение лимита вызывает `LengthException` при первом разборе тела запроса. Парсер также
+обрабатывает `Expect: 100-continue`, проверяет HTTP/1.1 `Host`, отклоняет неоднозначный framing и принимает корректные
+дополнительные методы, включая WebDAV.
 
 ## Gateway
 
