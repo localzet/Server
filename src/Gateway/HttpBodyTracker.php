@@ -175,74 +175,24 @@ final class HttpBodyTracker
 
         while (!$this->complete) {
             if ($this->readingTrailers) {
-                // Empty trailers end with one CRLF; non-empty trailers use CRLFCRLF.
-                if (str_starts_with(substr($this->chunkBuffer, $offset), "\r\n")) {
-                    $offset += 2;
-                    $this->complete = true;
+                $nextOffset = $this->consumeChunkedTrailers($offset);
+                if ($nextOffset === null) {
                     break;
                 }
-                $end = strpos($this->chunkBuffer, "\r\n\r\n", $offset);
-                if ($end === false) {
-                    if (strlen($this->chunkBuffer) - $offset > self::MAX_TRAILER_BYTES) {
-                        throw new RuntimeException('Trailers are too large in proxied HTTP message.');
-                    }
-                    break;
-                }
-                if ($end + 4 - $offset > self::MAX_TRAILER_BYTES) {
-                    throw new RuntimeException('Trailers are too large in proxied HTTP message.');
-                }
-                $offset = $end + 4;
-                $this->complete = true;
+                $offset = $nextOffset;
                 break;
             }
 
             if ($this->chunkRemaining === null) {
-                $lineEnd = strpos($this->chunkBuffer, "\r\n", $offset);
-                if ($lineEnd === false) {
-                    if (strlen($this->chunkBuffer) - $offset > self::MAX_CHUNK_LINE_BYTES) {
-                        throw new RuntimeException('Chunk size line is too large in proxied HTTP message.');
-                    }
+                if (!$this->readChunkedSize($offset)) {
                     break;
-                }
-                if ($lineEnd - $offset > self::MAX_CHUNK_LINE_BYTES) {
-                    throw new RuntimeException('Chunk size line is too large in proxied HTTP message.');
-                }
-                $line = substr($this->chunkBuffer, $offset, $lineEnd - $offset);
-                $sizeToken = trim(explode(';', $line, 2)[0]);
-                if ($sizeToken === '' || !ctype_xdigit($sizeToken)) {
-                    throw new RuntimeException('Invalid chunk size in proxied HTTP message.');
-                }
-                $size = hexdec($sizeToken);
-                if (!is_int($size) || $size < 0) {
-                    throw new RuntimeException('Invalid chunk size in proxied HTTP message.');
-                }
-                $this->chunkRemaining = $size;
-                $offset = $lineEnd + 2;
-                if ($size === 0) {
-                    $this->readingTrailers = true;
-                    $this->chunkRemaining = null;
                 }
                 continue;
             }
 
-            $available = strlen($this->chunkBuffer) - $offset;
-            if ($this->chunkRemaining > 0) {
-                $payloadBytes = min($available, $this->chunkRemaining);
-                $offset += $payloadBytes;
-                $this->chunkRemaining -= $payloadBytes;
-                if ($this->chunkRemaining > 0) {
-                    break;
-                }
-            }
-
-            if (strlen($this->chunkBuffer) - $offset < 2) {
+            if (!$this->consumeChunkedPayload($offset)) {
                 break;
             }
-            if (substr($this->chunkBuffer, $offset, 2) !== "\r\n") {
-                throw new RuntimeException('Invalid chunk terminator in proxied HTTP message.');
-            }
-            $offset += 2;
-            $this->chunkRemaining = null;
         }
 
         if ($offset > 0) {
@@ -258,5 +208,80 @@ final class HttpBodyTracker
         $consumed = max(0, min(strlen($data), $offset - $before));
         $this->chunkBuffer = '';
         return $consumed;
+    }
+
+    private function consumeChunkedTrailers(int $offset): ?int
+    {
+        if (str_starts_with(substr($this->chunkBuffer, $offset), "\r\n")) {
+            $this->complete = true;
+            return $offset + 2;
+        }
+
+        $end = strpos($this->chunkBuffer, "\r\n\r\n", $offset);
+        if ($end === false) {
+            if (strlen($this->chunkBuffer) - $offset > self::MAX_TRAILER_BYTES) {
+                throw new RuntimeException('Trailers are too large in proxied HTTP message.');
+            }
+            return null;
+        }
+        if ($end + 4 - $offset > self::MAX_TRAILER_BYTES) {
+            throw new RuntimeException('Trailers are too large in proxied HTTP message.');
+        }
+
+        $this->complete = true;
+        return $end + 4;
+    }
+
+    private function readChunkedSize(int &$offset): bool
+    {
+        $lineEnd = strpos($this->chunkBuffer, "\r\n", $offset);
+        if ($lineEnd === false || $lineEnd - $offset > self::MAX_CHUNK_LINE_BYTES) {
+            if (strlen($this->chunkBuffer) - $offset > self::MAX_CHUNK_LINE_BYTES) {
+                throw new RuntimeException('Chunk size line is too large in proxied HTTP message.');
+            }
+            return false;
+        }
+
+        $line = substr($this->chunkBuffer, $offset, $lineEnd - $offset);
+        $sizeToken = trim(explode(';', $line, 2)[0]);
+        if ($sizeToken === '' || !ctype_xdigit($sizeToken)) {
+            throw new RuntimeException('Invalid chunk size in proxied HTTP message.');
+        }
+        $size = hexdec($sizeToken);
+        if (!is_int($size) || $size < 0) {
+            throw new RuntimeException('Invalid chunk size in proxied HTTP message.');
+        }
+
+        $this->chunkRemaining = $size;
+        $offset = $lineEnd + 2;
+        if ($size === 0) {
+            $this->readingTrailers = true;
+            $this->chunkRemaining = null;
+        }
+        return true;
+    }
+
+    private function consumeChunkedPayload(int &$offset): bool
+    {
+        $available = strlen($this->chunkBuffer) - $offset;
+        if ($this->chunkRemaining > 0) {
+            $payloadBytes = min($available, $this->chunkRemaining);
+            $offset += $payloadBytes;
+            $this->chunkRemaining -= $payloadBytes;
+            if ($this->chunkRemaining > 0) {
+                return false;
+            }
+        }
+
+        if (strlen($this->chunkBuffer) - $offset < 2) {
+            return false;
+        }
+        if (substr($this->chunkBuffer, $offset, 2) !== "\r\n") {
+            throw new RuntimeException('Invalid chunk terminator in proxied HTTP message.');
+        }
+
+        $offset += 2;
+        $this->chunkRemaining = null;
+        return true;
     }
 }

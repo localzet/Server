@@ -639,19 +639,10 @@ class Request implements Stringable
 
     protected function parseMultipart(string $contentType): void
     {
-        if (!preg_match('/boundary=(?:"([^"]+)"|([^;\s]+))/i', $contentType, $matches)) {
+        $boundary = $this->multipartBoundary($contentType);
+        if ($boundary === null) {
             return;
         }
-        $boundary = $matches[1] !== '' ? $matches[1] : ($matches[2] ?? '');
-        if ($boundary === '' || strlen($boundary) > 200) {
-            return;
-        }
-
-        $postPairs = [];
-        $filePairs = [];
-        $files = [];
-        $uploadCount = 0;
-        $fileToken = 0;
         $maxParts = static::$maxMultipartParts;
         if ($maxParts < 1) {
             throw new \LengthException('Multipart part limit must be greater than zero.');
@@ -661,52 +652,107 @@ class Request implements Stringable
             throw new \LengthException('Multipart request contains too many parts.');
         }
 
+        $postPairs = [];
+        $filePairs = [];
+        $files = [];
+        $uploadCount = 0;
+        $fileToken = 0;
         foreach ($parts as $part) {
-            $part = ltrim($part, "\r\n");
-            if ($part === '' || $part === '--\r\n' || $part === '--' || !str_contains($part, "\r\n\r\n")) {
-                continue;
-            }
-            // Boundary delimiter contributes CRLF before the next part; it is not file content.
-            $part = preg_replace('/\r\n$/D', '', $part, 1) ?? $part;
-            [$head, $body] = explode("\r\n\r\n", $part, 2);
-            if (!preg_match('/^Content-Disposition:\s*form-data;[^\r\n]*\bname="([^"]*)"(?:;\s*filename="([^"]*)")?/mi', $head, $match)) {
-                continue;
-            }
-
-            $name = $match[1];
-            $filename = $match[2] ?? null;
-            if ($name === '') {
-                continue;
-            }
-
-            if ($filename === null || $filename === '') {
-                $postPairs[] = rawurlencode($name) . '=' . rawurlencode($body);
-                continue;
-            }
-            if (++$uploadCount > static::$maxFileUploads) {
+            if (!$this->collectMultipartPart($part, $postPairs, $filePairs, $files, $uploadCount, $fileToken)) {
                 break;
             }
-
-            $tmpDir = \localzet\Server\Protocols\Http::uploadTmpDir();
-            $tmp = tempnam($tmpDir, 'localzet-upload-');
-            if ($tmp === false || file_put_contents($tmp, $body, LOCK_EX) === false) {
-                if (is_string($tmp) && is_file($tmp)) {
-                    @unlink($tmp);
-                }
-                continue;
-            }
-            preg_match('/^Content-Type:\s*([^\r\n]+)/mi', $head, $typeMatch);
-            $token = (string)++$fileToken;
-            $files[$token] = [
-                'name' => basename(str_replace('\\', '/', $filename)),
-                'tmp_name' => $tmp,
-                'size' => strlen($body),
-                'error' => UPLOAD_ERR_OK,
-                'type' => trim($typeMatch[1] ?? 'application/octet-stream'),
-            ];
-            $filePairs[] = rawurlencode($name) . '=' . rawurlencode($token);
         }
 
+        $this->storeMultipartFields($postPairs, $filePairs, $files);
+    }
+
+    private function multipartBoundary(string $contentType): ?string
+    {
+        if (!preg_match('/boundary=(?:"([^"]+)"|([^;\s]+))/i', $contentType, $matches)) {
+            return null;
+        }
+        $boundary = $matches[1] !== '' ? $matches[1] : ($matches[2] ?? '');
+        return $boundary !== '' && strlen($boundary) <= 200 ? $boundary : null;
+    }
+
+    /** @param list<string> $postPairs @param list<string> $filePairs @param array<string, array<string, mixed>> $files */
+    private function collectMultipartPart(
+        string $part,
+        array &$postPairs,
+        array &$filePairs,
+        array &$files,
+        int &$uploadCount,
+        int &$fileToken
+    ): bool {
+        $fields = $this->parseMultipartPart($part);
+        if ($fields === null) {
+            return true;
+        }
+        [$head, $body, $name, $filename] = $fields;
+        if ($filename === null || $filename === '') {
+            $postPairs[] = rawurlencode($name) . '=' . rawurlencode($body);
+            return true;
+        }
+        if (++$uploadCount > static::$maxFileUploads) {
+            return false;
+        }
+
+        $upload = $this->createMultipartUpload($head, $body, $filename);
+        if ($upload === null) {
+            return true;
+        }
+
+        $token = (string)++$fileToken;
+        $files[$token] = $upload;
+        $filePairs[] = rawurlencode($name) . '=' . rawurlencode($token);
+        return true;
+    }
+
+    /** @return array{string, string, string, ?string}|null */
+    private function parseMultipartPart(string $part): ?array
+    {
+        $part = ltrim($part, "\r\n");
+        if ($part === '' || $part === "--\r\n" || $part === '--' || !str_contains($part, "\r\n\r\n")) {
+            return null;
+        }
+        // Boundary delimiter contributes CRLF before the next part; it is not file content.
+        $part = preg_replace('/\r\n$/D', '', $part, 1) ?? $part;
+        [$head, $body] = explode("\r\n\r\n", $part, 2);
+        if (!preg_match('/^Content-Disposition:\s*form-data;[^\r\n]*\bname="([^"]*)"(?:;\s*filename="([^"]*)")?/mi', $head, $match)) {
+            return null;
+        }
+
+        $name = $match[1];
+        if ($name === '') {
+            return null;
+        }
+        return [$head, $body, $name, $match[2] ?? null];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function createMultipartUpload(string $head, string $body, string $filename): ?array
+    {
+        $tmp = tempnam(\localzet\Server\Protocols\Http::uploadTmpDir(), 'localzet-upload-');
+        if ($tmp === false || file_put_contents($tmp, $body, LOCK_EX) === false) {
+            if (is_string($tmp) && is_file($tmp)) {
+                unlink($tmp);
+            }
+            return null;
+        }
+
+        preg_match('/^Content-Type:\s*([^\r\n]+)/mi', $head, $typeMatch);
+        return [
+            'name' => basename(str_replace('\\', '/', $filename)),
+            'tmp_name' => $tmp,
+            'size' => strlen($body),
+            'error' => UPLOAD_ERR_OK,
+            'type' => trim($typeMatch[1] ?? 'application/octet-stream'),
+        ];
+    }
+
+    /** @param list<string> $postPairs @param list<string> $filePairs @param array<string, array<string, mixed>> $files */
+    private function storeMultipartFields(array $postPairs, array $filePairs, array $files): void
+    {
         if ($postPairs) {
             parse_str(implode('&', $postPairs), $post);
             $this->data['post'] = $this->sanitizeInput($post);

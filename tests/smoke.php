@@ -74,6 +74,17 @@ function ok(bool $condition, string $message): void
     fwrite(STDOUT, "OK: {$message}\n");
 }
 
+function removeSmokeFixture(string $path): void
+{
+    if (is_dir($path) && !is_link($path)) {
+        rmdir($path);
+        return;
+    }
+    if (file_exists($path) || is_link($path)) {
+        unlink($path);
+    }
+}
+
 function connectionPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -95,8 +106,8 @@ if (function_exists('symlink') && @symlink($pidFixture . '.target', $pidFixture)
     PidFileSmokeServer::writePidForTest($pidFixture, 12345);
     ok(file_get_contents($pidFixture . '.target') === (string)getmypid(), 'atomic PID write does not follow symlink target');
     ok(!is_link($pidFixture) && trim((string)file_get_contents($pidFixture)) === '12345', 'atomic PID write replaces symlink itself');
-    @unlink($pidFixture);
-    @unlink($pidFixture . '.target');
+    removeSmokeFixture($pidFixture);
+    removeSmokeFixture($pidFixture . '.target');
 } else {
     ok(true, 'PID symlink regression skipped on unsupported filesystem');
 }
@@ -196,7 +207,7 @@ ok(!is_file($uploadTmp), 'HTTP multipart temp file cleanup');
 
 $multipartLimit = Request::$maxMultipartParts;
 $uploadDir = sys_get_temp_dir() . '/localzet-multipart-limit-' . bin2hex(random_bytes(4));
-mkdir($uploadDir);
+mkdir($uploadDir, 0700);
 $previousUploadDir = Http::uploadTmpDir();
 Http::uploadTmpDir($uploadDir);
 Request::$maxMultipartParts = 2;
@@ -238,7 +249,7 @@ ok($atLimitRequest->post('second') === 'two', 'HTTP multipart request at configu
 $atLimitRequest->destroy();
 Request::$maxMultipartParts = $multipartLimit;
 Http::uploadTmpDir($previousUploadDir);
-@rmdir($uploadDir);
+removeSmokeFixture($uploadDir);
 
 // Response: header injection не проходит.
 $response = new Response(200, ['X-Test' => "safe\r\nInjected: yes"], 'body');
@@ -330,7 +341,7 @@ $reloaded->flush();
 $reloaded->save();
 $empty = new Session($sessionId);
 ok($empty->all() === [], 'HTTP session flush');
-@rmdir($sessionDir);
+removeSmokeFixture($sessionDir);
 
 // HTTP/1.1 chunked response must never emit conflicting Content-Length.
 $chunkedHead = (string)(new Response(200))->withChunkedTransfer();
@@ -370,7 +381,7 @@ $oldDate = gmdate('D, d M Y H:i:s', max(0, filemtime($fileFixture) - 60)) . ' GM
 $unmodifiedRequest = new Request("GET /asset HTTP/1.1\r\nHost: example.test\r\nIf-Unmodified-Since: {$oldDate}\r\n\r\n");
 $unmodifiedEncoded = Http::encode((new Response())->withFileForRequest($unmodifiedRequest, $fileFixture), $conn);
 ok(str_starts_with($unmodifiedEncoded, 'HTTP/1.1 412'), 'HTTP If-Unmodified-Since precondition');
-@unlink($fileFixture);
+removeSmokeFixture($fileFixture);
 
 // Expect: 100-continue отправляется один раз до получения body.
 [$continueServer, $continuePeer] = connectionPair();
@@ -542,10 +553,10 @@ $oldLogFile = Server::$logFile;
 $oldLogMax = Server::$logFileMaxSize;
 $oldDaemonize = Server::$daemonize;
 $logBase = sys_get_temp_dir() . '/localzet-log-smoke-' . getmypid() . '.log';
-@unlink($logBase);
-@unlink($logBase . '.lock');
+removeSmokeFixture($logBase);
+removeSmokeFixture($logBase . '.lock');
 foreach (glob($logBase . '.*.*') ?: [] as $archive) {
-    @unlink($archive);
+    removeSmokeFixture($archive);
 }
 Server::$logFile = $logBase;
 Server::$logFileMaxSize = 32;
@@ -557,10 +568,10 @@ ok(count($archives) === 1 && str_contains((string)file_get_contents($logBase), '
 Server::$logFile = $oldLogFile;
 Server::$logFileMaxSize = $oldLogMax;
 Server::$daemonize = $oldDaemonize;
-@unlink($logBase);
-@unlink($logBase . '.lock');
+removeSmokeFixture($logBase);
+removeSmokeFixture($logBase . '.lock');
 foreach ($archives as $archive) {
-    @unlink($archive);
+    removeSmokeFixture($archive);
 }
 
 // Event loop timer.
